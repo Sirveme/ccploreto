@@ -1,0 +1,129 @@
+/* login.css */
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.logo-box {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    background-color: #1e293b; /* Slate 800 */
+    border: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem auto;
+}
+
+.logo-box i {
+    font-size: 2rem;
+    color: #6366f1; /* Primary */
+}
+
+.login-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+}
+
+.login-header p {
+    color: #94a3b8; /* Slate 400 */
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.input-wrapper {
+    position: relative;
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: 1.125rem;
+    pointer-events: none;
+}
+
+.input-field {
+    /* Los estilos base ya están en styles.css, aquí ajustamos padding */
+    padding-right: 3rem; /* Espacio para el ojo */
+}
+
+.eye-btn {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+
+.eye-btn:hover {
+    color: #e2e8f0;
+}
+
+.hidden {
+    display: none;
+}
+
+.btn-submit {
+    /* Heredamos clases utilitarias o definimos aquí si queremos 100% custom */
+    width: 100%;
+    background-color: #6366f1;
+    color: white;
+    padding: 0.875rem;
+    border-radius: 0.75rem;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    transition: background-color 0.2s;
+}
+
+.btn-submit:hover {
+    background-color: #4f46e5;
+}
+
+.login-footer {
+    margin-top: auto;
+    text-align: center;
+    padding-top: 2rem;
+    color: #475569;
+    font-size: 0.75rem;
+}

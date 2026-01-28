@@ -1,0 +1,111 @@
+/* dashboard.css */
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.user-welcome h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+}
+.user-welcome p {
+    color: #94a3b8;
+    font-size: 0.875rem;
+}
+
+.logout-btn {
+    color: #ef4444; /* Red 500 */
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Tarjeta Principal (Deuda) */
+.balance-card {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efecto visual de fondo */
+.balance-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+}
+
+.balance-label {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.balance-amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.balance-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 0.875rem;
+}
+
+/* Menú Grid */
+.menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.menu-item {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 1rem;
+    padding: 1.25rem;
+    text-align: center;
+    color: #e2e8f0;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.menu-item:active {
+    transform: scale(0.95);
+    background-color: #334155;
+}
+
+.menu-icon {
+    font-size: 2rem;
+    color: #6366f1;
+    margin-bottom: 0.75rem;
+    display: block;
+}
+
+.menu-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+}

@@ -1,0 +1,67 @@
+{
+  "name": "Colegio de Contadores Públicos de Loreto",
+  "short_name": "CCPL",
+  "description": "60 años sirviendo a la Región Amazónica - Colegio de Contadores Públicos de Loreto",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a4d2e",
+  "theme_color": "#1a4d2e",
+  "orientation": "portrait-primary",
+  "lang": "es-PE",
+  "dir": "ltr",
+  "scope": "/",
+  "categories": ["business", "finance", "education"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pagar Cuota",
+      "short_name": "Pagar",
+      "description": "Realizar pago mensual de S/. 20",
+      "url": "/?action=pagar",
+      "icons": [
+        {
+          "src": "/static/img/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Certificado",
+      "short_name": "Certificado",
+      "description": "Solicitar certificado de habilidad",
+      "url": "/?action=certificado",
+      "icons": [
+        {
+          "src": "/static/img/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Buscar Contador",
+      "short_name": "Buscar",
+      "description": "Verificar habilidad de contador",
+      "url": "/?action=buscar",
+      "icons": [
+        {
+          "src": "/static/img/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}

@@ -1,0 +1,81 @@
+/* static/css/components/pet_card.css */
+
+/* Contenedor Base */
+.pet-card {
+    position: relative;
+    background-color: white;
+    color: #1e293b; /* slate-800 */
+    border-radius: 0.75rem; /* rounded-xl */
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 4px solid #e2e8f0; /* slate-200 por defecto */
+}
+
+.pet-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Estado: PERDIDO (Rojo) */
+.pet-card.is-lost {
+    border-color: #dc2626; /* red-600 */
+    animation: border-pulse 2s infinite;
+}
+
+/* Cinta de Estado */
+.pet-badge {
+    text-align: center;
+    font-weight: bold;
+    padding: 0.5rem 0;
+    text-transform: uppercase;
+    font-size: 0.75rem; /* text-xs */
+    letter-spacing: 0.05em;
+}
+
+.pet-badge.lost {
+    background-color: #dc2626;
+    color: white;
+    animation: bg-pulse 1.5s infinite;
+}
+
+.pet-badge.normal {
+    background-color: #e0e7ff; /* indigo-100 */
+    color: #3730a3; /* indigo-800 */
+}
+
+/* Imagen */
+.pet-image-container {
+    height: 12rem; /* h-48 */
+    position: relative;
+    background-color: #cbd5e1; /* slate-300 placeholder */
+    overflow: hidden;
+}
+
+.pet-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s;
+}
+
+/* Gradiente sobre la imagen para texto */
+.pet-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding: 0.75rem;
+}
+
+/* Animaciones */
+@keyframes border-pulse {
+    0%, 100% { border-color: #dc2626; }
+    50% { border-color: #fca5a5; }
+}
+
+@keyframes bg-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
