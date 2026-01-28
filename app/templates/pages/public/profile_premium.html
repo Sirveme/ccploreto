@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudio Contable {{ profile.user.name }} | Socio Premium CCPL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Fuente Elegante -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .premium-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); }
+        .gold-text { color: #fbbf24; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- BARRA DE NAVEGACIÓN -->
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-900 text-white p-2 rounded-lg">
+                    <i class="ph ph-briefcase text-xl"></i>
+                </div>
+                <span class="font-bold text-slate-800 tracking-tight leading-none">
+                    ESTUDIO<br>{{ profile.user.name.split(' ')[1] | upper }}
+                </span>
+            </div>
+            <a href="https://wa.me/51999999999" class="bg-green-600 text-white px-5 py-2 rounded-full font-bold text-sm shadow-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                <i class="ph ph-whatsapp-logo text-lg"></i>
+                Consulta Gratis
+            </a>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <header class="premium-gradient text-white pt-20 pb-32 px-6 relative overflow-hidden">
+        <!-- Decoración de fondo -->
+        <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-10 relative z-10">
+            <div class="flex-1 text-center md:text-left">
+                <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1 rounded-full text-xs font-bold mb-6 text-yellow-300">
+                    <i class="ph ph-star-fill"></i> MIEMBRO PREMIUM HABILITADO
+                </div>
+                <h1 class="text-4xl md:text-6xl font-extrabold mb-6 leading-tight">
+                    Soluciones Contables para tu Empresa
+                </h1>
+                <p class="text-blue-100 text-lg mb-8 max-w-lg mx-auto md:mx-0">
+                    Especialistas en evitar multas de SUNAT, recuperar impuestos y ordenar tus finanzas. Más de 10 años de experiencia.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                    <button class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-xl font-bold shadow-xl hover:bg-yellow-300 transition-transform hover:-translate-y-1">
+                        Agendar Asesoría
+                    </button>
+                    <button class="bg-white/10 border border-white/30 text-white px-8 py-4 rounded-xl font-bold hover:bg-white/20 transition-colors">
+                        Ver Servicios
+                    </button>
+                </div>
+            </div>
+            <div class="relative">
+                <div class="w-64 h-64 md:w-80 md:h-80 rounded-full border-8 border-white/10 overflow-hidden shadow-2xl">
+                    <img src="{{ profile.user.photo_url or 'https://ui-avatars.com/api/?name=' + profile.user.name + '&size=512' }}" class="w-full h-full object-cover">
+                </div>
+                <!-- Badge Flotante -->
+                <div class="absolute bottom-4 -left-4 bg-white text-slate-900 p-4 rounded-xl shadow-xl flex items-center gap-3 animate-bounce">
+                    <div class="bg-green-100 p-2 rounded-full text-green-600"><i class="ph ph-check-circle text-2xl"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-bold uppercase">Estado</p>
+                        <p class="font-bold">100% Garantizado</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- SERVICIOS (Grid) -->
+    <section class="max-w-5xl mx-auto px-6 -mt-20 relative z-20 pb-20">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1 -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow border border-slate-100">
+                <div class="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-3xl mb-6">
+                    <i class="ph ph-calculator"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Contabilidad Mensual</h3>
+                <p class="text-slate-500 text-sm">Declaración de IGV y Renta. Libros electrónicos y planilla. Nos encargamos de todo.</p>
+            </div>
+            <!-- Card 2 -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow border border-slate-100">
+                <div class="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-3xl mb-6">
+                    <i class="ph ph-buildings"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Constitución de Empresas</h3>
+                <p class="text-slate-500 text-sm">Creamos tu SAC o EIRL en 72 horas. Asesoría societaria incluida.</p>
+            </div>
+            <!-- Card 3 -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow border border-slate-100">
+                <div class="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-3xl mb-6">
+                    <i class="ph ph-money"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Devolución de Impuestos</h3>
+                <p class="text-slate-500 text-sm">Recuperamos tu saldo a favor del exportador y drawback. Gestión ante SUNAT.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- EL CHATBOT FLOTANTE (Simulado) -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <div class="bg-white p-4 rounded-2xl shadow-2xl border border-slate-200 w-72 mb-4 hidden" id="chat-window">
+            <div class="flex items-center gap-3 border-b border-slate-100 pb-3 mb-3">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white"><i class="ph ph-robot"></i></div>
+                <div>
+                    <p class="font-bold text-sm">Asistente Virtual</p>
+                    <p class="text-[10px] text-green-500">● En línea</p>
+                </div>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="bg-slate-100 p-2 rounded-lg rounded-tl-none">Hola, ¿En qué puedo ayudarte hoy?</div>
+                <div class="bg-blue-600 text-white p-2 rounded-lg rounded-tr-none ml-auto w-fit">Quiero una cotización.</div>
+                <div class="bg-slate-100 p-2 rounded-lg rounded-tl-none">Claro, ¿es para persona natural o empresa?</div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
+                <input type="text" placeholder="Escribe aquí..." class="w-full text-xs bg-slate-50 p-2 rounded outline-none">
+                <button class="text-blue-600"><i class="ph ph-paper-plane-right text-lg"></i></button>
+            </div>
+        </div>
+
+        <button onclick="document.getElementById('chat-window').classList.toggle('hidden')" 
+                class="bg-blue-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 transition-colors">
+            <i class="ph ph-chat-teardrop-text"></i>
+        </button>
+    </div>
+
+</body>
+</html>

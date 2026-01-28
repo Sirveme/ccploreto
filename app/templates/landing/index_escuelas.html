@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LeAvisamos.pro - La Evolución</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e1b4b"> <!-- Indigo oscuro -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        /* Fondo Vibrante pero Profesional */
+        body {
+            background: radial-gradient(circle at 50% 0%, #312e81 0%, #0f172a 100%);
+            min-height: 100vh;
+            color: white;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Marco de Video "Energético" */
+        .video-frame {
+            padding: 4px;
+            background: linear-gradient(45deg, #ec4899, #8b5cf6, #3b82f6);
+            border-radius: 1rem;
+            box-shadow: 0 20px 50px -10px rgba(99, 102, 241, 0.5);
+            animation: border-flow 5s ease infinite;
+            background-size: 200% 200%;
+        }
+
+        @keyframes border-flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Transiciones de Pantalla */
+        .screen { display: none; opacity: 0; transition: opacity 0.5s ease; }
+        .screen.active { display: flex; opacity: 1; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-6">
+
+    <!-- PANTALLA 1: LA PRESENTACIÓN (Video + Selección) -->
+    <div id="screen-intro" class="screen active flex-col items-center w-full max-w-md text-center">
+        
+        <!-- Logo -->
+        <div class="flex items-center gap-2 mb-6 text-indigo-300 font-bold tracking-wider uppercase text-sm">
+            <i class="ph ph-lightning text-xl text-yellow-400"></i> LeAvisamos.pro
+        </div>
+
+        <h1 class="text-3xl font-extrabold mb-2 leading-tight">
+            ¿Cansado de sistemas <br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-400">lentos y caros?</span>
+        </h1>
+
+        <p class="text-slate-300 text-sm mb-8 px-4">
+            Soy Duilio Restuccia. He creado la alternativa moderna a Vecinos360. Más rápida, con voz y sin instalar nada.
+        </p>
+
+        <!-- VIDEO CON MARCO VIBRANTE -->
+        <div class="video-frame w-full aspect-video mb-10 relative group">
+            <div class="bg-slate-900 w-full h-full rounded-xl overflow-hidden relative">
+                <!-- Placeholder o Video Real -->
+                <!-- <video src="..." controls ...></video> -->
+                <div class="absolute inset-0 flex items-center justify-center bg-black/50 cursor-pointer" onclick="playDemo()">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center pl-1 border border-white/50 shadow-lg group-hover:scale-110 transition-transform">
+                        <i class="ph ph-play-fill text-3xl text-white"></i>
+                    </div>
+                </div>
+                <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover opacity-60">
+            </div>
+            <!-- Etiqueta Flotante -->
+            <div class="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-indigo-400">
+                VER DEMO 1 MIN
+            </div>
+        </div>
+
+        <!-- SELECCIÓN DE ROL -->
+        <p class="text-xs text-slate-400 mb-4 uppercase font-bold tracking-widest">Selecciona tu perfil para empezar</p>
+        
+        <div class="grid grid-cols-1 gap-3 w-full">
+            <button onclick="goToOffer('admin')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-xl flex items-center gap-4 transition-all hover:border-indigo-500 group text-left">
+                <div class="bg-indigo-500/20 p-2 rounded-lg text-indigo-400 group-hover:text-white group-hover:bg-indigo-500 transition-colors">
+                    <i class="ph ph-briefcase text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white">Soy Administrador</h3>
+                    <p class="text-[10px] text-slate-400">Busco automatizar cobros.</p>
+                </div>
+                <i class="ph ph-caret-right ml-auto text-slate-500"></i>
+            </button>
+
+            <button onclick="goToOffer('junta')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-xl flex items-center gap-4 transition-all hover:border-emerald-500 group text-left">
+                <div class="bg-emerald-500/20 p-2 rounded-lg text-emerald-400 group-hover:text-white group-hover:bg-emerald-500 transition-colors">
+                    <i class="ph ph-users-three text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white">Soy Junta Directiva</h3>
+                    <p class="text-[10px] text-slate-400">Busco seguridad y transparencia.</p>
+                </div>
+                <i class="ph ph-caret-right ml-auto text-slate-500"></i>
+            </button>
+            
+            <button onclick="goToOffer('seguridad')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-xl flex items-center gap-4 transition-all hover:border-red-500 group text-left">
+                <div class="bg-red-500/20 p-2 rounded-lg text-red-400 group-hover:text-white group-hover:bg-red-500 transition-colors">
+                    <i class="ph ph-shield-check text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white">Empresa de Seguridad</h3>
+                    <p class="text-[10px] text-slate-400">Busco diferenciar mi servicio.</p>
+                </div>
+                <i class="ph ph-caret-right ml-auto text-slate-500"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- PANTALLA 2: LA OFERTA (El Cierre) -->
+    <div id="screen-offer" class="screen flex-col items-center w-full max-w-sm text-center">
+        
+        <button onclick="goBack()" class="absolute top-6 left-6 text-slate-400 hover:text-white flex items-center gap-1 text-sm">
+            <i class="ph ph-arrow-left"></i> Volver
+        </button>
+
+        <div id="offer-icon" class="text-6xl mb-6 mt-10 animate-bounce">
+            🚀
+        </div>
+
+        <h2 id="offer-title" class="text-3xl font-bold text-white mb-4">
+            Oferta Especial
+        </h2>
+
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 text-left w-full">
+            <ul class="space-y-4 text-sm">
+                <li class="flex items-start gap-3">
+                    <i class="ph ph-check-circle text-green-400 text-lg mt-0.5"></i>
+                    <span id="offer-benefit-1">Sistema de Cobranza Automático</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <i class="ph ph-check-circle text-green-400 text-lg mt-0.5"></i>
+                    <span id="offer-benefit-2">Alerta de Pánico en Tiempo Real</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <i class="ph ph-check-circle text-green-400 text-lg mt-0.5"></i>
+                    <span>Sin contratos forzosos. Sin cláusulas ocultas.</span>
+                </li>
+                <li class="flex items-start gap-3 pt-2 border-t border-white/10">
+                    <i class="ph ph-currency-dollar text-yellow-400 text-lg mt-0.5"></i>
+                    <span class="font-bold text-white">Solo S/ 1.00 por departamento/mes</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- GARANTÍA DE CONFIANZA -->
+        <div class="flex gap-4 justify-center mb-8 text-[10px] text-slate-400">
+            <div class="flex items-center gap-1"><i class="ph ph-prohibit text-lg"></i> No Email</div>
+            <div class="flex items-center gap-1"><i class="ph ph-prohibit text-lg"></i> No WhatsApp</div>
+            <div class="flex items-center gap-1"><i class="ph ph-check-shield text-lg"></i> 100% Seguro</div>
+        </div>
+
+        <!-- CTA INSTALAR -->
+        <button onclick="installAndRedirect()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-900/50 text-lg transition-transform active:scale-95 flex flex-col items-center leading-tight">
+            <span>INSTALAR DEMO AHORA</span>
+            <span class="text-[10px] font-normal opacity-80">Prueba gratuita inmediata</span>
+        </button>
+
+    </div>
+
+    <script>
+        // Datos dinámicos
+        const content = {
+            'admin': {
+                icon: '🚀',
+                title: 'Automatiza tu Gestión',
+                b1: 'Cobra sin enviar mensajes de cobro.',
+                b2: 'Validación de pagos con IA (Foto).'
+            },
+            'junta': {
+                icon: '🏢',
+                title: 'Moderniza tu Edificio',
+                b1: 'Transparencia financiera total.',
+                b2: 'Seguridad preventiva para vecinos.'
+            },
+            'seguridad': {
+                icon: '🛡️',
+                title: 'Herramienta Centinela',
+                b1: 'Bitácora digital sin papel.',
+                b2: 'Avisos de llegada anticipada.'
+            }
+        };
+
+        let selectedRole = 'admin';
+
+        function setPersona(role) {
+            selectedRole = role;
+        }
+
+        function goToOffer(role) {
+            setPersona(role);
+            // Llenar datos
+            document.getElementById('offer-icon').innerText = content[role].icon;
+            document.getElementById('offer-title').innerText = content[role].title;
+            document.getElementById('offer-benefit-1').innerText = content[role].b1;
+            document.getElementById('offer-benefit-2').innerText = content[role].b2;
+
+            // Transición
+            document.getElementById('screen-intro').classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('screen-offer').classList.add('active');
+            }, 100);
+        }
+
+        function goBack() {
+            document.getElementById('screen-offer').classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('screen-intro').classList.add('active');
+            }, 100);
+        }
+
+        function playDemo() {
+            // Aquí abrirías el video en pantalla completa o un modal
+            alert("Aquí se reproducirá tu video de presentación.");
+        }
+
+        // --- LÓGICA DE INSTALACIÓN ---
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        async function installAndRedirect() {
+            // Intentar instalar
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    // Si instala, lo mandamos a un registro especial o login
+                    setTimeout(() => window.location.href = "/auth/login?role=" + selectedRole, 1000);
+                    return;
+                }
+            }
+            
+            // Si ya está instalado o no se puede (iPhone), ir directo
+            window.location.href = "/auth/login?role=" + selectedRole;
+        }
+    </script>
+</body>
+</html>

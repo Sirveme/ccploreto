@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Colegio de Contadores Públicos de Loreto - Colegiatura, capacitaciones y servicios profesionales">
+    <title>Colegio de Contadores Públicos de Loreto | CCPL</title>
+    <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navegación -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <div class="nav-logo">
+                <a href="https://ccploreto.org.pe/">
+                    <img src="logo-ccpl.svg" alt="CCPL Logo" class="logo" width="180" height="60">
+                </a>
+            </div>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="https://ccploreto.org.pe/" class="nav-link active">Inicio</a></li>
+                <li><a href="https://ccploreto.org.pe/institucional/" class="nav-link">Institucional</a></li>
+                <li><a href="https://ccploreto.org.pe/colegiados/" class="nav-link">Colegiatura</a></li>
+                <li><a href="https://ccploreto.org.pe/capacitacion/" class="nav-link">Capacitaciones</a></li>
+                <li><a href="https://ccploreto.org.pe/transparencia/" class="nav-link">Transparencia</a></li>
+                <li><a href="/login" class="nav-link btn-access">Acceso Usuarios</a></li>
+            </ul>
+            <div class="nav-social">
+                <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener" aria-label="Facebook">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                <a href="https://wa.me/51979169813" target="_blank" rel="noopener" aria-label="WhatsApp">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                </a>
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <canvas class="particles-canvas" id="particlesCanvas"></canvas>
+        <div class="hero-gradient"></div>
+        <div class="container hero-content">
+            <div class="hero-text" data-animate>
+                <h1 class="hero-title">
+                    <span class="title-line">Colegio de Contadores</span>
+                    <span class="title-line">Públicos de Loreto</span>
+                </h1>
+                <p class="hero-subtitle">Excelencia profesional al servicio de la región amazónica</p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" data-count="59">0</span>
+                        <span class="stat-label">Años de trayectoria</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" data-count="2500">0</span>
+                        <span class="stat-label">Profesionales colegiados</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" data-count="150">0</span>
+                        <span class="stat-label">Capacitaciones anuales</span>
+                    </div>
+                </div>
+                <div class="hero-cta">
+                    <a href="https://ccploreto.org.pe/colegiados/" class="btn btn-primary">
+                        <span>Comienza tu colegiatura</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                    <a href="https://ccploreto.org.pe/consulta-de-habilidad/" class="btn btn-secondary">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <span>Consultar habilidad</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <div class="scroll-arrow"></div>
+        </div>
+    </section>
+
+    <!-- Servicios Destacados -->
+    <section class="services-highlight">
+        <div class="container">
+            <div class="section-header" data-animate>
+                <h2 class="section-title">Servicios principales</h2>
+                <p class="section-subtitle">Todo lo que necesitas en un solo lugar</p>
+            </div>
+            <div class="services-grid">
+                <a href="https://ccploreto.org.pe/colegiados/" class="service-card" data-animate>
+                    <div class="service-icon">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3 class="service-title">Colegiatura</h3>
+                    <p class="service-description">Inicia tu proceso de colegiatura y únete a nuestra comunidad profesional</p>
+                    <span class="service-link">Ver requisitos →</span>
+                </a>
+
+                <a href="https://ccploreto.org.pe/consulta-de-habilidad/" class="service-card" data-animate>
+                    <div class="service-icon">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <h3 class="service-title">Consulta de habilidad</h3>
+                    <p class="service-description">Verifica tu estado de habilitación profesional en línea</p>
+                    <span class="service-link">Consultar ahora →</span>
+                </a>
+
+                <a href="https://ccploreto.org.pe/alquiler-de-ambientes/" class="service-card" data-animate>
+                    <div class="service-icon">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    </div>
+                    <h3 class="service-title">Alquiler de ambientes</h3>
+                    <p class="service-description">Espacios equipados para tus eventos profesionales y capacitaciones</p>
+                    <span class="service-link">Ver disponibilidad →</span>
+                </a>
+
+                <a href="https://ccploreto.org.pe/capacitacion/" class="service-card" data-animate>
+                    <div class="service-icon">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    </div>
+                    <h3 class="service-title">Capacitaciones</h3>
+                    <p class="service-description">Programas especializados para tu desarrollo profesional continuo</p>
+                    <span class="service-link">Ver cursos →</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Consejo Directivo -->
+    <section class="council-section">
+        <div class="container">
+            <div class="council-content">
+                <div class="council-image" data-animate>
+                    <img src="consejo-directivo.jpg" alt="Consejo Directivo 2024-2025" loading="lazy">
+                    <div class="image-overlay"></div>
+                </div>
+                <div class="council-info" data-animate>
+                    <span class="council-badge">Periodo 2024 - 2025</span>
+                    <h2 class="council-title">Consejo Directivo</h2>
+                    <p class="council-description">Conoce a los profesionales que lideran nuestra institución con transparencia, ética y compromiso con el desarrollo de la profesión contable en Loreto.</p>
+                    <ul class="council-features">
+                        <li>
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Gestión transparente y participativa</span>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Defensa del ejercicio profesional</span>
+                        </li>
+                        <li>
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Fortalecimiento institucional</span>
+                        </li>
+                    </ul>
+                    <div class="council-cta">
+                        <a href="https://ccploreto.org.pe/consejo-directivo/" class="btn btn-primary">Conocer miembros</a>
+                        <a href="https://ccploreto.org.pe/institucional/" class="btn btn-outline">Más información</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Últimos Comunicados -->
+    <section class="communications-section">
+        <div class="container">
+            <div class="section-header" data-animate>
+                <h2 class="section-title">Comunicados oficiales</h2>
+                <p class="section-subtitle">Mantente informado de nuestras últimas publicaciones</p>
+            </div>
+            <div class="communications-grid">
+                <article class="comm-card" data-animate>
+                    <div class="comm-header">
+                        <span class="comm-badge">Nuevo</span>
+                        <span class="comm-date">Enero 2025</span>
+                    </div>
+                    <h3 class="comm-title">Comunicado 008-2025-CE</h3>
+                    <p class="comm-excerpt">Comité Electoral - Información importante sobre el proceso electoral</p>
+                    <a href="https://ccploreto.org.pe/comunicado/comunicado-008-2025-ce/" class="comm-link">
+                        <span>Leer comunicado</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </article>
+
+                <article class="comm-card" data-animate>
+                    <div class="comm-header">
+                        <span class="comm-badge comm-badge-important">Importante</span>
+                        <span class="comm-date">Enero 2025</span>
+                    </div>
+                    <h3 class="comm-title">Comunicado 007-2025-CE</h3>
+                    <p class="comm-excerpt">Comunicado oficial del Comité Electoral sobre convocatoria</p>
+                    <a href="https://ccploreto.org.pe/comunicado/comunicado-007-2025-ce/" class="comm-link">
+                        <span>Leer comunicado</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </article>
+
+                <article class="comm-card" data-animate>
+                    <div class="comm-header">
+                        <span class="comm-badge">Actualización</span>
+                        <span class="comm-date">Enero 2025</span>
+                    </div>
+                    <h3 class="comm-title">Comunicado N° 006-2025</h3>
+                    <p class="comm-excerpt">Información relevante para todos los colegiados</p>
+                    <a href="https://ccploreto.org.pe/comunicado/comunicado-n-006-2025/" class="comm-link">
+                        <span>Leer comunicado</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </article>
+            </div>
+            <div class="section-footer" data-animate>
+                <a href="https://ccploreto.org.pe/comunicado/" class="btn btn-outline">Ver todos los comunicados</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Capacitaciones Destacadas -->
+    <section class="training-section">
+        <div class="container">
+            <div class="section-header" data-animate>
+                <h2 class="section-title">Próximas capacitaciones</h2>
+                <p class="section-subtitle">Fortalece tus competencias profesionales</p>
+            </div>
+            <div class="training-grid">
+                <div class="training-card featured" data-animate>
+                    <div class="training-badge">Destacado</div>
+                    <div class="training-content">
+                        <h3 class="training-title">Especialización en NIC SP</h3>
+                        <p class="training-description">Programa completo de Normas Internacionales de Contabilidad del Sector Público</p>
+                        <div class="training-meta">
+                            <span class="training-duration">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                120 horas
+                            </span>
+                            <span class="training-modality">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                Presencial
+                            </span>
+                        </div>
+                    </div>
+                    <a href="https://ccploreto.org.pe/capacitacion/especializacion-en-normas-internacionales-de-contabilidad-nic-sp/" class="training-cta">
+                        <span>Más información</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+                <div class="training-card" data-animate>
+                    <div class="training-content">
+                        <h3 class="training-title">Fiscalización Laboral</h3>
+                        <p class="training-description">Aspectos clave de la fiscalización laboral y SUNAFIL</p>
+                        <div class="training-meta">
+                            <span class="training-duration">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                40 horas
+                            </span>
+                            <span class="training-modality">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                Virtual
+                            </span>
+                        </div>
+                    </div>
+                    <a href="https://ccploreto.org.pe/capacitacion/fizcalizacion-laboral/" class="training-cta">
+                        <span>Más información</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+                <div class="training-card" data-animate>
+                    <div class="training-content">
+                        <h3 class="training-title">SIAF SP, SIGA-MEF, SEACE 2025</h3>
+                        <p class="training-description">Especialización en sistemas administrativos del Estado</p>
+                        <div class="training-meta">
+                            <span class="training-duration">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                80 horas
+                            </span>
+                            <span class="training-modality">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                Híbrido
+                            </span>
+                        </div>
+                    </div>
+                    <a href="https://ccploreto.org.pe/capacitacion/especializacion-siaf-sp-siga-mef-seace-2025/" class="training-cta">
+                        <span>Más información</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+            <div class="section-footer" data-animate>
+                <a href="https://ccploreto.org.pe/capacitacion/" class="btn btn-primary">Ver todas las capacitaciones</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Noticias y Eventos -->
+    <section class="news-section">
+        <div class="container">
+            <div class="section-header" data-animate>
+                <h2 class="section-title">Noticias y eventos</h2>
+                <p class="section-subtitle">Lo más reciente de nuestra comunidad</p>
+            </div>
+            <div class="news-grid">
+                <article class="news-card large" data-animate>
+                    <div class="news-image">
+                        <img src="conferencia-contabilidad.jpg" alt="Conferencia Magistral" loading="lazy">
+                        <div class="news-category">Evento</div>
+                    </div>
+                    <div class="news-content">
+                        <time class="news-date">15 de Noviembre, 2024</time>
+                        <h3 class="news-title">Conferencia magistral por el día internacional de la Contabilidad</h3>
+                        <p class="news-excerpt">Gran evento conmemorativo con expositores nacionales e internacionales</p>
+                        <a href="https://ccploreto.org.pe/conferencia-magistral-por-el-dia-internacional-de-la-contabilidad-2025/" class="news-link">Leer más →</a>
+                    </div>
+                </article>
+
+                <article class="news-card" data-animate>
+                    <div class="news-image">
+                        <img src="deportes.jpg" alt="Juegos deportivos" loading="lazy">
+                        <div class="news-category">Confraternidad</div>
+                    </div>
+                    <div class="news-content">
+                        <time class="news-date">Enero 2025</time>
+                        <h3 class="news-title">Fecha de fútbol y voley</h3>
+                        <p class="news-excerpt">Confraternidad deportiva entre colegiados</p>
+                        <a href="https://ccploreto.org.pe/fecha-futbol-y-voley/" class="news-link">Leer más →</a>
+                    </div>
+                </article>
+
+                <article class="news-card" data-animate>
+                    <div class="news-image">
+                        <img src="conferencia-sunat.jpg" alt="Conferencia SUNAT" loading="lazy">
+                        <div class="news-category">Capacitación</div>
+                    </div>
+                    <div class="news-content">
+                        <time class="news-date">Diciembre 2024</time>
+                        <h3 class="news-title">Conferencia magistral - Temas SUNAT</h3>
+                        <p class="news-excerpt">Actualización tributaria con funcionarios de SUNAT</p>
+                        <a href="https://ccploreto.org.pe/kit-navideno-hasta-agotar-stock/" class="news-link">Leer más →</a>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- Galería Rápida -->
+    <section class="gallery-preview">
+        <div class="container">
+            <div class="section-header" data-animate>
+                <h2 class="section-title">Galería de eventos</h2>
+                <p class="section-subtitle">Momentos destacados de nuestra institución</p>
+            </div>
+            <div class="gallery-grid">
+                <a href="https://ccploreto.org.pe/galeria/xi-convencion-nacional-de-finanzas-conafin-2025/" class="gallery-item" data-animate>
+                    <img src="conafin-2025.jpg" alt="XI Convención Nacional de Finanzas" loading="lazy">
+                    <div class="gallery-overlay">
+                        <h3>XI Convención Nacional de Finanzas CONAFIN 2025</h3>
+                        <span class="gallery-view">Ver galería →</span>
+                    </div>
+                </a>
+                <a href="https://ccploreto.org.pe/galeria/juegos-de-confraternidad/" class="gallery-item" data-animate>
+                    <img src="juegos-confraternidad.jpg" alt="Juegos de confraternidad" loading="lazy">
+                    <div class="gallery-overlay">
+                        <h3>Juegos de confraternidad</h3>
+                        <span class="gallery-view">Ver galería →</span>
+                    </div>
+                </a>
+                <a href="https://ccploreto.org.pe/galeria/ceremonia-solemne-por-los-59-aniversario-de-del-colegio-de-contadores-de-loreto/" class="gallery-item" data-animate>
+                    <img src="aniversario-59.jpg" alt="59 Aniversario" loading="lazy">
+                    <div class="gallery-overlay">
+                        <h3>Ceremonia solemne por 59 aniversario</h3>
+                        <span class="gallery-view">Ver galería →</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Final -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-content" data-animate>
+                <h2 class="cta-title">¿Tienes alguna consulta?</h2>
+                <p class="cta-description">Nuestro equipo está listo para atenderte y brindarte la información que necesitas</p>
+                <div class="cta-buttons">
+                    <a href="https://wa.me/51979169813" class="btn btn-primary btn-large" target="_blank" rel="noopener">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                        <span>Contactar por WhatsApp</span>
+                    </a>
+                    <a href="https://ccploreto.org.pe/institucional/" class="btn btn-outline btn-large">Conoce más sobre nosotros</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-main">
+                <div class="footer-col">
+                    <h3 class="footer-title">Colegio de Contadores Públicos de Loreto</h3>
+                    <p class="footer-text">Institución que agrupa a los profesionales contables de la región Loreto, comprometidos con la excelencia y la ética profesional.</p>
+                    <div class="footer-social">
+                        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener" aria-label="Facebook">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h4 class="footer-subtitle">Servicios</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://ccploreto.org.pe/colegiados/">Colegiatura</a></li>
+                        <li><a href="https://ccploreto.org.pe/consulta-de-habilidad/">Consulta de habilidad</a></li>
+                        <li><a href="https://ccploreto.org.pe/alquiler-de-ambientes/">Alquiler de ambientes</a></li>
+                        <li><a href="https://ccploreto.org.pe/capacitacion/">Capacitaciones</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4 class="footer-subtitle">Institucional</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://ccploreto.org.pe/institucional/">Nosotros</a></li>
+                        <li><a href="https://ccploreto.org.pe/consejo-directivo/">Consejo Directivo</a></li>
+                        <li><a href="https://ccploreto.org.pe/transparencia/">Transparencia</a></li>
+                        <li><a href="https://ccploreto.org.pe/comunicado/">Comunicados</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4 class="footer-subtitle">Contacto</h4>
+                    <ul class="footer-contact">
+                        <li>
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>Jr. Putumayo 460, Iquitos, Loreto</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            <span>+51 979 169 813</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                            <span>info@ccploreto.org.pe</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Colegio de Contadores Públicos de Loreto. Todos los derechos reservados.</p>
+                <p class="footer-dev">Diseñado con ❤️ en Loreto, Perú</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/sites/ccp-loreto.js"></script>
+</body>
+</html>

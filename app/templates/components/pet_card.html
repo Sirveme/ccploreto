@@ -1,0 +1,102 @@
+<!-- Componente Tarjeta Mascota -->
+<script>
+    if (!window.PetCard) {
+        let script = document.createElement('script');
+        script.src = '/static/js/components/pet_card.js';
+        document.head.appendChild(script);
+    }
+</script>
+<link rel="stylesheet" href="/static/css/components/pet_card.css">
+
+<div class="pet-card {{ 'is-lost' if pet.is_lost else '' }} flex flex-col h-full bg-white rounded-xl shadow-md overflow-hidden transition-all hover:shadow-xl border border-slate-100">
+    
+    <!-- HEADER: FOTO Y ESTADO -->
+    <div class="pet-image-container relative h-48 bg-slate-200 group cursor-pointer" onclick="PetCard.verDetalle('{{ pet.id }}')">
+        
+        <!-- Badge de Estado -->
+        {% if pet.is_lost %}
+            <div class="absolute top-0 w-full bg-red-600 text-white text-xs font-bold text-center py-1 uppercase tracking-widest animate-pulse z-20">
+                🚨 SE BUSCA 🚨
+            </div>
+        {% endif %}
+
+        {% set image_src = pet.photos[0] if pet.photos and pet.photos|length > 0 else 'https://placehold.co/400x300?text=Sin+Foto' %}
+        <img src="{{ image_src }}" class="w-full h-full object-cover transition-transform group-hover:scale-105">
+        
+        <!-- Gradiente nombre -->
+        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8">
+            <h3 class="text-xl font-bold text-white leading-none">{{ pet.name }}</h3>
+            <p class="text-white/80 text-xs">{{ pet.breed or pet.species }}</p>
+        </div>
+    </div>
+
+    <!-- BODY: INFO -->
+    <div class="p-3 flex-1">
+        <!-- CORRECCIÓN: Mostrar descripción real -->
+        <div class="mb-3">
+            <p class="text-slate-700 text-sm italic font-medium line-clamp-2">
+                "{{ pet.habits or 'Sin descripción aún.' }}"
+            </p>
+            <!-- Mostramos notas extra si son diferentes a los hábitos -->
+            {% if pet.notes and pet.notes != pet.habits %}
+                <p class="text-[10px] text-slate-400 mt-1 truncate">{{ pet.notes }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="flex flex-wrap gap-1 mb-2">
+            <span class="bg-slate-100 text-[10px] px-2 py-1 rounded border border-slate-200 text-slate-500">
+                🏠 {{ pet.owner.unit_info }}
+            </span>
+            {% if pet.health_issues %}
+            <span class="bg-orange-50 text-[10px] px-2 py-1 rounded border border-orange-100 text-orange-600">
+                🩺 {{ pet.health_issues }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- FOOTER: BARRA SOCIAL (Call to Action) -->
+    <div class="border-t border-slate-100 p-2 bg-slate-50 flex justify-between items-center text-slate-400">
+        
+        <!-- Reacciones -->
+        <div class="flex gap-4 pl-2">
+            <button class="hover:text-pink-500 transition-colors transform active:scale-125" title="Me encanta">
+                <i class="ph ph-heart text-xl"></i>
+            </button>
+            <button class="hover:text-blue-500 transition-colors transform active:scale-125" title="Comentar">
+                <i class="ph ph-chat-circle text-xl"></i>
+            </button>
+            <button class="hover:text-yellow-500 transition-colors transform active:scale-125" title="Regalar algo">
+                <i class="ph ph-gift text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Botón COMPARTIR (El protagonista) -->
+        <button 
+            class="bg-indigo-600 text-white p-2 rounded-full shadow-md hover:bg-indigo-500 active:scale-90 transition-transform flex items-center justify-center"
+            title="Compartir Ficha"
+            data-name="{{ pet.name }}"
+            data-species="{{ pet.species }}"
+            data-lost="{{ 'true' if pet.is_lost else 'false' }}"
+            data-location="{{ pet.last_seen_location or 'Desconocido' }}"
+            onclick="PetCard.compartirDesdeBoton(this)">
+            <i class="ph ph-share-network text-lg"></i>
+        </button>
+    </div>
+
+    <!-- BOTÓN EMERGENCIA / GESTIÓN -->
+    {% if pet.is_lost or user.id == pet.owner_id %}
+    <div class="px-3 pb-3">
+        {% if pet.is_lost %}
+            <a href="tel:{{ pet.contact_phone }}" class="block w-full bg-red-100 text-red-600 text-center font-bold py-2 rounded-lg text-xs hover:bg-red-200 transition-colors border border-red-200">
+                📞 LLAMAR SI LO VES
+            </a>
+        {% elif user.id == pet.owner_id %}
+            <button onclick="PetCard.toggleEstado('{{ pet.id }}', this)" 
+                    class="w-full py-1 text-[10px] font-bold text-slate-400 hover:text-red-500 underline">
+                Gestionar Estado (Perdido/En casa)
+            </button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

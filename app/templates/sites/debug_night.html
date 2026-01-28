@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COLEGIO - CONTADORES LORETO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .hero {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, 
+                rgba(10, 31, 20, 0.95) 0%, 
+                rgba(26, 58, 46, 0.9) 50%, 
+                rgba(52, 31, 151, 0.85) 100%
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #amazonCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 10;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: lime;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .debug-info div {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-info" id="debug">
+        <div>⏰ Hora: <span id="time">--</span></div>
+        <div>🌙 Período: <span id="period">--</span></div>
+        <div>📐 Canvas: <span id="canvasSize">--</span></div>
+        <div>🍃 Hojas: <span id="leavesCount">--</span></div>
+        <div>✨ Luciérnagas: <span id="firefliesCount">--</span></div>
+        <div>🦋 Mariposas: <span id="butterfliesCount">--</span></div>
+        <div>⚡ Estado: <span id="status">Cargando...</span></div>
+    </div>
+    
+    <div class="hero">
+        <canvas id="amazonCanvas"></canvas>
+        <div class="content">
+            <h1>🌿 COLEGIO DE CONTADORES PÚBLICOS DE LORETO</h1>
+            <p>Únete y desarrolla tu carrera ✓</p>
+            <p>Gestión Transpante</p>
+            <p>con modernidad</p>
+        </div>
+    </div>
+
+    <script>
+        // Simple debug version
+        const canvas = document.getElementById('amazonCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+            
+            updateDebug('canvasSize', `${window.innerWidth}x${window.innerHeight} (DPR: ${dpr})`);
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Update debug info
+        function updateDebug(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+        
+        // Show time
+        function updateTime() {
+            const now = new Date();
+            const hour = now.getHours();
+            const min = now.getMinutes().toString().padStart(2, '0');
+            updateDebug('time', `${hour}:${min}`);
+            
+            let period = 'night';
+            if (hour >= 5 && hour < 7) period = 'dawn';
+            else if (hour >= 7 && hour < 17) period = 'day';
+            else if (hour >= 17 && hour < 19) period = 'dusk';
+            
+            updateDebug('period', period);
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Create leaves (NIGHT VERSION - bright colors)
+        const leaves = [];
+        const leafColors = ['#7bed9f', '#a78bfa', '#6ee7b7', '#c084fc'];
+        const leafCount = 12;
+        
+        for (let i = 0; i < leafCount; i++) {
+            leaves.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight - window.innerHeight,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: Math.random() * 0.5 + 0.3,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.02,
+                size: 20,
+                color: leafColors[Math.floor(Math.random() * leafColors.length)],
+                opacity: Math.random() * 0.3 + 0.5
+            });
+        }
+        
+        updateDebug('leavesCount', leafCount);
+        
+        // Create fireflies (NIGHT - many)
+        const fireflies = [];
+        const fireflyCount = 20;
+        
+        for (let i = 0; i < fireflyCount; i++) {
+            fireflies.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                size: 2,
+                brightness: Math.random(),
+                fadeSpeed: Math.random() * 0.02 + 0.01,
+                fadeDirection: 1,
+                glowSize: 15
+            });
+        }
+        
+        updateDebug('firefliesCount', fireflyCount);
+        updateDebug('butterfliesCount', 0);
+        
+        // Draw functions
+        function drawLeaf(leaf) {
+            ctx.save();
+            ctx.translate(leaf.x, leaf.y);
+            ctx.rotate(leaf.rotation);
+            ctx.globalAlpha = leaf.opacity;
+            ctx.fillStyle = leaf.color;
+            
+            // Simple oval leaf
+            ctx.beginPath();
+            ctx.ellipse(0, 0, leaf.size * 0.6, leaf.size, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawFirefly(firefly) {
+            // Glow
+            const gradient = ctx.createRadialGradient(
+                firefly.x, firefly.y, 0,
+                firefly.x, firefly.y, firefly.glowSize
+            );
+            gradient.addColorStop(0, `rgba(255, 215, 0, ${firefly.brightness * 0.8})`);
+            gradient.addColorStop(0.5, `rgba(255, 215, 0, ${firefly.brightness * 0.3})`);
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(firefly.x, firefly.y, firefly.glowSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Core
+            ctx.globalAlpha = firefly.brightness;
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(firefly.x, firefly.y, firefly.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        
+        // Update functions
+        function updateLeaf(leaf) {
+            leaf.x += leaf.vx;
+            leaf.y += leaf.vy;
+            leaf.rotation += leaf.rotationSpeed;
+            
+            if (leaf.y > window.innerHeight + 50) {
+                leaf.y = -50;
+                leaf.x = Math.random() * window.innerWidth;
+            }
+            
+            if (leaf.x < -50) leaf.x = window.innerWidth + 50;
+            if (leaf.x > window.innerWidth + 50) leaf.x = -50;
+        }
+        
+        function updateFirefly(firefly) {
+            firefly.x += firefly.vx;
+            firefly.y += firefly.vy;
+            
+            firefly.brightness += firefly.fadeSpeed * firefly.fadeDirection;
+            if (firefly.brightness >= 1) {
+                firefly.brightness = 1;
+                firefly.fadeDirection = -1;
+            } else if (firefly.brightness <= 0.1) {
+                firefly.brightness = 0.1;
+                firefly.fadeDirection = 1;
+            }
+            
+            if (Math.random() < 0.02) {
+                firefly.vx = (Math.random() - 0.5) * 0.3;
+                firefly.vy = (Math.random() - 0.5) * 0.3;
+            }
+            
+            if (firefly.x < 0) firefly.x = window.innerWidth;
+            if (firefly.x > window.innerWidth) firefly.x = 0;
+            if (firefly.y < 0) firefly.y = window.innerHeight;
+            if (firefly.y > window.innerHeight) firefly.y = 0;
+        }
+        
+        // Animation loop
+        let frame = 0;
+        function animate() {
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            
+            // Update and draw leaves
+            leaves.forEach(leaf => {
+                updateLeaf(leaf);
+                drawLeaf(leaf);
+            });
+            
+            // Update and draw fireflies
+            fireflies.forEach(firefly => {
+                updateFirefly(firefly);
+                drawFirefly(firefly);
+            });
+            
+            frame++;
+            if (frame % 60 === 0) {
+                updateDebug('status', `✓ Animando (${frame} frames)`);
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Start
+        updateDebug('status', '🚀 Iniciando...');
+        setTimeout(() => {
+            animate();
+            updateDebug('status', '✓ Corriendo');
+        }, 100);
+    </script>
+</body>
+</html>

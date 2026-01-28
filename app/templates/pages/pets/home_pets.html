@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block container_width %}max-w-full md:max-w-2xl lg:max-w-4xl{% endblock %}
+
+{% block content %}
+<div class="fade-me-in pb-20">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-white">Mascotas del Edificio</h1>
+        <button onclick="document.getElementById('modal-new-pet').showModal()" 
+                class="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+            + Agregar
+        </button>
+    </div>
+
+    <!-- GRID DE MASCOTAS -->
+    <div id="pets-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% for pet in pets %}
+            {% include "components/pet_card.html" %}
+        {% endfor %}
+    </div>
+
+    <!-- MODAL NUEVA MASCOTA (HTML Nativo <dialog>) -->
+    <!-- MODAL NUEVA MASCOTA (Diseño Friendly) -->
+    <dialog id="modal-new-pet" class="bg-white text-slate-800 p-0 rounded-3xl backdrop:bg-black/60 w-full max-w-sm shadow-2xl overflow-hidden">
+        
+        <!-- Cabecera Colorida -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-500 p-6 text-center">
+            <h3 class="text-2xl font-bold text-white mb-1">¡Nuevo Integrante! 🎉</h3>
+            <p class="text-indigo-100 text-xs">Cuéntanos sobre tu compañero</p>
+        </div>
+
+        <form hx-post="/pets/register" 
+              hx-target="#pets-grid" 
+              hx-swap="beforeend" 
+              enctype="multipart/form-data" 
+              class="p-6 space-y-4"
+              hx-on::after-request="document.getElementById('modal-new-pet').close(); this.reset()">
+            
+            <!-- FOTO (Nuevo) -->
+            <div class="flex justify-center mb-4">
+                <label class="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-colors relative overflow-hidden group">
+                    <input type="file" name="photo" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    <img id="preview-img" class="absolute inset-0 w-full h-full object-cover hidden">
+                    <div id="upload-placeholder" class="text-center text-slate-400">
+                        <i class="ph ph-camera text-3xl mb-1"></i>
+                        <span class="text-xs block">Toca para subir foto</span>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Nombre y Raza -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Nombre</label>
+                    <input type="text" name="name" placeholder="Ej: Porky" required
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Raza / Tipo</label>
+                    <input type="text" name="breed" placeholder="Ej: Mini Pig" 
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+            
+            <!-- Especie (Select simple para ahorrar espacio) -->
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Especie</label>
+                <select name="species" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm">
+                    <option value="dog">🐶 Perro</option>
+                    <option value="cat">🐱 Gato</option>
+                    <option value="pig">🐷 Chanchito</option>
+                    <option value="other">🐰 Otro</option>
+                </select>
+            </div>
+            
+            <!-- Descripción -->
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Personalidad</label>
+                <textarea name="notes" rows="2" placeholder="Le gusta comer manzanas..." 
+                          class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm resize-none"></textarea>
+            </div>
+            
+            <!-- Botones -->
+            <div class="flex gap-3 mt-4">
+                <button type="button" onclick="this.closest('dialog').close()" class="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+                <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+</div>
+
+
+<!-- Script pequeño para previsualizar la foto antes de subir -->
+<script>
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('preview-img');
+                img.src = e.target.result;
+                img.classList.remove('hidden');
+                document.getElementById('upload-placeholder').classList.add('opacity-0');
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+
+<!-- SCRIPT PARA COMPARTIR -->
+<script>
+    function compartirMascota(nombre, especie, estado) {
+        if (navigator.share) {
+            navigator.share({
+                title: `Mascota de LeAvisamos: ${nombre}`,
+                text: estado ? `🚨 ¡AYUDA! Se perdió ${nombre} (${especie}) en nuestro edificio. Si lo ves avísanos.` : `Conoce a ${nombre}, nuestro vecino peludo.`,
+                url: window.location.href // Idealmente un link directo al perfil
+            })
+            .then(() => console.log('Compartido con éxito'))
+            .catch((error) => console.log('Error compartiendo', error));
+        } else {
+            alert("Tu navegador no soporta compartir nativo.");
+        }
+    }
+</script>
+{% endblock %}

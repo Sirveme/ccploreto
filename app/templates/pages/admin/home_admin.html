@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+<!-- Ancho completo -->
+{% block container_width %}max-w-full lg:max-w-[95%]{% endblock %}
+
+{% block content %}
+<!-- Usamos justify-start para obligar a que todo empiece arriba -->
+<div class="fade-me-in flex flex-col h-full justify-start">
+
+    <!-- CABECERA PRINCIPAL -->
+    <header class="flex justify-between items-start mb-6 shrink-0 pt-2">
+        <div class="relative group cursor-pointer">
+            <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <!-- Fix Nombre -->
+                    Panel de {{ user.user.name }}
+                    {% if profiles|length > 1 %}
+                        <i class="ph ph-caret-down text-sm text-slate-400"></i>
+                    {% endif %}
+                </h2>
+            </div>
+            
+            <div class="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-xs">
+                <i class="ph ph-buildings"></i>
+                {{ user.organization.name }}
+            </div>
+
+            <!-- MENÚ DESPLEGABLE -->
+            {% if profiles|length > 1 %}
+            <div class="absolute top-full left-0 mt-0 pt-2 w-72 z-50">
+                <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                    <div class="p-2 text-[10px] uppercase text-slate-500 font-bold bg-black/20">Mis Administraciones</div>
+                    {% for p in profiles %}
+                        <a href="/auth/switch/{{ p.id }}" 
+                           class="block px-4 py-3 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0 flex justify-between items-center {{ 'bg-indigo-900/20 text-indigo-300' if p.id == user.id else 'text-slate-300' }}">
+                            <div>
+                                <div class="font-bold">{{ p.organization.name }}</div>
+                                <div class="text-[10px] opacity-70">{{ p.role }}</div>
+                            </div>
+                            {% if p.id == user.id %}<i class="ph ph-check text-indigo-400"></i>{% endif %}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <button class="text-red-400 hover:text-white transition-colors" title="Cerrar Sesión">
+            <i class="ph ph-sign-out text-2xl"></i>
+        </button>
+    </header>
+
+    <!-- GRID DE CONTENIDO -->
+    <!-- Quitamos h-screen fijo para evitar scroll raro, usamos min-h-0 y flex-1 -->
+    <div class="flex flex-col lg:grid lg:grid-cols-3 gap-6 pb-10">
+        
+        <!-- COLUMNA IZQUIERDA: ACCIONES -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- 1. NUEVO COMUNICADO -->
+            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="ph ph-megaphone text-indigo-400"></i> Nuevo Comunicado
+                </h2>
+                
+                <form hx-post="/admin/bulletin/create" 
+                      hx-target="#bulletin-list" 
+                      hx-swap="afterbegin"
+                      id="form-boletin">
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-400 mb-1 uppercase">Título</label>
+                        <input type="text" name="title" required placeholder="Ej: Corte de Agua"
+                               class="w-full bg-black border border-slate-700 text-white rounded-lg p-3 focus:border-indigo-500 outline-none">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-400 mb-1 uppercase">Prioridad</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="priority" value="info" class="peer hidden" checked>
+                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-blue-600 peer-checked:text-white text-sm border border-slate-700 transition-all">ℹ️ Info</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="priority" value="warning" class="peer hidden">
+                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-yellow-600 peer-checked:text-white text-sm border border-slate-700 transition-all">⚠️ Aviso</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="priority" value="alert" class="peer hidden">
+                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-red-600 peer-checked:text-white text-sm border border-slate-700 transition-all">🚨 Urgente</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-xs text-slate-400 mb-1 uppercase">Mensaje</label>
+                        <textarea name="content" required rows="4" placeholder="Escriba los detalles..."
+                                  class="w-full bg-black border border-slate-700 text-white rounded-lg p-3 focus:border-indigo-500 outline-none resize-none"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                        <i class="ph ph-paper-plane-right"></i> ENVIAR A TODOS
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. FINANZAS RÁPIDAS -->
+            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="ph ph-currency-dollar text-green-400"></i> Generar Cobros
+                </h2>
+                
+                <form hx-post="/finance/generate-fees" hx-swap="afterbegin" hx-target="#finance-feedback">
+                    <div id="finance-feedback"></div>
+
+                    <div class="mb-3">
+                        <label class="block text-xs text-slate-400 mb-1">Concepto</label>
+                        <div class="relative">
+                            <select name="concept" class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm appearance-none cursor-pointer">
+                                <option value="Mantenimiento General">Mantenimiento General</option>
+                                <option value="Cuota Extraordinaria">Cuota Extraordinaria</option>
+                                <option value="Consumo de Agua">Consumo de Agua</option>
+                                <option value="Multa por Ruidos">Multa</option>
+                                <option value="Alquiler Zona Parrilla">Alquiler Zona Parrilla</option>
+                            </select>
+                            <i class="ph ph-caret-down absolute right-3 top-3 text-slate-500 pointer-events-none"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 mb-4">
+                        <div class="flex-1">
+                            <label class="block text-xs text-slate-400 mb-1">Monto (S/)</label>
+                            <input type="number" name="amount" value="150.00" step="0.01"
+                                   class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm font-bold text-green-400">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs text-slate-400 mb-1">Vencimiento</label>
+                            <input type="date" name="due_date" 
+                                   class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg transition-colors">
+                        GENERAR DEUDA MASIVA
+                    </button>
+                </form>
+            </div>
+
+            <!-- 3. GESTIÓN DE PROVEEDORES -->
+            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg mt-6">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="ph ph-storefront text-indigo-400"></i> Registrar Proveedor
+                </h2>
+                
+                <form hx-post="/partners/create" hx-swap="innerHTML" hx-target="#partner-feedback" enctype="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div id="partner-feedback"></div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Nombre Negocio</label>
+                            <input type="text" name="name" required placeholder="Ej: Gasfitería Lopez" 
+                                class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Categoría</label>
+                            <select name="category" class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
+                                <option value="Hogar">🛠️ Hogar / Técnico</option>
+                                <option value="Bodega">🛒 Bodega / Tienda</option>
+                                <option value="Salud">🩺 Salud / Vet</option>
+                                <option value="Comida">🍕 Comida / Delivery</option>
+                                <option value="Educación">🎓 Clases</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-xs text-slate-400 mb-1">Descripción corta</label>
+                        <input type="text" name="description" placeholder="Servicio 24h, especialistas en..." 
+                            class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">WhatsApp (51...)</label>
+                            <input type="text" name="whatsapp" placeholder="51999..." 
+                                class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Logo / Foto</label>
+                            <input type="file" name="logo" accept="image/*" 
+                                class="w-full text-xs text-slate-400">
+                    </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-plus-circle"></i> AGREGAR AL DIRECTORIO
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- En la columna derecha o central -->
+        <div class="lg:col-span-1 bg-slate-900 rounded-xl p-6 border border-slate-800 flex flex-col h-[500px]">
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <i class="ph ph-receipt text-yellow-400"></i> Pagos por Validar
+            </h2>
+            
+            <!-- Carga diferida de la lista de pagos -->
+            <div id="payment-list-container" hx-get="/finance/admin/pending" hx-trigger="load" hx-swap="innerHTML" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div class="animate-pulse space-y-4">
+                    <div class="h-24 bg-slate-800 rounded-xl"></div>
+                    <div class="h-24 bg-slate-800 rounded-xl"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: HISTORIAL -->
+        <div class="lg:col-span-2 bg-slate-900 rounded-xl p-6 border border-slate-800 flex flex-col h-[600px] shadow-lg">
+            <div class="flex justify-between items-center mb-4 shrink-0">
+                <h2 class="text-xl font-bold text-white">Historial de Enviados</h2>
+                <div class="flex gap-4 text-sm text-slate-400">
+                    <span>👥 {{ stats.vecinos }} Vecinos</span>
+                </div>
+            </div>
+
+            <div id="bulletin-list" class="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {% for b in bulletins %}
+                <div class="p-4 bg-slate-800 rounded-lg border-l-4 
+                    {% if b.priority == 'alert' %}border-red-500{% elif b.priority == 'warning' %}border-yellow-500{% else %}border-blue-500{% endif %}">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-white text-lg">{{ b.title }}</h3>
+                            <span class="text-xs text-slate-500 local-time opacity-0 transition-opacity" 
+                                data-date="{{ b.created_at.isoformat() }}">
+                                {{ b.created_at.strftime('%d/%m/%Y %H:%M') }}
+                            </span>
+                        </div>
+                        {% if b.priority == 'alert' %}
+                            <span class="bg-red-900/50 text-red-300 text-xs px-2 py-1 rounded">Urgente</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-slate-300 mt-2 whitespace-pre-wrap">{{ b.content }}</p>
+                </div>
+                {% else %}
+                <div class="text-center text-slate-600 py-10">
+                    <i class="ph ph-envelope-open text-4xl mb-2"></i>
+                    <p>No hay comunicados recientes.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if(evt.detail.elt.id === 'form-boletin' && evt.detail.successful) {
+            evt.detail.elt.reset();
+        }
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Conexión WS
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/alerta`;
+        let socket = new WebSocket(wsUrl);
+        const cashSound = new Audio('/static/sounds/ding-dong.mp3'); 
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // CASO: NUEVO PAGO RECIBIDO
+            if (data.type === "NEW_PAYMENT_REPORT") {
+                // 1. Sonido
+                cashSound.play().catch(e=>{});
+                
+                // 2. Notificación Visual (Toast)
+                if(window.Toast) window.Toast.show(`💰 Nuevo pago: ${data.amount} de ${data.user}`, 'success');
+
+                // 3. Recargar la lista (HTMX)
+                const container = document.getElementById('payment-list-container');
+                if (container) {
+                    htmx.ajax('GET', '/finance/admin/pending', {target: '#payment-list-container', swap: 'innerHTML'});
+                }
+            }
+        };
+        
+        socket.onclose = () => setTimeout(() => { socket = new WebSocket(wsUrl) }, 3000);
+    });
+</script>
+
+{% endblock %}

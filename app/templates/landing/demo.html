@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Interactiva - LeAvisamos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background: #000; color: white; font-family: sans-serif; }
+        .glow { box-shadow: 0 0 50px rgba(79, 70, 229, 0.3); }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+
+    <!-- Encabezado Dinámico -->
+    <div class="mb-8 animate-fade-in-down">
+        <p class="text-indigo-400 font-bold tracking-widest text-xs uppercase mb-2">TOUR GUIADO</p>
+        <h1 class="text-3xl font-bold">
+            Mira cómo funciona para 
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 capitalize">{{ role }}s</span>
+        </h1>
+        <p class="text-slate-400 text-sm mt-2 max-w-md mx-auto">
+            En este breve recorrido te muestro Seguridad, Finanzas y el Marketplace.
+        </p>
+    </div>
+
+    <!-- VIDEO 2 (El Walkthrough) -->
+    <div class="w-full max-w-4xl aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 glow mb-10 relative group">
+        
+        <!-- Video Real -->
+        <!-- Reemplaza src con tu video explicativo (voz en off) -->
+        <video id="walkthrough-video" controls class="w-full h-full object-cover">
+            <source src="/static/videos/walkthrough.mp4" type="video/mp4">
+            Tu navegador no soporta video.
+        </video>
+
+    </div>
+
+    <!-- CTA FINAL (Aparece después de unos segundos o siempre visible) -->
+    <div class="flex flex-col gap-4 w-full max-w-sm">
+        <a href="/auth/login?demo={{ role }}" 
+           class="bg-white text-black font-bold py-4 rounded-xl shadow-xl hover:bg-slate-200 transition-transform active:scale-95 flex items-center justify-center gap-2">
+            <i class="ph ph-sign-in text-xl"></i>
+            INGRESAR AHORA
+        </a>
+        <p class="text-xs text-slate-500">¿Ya viste el video? Entra para probarlo tú mismo.</p>
+    </div>
+
+</body>
+</html>

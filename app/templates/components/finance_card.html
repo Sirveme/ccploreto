@@ -1,0 +1,60 @@
+<!-- Componente Finanzas (Tarjeta Dinámica) -->
+<section class="balance-card {{ 'bg-gradient-to-r from-red-600 to-orange-600' if status_color == 'red' else 'bg-gradient-to-r from-blue-600 to-indigo-600' }} rounded-2xl p-6 text-white shadow-xl relative overflow-hidden transition-all duration-500 mb-6">
+    
+    <!-- Decoración de fondo -->
+    <div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+
+    <!-- Título -->
+    <span class="text-xs font-bold uppercase tracking-wider opacity-80">
+        {{ '⚠️ DEUDA TOTAL' if total_debt > 0 else '✅ ESTADO DE CUENTA' }}
+    </span>
+    
+    <!-- Monto Gigante -->
+    <div class="flex items-baseline mt-2">
+        <span class="text-xl font-medium mr-1">S/</span>
+        <span class="text-5xl font-bold tracking-tight">
+            {{ "{:,.2f}".format(total_debt) }}
+        </span>
+    </div>
+
+    <!-- Acciones Principales -->
+    <div class="mt-6 pt-4 border-t border-white/20 flex justify-between items-center">
+        <span class="text-xs opacity-90">
+            {% if total_debt > 0 %}
+                Tienes pagos pendientes.
+            {% else %}
+                ¡Estás al día! 🎉
+            {% endif %}
+        </span>
+        
+        {% if total_debt > 0 %}
+            <!-- MODO DEUDA: Botón Rojo/Llamativo -->
+            <button onclick="window.Neural.executeAction({type: 'render_component', payload: {url: '/finance/payment/form'}})" 
+                    class="bg-white text-red-600 px-4 py-2 rounded-lg text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-2 animate-pulse">
+                <i class="ph ph-warning-circle"></i> PAGAR AHORA
+            </button>
+        {% else %}
+            <!-- MODO AL DÍA: Botón Discreto para Adelantos -->
+            <button onclick="document.getElementById('modal-payment').showModal()" 
+                    class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm active:scale-95 transition-transform flex items-center gap-2 border border-white/30">
+                <i class="ph ph-receipt"></i> REPORTAR PAGO
+            </button>
+        {% endif %}
+    </div>
+
+    <!-- --- SECCIÓN DESGLOSE (NUEVA) --- -->
+    <div class="mt-2">
+        <!-- 1. Contenedor vacío donde HTMX inyectará la lista -->
+        <div id="debt-details-container" class="text-left text-sm pt-2"></div>
+
+        <!-- 2. Gatillador HTMX -->
+        <button hx-get="/finance/my-debts-detail" 
+                hx-target="#debt-details-container" 
+                hx-swap="innerHTML"
+                onclick="this.classList.add('hidden')" 
+                class="w-full text-[10px] text-white/70 hover:text-white mt-2 py-1 flex items-center justify-center gap-1 transition-colors cursor-pointer">
+            <span>Ver desglose de conceptos</span>
+            <i class="ph ph-caret-down"></i>
+        </button>
+    </div>
+</section>

@@ -1,0 +1,97 @@
+<div class="space-y-4">
+    {% for p in payments %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex gap-4 items-start fade-me-in">
+        <!-- Voucher (Click para ampliar - Lógica JS simple pendiente) -->
+        <a href="{{ p.voucher_url }}" target="_blank" class="shrink-0 group relative block w-20 h-20 bg-black rounded-lg overflow-hidden border border-slate-600">
+            <img src="{{ p.voucher_url }}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+            <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <i class="ph ph-magnifying-glass-plus text-white"></i>
+            </div>
+        </a>
+
+        <div class="flex-1">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h4 class="font-bold text-white text-lg">S/ {{ "{:,.2f}".format(p.amount) }}</h4>
+                    <p class="text-sm text-indigo-300 font-bold">{{ p.member.user.name }}</p>
+                    <p class="text-xs text-slate-500">{{ p.member.unit_info }} • {{ p.payment_method }}</p>
+                </div>
+                <span class="text-[10px] bg-yellow-900/50 text-yellow-500 px-2 py-1 rounded border border-yellow-700/50">
+                    Revisión
+                </span>
+            </div>
+
+            <div class="flex gap-2 mt-3 justify-end">
+                <!-- Botón Rechazar (Rojo) -->
+                <button onclick="rechazarPago('{{ p.id }}')"
+                        class="px-3 py-1.5 rounded-lg border border-red-900 text-red-500 hover:bg-red-900/20 text-xs font-bold transition-colors">
+                    Rechazar
+                </button>
+                
+                <!-- Botón Aprobar (Verde) -->
+                <button hx-post="/finance/payment/{{ p.id }}/approve"
+                        hx-swap="outerHTML"
+                        hx-target="closest div.bg-slate-800"
+                        class="px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-bold shadow-lg transition-colors flex items-center gap-1">
+                    <i class="ph ph-check-circle"></i> APROBAR
+                </button>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-slate-600">
+        <i class="ph ph-check-fat text-4xl mb-2 opacity-50"></i>
+        <p class="text-sm">No hay pagos pendientes de revisión.</p>
+    </div>
+    {% endfor %}
+
+    <!-- Script simple para manejar el rechazo -->
+<script>
+    function rechazarPago(id) {
+        const motivo = prompt("Ingrese el motivo del rechazo (ej: Voucher ilegible, Monto incorrecto):");
+        
+        // Validación: Si cancela o lo deja vacío, no hacemos nada
+        if (motivo === null) return; // Canceló
+        if (motivo.trim() === "") {
+            alert("Debes ingresar un motivo para rechazar.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('reason', motivo); // La clave debe ser 'reason' exactamente como en Python
+
+        // Feedback visual
+        const btn = event.target; // El botón que se presionó
+        const originalText = btn.innerText;
+        btn.innerText = "...";
+        btn.disabled = true;
+
+        fetch(`/finance/payment/${id}/reject`, {
+            method: 'POST',
+            body: formData
+        }).then(async response => {
+            if (response.ok) {
+                // Éxito: Recargamos la lista completa para ver el cambio
+                const container = document.getElementById('payment-list-container');
+                if (container) {
+                    htmx.ajax('GET', '/finance/admin/pending', {
+                        target: '#payment-list-container', 
+                        swap: 'innerHTML'
+                    });
+                }
+                // Feedback auditivo (Opcional)
+                // const s = new Audio('/static/sounds/ding-dong.mp3'); s.play().catch(e=>{});
+            } else {
+                alert("Error al rechazar: " + await response.text());
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }).catch(err => {
+            console.error(err);
+            alert("Error de conexión");
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+</script>
+</div>

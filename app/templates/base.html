@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <title>{{ user.organization.name if user else 'LeAvisamos' }} - Gestión Inteligente</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- CSS Propio (Lo importante) -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/components/toast.css">
+    
+    <!-- Tailwind CDN (Solo para layout rápido: flex, grid, margin, padding) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Scripts -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Bloque para inyectar CSS extra desde páginas hijas -->
+    {% block head_extra %}{% endblock %}
+
+    <!-- CSS DINÁMICO SEGÚN DOMINIO -->
+<!-- CSS DINÁMICO (BLINDADO) -->
+<!-- CSS DINÁMICO (BLINDADO) -->
+    <style>
+        :root {
+            /* Lógica defensiva: Si 'theme' existe, usa su color. Si no, usa Indigo (#6366f1) */
+            --primary: {{ theme.primary_color if theme else '#6366f1' }};
+            
+            /* Generar variantes automática (siempre funciona si --primary es válido) */
+            --primary-hover: color-mix(in srgb, var(--primary), black 10%);
+            --primary-light: color-mix(in srgb, var(--primary), white 90%);
+        }
+        
+        .bg-primary { background-color: var(--primary) !important; }
+        .text-primary { color: var(--primary) !important; }
+        .border-primary { border-color: var(--primary) !important; }
+        .ring-primary { --tw-ring-color: var(--primary) !important; }
+        
+        .hover\:bg-primary-dark:hover { background-color: var(--primary-hover) !important; }
+        .htmx-progress-bar { background-color: var(--primary) !important; }
+    </style>
+
+</head>
+
+<body class="flex justify-center h-screen overflow-hidden bg-black">
+
+    <!-- Contenedor Principal (Mobile First) -->
+    <!-- Usamos un Bloque Jinja para la clase, con valor por defecto 'max-w-md' -->
+    <main class="w-full {% block container_width %}max-w-md{% endblock %} h-full bg-[#0f172a] shadow-2xl relative flex flex-col border-x border-slate-800 mx-auto">
+        
+        <!-- Barra de Progreso -->
+        <div class="htmx-progress-container">
+            <div id="progress-bar" class="htmx-progress-bar"></div>
+        </div>
+        
+        <!-- Contenido -->
+        <div id="content-area" class="flex-1 overflow-y-auto no-scrollbar p-6">
+            {% block content %}{% endblock %}
+        </div>
+
+    </main>
+
+
+    <!-- CINTA DE NOTICIAS -->
+    <div id="news-ticker" class="ticker-wrap" onclick="verUltimoBoletin()">
+        <div id="ticker-text" class="ticker-content">
+            <!-- El texto se inyecta por JS -->
+        </div>
+    </div>
+
+
+    <script>
+        // Lógica de carga visual para HTMX
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            let bar = document.getElementById('progress-bar');
+            bar.style.width = '30%';
+            bar.style.opacity = '1';
+        });
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            let bar = document.getElementById('progress-bar');
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.style.opacity = '0';
+                bar.style.width = '0%';
+            }, 300);
+        });
+        
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');
+    </script>
+
+    <script>
+        function renderLocalTimes(rootElement) {
+            rootElement.querySelectorAll('.local-time').forEach(el => {
+                if(el.dataset.processed) return;
+                
+                const utcDate = el.getAttribute('data-date');
+                
+                // VALIDACIÓN: Si no hay fecha o es "None", ocultar o poner texto default
+                if(!utcDate || utcDate === 'None' || utcDate === '') {
+                    el.innerText = ""; 
+                    return;
+                }
+
+                try {
+                    // Truco: Agregar 'Z' si falta para asegurar UTC
+                    const dateString = utcDate.endsWith('Z') || utcDate.includes('+') ? utcDate : utcDate + 'Z';
+                    const dateObj = new Date(dateString);
+
+                    // Verificar si es válida
+                    if (isNaN(dateObj.getTime())) {
+                        throw new Error("Fecha inválida");
+                    }
+
+                    const localString = dateObj.toLocaleString('es-PE', {
+                        day: 'numeric', month: 'short', 
+                        hour: 'numeric', minute: '2-digit', hour12: true
+                    });
+                    
+                    el.innerText = localString;
+                    el.classList.remove('opacity-0');
+                    el.dataset.processed = "true";
+                } catch (e) {
+                    console.warn("Error parseando fecha:", utcDate);
+                    el.innerText = "Fecha desconocida"; // Fallback elegante
+                    el.classList.remove('opacity-0');
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => renderLocalTimes(document));
+        document.body.addEventListener('htmx:afterSwap', (evt) => renderLocalTimes(evt.detail.elt));
+    </script>
+
+
+    <!-- ========================================== -->
+    <!-- INTERFAZ DE VOZ GLOBAL (Léa) -->
+    <!-- ========================================== -->
+    
+    <!-- BURBUJA DE PENSAMIENTO (Visual Feedback) -->
+    <div id="ai-thought-bubble" class="fixed top-24 left-1/2 -translate-x-1/2 z-[200] hidden flex-col items-center w-full max-w-md pointer-events-none">
+        
+        <!-- El pensamiento (Estilo Cómic/Futurista) -->
+        <div class="bg-slate-900/90 backdrop-blur-xl border-2 border-indigo-500 text-white px-8 py-6 rounded-3xl shadow-2xl flex flex-col items-center text-center transform transition-all duration-300 scale-90 opacity-0" id="ai-bubble-content">
+            
+            <!-- Icono Animado -->
+            <div class="mb-3">
+                <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center animate-pulse">
+                    <i class="ph ph-brain text-2xl text-white"></i>
+                </div>
+            </div>
+
+            <!-- Texto Principal (Lo que entendió o respondió) -->
+            <p id="ai-text-main" class="text-lg font-bold mb-1">Escuchando...</p>
+            
+            <!-- Texto Secundario (Detalles) -->
+            <p id="ai-text-sub" class="text-xs text-indigo-300 font-mono">...</p>
+        </div>
+
+    </div>
+
+    <style>
+        /* Animación de entrada */
+        .bubble-active #ai-bubble-content { opacity: 1; transform: scale(1); }
+    </style>
+
+    <!-- BLOQUE DE MICRÓFONO FLOTANTE GLOBAL -->
+    {% block mic_floating %}
+    <div class="fixed bottom-6 right-6 z-[100]">
+        <button id="btn-neural-orb" onclick="window.Neural.toggleListen()" 
+                class="group relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl shadow-indigo-500/40 bg-slate-900 border border-slate-700 active:scale-90 hover:scale-105">
+            
+            <!-- Animaciones -->
+            <div id="neural-ring" class="absolute inset-0 rounded-full border-2 border-indigo-500 opacity-0 transition-opacity"></div>
+            <div id="neural-pulse" class="absolute inset-0 bg-indigo-500 rounded-full opacity-0"></div>
+            
+            <!-- Icono -->
+            <i class="ph ph-microphone text-2xl text-white group-hover:text-indigo-400 transition-colors relative z-10"></i>
+        </button>
+    </div>
+    {% endblock %}
+
+
+    <!-- ========================================== -->
+    <!-- MODAL UNIVERSAL (El Marco Vacío) -->
+    <!-- ========================================== -->
+    <!-- Este dialog recibirá cualquier HTML que mande el servidor -->
+    <!-- MODAL DE PAGO GLOBAL -->
+    <dialog id="modal-payment" class="bg-slate-900 text-white p-0 rounded-2xl backdrop:bg-black/90 w-full max-w-sm shadow-2xl border border-slate-700 z-[100] overflow-hidden">
+        
+        <!-- Área donde se inyectará el formulario -->
+        <div id="modal-content-area" class="w-full h-full">
+            
+            <!-- Loader por defecto (Visible antes de que llegue el HTML) -->
+            <div id="payment-loader" class="p-10 text-center flex flex-col items-center justify-center h-48">
+                <i class="ph ph-spinner animate-spin text-4xl text-indigo-500 mb-3"></i>
+                <p class="text-sm text-slate-400">Conectando con finanzas...</p>
+            </div>
+            
+        </div>
+    </dialog>
+
+    <!-- ========================================== -->
+    <!-- SISTEMA SDUI (Lienzo Universal para IA) -->
+    <!-- ========================================== -->
+    <!-- Este es el contenedor invisible que espera recibir HTML del servidor -->
+    <div id="sdui-viewport" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/90 backdrop-blur-sm p-4 transition-all duration-300 opacity-0">
+        <div id="sdui-content" class="w-full max-w-lg transform transition-all scale-95">
+            <!-- Aquí se inyectan los formularios -->
+        </div>
+    </div>
+
+    <!-- SCRIPT DE UTILIDAD GLOBAL -->
+    <script>
+        // Función Maestra para cerrar modales
+        window.closeModal = function() {
+            const modal = document.getElementById('modal-payment');
+            if (modal) {
+                modal.close();
+                // Limpiar contenido para que no salga el viejo al reabrir
+                setTimeout(() => {
+                    document.getElementById('modal-content-area').innerHTML = '';
+                }, 300);
+            }
+            
+            // NUEVO: Cerrar también la burbuja de IA por si acaso
+            if(window.Neural) window.Neural.hideBubble();
+        };
+    </script>
+
+
+    <!-- Cargar el Cerebro (Asegúrate que sea la única vez que se carga) -->
+    <script src="/static/js/modules/neural_core.js"></script>
+
+    <script src="/static/js/modules/health_check.js"></script>
+    <script src="/static/js/components/toast.js"></script>
+</body>
+</html>

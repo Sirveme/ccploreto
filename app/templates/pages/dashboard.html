@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/pages/dashboard.css">
+{% endblock %}
+
+<!-- Permitir más ancho en PC, pero centrado y legible -->
+{% block container_width %}max-w-full md:max-w-2xl lg:max-w-4xl{% endblock %}
+
+{% block content %}
+<div class="fade-me-in pb-20"> <!-- Padding bottom para que el contenido no quede tapado por botones -->
+    
+    <!-- Cabecera -->
+    <!-- Cabecera con Selector de Propiedad -->
+    <header class="header-section flex justify-between items-start mb-6">
+        <div class="user-welcome relative group cursor-pointer">
+            
+            <!-- Título Principal (Click para ver menú) -->
+            <div class="flex items-center gap-2">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    Hola, {{ user.user.name }}
+                    {% if profiles|length > 1 %}
+                        <i class="ph ph-caret-down text-sm text-slate-400"></i>
+                    {% endif %}
+                </h2>
+            </div>
+            
+            <p class="text-xs text-indigo-300 font-bold uppercase tracking-wider">
+                {{ user.organization.name }}
+            </p>
+            
+            <div class="flex items-center gap-2 mt-1">
+                <span id="connection-status" class="flex items-center gap-1 text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> ...
+                </span>
+                <span class="text-xs text-slate-500">{{ user.unit_info }}</span>
+            </div>
+
+            <!-- MENÚ DESPLEGABLE DE PERFILES (Solo si tiene > 1) -->
+            {% if profiles|length > 1 %}
+            <div class="absolute top-full left-0 mt-0 pt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden hidden group-hover:block z-50">
+                <div class="p-2 text-[10px] uppercase text-slate-500 font-bold bg-black/20">Cambiar Perfil</div>
+                {% for p in profiles %}
+                    <a href="/auth/switch/{{ p.id }}" 
+                       class="block px-4 py-3 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0 flex justify-between items-center {{ 'bg-indigo-900/20 text-indigo-300' if p.id == user.id else 'text-slate-300' }}">
+                        <div>
+                            <div class="font-bold">{{ p.organization.name }}</div>
+                            <div class="text-[10px] opacity-70">{{ p.unit_info }} - {{ p.position }}</div>
+                        </div>
+                        {% if p.id == user.id %}<i class="ph ph-check text-indigo-400"></i>{% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+        
+        <button class="logout-btn text-red-400 hover:text-red-300 transition-colors p-2" title="Salir">
+            <i class="ph ph-sign-out text-2xl"></i>
+        </button>
+    </header>
+
+    <!-- PIZARRA DE AVISOS (Chips) -->
+    <!-- PIZARRA DE AVISOS (Chips) -->
+    <div id="bulletin-board" class="flex gap-3 overflow-x-auto pb-4 mb-2 scrollbar-hide px-1">
+        
+        {% if latest_bulletin %}
+        <!-- GLOBO: Usamos data-attributes para evitar errores de sintaxis -->
+        <div onclick="verDetalleBoletin(this)"
+             data-title="{{ latest_bulletin.title }}"
+             data-content="{{ latest_bulletin.content }}" 
+             data-priority="{{ latest_bulletin.priority }}"
+             data-date="{{ latest_bulletin.created_at }}"
+             class="shrink-0 flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer shadow-lg transition-transform active:scale-95 border-l-4
+             {% if latest_bulletin.priority == 'alert' %}bg-red-900/40 border-red-500 text-red-100
+             {% elif latest_bulletin.priority == 'warning' %}bg-yellow-900/40 border-yellow-500 text-yellow-100
+             {% else %}bg-indigo-900/40 border-indigo-500 text-indigo-100{% endif %}">
+            
+            <div class="bg-black/20 p-2 rounded-full">
+                {% if latest_bulletin.priority == 'alert' %}<i class="ph ph-warning-octagon text-xl"></i>
+                {% elif latest_bulletin.priority == 'warning' %}<i class="ph ph-warning text-xl"></i>
+                {% else %}<i class="ph ph-info text-xl"></i>{% endif %}
+            </div>
+            
+            <div>
+                <p class="font-bold text-sm leading-none mb-1">{{ latest_bulletin.title }}</p>
+                <p class="text-[10px] opacity-70 uppercase tracking-wide">Toca para leer</p>
+            </div>
+        </div>
+        {% endif %}
+        
+    </div>
+
+    
+    <!-- Tarjeta de Deuda (Carga diferida para no bloquear la página) -->
+    <!-- TARJETA DE DEUDA (CONTENEDOR PERMANENTE) -->
+    <!-- Este div nunca desaparece, HTMX cambia lo de adentro (innerHTML) -->
+    <div id="finance-card-wrapper" 
+         hx-get="/finance/my-summary" 
+         hx-trigger="load, update_debt from:body" 
+         hx-swap="innerHTML">
+         
+         <!-- Esqueleto de carga (Se ve mientras llega el dato) -->
+         <div class="animate-pulse bg-slate-800 h-48 rounded-2xl mb-6 border border-slate-700"></div>
+    </div>
+
+    <!-- CARNET DIGITAL DINÁMICO -->
+<div class="relative w-full max-w-md mx-auto aspect-[1.586] rounded-2xl overflow-hidden shadow-2xl transition-transform hover:scale-[1.02] cursor-pointer group mb-6">
+    
+    <!-- Fondo con Marca de Agua -->
+    <div class="absolute inset-0 bg-gradient-to-br from-slate-900 to-blue-900">
+        <!-- Patrón decorativo -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-xl"></div>
+        <div class="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full -ml-16 -mb-16 blur-xl"></div>
+    </div>
+
+    <!-- Contenido del Carnet -->
+    <div class="relative z-10 p-6 h-full flex flex-col justify-between">
+        
+        <!-- Cabecera -->
+        <div class="flex justify-between items-start">
+            <div class="flex items-center gap-3">
+                <!-- Logo Institucional (Dinámico o Fijo) -->
+                <div class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+                    <i class="ph ph-bank text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h3 class="text-[10px] uppercase tracking-[0.2em] text-blue-200 font-bold">Colegio de Contadores</h3>
+                    <p class="text-xs text-white opacity-80">Región Loreto</p>
+                </div>
+            </div>
+            <!-- QR (Simulado) -->
+            <div class="bg-white p-1 rounded-lg">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Validado:{{ user.public_id }}" class="w-12 h-12">
+            </div>
+        </div>
+
+        <!-- Datos del Profesional -->
+        <div class="flex items-end gap-4 mt-2">
+            <!-- Foto Real -->
+            <div class="w-20 h-24 bg-slate-800 rounded-lg border-2 border-white/30 overflow-hidden shadow-lg">
+                <img src="{{ user.user.photo_url or 'https://ui-avatars.com/api/?name=' + user.user.name + '&background=0D8ABC&color=fff' }}" 
+                     class="w-full h-full object-cover">
+            </div>
+            
+            <div class="flex-1">
+                <p class="text-[10px] text-blue-300 uppercase font-bold mb-0.5">Nombre</p>
+                <h2 class="text-lg font-bold text-white leading-tight mb-2">{{ user.user.name }}</h2>
+                
+                <div class="flex justify-between items-end">
+                    <div>
+                        <p class="text-[10px] text-blue-300 uppercase font-bold mb-0.5">Matrícula</p>
+                        <p class="font-mono text-white tracking-widest">{{ user.public_id }}</p>
+                    </div>
+                    
+                    <!-- Estado Habilidad -->
+                    <div class="text-right">
+                        {% if user.is_active %}
+                            <span class="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/50">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> HÁBIL
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1 bg-red-500/20 text-red-300 px-2 py-0.5 rounded text-[10px] font-bold border border-red-500/50">
+                                🚫 INHÁBIL
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie de tarjeta -->
+        <div class="mt-4 pt-2 border-t border-white/10 flex justify-between items-center text-[10px] text-white/50">
+            <span>Vence: Dic 2026</span>
+            <span>Verificado digitalmente</span>
+        </div>
+    </div>
+</div>
+
+<!-- EL GANCHO: Mensaje de Advertencia si debe -->
+{% if not user.is_active %}
+<div class="bg-yellow-900/30 border-l-4 border-yellow-500 p-4 rounded-r-xl mb-6 mx-auto max-w-md flex items-start gap-3">
+    <i class="ph ph-warning-circle text-2xl text-yellow-500"></i>
+    <div>
+        <h4 class="font-bold text-yellow-500 text-sm">Tu perfil no es visible para empresas</h4>
+        <p class="text-xs text-slate-400 mt-1">
+            Actualmente figuras como <strong>Inhábil</strong> por deudas pendientes. 
+            Paga tu cuota para aparecer en el <u>Directorio de Contadores Certificados</u>.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+    <!-- Menú de Acciones -->
+    <section class="menu-grid">
+        <!-- Botón Servicios -->
+        <a href="/services" class="menu-item block text-decoration-none">
+            <i class="ph ph-storefront menu-icon text-indigo-400"></i>
+            <span class="menu-title">Directorio</span>
+        </a>
+
+        <!-- Botón Historial -->
+        <div class="menu-item">
+            <i class="ph ph-receipt menu-icon"></i>
+            <span class="menu-title">Mis Recibos</span>
+        </div>
+        
+        <!-- Botón Avisos -->
+        <div class="menu-item">
+            <i class="ph ph-megaphone menu-icon"></i>
+            <span class="menu-title">Avisos</span>
+        </div>
+
+        <div class="menu-item" onclick="activarNotificaciones()">
+            <i class="ph ph-bell-ringing menu-icon text-blue-400"></i>
+            <span class="menu-title">Activar Alertas</span>
+        </div>
+
+        <!-- BOTÓN MASCOTAS -->
+        <a href="/pets" class="menu-item block text-decoration-none">
+            <i class="ph ph-paw-print menu-icon text-orange-400"></i>
+            <span class="menu-title">Mascotas</span>
+        </a>
+
+        <!-- Botón Votación (Demo) -->
+        <div class="menu-item">
+            <i class="ph ph-hands-clapping menu-icon text-green-400"></i> 
+            <span class="menu-title">Votar</span>
+        </div>
+
+        <!-- Botón Reportar -->
+        <div class="menu-item">
+            <i class="ph ph-wrench menu-icon text-orange-400"></i>
+            <span class="menu-title">Reportar</span>
+        </div>
+    </section>
+
+</div>
+
+<!-- --- ELEMENTOS FLOTANTES (CAPA SUPERIOR) --- -->
+
+<!-- 2. BOTONES DE ACCIÓN (Z-40) -->
+<!-- DOCK DE COMANDO (Barra Inferior Unificada) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 p-2 rounded-full shadow-2xl">
+    
+    <!-- 1. LLEGADA (Amarillo) -->
+    <button id="btn-llegando" 
+            class="w-12 h-12 rounded-full bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/30 flex items-center justify-center transition-all active:scale-90"
+            title="Avisar Llegada">
+        <i class="ph ph-person-simple-walk text-xl"></i>
+    </button>
+
+    <!-- 2. PÁNICO (Rojo - Central y Grande) -->
+    <button id="btn-panico" 
+            class="w-16 h-16 rounded-full bg-red-600 text-white shadow-lg shadow-red-900/50 flex items-center justify-center border-4 border-slate-900 -mt-8 hover:scale-105 active:scale-95 transition-transform relative group overflow-hidden">
+        <div class="absolute inset-0 bg-white/20 animate-ping opacity-0 group-hover:opacity-100"></div>
+        <i class="ph ph-siren text-3xl relative z-10"></i>
+    </button>
+
+    <!-- 3. IA (Orbe Integrado) -->
+    <!-- Nota: Eliminamos el botón flotante de base.html para usar este -->
+    <button onclick="window.Neural.toggleListen()" 
+            id="dock-mic"
+            class="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 flex items-center justify-center transition-all active:scale-90 relative">
+        <div id="mic-pulse" class="absolute inset-0 rounded-full bg-indigo-500 opacity-0"></div>
+        <i class="ph ph-microphone text-xl relative z-10"></i>
+    </button>
+
+</div>
+
+<!-- Botón Check-in (Verde - Flotante arriba del Dock) -->
+<div id="btn-checkin-container" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40 animate-bounce">
+    <button id="btn-checkin" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-full font-bold shadow-lg border-2 border-green-400 flex items-center gap-2 text-sm">
+        <i class="ph ph-map-pin-check text-lg"></i> CONFIRMAR INGRESO
+    </button>
+</div>
+
+<!-- 4. MODAL DE BOLETÍN (Z-100 - Diálogo Nativo) -->
+<dialog id="modal-bulletin" class="bg-slate-900 text-white p-0 rounded-2xl backdrop:bg-black/90 w-full max-w-md shadow-2xl border border-slate-700 z-[100]">
+    <div id="bulletin-header" class="p-6 bg-indigo-600">
+        <div class="flex justify-between items-start">
+            <h3 id="bulletin-title" class="text-2xl font-bold leading-tight">Título</h3>
+            <button onclick="document.getElementById('modal-bulletin').close()" class="text-white/70 hover:text-white">
+                <i class="ph ph-x text-2xl"></i>
+            </button>
+        </div>
+        <div class="mt-2 flex gap-2 text-xs font-mono text-white/80">
+            <span id="bulletin-date">--</span>
+            <span>•</span>
+            <span id="bulletin-priority" class="uppercase font-bold">INFO</span>
+        </div>
+    </div>
+    <div class="p-6 overflow-y-auto max-h-[60vh]">
+        <p id="bulletin-content" class="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">...</p>
+    </div>
+    <div class="p-4 bg-black/20 border-t border-slate-700 flex gap-3">
+        <button onclick="compartirBoletin()" class="flex-1 bg-transparent border border-slate-500 text-slate-300 px-4 py-3 rounded-xl font-bold hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2">
+            <i class="ph ph-share-network text-xl"></i> Compartir
+        </button>
+        <button onclick="marcarLeido()" class="flex-[2] bg-white text-slate-900 px-6 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors shadow-lg flex items-center justify-center gap-2">
+            <i class="ph ph-check-circle text-xl"></i> ENTENDIDO
+        </button>
+    </div>
+</dialog>
+
+<!-- 5. PANTALLA DE ALERTA ROJA (Z-MAXIMO) -->
+<!-- Estilos Inline Blindados -->
+<div id="alerta-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #dc2626; z-index: 2147483647; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: white;">
+    <div style="font-size: 8rem; margin-bottom: 20px; animation: pulse 1s infinite;">
+        <i class="ph ph-warning-octagon"></i>
+    </div>
+    <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 10px;">¡ALERTA!</h1>
+    <div id="alerta-msg" style="font-size: 1.5rem; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.3); max-width: 90%;">
+        Cargando...
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px;">
+        <a href="https://alerta.pe/reportar?ref=leavisamos" target="_blank" 
+           style="background: black; color: white; padding: 15px; border-radius: 50px; text-decoration: none; font-weight: bold; border: 2px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <i class="ph ph-map-pin-line" style="font-size: 1.5rem;"></i> REPORTAR DELITO
+        </a>
+        <!-- Botón Detener -->
+        <button type="button" onclick="window.cerrarAlerta()" 
+                style="background: white; color: #dc2626; padding: 15px; border-radius: 50px; font-weight: bold; border: none; font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            SILENCIAR / CERRAR
+        </button>
+    </div>
+</div>
+
+
+<!-- Animación simple CSS -->
+<style>
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+</style>
+
+<!-- CONFIGURACIÓN JS -->
+<script>
+    window.APP_CONFIG = {
+        user: {
+            id: "{{ user.id }}",
+            name: "{{ user.name }}",
+            unit: "{{ user.unit_info }}"
+        },
+        vapidPublicKey: "{{ vapid_public_key }}",
+        wsUrl: (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws/alerta'
+    };
+</script>
+<!-- Anular el micrófono flotante global porque aquí usamos el del Dock -->
+{% block mic_floating %}{% endblock %}
+<!-- Cargar Script Externo -->
+<script src="/static/js/pages/dashboard.js"></script>
+
+{% endblock %}
