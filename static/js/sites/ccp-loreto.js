@@ -158,7 +158,7 @@ function initModals() {
     });
 
     // Cerrar modales
-    document.querySelectorAll('.modal-close').forEach(btn => {
+    document.querySelectorAll('.modal-close-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             closeAllModals();
         });
