@@ -23,36 +23,57 @@ templates = Jinja2Templates(directory="app/templates")
 # --- MIDDLEWARE INTELIGENTE (Redis + DB) ---
 @app.middleware("http")
 async def tenant_middleware(request: Request, call_next):
-    host = request.headers.get("host", "").lower()
-    hostname = host.split(":")[0]
+    # 1. Normalizar el Hostname (Quitar puerto y www)
+    raw_host = request.headers.get("host", "").lower()
+    hostname = raw_host.split(":")[0] # Quita el :8000 si existe
+    if hostname.startswith("www."):
+        hostname = hostname[4:] # Quita el www.
+
     org_data = None
     
-    # 1. Consultar Caché (Redis)
+    # 2. INTENTO A: Consultar Caché (Redis) - Velocidad Extrema
     if redis_client:
         try:
+            # Usamos el hostname limpio como llave
             cached_org = redis_client.get(f"tenant:{hostname}")
             if cached_org:
                 org_data = json.loads(cached_org)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ Redis Error (Skipping): {e}")
 
-    # 2. Consultar BD (Si no hay caché)
+    # 3. INTENTO B: Consultar Base de Datos (Si no estaba en caché)
     if not org_data:
         db = SessionLocal()
         try:
             slug_to_search = None
             
-            # --- REGLAS DE ENRUTAMIENTO ---
-            if "ccploreto" in hostname or "duilio.store" in hostname:
+            # --- REGLAS DE ENRUTAMIENTO (Mapping) ---
+            # Aquí defines qué dominio apunta a qué cliente
+            
+            # Caso 1: Colegio de Contadores (Producción y Demo)
+            if hostname == "ccploreto.org.pe" or hostname.endswith("duilio.store"):
                 slug_to_search = "ccp-loreto"
+            
+            # Caso 2: Condominios (Tu SaaS)
             elif "leavisamos" in hostname:
                 slug_to_search = "las-palmeras"
-            elif "localhost" in hostname or "127.0.0.1" in hostname:
-                slug_to_search = "las-palmeras" # Default Local (Cámbialo si quieres probar el otro)
             
+            # Caso 3: Condominios (Tu SaaS)
+            elif "metraes.com" in hostname: 
+                slug_to_search = "ccp-loreto" # <--- Apuntamos al mismo cliente/BD
+            
+            # Caso 4: Desarrollo Local
+            elif hostname in ["localhost", "127.0.0.1"]:
+                # CAMBIA ESTO SEGÚN LO QUE QUIERAS PROBAR HOY:
+                slug_to_search = "ccp-loreto" 
+                # slug_to_search = "las-palmeras"
+            
+            # Consulta SQL
             if slug_to_search:
                 org = db.query(Organization).filter(Organization.slug == slug_to_search).first()
                 if org:
+                    # Serializar para guardar en Redis y en el Request
+                    # Convertimos el objeto SQLAlchemy a un diccionario puro
                     org_data = {
                         "id": org.id,
                         "name": org.name,
@@ -60,16 +81,26 @@ async def tenant_middleware(request: Request, call_next):
                         "slug": org.slug,
                         "theme_color": org.theme_color,
                         "logo_url": org.logo_url,
-                        "config": org.config
+                        "config": org.config or {} # Asegurar que no sea None
                     }
+                    
+                    # Guardar en Redis (TTL 10 minutos = 600 segundos)
                     if redis_client:
-                        redis_client.setex(f"tenant:{hostname}", 600, json.dumps(org_data))
+                        try:
+                            redis_client.setex(f"tenant:{hostname}", 600, json.dumps(org_data))
+                        except Exception as e:
+                            print(f"⚠️ No se pudo guardar en Redis: {e}")
+                        
+        except Exception as e:
+            print(f"❌ Error Crítico DB Middleware: {e}")
         finally:
             db.close()
 
-    # 3. Inyectar en Request
+    # 4. Inyectar Contexto en el Request (Vital para que no fallen los templates)
     if org_data:
         request.state.org = org_data
+        
+        # Construir el tema dinámico
         request.state.theme = {
             "site_name": org_data["name"],
             "primary_color": org_data["theme_color"],
@@ -78,6 +109,7 @@ async def tenant_middleware(request: Request, call_next):
             "modules": org_data["config"].get("modules", {})
         }
     else:
+        # Fallback: Si el dominio no existe en BD, cargamos default para mostrar Landing
         request.state.org = None
         request.state.theme = DEFAULT_THEME
 
