@@ -886,16 +886,29 @@ body {
 }
 
 .modal-content {
+    margin: 0 auto;
     position: relative;
     background: var(--oscuro-2);
     border-radius: 30px;
-    max-width: 900px;
-    width: 100%;
+    max-width: 600px;
+    width: 95%;
     max-height: 90vh;
     overflow-y: auto;
-    padding: 40px;
+    padding: 1.5rem;
     border: 1px solid rgba(212, 175, 55, 0.2);
     animation: modalSlideUp 0.4s ease;
+}
+
+/* AJUSTE DE TABLAS */
+/* Hacer que la tabla ocupe el 100% del contenedor padre */
+.modal-content table {
+    width: 100%;
+    font-size: 0.85rem; /* Letra más pequeña para que quepa */
+}
+
+.ph {
+    font-size: 1.25rem; /* Reducir de 2rem o 3rem a algo más sutil */
+    vertical-align: middle;
 }
 
 @keyframes modalSlideUp {
