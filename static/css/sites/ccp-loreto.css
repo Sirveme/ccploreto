@@ -1722,3 +1722,148 @@ body {
     .slide-btn { width: 100%; justify-content: center; margin-top: 0.5rem;}
     .carousel-slide { height: 300px; }
 }
+
+/* =========================================
+   CORRECCIÓN DE MODALES (RESPONSIVE)
+   ========================================= */
+
+/* 1. Contenedor del Modal (El fondo oscuro) */
+.modal {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    z-index: 9999; /* Encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto; /* Permitir scroll si el contenido es largo */
+    background-color: rgba(0, 0, 0, 0.85); /* Fondo más oscuro */
+    backdrop-filter: blur(5px); /* Efecto vidrio */
+    
+    /* Centrado Flex */
+    align-items: center;
+    justify-content: center;
+}
+
+/* Para activarlo desde JS */
+.modal.active {
+    display: flex !important;
+}
+
+/* 2. La Caja del Modal (El contenido) */
+.modal-content {
+    background-color: #0f172a; /* Slate 900 (Tu color de fondo) */
+    border: 1px solid #334155; /* Borde sutil */
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    position: relative;
+    
+    /* AJUSTE CLAVE PARA MÓVIL */
+    width: 95% !important; /* Ocupar casi todo el ancho */
+    max-width: 500px; /* En PC no pasar de esto */
+    margin: auto; /* Centrado */
+    padding: 1.5rem; /* Espacio interno equilibrado */
+    
+    /* Animación de entrada */
+    animation: modalPop 0.3s ease-out;
+}
+
+@keyframes modalPop {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* =========================================
+   AJUSTE DE CONTENIDO INTERNO
+   ========================================= */
+
+/* 3. Títulos y Textos */
+.modal-content h2, .modal-content h3 {
+    font-size: 1.25rem !important; /* No tan gigante */
+    line-height: 1.3;
+    margin-bottom: 1rem;
+    color: #facc15; /* Dorado */
+}
+
+.modal-content p, .modal-content li {
+    font-size: 0.9rem; /* Texto legible pero compacto */
+    line-height: 1.4; /* Reducir altura entre líneas */
+    color: #cbd5e1; /* Slate 300 */
+}
+
+/* 4. Íconos (Reducción de tamaño) */
+.modal-content i, .modal-content .ph {
+    font-size: 1.2rem !important; /* Tamaño estándar icono */
+    vertical-align: text-bottom;
+    margin-right: 4px;
+}
+
+/* 5. TABLAS (El problema de Transparencia) */
+.modal-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.8rem; /* Letra pequeña para tablas */
+}
+
+.modal-content th {
+    text-align: left;
+    color: #94a3b8;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #334155;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+}
+
+.modal-content td {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #1e293b;
+    color: white;
+}
+
+/* Alinear números a la derecha */
+.modal-content td:not(:first-child), 
+.modal-content th:not(:first-child) {
+    text-align: right;
+}
+
+/* =========================================
+   BOTÓN CERRAR (X)
+   ========================================= */
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.modal-close-btn:hover {
+    background: #ef4444;
+}
+
+/* =========================================
+   AJUSTE ESPECÍFICO MOBILE
+   ========================================= */
+@media (max-width: 640px) {
+    .modal-content {
+        padding: 1rem; /* Menos padding en celular */
+        margin-top: 10vh; /* Un poco de aire arriba */
+        margin-bottom: 10vh;
+    }
+    
+    /* Si la tabla es muy ancha, permitir scroll horizontal solo en la tabla */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
