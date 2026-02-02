@@ -25,6 +25,11 @@ fastapi-cli==0.0.20
 fastapi-cloud-cli==0.8.0
 fastar==0.8.0
 frozenlist==1.8.0
+google-cloud-storage==3.8.0
+google-cloud-core==2.5.0
+google-auth==2.48.0
+google-api-core==2.29.2
+google-resumable-media==2.8.0
 greenlet==3.3.0
 h11==0.16.0
 http_ece==1.2.1
