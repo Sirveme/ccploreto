@@ -1,0 +1,224 @@
+/**
+ * Voice Assistant Styles
+ * ======================
+ * Estilos para el asistente de voz
+ */
+
+/* ==========================================
+   VARIABLES (heredan de base.css o se definen aquí)
+   ========================================== */
+:root {
+    --voice-primary: #d4af37;
+    --voice-primary-light: #f4cf47;
+    --voice-success: #10b981;
+    --voice-error: #ef4444;
+    --voice-bg-dark: rgba(0, 0, 0, 0.8);
+    --voice-bg-card: rgba(255, 255, 255, 0.05);
+    --voice-text: #ffffff;
+    --voice-text-muted: rgba(255, 255, 255, 0.6);
+    --voice-radius: 12px;
+    --voice-radius-lg: 16px;
+}
+
+/* ==========================================
+   BOTÓN DE MICRÓFONO
+   ========================================== */
+.voice-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--voice-primary);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.voice-btn svg {
+    width: 24px;
+    height: 24px;
+    color: #1a1a1a;
+}
+
+.voice-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+}
+
+.voice-btn:active {
+    transform: scale(0.95);
+}
+
+/* Estado: Escuchando */
+.voice-btn.listening {
+    animation: voice-pulse 1.5s infinite;
+    background: var(--voice-primary-light);
+}
+
+.voice-btn.listening::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--voice-primary);
+    animation: voice-ripple 1.5s infinite;
+}
+
+@keyframes voice-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes voice-ripple {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Estado: Hablando */
+.voice-btn.speaking {
+    background: var(--voice-success);
+}
+
+.voice-btn.speaking svg {
+    animation: voice-wave 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes voice-wave {
+    from { transform: scaleY(0.8); }
+    to { transform: scaleY(1.2); }
+}
+
+/* ==========================================
+   INPUT DE BÚSQUEDA CON VOZ
+   ========================================== */
+.voice-search-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.voice-search-input {
+    flex: 1;
+    padding: 14px 16px;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    border-radius: var(--voice-radius);
+    color: var(--voice-text);
+    transition: all 0.3s ease;
+}
+
+.voice-search-input:focus {
+    outline: none;
+    border-color: var(--voice-primary);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.voice-search-input::placeholder {
+    color: var(--voice-text-muted);
+}
+
+/* ==========================================
+   CHIPS DE CONSULTA RÁPIDA
+   ========================================== */
+.voice-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.voice-chip {
+    padding: 10px 16px;
+    background: var(--voice-bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: var(--voice-text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.voice-chip:hover {
+    background: rgba(212, 175, 55, 0.2);
+    border-color: var(--voice-primary);
+    transform: translateY(-2px);
+}
+
+.voice-chip:active {
+    transform: translateY(0);
+}
+
+/* ==========================================
+   INDICADOR DE ESCUCHA
+   ========================================== */
+.voice-listening-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
+    color: var(--voice-primary);
+}
+
+.voice-listening-indicator .bars {
+    display: flex;
+    gap: 3px;
+    height: 20px;
+    align-items: center;
+}
+
+.voice-listening-indicator .bar {
+    width: 4px;
+    height: 100%;
+    background: var(--voice-primary);
+    border-radius: 2px;
+    animation: voice-bar 0.8s ease-in-out infinite;
+}
+
+.voice-listening-indicator .bar:nth-child(1) { animation-delay: 0s; }
+.voice-listening-indicator .bar:nth-child(2) { animation-delay: 0.1s; }
+.voice-listening-indicator .bar:nth-child(3) { animation-delay: 0.2s; }
+.voice-listening-indicator .bar:nth-child(4) { animation-delay: 0.3s; }
+.voice-listening-indicator .bar:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes voice-bar {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+}
+
+/* ==========================================
+   FEEDBACK DE VOZ (Toast)
+   ========================================== */
+.voice-feedback {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    background: var(--voice-bg-dark);
+    border: 1px solid var(--voice-primary);
+    border-radius: 25px;
+    color: var(--voice-text);
+    font-size: 0.9rem;
+    z-index: 10000;
+    animation: voice-feedback-in 0.3s ease;
+}
+
+.voice-feedback.hide {
+    animation: voice-feedback-out 0.3s ease forwards;
+}
+
+@keyframes voice-feedback-in {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes voice-feedback-out {
+    from { opacity: 1; transform: translate(-50%, 0); }
+    to { opacity: 0; transform: translate(-50%, 20px); }
+}

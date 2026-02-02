@@ -1,0 +1,335 @@
+/**
+ * Search Results Styles
+ * =====================
+ * Estilos para resultados de búsqueda
+ */
+
+/* ==========================================
+   CONTENEDOR DE RESULTADOS
+   ========================================== */
+.search-results-container {
+    display: none;
+    margin-top: 20px;
+    animation: results-fade-in 0.3s ease;
+}
+
+.search-results-container.active {
+    display: block;
+}
+
+@keyframes results-fade-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+   INPUT DE DNI
+   ========================================== */
+.dni-input-section {
+    text-align: center;
+}
+
+.dni-prompt {
+    color: var(--voice-primary, #d4af37);
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.dni-input-wrapper {
+    display: flex;
+    gap: 10px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.dni-input {
+    flex: 1;
+    padding: 14px 16px;
+    font-size: 1.1rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    border-radius: 12px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.dni-input:focus {
+    outline: none;
+    border-color: #d4af37;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.dni-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-buscar-dni {
+    padding: 14px 18px;
+    background: #d4af37;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-buscar-dni:hover {
+    background: #e5c349;
+    transform: scale(1.05);
+}
+
+.btn-buscar-dni svg {
+    width: 20px;
+    height: 20px;
+    color: #1a1a1a;
+}
+
+/* ==========================================
+   LOADING SPINNER
+   ========================================== */
+.search-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.search-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(212, 175, 55, 0.3);
+    border-top-color: #d4af37;
+    border-radius: 50%;
+    animation: search-spin 1s linear infinite;
+}
+
+@keyframes search-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   TARJETAS DE RESULTADO
+   ========================================== */
+.result-card {
+    padding: 20px;
+    border-radius: 16px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+/* Hábil */
+.result-card.result-habil {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.2), rgba(5, 150, 105, 0.1));
+    border: 2px solid #059669;
+}
+
+.result-card.result-habil .result-status {
+    color: #10b981;
+}
+
+/* Inhábil */
+.result-card.result-inhabil {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(220, 38, 38, 0.1));
+    border: 2px solid #dc2626;
+}
+
+.result-card.result-inhabil .result-status {
+    color: #ef4444;
+}
+
+/* No encontrado / Error */
+.result-card.result-not-found,
+.result-card.result-error {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Info */
+.result-card.result-info {
+    background: rgba(212, 175, 55, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+}
+
+/* Elementos internos */
+.result-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.result-status {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.status-detail {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-top: 5px;
+}
+
+.result-data {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.data-row:last-child {
+    border-bottom: none;
+}
+
+.data-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.data-value {
+    color: white;
+    font-weight: 500;
+}
+
+.result-message {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.result-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+/* ==========================================
+   BOTÓN DE REACTIVAR
+   ========================================== */
+.btn-reactivar {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #d4af37, #f4cf47);
+    color: #1a1a1a;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-reactivar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+}
+
+/* ==========================================
+   INFO ESTÁTICA
+   ========================================== */
+.static-info-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: left;
+}
+
+.static-info-card h3 {
+    color: #d4af37;
+    margin-bottom: 15px;
+}
+
+.static-info-card ol,
+.static-info-card ul {
+    margin-left: 20px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.static-info-card li {
+    margin-bottom: 8px;
+}
+
+.info-note {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(212, 175, 55, 0.1);
+    border-radius: 8px;
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+
+/* ==========================================
+   CONTROL DE TAMAÑO DEL MODAL
+   ========================================== */
+
+/* Contenedor de resultados con altura limitada */
+.search-results-container {
+    display: none;
+    margin-top: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    animation: results-fade-in 0.3s ease;
+    
+    /* Scrollbar sutil */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.5) transparent;
+}
+
+.search-results-container::-webkit-scrollbar {
+    width: 5px;
+}
+
+.search-results-container::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.5);
+    border-radius: 3px;
+}
+
+.search-results-container.active {
+    display: block;
+}
+
+
+.search-results-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+
+/* Tarjeta de resultado más compacta */
+.result-card {
+    padding: 15px;
+    border-radius: 12px;
+    margin-top: 12px;
+    text-align: center;
+}
+
+.result-icon {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.result-status {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.result-data {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.data-row {
+    padding: 5px 0;
+}
