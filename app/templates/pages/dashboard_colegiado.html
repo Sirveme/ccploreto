@@ -147,6 +147,12 @@
     margin-bottom: 10px;
 }
 
+/*PARA VISIBILIDAD DE TOAST en MODALES*/
+.toast-container,
+.toast {
+    z-index: 100000 !important;
+}
+
 </style>
 
 {% endblock %}
@@ -421,6 +427,14 @@
                         <input type="text" name="direccion" class="form-input" placeholder="Jr. / Av. ..."
                                value="{{ colegiado.direccion if colegiado and colegiado.direccion else '' }}" required>
                     </div>
+
+                    <!-- NUEVO: Referencia -->
+                    <div class="form-group">
+                        <label class="form-label">Referencia</label>
+                        <input type="text" name="referencia_domicilio" class="form-input" placeholder="Cerca de..., A 2 cuadras de..., Frente a..."
+                               value="{{ colegiado.referencia_domicilio if colegiado and colegiado.referencia_domicilio else '' }}">
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Fecha Nacimiento <span class="required">*</span></label>
@@ -503,6 +517,26 @@
                         <input type="text" name="especialidad" class="form-input" placeholder="Tributación, Auditoría, NIIF, Laboral..."
                                value="{{ colegiado.especialidad if colegiado and colegiado.especialidad else '' }}">
                     </div>
+
+                    <!-- NUEVO: Comité Funcional -->
+                    <div class="form-group">
+                        <label class="form-label">Comité Funcional</label>
+                        <select name="comite_funcional" class="form-select">
+                            <option value="">-- Seleccionar Comité --</option>
+                            <option value="auditoria" {{ 'selected' if colegiado and colegiado.comite_funcional == 'auditoria' else '' }}>Auditoría</option>
+                            <option value="administracion_finanzas" {{ 'selected' if colegiado and colegiado.comite_funcional == 'administracion_finanzas' else '' }}>Administración y Finanzas</option>
+                            <option value="tributacion" {{ 'selected' if colegiado and colegiado.comite_funcional == 'tributacion' else '' }}>Tributación</option>
+                            <option value="peritaje" {{ 'selected' if colegiado and colegiado.comite_funcional == 'peritaje' else '' }}>Peritaje</option>
+                            <option value="sector_gubernamental" {{ 'selected' if colegiado and colegiado.comite_funcional == 'sector_gubernamental' else '' }}>Sector Gubernamental</option>
+                            <option value="etica" {{ 'selected' if colegiado and colegiado.comite_funcional == 'etica' else '' }}>Ética y Ejercicio Profesional</option>
+                            <option value="educacion" {{ 'selected' if colegiado and colegiado.comite_funcional == 'educacion' else '' }}>Educación</option>
+                            <option value="pymes" {{ 'selected' if colegiado and colegiado.comite_funcional == 'pymes' else '' }}>PYMES</option>
+                            <option value="niif" {{ 'selected' if colegiado and colegiado.comite_funcional == 'niif' else '' }}>NIIF</option>
+                            <option value="sistemas_ti" {{ 'selected' if colegiado and colegiado.comite_funcional == 'sistemas_ti' else '' }}>Sistemas y Tecnologías de la Información</option>
+                            <option value="control_calidad" {{ 'selected' if colegiado and colegiado.comite_funcional == 'control_calidad' else '' }}>Control de Calidad</option>
+                        </select>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -535,6 +569,14 @@
                         <input type="text" name="centro_trabajo" class="form-input" placeholder="Nombre de la empresa o estudio"
                                value="{{ colegiado.centro_trabajo if colegiado and colegiado.centro_trabajo else '' }}">
                     </div>
+
+                    <!-- NUEVO: Referencia del Trabajo -->
+                    <div class="form-group">
+                        <label class="form-label">Referencia</label>
+                        <input type="text" name="referencia_trabajo" class="form-input" placeholder="Cerca de..., A 2 cuadras de..."
+                               value="{{ colegiado.referencia_trabajo if colegiado and colegiado.referencia_trabajo else '' }}">
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Cargo</label>
@@ -608,6 +650,98 @@
                 </div>
             </div>
         </div>
+
+        <!-- ACCORDION: MI PÁGINA WEB -->
+        <div class="accordion" id="acc-pagina-web">
+            <div class="accordion-header" onclick="toggleAccordion('acc-pagina-web')">
+                <div class="accordion-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">
+                    <i class="ph ph-browser"></i>
+                </div>
+                <span class="accordion-title">Mi Página Web</span>
+                <span class="accordion-status" style="background:rgba(100,116,139,0.15);color:#94a3b8;">Opcional</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Sobre mí</label>
+                        <textarea name="sobre_mi" class="form-input" rows="3" 
+                                  placeholder="Breve descripción profesional que aparecerá en tu página pública..."
+                                  style="resize:vertical;min-height:70px;">{{ colegiado.sobre_mi if colegiado and colegiado.sobre_mi else '' }}</textarea>
+                    </div>
+
+                    <p style="font-size:12px;color:#10b981;margin:16px 0 12px;display:flex;align-items:center;gap:6px;">
+                        <i class="ph ph-briefcase"></i> Experiencia Laboral (últimos 3 empleos)
+                    </p>
+
+                    {% set exp = colegiado.experiencia_laboral if colegiado and colegiado.experiencia_laboral else [] %}
+
+                    <!-- Empleo 1 -->
+                    <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Empresa / Institución</label>
+                                <input type="text" name="exp_empresa_1" class="form-input" placeholder="Nombre de la empresa"
+                                       value="{{ exp[0].empresa if exp|length > 0 else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Cargo</label>
+                                <input type="text" name="exp_cargo_1" class="form-input" placeholder="Cargo desempeñado"
+                                       value="{{ exp[0].cargo if exp|length > 0 else '' }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:11px;">Período</label>
+                            <input type="text" name="exp_periodo_1" class="form-input" placeholder="2020 - 2023"
+                                   value="{{ exp[0].periodo if exp|length > 0 else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- Empleo 2 -->
+                    <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Empresa / Institución</label>
+                                <input type="text" name="exp_empresa_2" class="form-input" placeholder="Nombre de la empresa"
+                                       value="{{ exp[1].empresa if exp|length > 1 else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Cargo</label>
+                                <input type="text" name="exp_cargo_2" class="form-input" placeholder="Cargo desempeñado"
+                                       value="{{ exp[1].cargo if exp|length > 1 else '' }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:11px;">Período</label>
+                            <input type="text" name="exp_periodo_2" class="form-input" placeholder="2017 - 2020"
+                                   value="{{ exp[1].periodo if exp|length > 1 else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- Empleo 3 -->
+                    <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Empresa / Institución</label>
+                                <input type="text" name="exp_empresa_3" class="form-input" placeholder="Nombre de la empresa"
+                                       value="{{ exp[2].empresa if exp|length > 2 else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Cargo</label>
+                                <input type="text" name="exp_cargo_3" class="form-input" placeholder="Cargo desempeñado"
+                                       value="{{ exp[2].cargo if exp|length > 2 else '' }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:11px;">Período</label>
+                            <input type="text" name="exp_periodo_3" class="form-input" placeholder="2014 - 2017"
+                                   value="{{ exp[2].periodo if exp|length > 2 else '' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <!-- ACCORDION: REDES SOCIALES (OPTIMIZADO) -->
         <div class="accordion" id="acc-redes">
