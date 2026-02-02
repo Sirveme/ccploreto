@@ -99,7 +99,7 @@ def upload_foto_perfil(
         blob.patch()
 
         # Hacer público este objeto específico (fine-grained)
-        blob.make_public()
+        #blob.make_public()
 
         return blob.public_url
 
