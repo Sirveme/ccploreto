@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Colegio de Contadores Públicos de Loreto - 60 Años</title>
     <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
+    <!-- Componentes de Voz -->
+    <link rel="stylesheet" href="/static/css/components/voice-assistant.css">
+    <link rel="stylesheet" href="/static/css/components/search-results.css">
 </head>
 <body>
     <!-- Header -->
@@ -153,7 +156,7 @@
                                 <h3>Gestión 2026-2027</h3>
                                 <p>Liderazgo y compromiso con el desarrollo regional.</p>
                             </div>
-                            <button class="slide-btn" onclick="abrirModal('modal-consejo')">
+                            <button class="slide-btn" onclick="abrirModal('directivosModal')">
                                 Ver Directiva <i class="ph ph-users-three"></i>
                             </button>
                         </div>
@@ -169,7 +172,7 @@
                                 <h3>Nuestros Ambientes</h3>
                                 <p>Auditorio, lozas deportivas y espacios para eventos.</p>
                             </div>
-                            <button class="slide-btn" onclick="abrirModal('modal-reservas')">
+                            <button class="slide-btn" onclick="abrirModal('reservaModal')">
                                 Reservar Ahora <i class="ph ph-calendar-check"></i>
                             </button>
                         </div>
@@ -210,105 +213,109 @@
 
     <!-- Placeholder para el modal de capacitaciones (si no existe aún) -->
     <!-- MODAL CAPACITACIONES (Estilo Agenda/Lista) -->
-    <dialog id="modal-capacitacion" class="bg-slate-900 text-white p-0 rounded-2xl border border-slate-700 backdrop:bg-black/90 w-full max-w-md shadow-2xl overflow-hidden">
+    <!-- MODAL CAPACITACIONES (Integrado) -->
+    <!-- MODAL CAPACITACIONES (Estilo Premier League / Match Day) -->
+    <div id="modal-capacitacion" class="modal">
         
-        <!-- Cabecera -->
-        <div class="bg-gradient-to-r from-blue-900 to-slate-900 p-5 border-b border-slate-700 flex justify-between items-center">
-            <div>
-                <h2 class="text-xl font-bold text-white">Agenda Académica</h2>
-                <p class="text-xs text-blue-300 uppercase tracking-widest">Próximos Eventos</p>
-            </div>
-            <button onclick="this.closest('dialog').close()" class="text-slate-400 hover:text-white transition-colors">
-                <i class="ph ph-x text-2xl"></i>
-            </button>
-        </div>
+        <!-- Overlay -->
+        <div class="modal-overlay" onclick="document.getElementById('modal-capacitacion').classList.remove('active'); document.body.style.overflow = '';"></div>
 
-        <!-- Cuerpo: Lista de Cursos (El estilo NBA) -->
-        <div class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+        <!-- Contenido -->
+        <div class="modal-content bg-[#1e1e1e] text-white p-0 rounded-xl w-full max-w-md shadow-2xl relative overflow-hidden mx-auto mt-20">
             
-            <!-- ITEM 1: EN CURSO (Live) -->
-            <div class="bg-slate-800 rounded-xl p-3 border-l-4 border-red-500 flex items-center justify-between hover:bg-slate-700 transition-colors cursor-pointer group">
-                <div class="flex items-center gap-3">
-                    <!-- Icono del Curso -->
-                    <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-600 group-hover:border-red-500 transition-colors">
-                        <i class="ph ph-presentation-chart text-xl text-red-500"></i>
-                    </div>
-                    <!-- Info -->
-                    <div>
-                        <h4 class="font-bold text-sm leading-tight">Cierre Contable 2025</h4>
-                        <p class="text-[10px] text-slate-400">Dr. CPC Juan Pérez</p>
-                    </div>
-                </div>
-                <!-- Estado (Score) -->
-                <div class="text-right">
-                    <span class="text-[10px] font-bold text-red-500 flex items-center justify-end gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> EN VIVO
-                    </span>
-                    <p class="text-xs font-mono font-bold">18:00 - 20:00</p>
-                </div>
+            <!-- HEADER FLOTANTE -->
+            <div class="flex justify-between items-center p-4 absolute top-0 left-0 w-full z-20">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Agenda Académica</span>
+                <!-- Botón Cerrar (Corregido: z-index alto y color blanco explícito) -->
+                <button onclick="document.getElementById('modal-capacitacion').classList.remove('active'); document.body.style.overflow = '';" 
+                        class="bg-black/50 hover:bg-white hover:text-black text-white rounded-full p-2 transition-all backdrop-blur-sm">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
             </div>
 
-            <!-- ITEM 2: PRÓXIMO (Destacado) -->
-            <div class="bg-slate-800 rounded-xl p-3 border-l-4 border-yellow-500 flex items-center justify-between hover:bg-slate-700 transition-colors cursor-pointer group">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-600 group-hover:border-yellow-500 transition-colors">
-                        <i class="ph ph-calculator text-xl text-yellow-500"></i>
+            <!-- LISTA DE EVENTOS (Con Padding superior para no tapar el header) -->
+            <div class="pt-14 pb-4 px-4 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                
+                <!-- TARJETA 1: EN VIVO (Estilo Leeds vs Arsenal) -->
+                <!-- Fondo gris oscuro (#2b2b2b) -->
+                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
+                    
+                    <!-- Lado Izquierdo (Azul) -->
+                    <div class="w-1/3 relative bg-gradient-to-r from-blue-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <i class="ph ph-presentation-chart text-3xl text-blue-400 mb-1 drop-shadow-md"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Cierre Contable</span>
+                        <!-- Decoración de borde inclinado (Simulado con borde) -->
+                        <div class="absolute right-0 top-0 h-full w-4 bg-gradient-to-l from-[#2b2b2b] to-transparent"></div>
                     </div>
-                    <div>
-                        <h4 class="font-bold text-sm leading-tight">Taller NIIF Pymes</h4>
-                        <p class="text-[10px] text-slate-400">Sab. 28 Enero</p>
+
+                    <!-- Centro (Hora) -->
+                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
+                        <span class="text-2xl font-bold text-white tracking-tighter">18:00</span>
+                        <span class="text-[10px] text-gray-400 font-medium">HOY, 29 Ene</span>
+                        <span class="mt-1 text-[9px] bg-red-600 text-white px-2 rounded-full animate-pulse">EN VIVO</span>
+                    </div>
+
+                    <!-- Lado Derecho (Rojo) -->
+                    <div class="w-1/3 relative bg-gradient-to-l from-red-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <div class="absolute left-0 top-0 h-full w-4 bg-gradient-to-r from-[#2b2b2b] to-transparent"></div>
+                        <i class="ph ph-chalkboard-teacher text-3xl text-red-400 mb-1 drop-shadow-md"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Dr. Juan Pérez</span>
                     </div>
                 </div>
-                <div class="text-right">
-                    <span class="text-[10px] font-bold text-yellow-500 uppercase">Inscripciones</span>
-                    <p class="text-xs font-bold text-white">S/ 50.00</p>
+
+                <!-- TARJETA 2: FUTURO (Estilo Brighton vs Everton) -->
+                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
+                    
+                    <!-- Lado Izquierdo (Indigo) -->
+                    <div class="w-1/3 relative bg-gradient-to-r from-indigo-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <i class="ph ph-calculator text-3xl text-indigo-400 mb-1"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">NIIF Pymes</span>
+                    </div>
+
+                    <!-- Centro -->
+                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
+                        <span class="text-2xl font-bold text-white tracking-tighter">10:00</span>
+                        <span class="text-[10px] text-gray-400 font-medium">31 Ene.</span>
+                        <span class="mt-1 text-[9px] text-yellow-500 font-bold">S/ 50.00</span>
+                    </div>
+
+                    <!-- Lado Derecho (Azul) -->
+                    <div class="w-1/3 relative bg-gradient-to-l from-blue-800 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <i class="ph ph-video-camera text-3xl text-blue-400 mb-1"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Virtual (Zoom)</span>
+                    </div>
                 </div>
+
+                <!-- TARJETA 3: PRESENCIAL (Estilo Wolves) -->
+                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
+                    
+                    <!-- Lado Izquierdo (Naranja) -->
+                    <div class="w-1/3 relative bg-gradient-to-r from-orange-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <i class="ph ph-gavel text-3xl text-orange-400 mb-1"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Peritaje</span>
+                    </div>
+
+                    <!-- Centro -->
+                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
+                        <span class="text-2xl font-bold text-white tracking-tighter">16:00</span>
+                        <span class="text-[10px] text-gray-400 font-medium">05 Feb.</span>
+                    </div>
+
+                    <!-- Lado Derecho (Gris) -->
+                    <div class="w-1/3 relative bg-gradient-to-l from-slate-700 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
+                        <i class="ph ph-buildings text-3xl text-slate-400 mb-1"></i>
+                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Auditorio CCP</span>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- ITEM 3: FUTURO (Normal) -->
-            <div class="bg-slate-800 rounded-xl p-3 border-l-4 border-blue-500 flex items-center justify-between hover:bg-slate-700 transition-colors cursor-pointer group">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-600 group-hover:border-blue-500 transition-colors">
-                        <i class="ph ph-files text-xl text-blue-500"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm leading-tight">Peritaje Contable</h4>
-                        <p class="text-[10px] text-slate-400">Feb. 05</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <span class="text-[10px] font-bold text-blue-400 uppercase">Programado</span>
-                    <p class="text-xs font-bold text-white">Virtual</p>
-                </div>
+            <!-- Footer -->
+            <div class="p-4 text-center border-t border-white/10">
+                <a href="#" class="text-blue-400 text-sm font-bold hover:text-blue-300">Ver programación completa</a>
             </div>
-
-            <!-- ITEM 4: PASADO (Gris) -->
-            <div class="bg-slate-800/50 rounded-xl p-3 border-l-4 border-slate-600 flex items-center justify-between opacity-70">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-700">
-                        <i class="ph ph-video text-xl text-slate-500"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm text-slate-400 leading-tight">Auditoría Gubernamental</h4>
-                        <p class="text-[10px] text-slate-500">Finalizado ayer</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Grabación</span>
-                    <p class="text-xs font-bold text-slate-400">Disponible</p>
-                </div>
-            </div>
-
         </div>
-
-        <!-- Footer: Ver más -->
-        <div class="p-3 bg-black/20 text-center border-t border-slate-700">
-            <a href="#" class="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wide">
-                Ver Calendario Completo <i class="ph ph-arrow-right"></i>
-            </a>
-        </div>
-
-    </dialog>
+    </div>
 
     <!-- Videos Section -->
     <section class="videos-section">
@@ -636,25 +643,10 @@
                     </div>
                 </div>
                 <div class="tab-content" id="pagar">
-                    <h3>💳 Métodos de Pago</h3>
-                    <div class="metodos-pago">
-                        <div class="metodo-card">
-                            <h4>📱 Yape / Plin</h4>
-                            <p class="numero-grande">979 169 813</p>
-                            <p class="subtexto">Envía tu voucher al mismo número</p>
-                        </div>
-                        <div class="metodo-card">
-                            <h4>🏦 Transferencia Bancaria BCP</h4>
-                            <p class="numero-grande">123-4567890-1-23</p>
-                            <p class="subtexto">CCI: 00212312345678901230</p>
-                        </div>
-                        <div class="metodo-card">
-                            <h4>🏦 Banco de la Nación</h4>
-                            <p class="numero-grande">00-987-654321</p>
-                            <p class="subtexto">Envía voucher vía WhatsApp</p>
-                        </div>
+                    <div id="formulario-pago-container" class="text-center py-8">
+                        <div class="loader-bar"></div>
+                        <p class="text-slate-400 text-sm mt-2">Cargando formulario...</p>
                     </div>
-                    <button class="btn-pago-online">Pagar en Línea</button>
                 </div>
             </div>
         </div>
@@ -699,7 +691,8 @@
         <div class="modal-overlay"></div>
         <div class="modal-content modal-directivos">
             <button class="modal-close-btn">&times;</button>
-            <h2 class="modal-title">Consejo Directivo 2024-2025</h2>
+            <h2 class="modal-title">Consejo Directivo 2026-2027</h2>
+            <br><br>
             <div class="directivos-grid">
                 <div class="directivo-card">
                     <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
@@ -937,57 +930,76 @@
         </div>
     </div>
 
+    <!-- 1. Módulos de Voz (PRIMERO) -->
+    <script src="/static/js/modules/voice-assistant.js"></script>
+    <script src="/static/js/modules/search-engine.js"></script>
+    
+    <!-- 2. Script principal del sitio -->
     <script src="/static/js/sites/ccp-loreto.js"></script>
-
-    <!-- LÓGICA DEL CARRUSEL -->
+    
+    <!-- 3. Lógica del Carrusel (encapsulada para evitar conflictos) -->
     <script>
-        let currentSlide = 0;
-        const track = document.getElementById('carousel-track');
-        const slides = track.children;
-        const totalSlides = slides.length;
-        const dots = document.querySelectorAll('.dot');
-        let autoPlayInterval;
-
-        function updateCarousel() {
-            // Mover el track
-            track.style.transform = `translateX(-${currentSlide * 100}%)`;
+    (function() {
+        // Esperar a que el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCarousel);
+        } else {
+            initCarousel();
+        }
+        
+        function initCarousel() {
+            const track = document.getElementById('carousel-track');
+            if (!track) return;
             
-            // Actualizar puntitos
-            dots.forEach((dot, index) => {
-                if (index === currentSlide) {
-                    dot.classList.remove('bg-white/50');
-                    dot.classList.add('bg-yellow-500', 'scale-125');
-                } else {
-                    dot.classList.add('bg-white/50');
-                    dot.classList.remove('bg-yellow-500', 'scale-125');
-                }
-            });
-        }
-
-        function moveSlide(direction) {
-            currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+            let currentSlide = 0;
+            const slides = track.children;
+            const totalSlides = slides.length;
+            const dots = document.querySelectorAll('.dot');
+            let autoPlayInterval;
+            
+            function updateCarousel() {
+                track.style.transform = `translateX(-${currentSlide * 100}%)`;
+                dots.forEach((dot, index) => {
+                    if (index === currentSlide) {
+                        dot.classList.remove('bg-white/50');
+                        dot.classList.add('bg-yellow-500', 'scale-125');
+                    } else {
+                        dot.classList.add('bg-white/50');
+                        dot.classList.remove('bg-yellow-500', 'scale-125');
+                    }
+                });
+            }
+            
+            function moveSlide(direction) {
+                currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+                updateCarousel();
+                resetTimer();
+            }
+            
+            function goToSlide(index) {
+                currentSlide = index;
+                updateCarousel();
+                resetTimer();
+            }
+            
+            function startTimer() {
+                autoPlayInterval = setInterval(() => moveSlide(1), 5000);
+            }
+            
+            function resetTimer() {
+                clearInterval(autoPlayInterval);
+                startTimer();
+            }
+            
+            // Exponer funciones globalmente para los botones onclick
+            window.moveSlide = moveSlide;
+            window.goToSlide = goToSlide;
+            
+            // Iniciar
             updateCarousel();
-            resetTimer();
-        }
-
-        function goToSlide(index) {
-            currentSlide = index;
-            updateCarousel();
-            resetTimer();
-        }
-
-        function startTimer() {
-            autoPlayInterval = setInterval(() => moveSlide(1), 5000); // Cambia cada 5 segundos
-        }
-
-        function resetTimer() {
-            clearInterval(autoPlayInterval);
             startTimer();
         }
-
-        // Iniciar
-        updateCarousel();
-        startTimer();
+    })();
     </script>
 </body>
 </html>
