@@ -1867,3 +1867,291 @@ body {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+
+/* Correcciones para el Modal */
+.modal-content {
+    background-color: #1e1e1e; /* Fondo casi negro como la imagen */
+    border: 1px solid #333;
+}
+
+/* Scrollbar personalizada oscura */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 10px;
+}
+
+
+/* ==========================================
+   BÚSQUEDA INTELIGENTE - RESULTADOS
+   ========================================== */
+
+.search-results-container {
+    display: none;
+    margin-top: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Input de DNI */
+.dni-input-section {
+    text-align: center;
+}
+
+.dni-prompt {
+    color: #d4af37;
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.dni-input-wrapper {
+    display: flex;
+    gap: 10px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.dni-input {
+    flex: 1;
+    padding: 14px 16px;
+    font-size: 1.1rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    border-radius: 12px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.dni-input:focus {
+    outline: none;
+    border-color: #d4af37;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.dni-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-buscar-dni {
+    padding: 14px 18px;
+    background: #d4af37;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-buscar-dni:hover {
+    background: #e5c349;
+    transform: scale(1.05);
+}
+
+.btn-buscar-dni svg {
+    width: 20px;
+    height: 20px;
+    color: #1a1a1a;
+}
+
+/* Loading */
+.loading-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(212, 175, 55, 0.3);
+    border-top-color: #d4af37;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Result Cards */
+.result-card {
+    padding: 20px;
+    border-radius: 16px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.result-habil {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.2), rgba(5, 150, 105, 0.1));
+    border: 2px solid #059669;
+}
+
+.result-inhabil {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(220, 38, 38, 0.1));
+    border: 2px solid #dc2626;
+}
+
+.result-not-found,
+.result-error {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.result-info {
+    background: rgba(212, 175, 55, 0.1);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+}
+
+.result-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.result-status {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.result-habil .result-status {
+    color: #10b981;
+}
+
+.result-inhabil .result-status {
+    color: #ef4444;
+}
+
+.status-detail {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-top: 5px;
+}
+
+.result-data {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.data-row:last-child {
+    border-bottom: none;
+}
+
+.data-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.data-value {
+    color: white;
+    font-weight: 500;
+}
+
+.result-message {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.result-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+.btn-reactivar {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #d4af37, #f4cf47);
+    color: #1a1a1a;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-reactivar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+}
+
+/* Static Info Card */
+.static-info-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: left;
+}
+
+.static-info-card h3 {
+    color: #d4af37;
+    margin-bottom: 15px;
+}
+
+.static-info-card ol,
+.static-info-card ul {
+    margin-left: 20px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.static-info-card li {
+    margin-bottom: 8px;
+}
+
+.info-note {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(212, 175, 55, 0.1);
+    border-radius: 8px;
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+/* Voice button animation */
+.voice-btn.listening {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
+}
+
+/* Loader Bar DEL MODAL "REACTIVAR" pestaña PAGAR */
+.loader-bar {
+    width: 200px;
+    height: 4px;
+    margin: 0 auto 1rem;
+    background: linear-gradient(90deg, #d4af37, #1e3a5f, #d4af37);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 2px;
+}
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
