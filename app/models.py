@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 import enum
+from sqlalchemy.dialects.postgresql import JSONB
 
 # --- ENUMS (Para restringir valores y evitar errores) ---
 class MemberRole(str, enum.Enum):
@@ -310,18 +311,21 @@ class Debt(Base):
     __tablename__ = "debts"
     id = Column(Integer, primary_key=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"))
-    member_id = Column(Integer, ForeignKey("members.id"))
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=True)  # Para condominios
+    colegiado_id = Column(Integer, ForeignKey("colegiados.id"), nullable=True)  # Para colegios profesionales
     
     concept = Column(String)
+    periodo = Column(String, nullable=True)  # '2024-01', '2024-02'
     amount = Column(Float)
     balance = Column(Float)
-    status = Column(String, default="pending")
+    status = Column(String, default="pending")  # pending, partial, paid
     due_date = Column(DateTime(timezone=True), nullable=True)
     attachment_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relaciones
     member = relationship("Member")
+    colegiado = relationship("Colegiado", foreign_keys=[colegiado_id])
     organization = relationship("Organization")
 
 
@@ -375,31 +379,36 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"))
-    member_id = Column(Integer, ForeignKey("members.id"))
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=True)  # Para condominios
+    colegiado_id = Column(Integer, ForeignKey("colegiados.id"), nullable=True)  # Para colegios profesionales
     
     # Detalle del Pago
     amount = Column(Float)
     currency = Column(String, default="PEN") # PEN, USD
-    
     payment_method = Column(String) # Yape, Plin, Transferencia, Efectivo
     operation_code = Column(String, nullable=True) # Nro de Operación del banco
     voucher_url = Column(String, nullable=True) # Foto
     
+    # Quién paga (puede ser tercero/empresa)
+    pagador_tipo = Column(String, default="titular")  # titular, empresa, tercero
+    pagador_nombre = Column(String, nullable=True)
+    pagador_documento = Column(String, nullable=True)  # RUC o DNI del pagador
+
     # Estado del Pago
     status = Column(String, default="review") # review (esperando a Julieth), approved, rejected
-
     rejection_reason = Column(Text, nullable=True)
     
     # Relación con Deuda (Opcional: puede ser pago adelantado sin deuda específica)
     related_debt_id = Column(Integer, ForeignKey("debts.id"), nullable=True)
-    
     notes = Column(Text, nullable=True) # "Pago de Enero y Febrero"
     
     reviewed_by = Column(Integer, ForeignKey("members.id"), nullable=True) # Quién aprobó (Auditoría)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Relaciones
     member = relationship("Member", foreign_keys=[member_id])
+    colegiado = relationship("Colegiado", foreign_keys=[colegiado_id])
     organization = relationship("Organization")
 
 
@@ -436,3 +445,77 @@ class AuditLog(Base):
     ip_address = Column(String)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# --- MÓDULO COLEGIOS PROFESIONALES ---
+
+class Colegiado(Base):
+    __tablename__ = "colegiados"
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=True)  # Se vincula cuando se registra
+    
+    # Datos de importación (Excel)
+    dni = Column(String(30), index=True)  # Era 15
+    codigo_matricula = Column(String(50), index=True)  # Era 20
+    apellidos_nombres = Column(String(500))  # Era 255
+    sexo = Column(String(1), nullable=True)
+    
+    # Estado de Habilidad
+    condicion = Column(String, default="inhabil")  # habil, inhabil, suspendido, fallecido
+    fecha_actualizacion_condicion = Column(DateTime(timezone=True), server_default=func.now())
+    motivo_inhabilidad = Column(String, nullable=True)
+    
+    # Datos adicionales (para cuando actualicen su perfil)
+    email = Column(String, nullable=True)
+    telefono = Column(String, nullable=True)
+    direccion = Column(String, nullable=True)
+    foto_url = Column(String, nullable=True)
+    fecha_colegiatura = Column(DateTime(timezone=True), nullable=True)
+    especialidad = Column(String, nullable=True)
+    
+    # Control
+    tiene_dni_real = Column(Boolean, default=True)  # False si es código ficticio
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Nuevos campos
+    fecha_nacimiento = Column(Date)
+    lugar_nacimiento = Column(String(200))
+    estado_civil = Column(String(20))
+    tipo_documento = Column(String(20), default='DNI')
+    tipo_sangre = Column(String(5), nullable=True)  # A+, A-, B+, B-, AB+, AB-, O+, O-
+    
+    universidad = Column(String(300))
+    fecha_titulo = Column(Date)
+    grado_academico = Column(String(50))
+    otros_estudios = Column(JSONB, default=[])
+    
+    situacion_laboral = Column(String(30))
+    centro_trabajo = Column(String(300))
+    cargo = Column(String(200))
+    ruc_empleador = Column(String(20))
+    direccion_trabajo = Column(String(500))
+    telefono_trabajo = Column(String(50))
+    
+    nombre_conyuge = Column(String(200))
+    cantidad_hijos = Column(Integer, default=0)
+    contacto_emergencia_nombre = Column(String(200))
+    contacto_emergencia_telefono = Column(String(50))
+    contacto_emergencia_parentesco = Column(String(50))
+    
+    sitio_web = Column(String(300))
+    linkedin = Column(String(300))
+    facebook = Column(String(300))
+    instagram = Column(String(300))
+    tiktok = Column(String(300))
+    
+    datos_actualizados_at = Column(DateTime)
+    datos_completos = Column(Boolean, default=False)
+    
+    # Relaciones
+    organization = relationship("Organization")
+    member = relationship("Member", foreign_keys=[member_id])
+
+    @property
+    def es_habil(self):
+        return self.condicion in ('habil', 'vitalicio')

@@ -13,7 +13,9 @@ from .database import engine, SessionLocal
 from .models import Organization
 from .config import redis_client, DEFAULT_THEME, THEMES, SECRET_KEY
 # Importamos todos los routers
-from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory
+from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado
+from app.routers.public import router, router_landing
+from app.routers.api_colegiado import router as api_colegiado_router
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -128,6 +130,13 @@ app.include_router(finance.router)
 app.include_router(services.router)
 app.include_router(partners.router)
 app.include_router(directory.router)
+app.include_router(public.router)
+app.include_router(pagos_publicos.router)
+app.include_router(colegiado.router)
+app.include_router(router)
+app.include_router(router_landing)
+app.include_router(api_colegiado_router)
+
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
@@ -194,8 +203,8 @@ async def login_page(request: Request):
     if request.cookies.get("access_token"):
         return RedirectResponse(url="/dashboard")
 
-    #return templates.TemplateResponse("pages/login.html", {
-    return templates.TemplateResponse("/dashboard", {
+    #return templates.TemplateResponse("/dashboard", {
+    return templates.TemplateResponse("pages/login.html", {
         "request": request,
         "theme": request.state.theme
     })
