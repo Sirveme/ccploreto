@@ -15,7 +15,7 @@ from .config import redis_client, DEFAULT_THEME, THEMES, SECRET_KEY
 # Importamos todos los routers
 from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado
 from app.routers.public import router, router_landing
-from app.routers.api_colegiado import router as api_colegiado_router
+#from app.routers.api_colegiado import router as api_colegiado_router
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -134,9 +134,8 @@ app.include_router(public.router)
 app.include_router(pagos_publicos.router)
 app.include_router(colegiado.router)
 app.include_router(router)
-app.include_router(api_colegiado_router)
+#app.include_router(api_colegiado_router)
 app.include_router(router_landing)
-
 
 
 # --- RUTAS BASE ---
@@ -216,5 +215,4 @@ async def resumen(request: Request):
 
 @app.get("/demo/ads")
 async def demo_ads(request: Request):
-
     return templates.TemplateResponse("landing/demo_ads.html", {"request": request})
