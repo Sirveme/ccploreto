@@ -1058,8 +1058,8 @@
                 <div class="section-subtitle">Presentación profesional</div>
             </div>
         </div>
-        {% if colegiado.bio %}
-            <p class="bio-text">"{{ colegiado.bio }}"</p>
+        {% if colegiado.sobre_mi %}
+            <p class="bio-text">"{{ colegiado.sobre_mi }}"</p>
         {% else %}
             <p class="bio-placeholder">
                 Profesional colegiado{% if colegiado.especialidad %} especializado en {{ colegiado.especialidad.split(',')[0].strip() }}{% endif %}{% if colegiado.universidad %}, egresado de {{ colegiado.universidad }}{% endif %}. Comprometido con la excelencia profesional y la ética.
@@ -1096,6 +1096,7 @@
         </div>
         
         <div class="timeline">
+            {# Trabajo actual #}
             {% if colegiado.centro_trabajo %}
             <div class="timeline-item">
                 <div class="timeline-dot"></div>
@@ -1112,6 +1113,26 @@
             </div>
             {% endif %}
             
+            {# Experiencia laboral guardada (JSONB) #}
+            {% set exp = colegiado.experiencia_laboral if colegiado.experiencia_laboral else [] %}
+            {% for trabajo in exp %}
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-title">{{ trabajo.cargo or 'Profesional' }}</div>
+                <div class="timeline-company">
+                    <i class="ph ph-buildings"></i>
+                    {{ trabajo.empresa }}
+                </div>
+                {% if trabajo.periodo %}
+                <div class="timeline-period">
+                    <i class="ph ph-calendar"></i>
+                    {{ trabajo.periodo }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            {# Formación académica #}
             {% if colegiado.universidad %}
             <div class="timeline-item">
                 <div class="timeline-dot"></div>
@@ -1132,6 +1153,7 @@
             </div>
             {% endif %}
             
+            {# Colegiatura #}
             {% if colegiado.fecha_colegiatura %}
             <div class="timeline-item">
                 <div class="timeline-dot"></div>
@@ -1147,7 +1169,8 @@
             </div>
             {% endif %}
             
-            {% if not colegiado.centro_trabajo and not colegiado.universidad and not colegiado.fecha_colegiatura %}
+            {# Empty state #}
+            {% if not colegiado.centro_trabajo and not exp and not colegiado.universidad and not colegiado.fecha_colegiatura %}
             <div class="empty-state">
                 <i class="ph ph-clock-clockwise"></i>
                 <p>Información de experiencia pendiente de actualizar</p>
