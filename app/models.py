@@ -511,6 +511,17 @@ class Colegiado(Base):
     
     datos_actualizados_at = Column(DateTime)
     datos_completos = Column(Boolean, default=False)
+
+    # Referencias de domicilio
+    referencia_domicilio = Column(String(500), nullable=True)
+    referencia_trabajo = Column(String(500), nullable=True)
+
+    # Comité Funcional (estándar Colegios de Contadores)
+    comite_funcional = Column(String(100), nullable=True)
+
+    # Página web del colegiado
+    sobre_mi = Column(Text, nullable=True)
+    experiencia_laboral = Column(JSONB, default=[])
     
     # Relaciones
     organization = relationship("Organization")
