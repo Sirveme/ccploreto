@@ -12,8 +12,59 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Member, Colegiado
 from app.routers.dashboard import get_current_member
+from datetime import timezone
 
 router = APIRouter(prefix="/api/colegiado", tags=["colegiado"])
+
+def buscar_colegiado_de_member(member: Member, db: Session) -> Colegiado | None:
+    """Busca colegiado vinculado al member (misma lógica que dashboard)"""
+    user_input = member.user.public_id if member.user else None
+    if not user_input:
+        return None
+    
+    user_input = user_input.strip().upper()
+    org_id = member.organization_id
+    
+    # Por DNI (8 dígitos)
+    if len(user_input) == 8 and user_input.isdigit():
+        c = db.query(Colegiado).filter(
+            Colegiado.organization_id == org_id,
+            Colegiado.dni == user_input
+        ).first()
+        if c:
+            return c
+    
+    # Por matrícula con guión
+    if '-' in user_input:
+        c = db.query(Colegiado).filter(
+            Colegiado.organization_id == org_id,
+            Colegiado.codigo_matricula == user_input
+        ).first()
+        if c:
+            return c
+    
+    # Por código tipo 10XXXX
+    if user_input.startswith('10'):
+        resto = user_input[2:]
+        numero, letra = '', ''
+        for i, char in enumerate(resto):
+            if char.isdigit():
+                numero += char
+            else:
+                letra = resto[i:].upper()
+                break
+        matricula = f"10-{numero.zfill(4)}{letra}"
+        c = db.query(Colegiado).filter(
+            Colegiado.organization_id == org_id,
+            Colegiado.codigo_matricula == matricula
+        ).first()
+        if c:
+            return c
+    
+    # Fallback: por member_id
+    return db.query(Colegiado).filter(
+        Colegiado.member_id == member.id
+    ).first()
 
 
 # ============================================================
@@ -25,10 +76,7 @@ async def obtener_mis_datos(
     db: Session = Depends(get_db)
 ):
     """Obtiene todos los datos del colegiado logueado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -105,10 +153,7 @@ async def actualizar_datos_personales(
     db: Session = Depends(get_db)
 ):
     """Actualiza datos personales del colegiado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -132,11 +177,11 @@ async def actualizar_datos_personales(
         colegiado.tipo_sangre = tipo_sangre if tipo_sangre else None
     
     if foto and foto.filename:
-        foto_url = await guardar_foto(foto, colegiado.id)
+        foto_url = await guardar_foto(foto, colegiado.organization_id, colegiado.id)
         if foto_url:
             colegiado.foto_url = foto_url
     
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
     
     db.commit()
@@ -157,10 +202,7 @@ async def actualizar_datos_estudios(
     db: Session = Depends(get_db)
 ):
     """Actualiza datos de estudios del colegiado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -177,7 +219,7 @@ async def actualizar_datos_estudios(
     if especialidad is not None:
         colegiado.especialidad = especialidad.strip() if especialidad else None
     
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
     
     db.commit()
@@ -200,10 +242,7 @@ async def actualizar_datos_laborales(
     db: Session = Depends(get_db)
 ):
     """Actualiza datos laborales del colegiado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -221,7 +260,7 @@ async def actualizar_datos_laborales(
     if telefono_trabajo is not None:
         colegiado.telefono_trabajo = telefono_trabajo.strip() if telefono_trabajo else None
     
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
     
     db.commit()
@@ -243,10 +282,7 @@ async def actualizar_datos_familiares(
     db: Session = Depends(get_db)
 ):
     """Actualiza datos familiares del colegiado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -262,7 +298,7 @@ async def actualizar_datos_familiares(
     if contacto_emergencia_parentesco is not None:
         colegiado.contacto_emergencia_parentesco = contacto_emergencia_parentesco.strip() if contacto_emergencia_parentesco else None
     
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
     
     db.commit()
@@ -283,10 +319,7 @@ async def actualizar_redes_sociales(
     db: Session = Depends(get_db)
 ):
     """Actualiza redes sociales del colegiado"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -300,7 +333,7 @@ async def actualizar_redes_sociales(
     if instagram is not None:
         colegiado.instagram = instagram.strip() if instagram else None
     
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     
     db.commit()
     
@@ -344,16 +377,14 @@ async def actualizar_todos_los_datos(
     linkedin: str = Form(None),
     facebook: str = Form(None),
     instagram: str = Form(None),
+    tiktok: str = Form(None),
     # Foto
     foto: UploadFile = File(None),
     member: Member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
     """Actualiza todos los datos del colegiado de una vez"""
-    colegiado = db.query(Colegiado).filter(
-        Colegiado.organization_id == member.organization_id,
-        Colegiado.dni == member.user.public_id
-    ).first()
+    colegiado = buscar_colegiado_de_member(member, db)
     
     if not colegiado:
         raise HTTPException(404, "Colegiado no encontrado")
@@ -425,15 +456,17 @@ async def actualizar_todos_los_datos(
         colegiado.facebook = facebook.strip() if facebook else None
     if instagram is not None:
         colegiado.instagram = instagram.strip() if instagram else None
+    if tiktok is not None:
+        colegiado.tiktok = tiktok.strip() if tiktok else None    
     
     # === FOTO ===
     if foto and foto.filename:
-        foto_url = await guardar_foto(foto, colegiado.id)
+        foto_url = await guardar_foto(foto, colegiado.organization_id, colegiado.id)
         if foto_url:
             colegiado.foto_url = foto_url
     
     # === META ===
-    colegiado.datos_actualizados_at = datetime.utcnow()
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
     
     db.commit()
@@ -445,26 +478,26 @@ async def actualizar_todos_los_datos(
 # FUNCIONES AUXILIARES
 # ============================================================
 
-async def guardar_foto(foto: UploadFile, colegiado_id: int) -> str:
-    """Guarda la foto del colegiado y retorna la URL"""
+from app.utils.gcs import upload_foto_perfil
+
+async def guardar_foto(foto: UploadFile, organization_id: int, colegiado_id: int) -> str:
+    """Guarda la foto del colegiado en GCS"""
     try:
-        upload_dir = "static/uploads/fotos"
-        os.makedirs(upload_dir, exist_ok=True)
-        
         ext = foto.filename.split('.')[-1].lower()
         if ext not in ['jpg', 'jpeg', 'png', 'webp']:
             return None
         
-        filename = f"col_{colegiado_id}_{uuid.uuid4().hex[:8]}.{ext}"
-        filepath = os.path.join(upload_dir, filename)
-        
+        content_type_map = {
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+            'png': 'image/png', 'webp': 'image/webp'
+        }
         content = await foto.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
+        if len(content) > 5 * 1024 * 1024:
+            return None
         
-        return f"/static/uploads/fotos/{filename}"
+        return upload_foto_perfil(content, content_type_map.get(ext, 'image/jpeg'), organization_id, colegiado_id)
     except Exception as e:
-        print(f"Error guardando foto: {e}")
+        print(f"⚠️ Error guardando foto: {e}")
         return None
 
 

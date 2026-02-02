@@ -7,7 +7,7 @@ Retorna:  JSON { ok, message, completitud, datos_completos }
 """
 
 import asyncio
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from datetime import datetime, date
 
@@ -220,3 +220,29 @@ async def actualizar_perfil(
         "completitud": porcentaje,
         "datos_completos": es_completo,
     }
+
+
+async def guardar_foto(foto: UploadFile, organization_id: int, colegiado_id: int) -> str:
+    """Guarda la foto del colegiado en GCS"""
+    try:
+        ext = foto.filename.split('.')[-1].lower()
+        if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+            return None
+
+        content_type_map = {
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+            'png': 'image/png', 'webp': 'image/webp'
+        }
+        content = await foto.read()
+        if len(content) > 5 * 1024 * 1024:
+            return None
+
+        return upload_foto_perfil(
+            content,
+            content_type_map.get(ext, 'image/jpeg'),
+            organization_id,
+            colegiado_id
+        )
+    except Exception as e:
+        print(f"⚠️ Error guardando foto: {e}")
+        return None
