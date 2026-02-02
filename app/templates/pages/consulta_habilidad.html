@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Habilidad - {{ org.name if org else 'Colegio Profesional' }}</title>
+    
+    <!-- Estilos base -->
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/pages/consulta_habilidad.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ org.logo_url if org else '/static/img/favicon.ico' }}">
+</head>
+<body>
+    <div class="consulta-container">
+        <!-- Header -->
+        <header class="consulta-header">
+            {% if org and org.logo_url %}
+            <img src="{{ org.logo_url }}" alt="{{ org.name }}" class="consulta-logo">
+            {% endif %}
+            <h1>{{ org.name if org else 'Colegio Profesional' }}</h1>
+            <p class="consulta-subtitle">Verificación de Habilidad Profesional</p>
+        </header>
+
+        <!-- Formulario de búsqueda -->
+        <main class="consulta-main">
+            <div class="search-box">
+                <label for="query">Ingrese DNI o Código de Matrícula:</label>
+                <div class="search-input-wrapper">
+                    <input 
+                        type="text" 
+                        id="query" 
+                        name="query" 
+                        placeholder="Ej: 12345678 o CPC-001"
+                        maxlength="20"
+                        autocomplete="off"
+                    >
+                    <button type="button" id="btn-buscar">
+                        <span class="btn-text">Consultar</span>
+                        <span class="btn-loading" style="display: none;">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resultado -->
+            <div id="resultado" class="resultado-container" style="display: none;">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="consulta-footer">
+            <p>Esta consulta tiene carácter informativo.</p>
+            <p>Para certificaciones oficiales, acérquese a las oficinas del Colegio.</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/pages/consulta_habilidad.js"></script>
+</body>
+</html>

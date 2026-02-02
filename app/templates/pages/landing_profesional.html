@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ colegiado.apellidos_nombres }} | {{ organization.name if organization else 'Colegiado' }}</title>
+    <meta name="description" content="{{ colegiado.apellidos_nombres }}. {{ colegiado.especialidad or 'Profesional Colegiado' }}. Matrícula N° {{ colegiado.codigo_matricula }}. Verificado por {{ organization.name if organization else 'Colegio Profesional' }}.">
+    
+    <!-- Open Graph para compartir -->
+    <meta property="og:title" content="{{ colegiado.apellidos_nombres }}">
+    <meta property="og:description" content="{{ colegiado.especialidad or 'Profesional Colegiado' }}. Matrícula {{ colegiado.codigo_matricula }}. {% if es_habil %}Colegiado Hábil Verificado{% endif %}">
+    <meta property="og:image" content="{{ colegiado.foto_url or '/static/img/avatar-default.png' }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:type" content="profile">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ colegiado.apellidos_nombres }}">
+    <meta name="twitter:description" content="Profesional Colegiado Verificado">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/static/img/icon-192.png">
+    
+    <!-- Phosphor Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --gold: #d4af37;
+            --gold-light: rgba(212, 175, 55, 0.15);
+            --success: #10b981;
+            --success-light: rgba(16, 185, 129, 0.15);
+            --danger: #ef4444;
+            --danger-light: rgba(239, 68, 68, 0.15);
+            --blue: #3b82f6;
+            --blue-light: rgba(59, 130, 246, 0.15);
+            --purple: #8b5cf6;
+            --purple-light: rgba(139, 92, 246, 0.15);
+            --cyan: #06b6d4;
+            --cyan-light: rgba(6, 182, 212, 0.15);
+            --pink: #ec4899;
+            --pink-light: rgba(236, 72, 153, 0.15);
+            --bg: #0f172a;
+            --bg-lighter: #1e293b;
+            --surface: rgba(30, 41, 59, 0.95);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 140px;
+        }
+        
+        /* === RESPONSIVE DESKTOP === */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 900px;
+                padding: 40px;
+            }
+            
+            .hero {
+                padding: 60px 48px 48px;
+                display: grid;
+                grid-template-columns: auto 1fr;
+                grid-template-rows: auto auto auto;
+                gap: 0 40px;
+                text-align: left;
+            }
+            
+            .verified-badge {
+                grid-column: 2;
+                grid-row: 1;
+                justify-self: end;
+                position: relative;
+                top: 0;
+                right: 0;
+                margin-bottom: 16px;
+            }
+            
+            .profile-photo-container {
+                grid-column: 1;
+                grid-row: 1 / 4;
+                margin: 0;
+                width: 180px;
+                height: 225px;
+            }
+            
+            .profile-name {
+                grid-column: 2;
+                grid-row: 2;
+                font-size: 32px;
+                margin-bottom: 8px;
+            }
+            
+            .profile-title {
+                grid-column: 2;
+                grid-row: 3;
+                justify-content: flex-start;
+                margin-bottom: 0;
+            }
+            
+            .profile-matricula {
+                grid-column: 2;
+                grid-row: 4;
+                justify-self: start;
+                margin-top: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+            }
+            
+            .stat-card {
+                padding: 28px 20px;
+            }
+            
+            .stat-value {
+                font-size: 36px;
+            }
+            
+            /* Two column layout for sections */
+            .sections-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+            
+            .section {
+                padding: 28px;
+            }
+            
+            .section.full-width {
+                grid-column: 1 / -1;
+            }
+            
+            .section-title {
+                font-size: 18px;
+            }
+            
+            .timeline-item {
+                padding: 20px 24px;
+            }
+            
+            .timeline-title {
+                font-size: 17px;
+            }
+            
+            .social-link {
+                width: 64px;
+                height: 64px;
+                font-size: 30px;
+            }
+            
+            .promo-section {
+                padding: 40px;
+            }
+            
+            .promo-title {
+                font-size: 22px;
+            }
+            
+            .promo-btn {
+                padding: 14px 28px;
+                font-size: 14px;
+            }
+            
+            .qr-container img {
+                width: 180px;
+                height: 180px;
+            }
+            
+            .bottom-cta {
+                padding: 20px 40px 32px;
+            }
+            
+            .cta-inner {
+                max-width: 500px;
+            }
+            
+            .btn-cta {
+                padding: 18px 32px;
+                font-size: 16px;
+            }
+        }
+        
+        /* Extra large screens */
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1100px;
+            }
+            
+            .hero {
+                padding: 70px 60px 56px;
+            }
+            
+            .profile-photo-container {
+                width: 200px;
+                height: 250px;
+            }
+            
+            .profile-name {
+                font-size: 38px;
+            }
+        }
+        
+        /* === HERO SECTION === */
+        .hero {
+            text-align: center;
+            padding: 48px 24px 36px;
+            background: linear-gradient(180deg, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.02) 60%, transparent 100%);
+            border-radius: 28px;
+            margin-bottom: 24px;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+        
+        /* Verified Badge */
+        .verified-badge {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 24px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        .verified-badge.habil {
+            background: var(--success-light);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: var(--success);
+        }
+        
+        .verified-badge.inhabil {
+            background: var(--danger-light);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: var(--danger);
+        }
+        
+        .verified-badge i {
+            font-size: 14px;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3); }
+            50% { box-shadow: 0 0 20px 4px rgba(16, 185, 129, 0.15); }
+        }
+        
+        /* Profile Photo */
+        .profile-photo-container {
+            position: relative;
+            width: 140px;
+            height: 175px;
+            margin: 0 auto 24px;
+        }
+        
+        .profile-photo {
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            border: 4px solid var(--gold);
+            overflow: hidden;
+            box-shadow: 
+                0 0 0 4px rgba(212, 175, 55, 0.1),
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                0 0 60px rgba(212, 175, 55, 0.15);
+            background: var(--surface);
+        }
+        
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .profile-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: var(--gold);
+            font-size: 56px;
+            font-weight: 700;
+        }
+        
+        /* Blood Type Badge */
+        .blood-type-badge {
+            position: absolute;
+            bottom: -8px;
+            right: -8px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+            border: 3px solid var(--bg);
+        }
+        
+        /* Profile Info */
+        .profile-name {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            line-height: 1.2;
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .profile-title {
+            font-size: 15px;
+            color: var(--gold);
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .profile-title i {
+            font-size: 18px;
+        }
+        
+        .profile-matricula {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+        
+        .profile-matricula i {
+            color: var(--gold);
+            font-size: 20px;
+        }
+        
+        .profile-matricula strong {
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        /* === STATS GRID === */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            border-color: rgba(212, 175, 55, 0.3);
+        }
+        
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .stat-icon.gold { background: var(--gold-light); color: var(--gold); }
+        .stat-icon.blue { background: var(--blue-light); color: var(--blue); }
+        .stat-icon.purple { background: var(--purple-light); color: var(--purple); }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        
+        /* === SECTIONS === */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .section:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .section-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        
+        .section-icon.gold { background: var(--gold-light); color: var(--gold); }
+        .section-icon.blue { background: var(--blue-light); color: var(--blue); }
+        .section-icon.purple { background: var(--purple-light); color: var(--purple); }
+        .section-icon.cyan { background: var(--cyan-light); color: var(--cyan); }
+        .section-icon.pink { background: var(--pink-light); color: var(--pink); }
+        .section-icon.green { background: var(--success-light); color: var(--success); }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        
+        .section-subtitle {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+        
+        /* === ABOUT / BIO === */
+        .bio-text {
+            font-size: 15px;
+            color: var(--text-muted);
+            line-height: 1.8;
+            font-style: italic;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            border-left: 3px solid var(--gold);
+        }
+        
+        .bio-placeholder {
+            color: var(--text-dim);
+            font-style: italic;
+            font-size: 14px;
+        }
+        
+        /* === SPECIALTIES / TAGS === */
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .tag {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fbbf24;
+            transition: all 0.2s ease;
+        }
+        
+        .tag:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+        }
+        
+        .tag i {
+            margin-right: 6px;
+        }
+        
+        /* === EXPERIENCE TIMELINE === */
+        .timeline {
+            position: relative;
+            padding-left: 28px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: linear-gradient(180deg, var(--gold) 0%, var(--purple) 50%, var(--blue) 100%);
+            border-radius: 1px;
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 14px;
+            margin-bottom: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .timeline-item:hover {
+            background: rgba(0, 0, 0, 0.3);
+            transform: translateX(4px);
+        }
+        
+        .timeline-dot {
+            position: absolute;
+            left: -24px;
+            top: 20px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 3px solid var(--bg);
+        }
+        
+        .timeline-item:nth-child(1) .timeline-dot { background: var(--gold); box-shadow: 0 0 12px var(--gold); }
+        .timeline-item:nth-child(2) .timeline-dot { background: var(--purple); }
+        .timeline-item:nth-child(3) .timeline-dot { background: var(--blue); }
+        .timeline-item:nth-child(4) .timeline-dot { background: var(--cyan); }
+        
+        .timeline-current {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 4px 10px;
+            background: var(--success-light);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--success);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .timeline-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+            padding-right: 70px;
+        }
+        
+        .timeline-company {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .timeline-company i {
+            color: var(--gold);
+            font-size: 14px;
+        }
+        
+        .timeline-period {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .timeline-period i {
+            font-size: 12px;
+        }
+        
+        /* === CONTACT INFO === */
+        .contact-grid {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .contact-item:hover {
+            background: rgba(0, 0, 0, 0.3);
+            transform: translateX(4px);
+        }
+        
+        .contact-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        
+        .contact-icon.email { background: var(--blue-light); color: var(--blue); }
+        .contact-icon.phone { background: var(--success-light); color: var(--success); }
+        .contact-icon.location { background: var(--pink-light); color: var(--pink); }
+        
+        .contact-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .contact-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        
+        .contact-value {
+            font-size: 14px;
+            color: var(--text);
+            margin-top: 2px;
+            word-break: break-word;
+        }
+        
+        .contact-action {
+            color: var(--text-dim);
+            font-size: 18px;
+        }
+        
+        /* === SOCIAL LINKS === */
+        .social-grid {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        
+        .social-link {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 26px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .social-link:hover {
+            transform: translateY(-4px) scale(1.05);
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
+        }
+        
+        .social-link.whatsapp:hover { border-color: #25d366; color: #25d366; box-shadow: 0 8px 24px rgba(37, 211, 102, 0.2); }
+        .social-link.linkedin:hover { border-color: #0077b5; color: #0077b5; box-shadow: 0 8px 24px rgba(0, 119, 181, 0.2); }
+        .social-link.facebook:hover { border-color: #1877f2; color: #1877f2; box-shadow: 0 8px 24px rgba(24, 119, 242, 0.2); }
+        .social-link.instagram:hover { border-color: #e4405f; color: #e4405f; box-shadow: 0 8px 24px rgba(228, 64, 95, 0.2); }
+        
+        /* === QR SECTION === */
+        .qr-section {
+            text-align: center;
+            padding: 32px 24px;
+        }
+        
+        .qr-container {
+            display: inline-block;
+            padding: 12px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            margin-bottom: 16px;
+        }
+        
+        .qr-container img {
+            width: 140px;
+            height: 140px;
+            display: block;
+        }
+        
+        .qr-text {
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+        
+        .qr-text strong {
+            color: var(--gold);
+        }
+        
+        /* === PROMO SECTION === */
+        .promo-section {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .promo-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #a5b4fc;
+        }
+        
+        .promo-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        
+        .promo-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        
+        .promo-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .promo-btn {
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .promo-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .promo-btn.pro {
+            background: var(--success-light);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: var(--success);
+        }
+        
+        .promo-btn.empresa {
+            background: var(--blue-light);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--blue);
+        }
+        
+        .promo-btn.custom {
+            background: var(--pink-light);
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            color: var(--pink);
+        }
+        
+        /* === FOOTER === */
+        .footer {
+            text-align: center;
+            padding: 24px 20px;
+        }
+        
+        .footer-verified {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: var(--success);
+        }
+        
+        .footer-verified i {
+            font-size: 16px;
+        }
+        
+        .footer-org {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+        
+        .footer-org a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .footer-powered {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        
+        .footer-powered a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+        
+        /* === BOTTOM CTA === */
+        .bottom-cta {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 20px 28px;
+            background: linear-gradient(to top, var(--bg) 75%, transparent);
+            z-index: 100;
+        }
+        
+        .cta-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn-cta {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-cta i {
+            font-size: 20px;
+        }
+        
+        .btn-cta.primary {
+            background: linear-gradient(135deg, var(--gold) 0%, #b8942e 100%);
+            color: #0f172a;
+            box-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
+        }
+        
+        .btn-cta.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(212, 175, 55, 0.4);
+        }
+        
+        .btn-cta.secondary {
+            background: var(--success-light);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-cta.secondary:hover {
+            background: rgba(16, 185, 129, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        /* === EMPTY STATES === */
+        .empty-state {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-dim);
+        }
+        
+        .empty-state i {
+            font-size: 40px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .empty-state p {
+            font-size: 13px;
+            font-style: italic;
+        }
+        
+        /* === ANIMATIONS === */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .hero { animation: fadeInUp 0.5s ease-out; }
+        .stats-grid { animation: fadeInUp 0.5s ease-out 0.1s backwards; }
+        .section:nth-child(1) { animation: fadeInUp 0.5s ease-out 0.15s backwards; }
+        .section:nth-child(2) { animation: fadeInUp 0.5s ease-out 0.2s backwards; }
+        .section:nth-child(3) { animation: fadeInUp 0.5s ease-out 0.25s backwards; }
+        .section:nth-child(4) { animation: fadeInUp 0.5s ease-out 0.3s backwards; }
+        .section:nth-child(5) { animation: fadeInUp 0.5s ease-out 0.35s backwards; }
+    </style>
+</head>
+<body>
+{% set es_habil = colegiado.es_habil %}
+<div class="container">
+    
+    <!-- ========== HERO ========== -->
+    <div class="hero">
+        <div class="verified-badge {{ 'habil' if es_habil else 'inhabil' }}">
+            <i class="ph ph-{{ 'seal-check' if es_habil else 'warning' }}"></i>
+            {{ 'Colegiado Hábil' if es_habil else 'Inhábil' }}
+        </div>
+        
+        <div class="profile-photo-container">
+            <div class="profile-photo">
+                {% if colegiado.foto_url %}
+                    <img src="{{ colegiado.foto_url }}" alt="Foto de {{ colegiado.apellidos_nombres }}">
+                {% else %}
+                    <div class="profile-photo-placeholder">
+                        {{ colegiado.apellidos_nombres[0] | upper }}
+                    </div>
+                {% endif %}
+            </div>
+            {% if colegiado.tipo_sangre %}
+            <div class="blood-type-badge" title="Tipo de Sangre">
+                {{ colegiado.tipo_sangre }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <h1 class="profile-name">{{ colegiado.apellidos_nombres }}</h1>
+        
+        <p class="profile-title">
+            <i class="ph ph-seal-check"></i>
+            {{ organization.name if organization else 'Profesional Colegiado' }}
+        </p>
+        
+        <div class="profile-matricula">
+            <i class="ph ph-identification-badge"></i>
+            Matrícula N° <strong>{{ colegiado.codigo_matricula }}</strong>
+        </div>
+    </div>
+    
+    <!-- ========== STATS ========== -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon gold"><i class="ph ph-calendar-check"></i></div>
+            <div class="stat-value">{{ colegiado.fecha_colegiatura.year if colegiado.fecha_colegiatura else '—' }}</div>
+            <div class="stat-label">Colegiado</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="ph ph-graduation-cap"></i></div>
+            <div class="stat-value">
+                {% if colegiado.grado_academico == 'doctorado' %}Dr.
+                {% elif colegiado.grado_academico == 'maestria' %}Mg.
+                {% elif colegiado.grado_academico == 'titulado' %}Lic.
+                {% else %}Bach.{% endif %}
+            </div>
+            <div class="stat-label">Grado</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="ph ph-briefcase"></i></div>
+            <div class="stat-value">
+                {% if colegiado.fecha_colegiatura %}
+                    {{ (2026 - colegiado.fecha_colegiatura.year) }}+
+                {% else %}—{% endif %}
+            </div>
+            <div class="stat-label">Años Exp.</div>
+        </div>
+    </div>
+    
+    <!-- ========== SECTIONS GRID (2 cols on desktop) ========== -->
+    <div class="sections-grid">
+    
+    <!-- ========== ABOUT ME ========== -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon gold"><i class="ph ph-user-circle"></i></div>
+            <div>
+                <div class="section-title">Sobre Mí</div>
+                <div class="section-subtitle">Presentación profesional</div>
+            </div>
+        </div>
+        {% if colegiado.bio %}
+            <p class="bio-text">"{{ colegiado.bio }}"</p>
+        {% else %}
+            <p class="bio-placeholder">
+                Profesional colegiado{% if colegiado.especialidad %} especializado en {{ colegiado.especialidad.split(',')[0].strip() }}{% endif %}{% if colegiado.universidad %}, egresado de {{ colegiado.universidad }}{% endif %}. Comprometido con la excelencia profesional y la ética.
+            </p>
+        {% endif %}
+    </div>
+    
+    <!-- ========== SPECIALTIES ========== -->
+    {% if colegiado.especialidad %}
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon purple"><i class="ph ph-medal"></i></div>
+            <div>
+                <div class="section-title">Especialidades</div>
+                <div class="section-subtitle">Áreas de experiencia</div>
+            </div>
+        </div>
+        <div class="tags-container">
+            {% for esp in colegiado.especialidad.split(',') %}
+                <span class="tag"><i class="ph ph-check-circle"></i>{{ esp.strip() }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ========== EXPERIENCE ========== -->
+    <div class="section full-width">
+        <div class="section-header">
+            <div class="section-icon blue"><i class="ph ph-briefcase"></i></div>
+            <div>
+                <div class="section-title">Experiencia Profesional</div>
+                <div class="section-subtitle">Trayectoria laboral</div>
+            </div>
+        </div>
+        
+        <div class="timeline">
+            {% if colegiado.centro_trabajo %}
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <span class="timeline-current">Actual</span>
+                <div class="timeline-title">{{ colegiado.cargo or 'Profesional' }}</div>
+                <div class="timeline-company">
+                    <i class="ph ph-buildings"></i>
+                    {{ colegiado.centro_trabajo }}
+                </div>
+                <div class="timeline-period">
+                    <i class="ph ph-calendar"></i>
+                    {% if colegiado.situacion_laboral == 'independiente' %}Ejercicio Independiente{% else %}Presente{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if colegiado.universidad %}
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-title">
+                    {% if colegiado.grado_academico == 'doctorado' %}Doctor
+                    {% elif colegiado.grado_academico == 'maestria' %}Magíster
+                    {% elif colegiado.grado_academico == 'titulado' %}Título Profesional
+                    {% else %}Bachiller{% endif %}
+                </div>
+                <div class="timeline-company">
+                    <i class="ph ph-graduation-cap"></i>
+                    {{ colegiado.universidad }}
+                </div>
+                <div class="timeline-period">
+                    <i class="ph ph-calendar"></i>
+                    {% if colegiado.fecha_titulo %}{{ colegiado.fecha_titulo.year }}{% else %}Egresado{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if colegiado.fecha_colegiatura %}
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-title">Colegiatura Profesional</div>
+                <div class="timeline-company">
+                    <i class="ph ph-certificate"></i>
+                    {{ organization.name if organization else 'Colegio Profesional' }}
+                </div>
+                <div class="timeline-period">
+                    <i class="ph ph-calendar"></i>
+                    {{ colegiado.fecha_colegiatura.strftime('%d/%m/%Y') }}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if not colegiado.centro_trabajo and not colegiado.universidad and not colegiado.fecha_colegiatura %}
+            <div class="empty-state">
+                <i class="ph ph-clock-clockwise"></i>
+                <p>Información de experiencia pendiente de actualizar</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ========== CONTACT ========== -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon green"><i class="ph ph-address-book"></i></div>
+            <div>
+                <div class="section-title">Contacto</div>
+                <div class="section-subtitle">Información de contacto</div>
+            </div>
+        </div>
+        
+        <div class="contact-grid">
+            {% if colegiado.email %}
+            <a href="mailto:{{ colegiado.email }}" class="contact-item">
+                <div class="contact-icon email"><i class="ph ph-envelope"></i></div>
+                <div class="contact-content">
+                    <div class="contact-label">Email</div>
+                    <div class="contact-value">{{ colegiado.email }}</div>
+                </div>
+                <i class="ph ph-arrow-right contact-action"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.telefono %}
+            <a href="tel:{{ colegiado.telefono }}" class="contact-item">
+                <div class="contact-icon phone"><i class="ph ph-phone"></i></div>
+                <div class="contact-content">
+                    <div class="contact-label">Teléfono</div>
+                    <div class="contact-value">{{ colegiado.telefono }}</div>
+                </div>
+                <i class="ph ph-arrow-right contact-action"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.direccion %}
+            <div class="contact-item">
+                <div class="contact-icon location"><i class="ph ph-map-pin"></i></div>
+                <div class="contact-content">
+                    <div class="contact-label">Ubicación</div>
+                    <div class="contact-value">{{ colegiado.direccion }}</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if not colegiado.email and not colegiado.telefono and not colegiado.direccion %}
+            <div class="empty-state">
+                <i class="ph ph-address-book"></i>
+                <p>Información de contacto no disponible</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- ========== SOCIAL LINKS ========== -->
+    {% if colegiado.linkedin or colegiado.facebook or colegiado.instagram or colegiado.sitio_web or colegiado.telefono %}
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon cyan"><i class="ph ph-globe"></i></div>
+            <div>
+                <div class="section-title">Redes y Enlaces</div>
+                <div class="section-subtitle">Encuéntrame en la web</div>
+            </div>
+        </div>
+        
+        <div class="social-grid">
+            {% if colegiado.telefono %}
+            {% set tel = colegiado.telefono | replace(' ', '') | replace('-', '') %}
+            <a href="https://wa.me/51{{ tel }}" class="social-link whatsapp" target="_blank" title="WhatsApp">
+                <i class="ph ph-whatsapp-logo"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.sitio_web %}
+            <a href="{{ colegiado.sitio_web }}" class="social-link" target="_blank" title="Sitio Web">
+                <i class="ph ph-globe"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.linkedin %}
+            <a href="{{ colegiado.linkedin if 'http' in colegiado.linkedin else 'https://linkedin.com/in/' ~ colegiado.linkedin }}" class="social-link linkedin" target="_blank" title="LinkedIn">
+                <i class="ph ph-linkedin-logo"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.facebook %}
+            <a href="{{ colegiado.facebook if 'http' in colegiado.facebook else 'https://facebook.com/' ~ colegiado.facebook }}" class="social-link facebook" target="_blank" title="Facebook">
+                <i class="ph ph-facebook-logo"></i>
+            </a>
+            {% endif %}
+            
+            {% if colegiado.instagram %}
+            <a href="https://instagram.com/{{ colegiado.instagram | replace('@', '') }}" class="social-link instagram" target="_blank" title="Instagram">
+                <i class="ph ph-instagram-logo"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ========== QR CODE ========== -->
+    <div class="section qr-section full-width">
+        <div class="qr-container">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={{ request.url }}&color=0f172a" alt="QR de verificación">
+        </div>
+        <p class="qr-text">
+            Escanea para <strong>verificar</strong> este perfil
+        </p>
+    </div>
+    
+    </div><!-- /sections-grid -->
+    
+    <!-- ========== PROMO ========== -->
+    <div class="promo-section">
+        <div class="promo-icon"><i class="ph ph-sparkle"></i></div>
+        <h3 class="promo-title">¿Necesitas presencia profesional?</h3>
+        <p class="promo-subtitle">Destaca con un sitio web profesional verificado</p>
+        <div class="promo-buttons">
+            <a href="https://wa.me/51999999999?text=Hola,%20soy%20{{ colegiado.apellidos_nombres | urlencode }}%20(Mat.%20{{ colegiado.codigo_matricula }}),%20me%20interesa%20el%20Sitio%20Pro" class="promo-btn pro">
+                <i class="ph ph-rocket"></i> Sitio Pro
+            </a>
+            <a href="https://wa.me/51999999999?text=Hola,%20me%20interesa%20un%20Sitio%20Empresarial" class="promo-btn empresa">
+                <i class="ph ph-buildings"></i> Empresarial
+            </a>
+            <a href="https://wa.me/51999999999?text=Quiero%20un%20Diseño%20Personalizado" class="promo-btn custom">
+                <i class="ph ph-magic-wand"></i> Personalizado
+            </a>
+        </div>
+    </div>
+    
+    <!-- ========== FOOTER ========== -->
+    <div class="footer">
+        {% if es_habil %}
+        <div class="footer-verified">
+            <i class="ph ph-seal-check"></i>
+            Perfil verificado y actualizado
+        </div>
+        {% endif %}
+        
+        <p class="footer-org">
+            Verificado por<br>
+            <a href="/">{{ organization.name if organization else 'Colegio Profesional' }}</a>
+        </p>
+        
+        <p class="footer-powered">
+            Powered by <a href="https://colegiospro.org.pe">ColegiosPro</a>
+        </p>
+    </div>
+    
+</div>
+
+<!-- ========== BOTTOM CTA ========== -->
+<div class="bottom-cta">
+    <div class="cta-inner">
+        {% if colegiado.telefono %}
+        {% set tel = colegiado.telefono | replace(' ', '') | replace('-', '') %}
+        <a href="https://wa.me/51{{ tel }}?text=Hola%20{{ colegiado.apellidos_nombres.split(',')[0] | urlencode }},%20vi%20su%20perfil%20profesional" class="btn-cta secondary">
+            <i class="ph ph-whatsapp-logo"></i>
+            WhatsApp
+        </a>
+        {% endif %}
+        {% if colegiado.email %}
+        <a href="mailto:{{ colegiado.email }}?subject=Contacto%20desde%20su%20perfil%20profesional" class="btn-cta primary">
+            <i class="ph ph-envelope"></i>
+            Contactar
+        </a>
+        {% else %}
+        <span class="btn-cta primary" style="opacity:0.5;cursor:default;">
+            <i class="ph ph-envelope"></i>
+            Sin contacto
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+</body>
+</html>

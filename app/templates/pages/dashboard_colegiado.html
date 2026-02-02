@@ -1,0 +1,1222 @@
+{% extends "base.html" %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/pages/dashboard_colegiado.css">
+<link rel="stylesheet" href="/static/css/pages/mi_sitio_web.css">
+<link rel="stylesheet" href="/static/css/pages/herramientas_pro.css">
+
+<style>
+/* === FAB DOCK (Floating Action Buttons) === */
+.fab-dock {
+    position: fixed;
+    bottom: 100px; /* Arriba del dock principal */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    z-index: 90;
+}
+
+.fab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.fab-btn i {
+    font-size: 26px;
+    transition: transform 0.2s;
+}
+
+.fab-btn:hover {
+    transform: scale(1.1) translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.fab-btn:hover i {
+    transform: scale(1.1);
+}
+
+.fab-btn:active {
+    transform: scale(0.95);
+}
+
+/* Label que aparece al hover */
+.fab-label {
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.fab-btn:hover .fab-label {
+    opacity: 1;
+}
+
+/* Colores */
+.fab-btn.gold {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);  /* Cyan */
+    color: white;  /* Texto blanco */
+}
+
+.fab-btn.gold:hover {
+    box-shadow: 0 8px 30px rgba(6, 182, 212, 0.5);
+}
+
+.fab-btn.gold .fab-label {
+    color: #22d3ee;
+}
+
+.fab-btn.cyan {
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
+    color: white;
+}
+
+.fab-btn.purple {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+}
+
+.fab-btn.purple:hover {
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.5);
+}
+
+.fab-btn.purple .fab-label {
+    color: #c4b5fd;
+}
+
+/* Ajustar padding del contenido para que no tape los FABs */
+.dashboard-pro {
+    padding-bottom: 180px; /* Más espacio abajo */
+}
+
+/* Responsive: en pantallas pequeñas, FABs más pequeños */
+@media (max-width: 380px) {
+    .fab-dock {
+        gap: 12px;
+        bottom: 95px;
+    }
+    
+    .fab-btn {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .fab-btn i {
+        font-size: 22px;
+    }
+}
+
+/* Versión con texto siempre visible */
+.fab-dock.with-labels .fab-btn {
+    width: auto;
+    height: auto;
+    padding: 12px 20px;
+    border-radius: 28px;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.fab-dock.with-labels .fab-label {
+    position: static;
+    transform: none;
+    padding: 0;
+    background: none;
+    opacity: 1;
+    font-size: 12px;
+}
+
+.fab-dock.with-labels{
+    margin-bottom: 10px;
+}
+
+</style>
+
+{% endblock %}
+
+{% block container_width %}max-w-md lg:max-w-2xl{% endblock %}
+
+{% block content %}
+<div class="dashboard-pro">
+
+    <!-- HEADER -->
+    <header class="header-pro fade-in">
+        <div class="avatar-pro" onclick="Modal.open('modal-perfil')">
+            {% if colegiado and colegiado.foto_url %}
+                <img src="{{ colegiado.foto_url }}" alt="Foto">
+            {% else %}
+                <div class="avatar-placeholder">
+                    {{ (colegiado.apellidos_nombres[0] if colegiado else user.user.name[0]) | upper }}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="user-info-pro">
+            <h1 class="user-name-pro">
+                {{ config.general.prefijo_titulo or '' }} {{ colegiado.apellidos_nombres.split(',')[0] if colegiado else user.user.name }}
+            </h1>
+            <div class="user-meta-pro">
+                <span>Mat. {{ colegiado.codigo_matricula if colegiado else user.public_id }}</span>
+                <span>·</span>
+                {% set es_habil = colegiado and colegiado.es_habil %}
+                <span class="badge-status {{ 'badge-habil' if es_habil else 'badge-inhabil' }}">
+                    {% if es_habil %}
+                        <span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span> Hábil
+                    {% else %}
+                        <i class="ph ph-prohibit" style="font-size:10px;"></i> Inhábil
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-icon" onclick="toggleSonidos()" title="Sonidos" id="btn-sound">
+                <i class="ph ph-speaker-high"></i>
+            </button>
+            <a href="/auth/logout" class="btn-icon logout" title="Cerrar Sesión">
+                <i class="ph ph-sign-out"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- AVISO DESTACADO -->
+    {% if latest_bulletin %}
+    <div class="notice-banner fade-in fade-in-delay-1 {{ latest_bulletin.priority }}"
+         onclick="verAviso(this)"
+         data-title="{{ latest_bulletin.title }}"
+         data-content="{{ latest_bulletin.content }}"
+         data-priority="{{ latest_bulletin.priority }}">
+        <div class="notice-icon">
+            {% if latest_bulletin.priority == 'alert' %}<i class="ph ph-warning-octagon"></i>
+            {% elif latest_bulletin.priority == 'warning' %}<i class="ph ph-warning"></i>
+            {% else %}<i class="ph ph-info"></i>{% endif %}
+        </div>
+        <div class="notice-content">
+            <p class="notice-title">{{ latest_bulletin.title }}</p>
+            <p class="notice-subtitle">Toca para ver detalles</p>
+        </div>
+        <i class="ph ph-caret-right notice-arrow"></i>
+    </div>
+    {% endif %}
+
+    <!-- INDICADORES -->
+    <div class="indicators-card fade-in fade-in-delay-2">
+        <div class="indicators-header">
+            <span class="indicators-title">
+                <i class="ph ph-chart-line"></i>
+                Indicadores del Día
+            </span>
+            <button class="btn-expand" onclick="Modal.open('modal-indicadores')" title="Ver más">
+                <i class="ph ph-arrows-out-simple"></i>
+            </button>
+        </div>
+        
+        <div class="indicators-grid">
+            <div class="indicator-item">
+                <div class="indicator-label">UIT 2026</div>
+                <div class="indicator-value gold">5,350</div>
+            </div>
+            <div class="indicator-item">
+                <div class="indicator-label">TC Compra</div>
+                <div class="indicator-value">3.720</div>
+            </div>
+            <div class="indicator-item">
+                <div class="indicator-label">TC Venta</div>
+                <div class="indicator-value">3.756</div>
+            </div>
+        </div>
+
+        <div class="next-deadline">
+            <div class="deadline-icon">
+                <i class="ph ph-calendar-check"></i>
+            </div>
+            <div class="deadline-info">
+                <div class="deadline-text">PDT 621 - Declaración Mensual</div>
+                <div class="deadline-date">Vence: 14 Feb 2026 (en 14 días)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICIOS -->
+    <section class="options-section fade-in fade-in-delay-3">
+        <h2 class="section-title">Servicios</h2>
+        <div class="options-grid">
+            <div class="option-card" onclick="Modal.open('modal-pagos')">
+                <div class="option-icon blue"><i class="ph ph-wallet"></i></div>
+                <span class="option-label">Mis Pagos</span>
+            </div>
+            <div class="option-card" onclick="Modal.open('modal-justificaciones')">
+                <div class="option-icon yellow"><i class="ph ph-calendar-x"></i></div>
+                <span class="option-label">Justificar</span>
+            </div>
+            {% if config.modules.capacitaciones %}
+            <div class="option-card" onclick="Modal.open('modal-cursos')">
+                <div class="option-icon purple"><i class="ph ph-certificate"></i></div>
+                <span class="option-label">Cursos</span>
+            </div>
+            {% endif %}
+            <div class="option-card" onclick="Modal.open('modal-chat')">
+                <div class="option-icon cyan"><i class="ph ph-chat-circle"></i></div>
+                <span class="option-label">Chat</span>
+            </div>
+            {% if config.modules.votaciones %}
+            <div class="option-card" onclick="Modal.open('modal-votaciones')">
+                <div class="option-icon indigo"><i class="ph ph-check-square"></i></div>
+                <span class="option-label">Votar</span>
+            </div>
+            {% endif %}
+            {% if config.modules.convenios %}
+            <div class="option-card" onclick="Modal.open('modal-convenios')">
+                <div class="option-icon teal"><i class="ph ph-handshake"></i></div>
+                <span class="option-label">Convenios</span>
+            </div>
+            {% endif %}
+            <div class="option-card" onclick="Modal.open('modal-bolsa')">
+                <div class="option-icon orange"><i class="ph ph-briefcase"></i></div>
+                <span class="option-label">Bolsa</span>
+            </div>
+            <div class="option-card" onclick="Modal.open('modal-perfil')">
+                <div class="option-icon slate"><i class="ph ph-user-circle"></i></div>
+                <span class="option-label">Mi Perfil</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- HERRAMIENTAS -->
+    <section class="options-section fade-in fade-in-delay-4">
+        <h2 class="section-title">Herramientas</h2>
+        <div class="options-grid">
+            <div class="option-card" onclick="Modal.open('modal-avisos')">
+                <div class="option-icon pink"><i class="ph ph-megaphone"></i></div>
+                <span class="option-label">Avisos</span>
+            </div>
+            <div class="option-card" onclick="Modal.open('modal-estadisticas')">
+                <div class="option-icon gold"><i class="ph ph-chart-pie"></i></div>
+                <span class="option-label">Estadísticas</span>
+            </div>
+            <div class="option-card" onclick="Modal.open('modal-calculadora')">
+                <div class="option-icon green"><i class="ph ph-calculator"></i></div>
+                <span class="option-label">Calculadora</span>
+            </div>
+            <div class="option-card" onclick="Modal.open('modal-normas')">
+                <div class="option-icon red"><i class="ph ph-book-open"></i></div>
+                <span class="option-label">Normas</span>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- BOTTOM DOCK -->
+<div class="bottom-dock">
+    <div class="dock-inner">
+        <button class="dock-btn primary" onclick="generarConstancia()">
+            <i class="ph ph-file-text"></i>
+            Constancia
+        </button>
+        <button class="dock-btn secondary" onclick="Modal.open('modal-pagar')">
+            <i class="ph ph-currency-circle-dollar"></i>
+            Pagar
+        </button>
+        <button class="dock-btn mic" onclick="window.Neural && window.Neural.toggleListen()" id="dock-mic">
+            <i class="ph ph-microphone"></i>
+        </button>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: MI PERFIL (COMPLETO) -->
+<!-- ============================================== -->
+<dialog id="modal-perfil">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-user-circle" style="color:var(--gold);"></i> Mi Perfil</h3>
+        <button class="modal-close" onclick="Modal.close('modal-perfil')"><i class="ph ph-x"></i></button>
+    </div>
+
+    <!-- Carnet Preview -->
+    <div class="carnet-preview">
+        <div class="carnet-photo">
+            {% if colegiado and colegiado.foto_url %}
+                <img src="{{ colegiado.foto_url }}" alt="Foto" id="preview-foto">
+            {% else %}
+                <div class="carnet-photo-placeholder" id="preview-foto-placeholder">
+                    {{ (colegiado.apellidos_nombres[0] if colegiado else user.user.name[0]) | upper }}
+                </div>
+            {% endif %}
+            <label class="carnet-photo-edit" for="input-foto-perfil" title="Cambiar foto">
+                <i class="ph ph-camera"></i>
+            </label>
+            <input type="file" id="input-foto-perfil" accept="image/*" style="display:none;" onchange="previsualizarFoto(this)">
+        </div>
+        <div class="carnet-info">
+            <div class="carnet-name">{{ config.general.prefijo_titulo or '' }} {{ colegiado.apellidos_nombres if colegiado else user.user.name }}</div>
+            <div class="carnet-matricula">Mat. {{ colegiado.codigo_matricula if colegiado else user.public_id }}</div>
+            {% set es_habil = colegiado and colegiado.es_habil %}
+            <span class="badge-status {{ 'badge-habil' if es_habil else 'badge-inhabil' }}" style="font-size:11px;">
+                {% if es_habil %}✓ HÁBIL{% else %}✗ INHÁBIL{% endif %}
+            </span>
+        </div>
+        <div class="carnet-qr">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.url.scheme }}://{{ request.url.netloc }}/verificar/{{ colegiado.codigo_matricula if colegiado else user.public_id }}" alt="QR">
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-label">
+            <span>Ficha de Datos</span>
+            <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <form id="form-perfil-completo" onsubmit="guardarPerfilCompleto(event)">
+    <div class="modal-body">
+
+        <!-- ACCORDION: DATOS PERSONALES -->
+        <div class="accordion open" id="acc-personal">
+            <div class="accordion-header" onclick="toggleAccordion('acc-personal')">
+                <div class="accordion-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;">
+                    <i class="ph ph-user"></i>
+                </div>
+                <span class="accordion-title">Datos Personales</span>
+                <span class="accordion-status incomplete" id="status-personal">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Email <span class="required">*</span></label>
+                            <input type="email" name="email" class="form-input" placeholder="correo@ejemplo.com" 
+                                   value="{{ colegiado.email if colegiado and colegiado.email else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Teléfono / WhatsApp <span class="required">*</span></label>
+                            <input type="tel" name="telefono" class="form-input" placeholder="999 999 999"
+                                   value="{{ colegiado.telefono if colegiado and colegiado.telefono else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección <span class="required">*</span></label>
+                        <input type="text" name="direccion" class="form-input" placeholder="Jr. / Av. ..."
+                               value="{{ colegiado.direccion if colegiado and colegiado.direccion else '' }}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha Nacimiento <span class="required">*</span></label>
+                            <input type="date" name="fecha_nacimiento" class="form-input"
+                                   value="{{ colegiado.fecha_nacimiento.strftime('%Y-%m-%d') if colegiado and colegiado.fecha_nacimiento else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lugar Nacimiento</label>
+                            <input type="text" name="lugar_nacimiento" class="form-input" placeholder="Ciudad, País"
+                                   value="{{ colegiado.lugar_nacimiento if colegiado and colegiado.lugar_nacimiento else '' }}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Estado Civil</label>
+                            <select name="estado_civil" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                <option value="soltero" {{ 'selected' if colegiado and colegiado.estado_civil == 'soltero' else '' }}>Soltero(a)</option>
+                                <option value="casado" {{ 'selected' if colegiado and colegiado.estado_civil == 'casado' else '' }}>Casado(a)</option>
+                                <option value="conviviente" {{ 'selected' if colegiado and colegiado.estado_civil == 'conviviente' else '' }}>Conviviente</option>
+                                <option value="divorciado" {{ 'selected' if colegiado and colegiado.estado_civil == 'divorciado' else '' }}>Divorciado(a)</option>
+                                <option value="viudo" {{ 'selected' if colegiado and colegiado.estado_civil == 'viudo' else '' }}>Viudo(a)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tipo de Sangre</label>
+                            <select name="tipo_sangre" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                <option value="A+" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'A+' else '' }}>A+</option>
+                                <option value="A-" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'A-' else '' }}>A-</option>
+                                <option value="B+" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'B+' else '' }}>B+</option>
+                                <option value="B-" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'B-' else '' }}>B-</option>
+                                <option value="AB+" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'AB+' else '' }}>AB+</option>
+                                <option value="AB-" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'AB-' else '' }}>AB-</option>
+                                <option value="O+" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'O+' else '' }}>O+</option>
+                                <option value="O-" {{ 'selected' if colegiado and colegiado.tipo_sangre == 'O-' else '' }}>O-</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: ESTUDIOS -->
+        <div class="accordion" id="acc-estudios">
+            <div class="accordion-header" onclick="toggleAccordion('acc-estudios')">
+                <div class="accordion-icon" style="background:rgba(139,92,246,0.15);color:#8b5cf6;">
+                    <i class="ph ph-graduation-cap"></i>
+                </div>
+                <span class="accordion-title">Datos de Estudios</span>
+                <span class="accordion-status incomplete" id="status-estudios">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Universidad <span class="required">*</span></label>
+                        <input type="text" name="universidad" class="form-input" placeholder="Universidad Nacional..."
+                               value="{{ colegiado.universidad if colegiado and colegiado.universidad else '' }}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha de Título</label>
+                            <input type="date" name="fecha_titulo" class="form-input"
+                                   value="{{ colegiado.fecha_titulo.strftime('%Y-%m-%d') if colegiado and colegiado.fecha_titulo else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Grado Académico</label>
+                            <select name="grado_academico" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                <option value="bachiller" {{ 'selected' if colegiado and colegiado.grado_academico == 'bachiller' else '' }}>Bachiller</option>
+                                <option value="titulado" {{ 'selected' if colegiado and colegiado.grado_academico == 'titulado' else '' }}>Título Profesional</option>
+                                <option value="maestria" {{ 'selected' if colegiado and colegiado.grado_academico == 'maestria' else '' }}>Maestría</option>
+                                <option value="doctorado" {{ 'selected' if colegiado and colegiado.grado_academico == 'doctorado' else '' }}>Doctorado</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Especialidad / Área de experiencia</label>
+                        <input type="text" name="especialidad" class="form-input" placeholder="Tributación, Auditoría, NIIF, Laboral..."
+                               value="{{ colegiado.especialidad if colegiado and colegiado.especialidad else '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: LABORALES -->
+        <div class="accordion" id="acc-laboral">
+            <div class="accordion-header" onclick="toggleAccordion('acc-laboral')">
+                <div class="accordion-icon" style="background:rgba(249,115,22,0.15);color:#f97316;">
+                    <i class="ph ph-briefcase"></i>
+                </div>
+                <span class="accordion-title">Datos Laborales</span>
+                <span class="accordion-status incomplete" id="status-laboral">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Situación Laboral <span class="required">*</span></label>
+                        <select name="situacion_laboral" class="form-select" required>
+                            <option value="">-- Seleccionar --</option>
+                            <option value="dependiente" {{ 'selected' if colegiado and colegiado.situacion_laboral == 'dependiente' else '' }}>Dependiente</option>
+                            <option value="independiente" {{ 'selected' if colegiado and colegiado.situacion_laboral == 'independiente' else '' }}>Independiente</option>
+                            <option value="ambos" {{ 'selected' if colegiado and colegiado.situacion_laboral == 'ambos' else '' }}>Dependiente e Independiente</option>
+                            <option value="desempleado" {{ 'selected' if colegiado and colegiado.situacion_laboral == 'desempleado' else '' }}>Desempleado / Buscando empleo</option>
+                            <option value="jubilado" {{ 'selected' if colegiado and colegiado.situacion_laboral == 'jubilado' else '' }}>Jubilado</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Centro de Trabajo / Estudio Contable</label>
+                        <input type="text" name="centro_trabajo" class="form-input" placeholder="Nombre de la empresa o estudio"
+                               value="{{ colegiado.centro_trabajo if colegiado and colegiado.centro_trabajo else '' }}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Cargo</label>
+                            <input type="text" name="cargo" class="form-input" placeholder="Contador General, Asistente..."
+                                   value="{{ colegiado.cargo if colegiado and colegiado.cargo else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">RUC Empleador</label>
+                            <input type="text" name="ruc_empleador" class="form-input" maxlength="11" placeholder="20XXXXXXXXX"
+                                   value="{{ colegiado.ruc_empleador if colegiado and colegiado.ruc_empleador else '' }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección del Trabajo</label>
+                        <input type="text" name="direccion_trabajo" class="form-input"
+                               value="{{ colegiado.direccion_trabajo if colegiado and colegiado.direccion_trabajo else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Teléfono del Trabajo</label>
+                        <input type="tel" name="telefono_trabajo" class="form-input"
+                               value="{{ colegiado.telefono_trabajo if colegiado and colegiado.telefono_trabajo else '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: FAMILIARES -->
+        <div class="accordion" id="acc-familiar">
+            <div class="accordion-header" onclick="toggleAccordion('acc-familiar')">
+                <div class="accordion-icon" style="background:rgba(236,72,153,0.15);color:#ec4899;">
+                    <i class="ph ph-users-three"></i>
+                </div>
+                <span class="accordion-title">Datos Familiares</span>
+                <span class="accordion-status incomplete" id="status-familiar">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Cónyuge</label>
+                            <input type="text" name="nombre_conyuge" class="form-input"
+                                   value="{{ colegiado.nombre_conyuge if colegiado and colegiado.nombre_conyuge else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cantidad de Hijos</label>
+                            <input type="number" name="cantidad_hijos" class="form-input" min="0"
+                                   value="{{ colegiado.cantidad_hijos if colegiado and colegiado.cantidad_hijos else 0 }}">
+                        </div>
+                    </div>
+                    <p style="font-size:12px;color:#f59e0b;margin:16px 0 12px;display:flex;align-items:center;gap:6px;">
+                        <i class="ph ph-warning"></i> Contacto de Emergencia
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Nombre Completo <span class="required">*</span></label>
+                        <input type="text" name="contacto_emergencia_nombre" class="form-input"
+                               value="{{ colegiado.contacto_emergencia_nombre if colegiado and colegiado.contacto_emergencia_nombre else '' }}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Teléfono <span class="required">*</span></label>
+                            <input type="tel" name="contacto_emergencia_telefono" class="form-input"
+                                   value="{{ colegiado.contacto_emergencia_telefono if colegiado and colegiado.contacto_emergencia_telefono else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Parentesco</label>
+                            <input type="text" name="contacto_emergencia_parentesco" class="form-input" placeholder="Esposa, Hijo, Hermano..."
+                                   value="{{ colegiado.contacto_emergencia_parentesco if colegiado and colegiado.contacto_emergencia_parentesco else '' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: REDES SOCIALES (OPTIMIZADO) -->
+        <div class="accordion" id="acc-redes">
+            <div class="accordion-header" onclick="toggleAccordion('acc-redes')">
+                <div class="accordion-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4;">
+                    <i class="ph ph-globe"></i>
+                </div>
+                <span class="accordion-title">Presencia Digital</span>
+                <span class="accordion-status" style="background:rgba(100,116,139,0.15);color:#94a3b8;">Opcional</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <!-- Sitio Web - Full width porque es URL completa -->
+                    <div class="form-group">
+                        <label class="form-label">Sitio Web Personal / Estudio</label>
+                        <input type="url" name="sitio_web" class="form-input" placeholder="https://miestudio.com"
+                            value="{{ colegiado.sitio_web if colegiado and colegiado.sitio_web else '' }}">
+                    </div>
+                    
+                    <!-- Redes sociales en grid 2x2 con prefijos -->
+                    <div class="social-grid">
+                        <div class="social-input-group">
+                            <label class="form-label">LinkedIn</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">linkedin.com/in/</span>
+                                <input type="text" name="linkedin" class="form-input" placeholder="mi-perfil"
+                                    value="{{ colegiado.linkedin.replace('https://linkedin.com/in/', '').replace('https://www.linkedin.com/in/', '') if colegiado and colegiado.linkedin else '' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="social-input-group">
+                            <label class="form-label">Facebook</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">facebook.com/</span>
+                                <input type="text" name="facebook" class="form-input" placeholder="mi.pagina"
+                                    value="{{ colegiado.facebook.replace('https://facebook.com/', '').replace('https://www.facebook.com/', '') if colegiado and colegiado.facebook else '' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="social-input-group">
+                            <label class="form-label">Instagram</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">@</span>
+                                <input type="text" name="instagram" class="form-input" placeholder="mi_usuario"
+                                    value="{{ colegiado.instagram.replace('@', '') if colegiado and colegiado.instagram else '' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="social-input-group">
+                            <label class="form-label">TikTok</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">@</span>
+                                <input type="text" name="tiktok" class="form-input" placeholder="mi_usuario"
+                                    value="{{ colegiado.tiktok.replace('@', '') if colegiado and colegiado.tiktok else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-footer">
+        <button type="submit" class="btn-primary" id="btn-guardar-perfil">
+            <i class="ph ph-floppy-disk"></i> Guardar Cambios
+        </button>
+    </div>
+    </form>
+</dialog>
+
+<!-- OTROS MODALES (simplificados) -->
+<dialog id="modal-aviso">
+    <div class="modal-header">
+        <h3 class="modal-title" id="aviso-titulo">Aviso</h3>
+        <button class="modal-close" onclick="Modal.close('modal-aviso')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:24px;">
+        <p id="aviso-contenido" style="color:#cbd5e1; line-height:1.8; font-size:15px;"></p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn-primary" onclick="Modal.close('modal-aviso')">Entendido</button>
+    </div>
+</dialog>
+
+<dialog id="modal-indicadores">
+    <div class="modal-header">
+        <h3 class="modal-title">Indicadores Tributarios</h3>
+        <button class="modal-close" onclick="Modal.close('modal-indicadores')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:24px;">
+        <div class="list-item" style="cursor:default;">
+            <div class="list-item-icon" style="background:rgba(212,175,55,0.15);color:#d4af37;"><i class="ph ph-currency-circle-dollar"></i></div>
+            <div class="list-item-content"><div class="list-item-title">UIT 2026</div></div>
+            <div class="list-item-value" style="color:#d4af37;">S/ 5,350</div>
+        </div>
+        <div class="list-item" style="cursor:default;">
+            <div class="list-item-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;"><i class="ph ph-arrow-down"></i></div>
+            <div class="list-item-content"><div class="list-item-title">TC Compra</div></div>
+            <div class="list-item-value">S/ 3.720</div>
+        </div>
+        <div class="list-item" style="cursor:default;">
+            <div class="list-item-icon" style="background:rgba(16,185,129,0.15);color:#10b981;"><i class="ph ph-arrow-up"></i></div>
+            <div class="list-item-content"><div class="list-item-title">TC Venta</div></div>
+            <div class="list-item-value">S/ 3.756</div>
+        </div>
+        <div class="list-item" style="cursor:default;">
+            <div class="list-item-icon" style="background:rgba(139,92,246,0.15);color:#8b5cf6;"><i class="ph ph-users"></i></div>
+            <div class="list-item-content"><div class="list-item-title">RMV 2026</div></div>
+            <div class="list-item-value">S/ 1,130</div>
+        </div>
+        <div class="list-item" style="cursor:default;">
+            <div class="list-item-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;"><i class="ph ph-percent"></i></div>
+            <div class="list-item-content"><div class="list-item-title">TIM Mensual</div></div>
+            <div class="list-item-value">1.00%</div>
+        </div>
+    </div>
+</dialog>
+
+<!-- Modales placeholder -->
+{% for modal_id in ['modal-pagos', 'modal-pagar', 'modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-avisos', 'modal-estadisticas', 'modal-calculadora', 'modal-normas'] %}
+<dialog id="{{ modal_id }}">
+    <div class="modal-header">
+        <h3 class="modal-title">{{ modal_id.replace('modal-', '').replace('-', ' ').title() }}</h3>
+        <button class="modal-close" onclick="Modal.close('{{ modal_id }}')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:24px;">
+        <div class="empty-state">
+            <i class="ph ph-code"></i>
+            <p>Próximamente disponible</p>
+        </div>
+    </div>
+</dialog>
+{% endfor %}
+
+<!-- ============================================== -->
+<!-- MODAL MI SITIO WEB -->
+ <!-- ============================================== -->
+<!-- 
+=====================================
+PASO 1: AGREGAR TARJETA EN SERVICIOS
+=====================================
+Buscar la sección "options-grid" de SERVICIOS y agregar:
+-->
+
+<!-- FAB DOCK: Mi Sitio + Herramientas -->
+<div class="fab-dock with-labels">
+    <button class="fab-btn cyan" onclick="Modal.open('modal-mi-sitio')">
+        <i class="ph ph-globe"></i>
+        <span class="fab-label">Mi Sitio</span>
+    </button>
+    <button class="fab-btn purple" onclick="Modal.open('modal-herramientas')">
+        <i class="ph ph-toolbox"></i>
+        <span class="fab-label">Herramientas</span>
+    </button>
+</div>
+
+
+<!-- 
+=====================================
+PASO 2: AGREGAR MODAL 
+=====================================
+Colocar junto con los otros modales (antes de </body>)
+-->
+
+<!-- MODAL: MI SITIO WEB -->
+<dialog id="modal-mi-sitio">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-globe" style="color:var(--gold);"></i> Mi Sitio Web</h3>
+        <button class="modal-close" onclick="Modal.close('modal-mi-sitio')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+        
+        {% if colegiado and colegiado.codigo_matricula %}
+        <!-- TIENE COLEGIADO VINCULADO -->
+        
+        <!-- Browser Preview -->
+        <div class="browser-preview">
+            <div class="browser-header">
+                <div class="browser-dots">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="browser-url">
+                    <i class="ph ph-lock-simple"></i>
+                    <span>{{ request.url.netloc }}/colegiado/{{ colegiado.codigo_matricula }}</span>
+                </div>
+            </div>
+            <div class="browser-content">
+                <div class="preview-card">
+                    <div class="preview-photo">
+                        {% if colegiado.foto_url %}
+                            <img src="{{ colegiado.foto_url }}" alt="Foto">
+                        {% else %}
+                            <span class="preview-initial">{{ colegiado.apellidos_nombres[0] | upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="preview-name">{{ colegiado.apellidos_nombres }}</div>
+                    <div class="preview-org">{{ theme.site_name if theme else 'Colegio Profesional' }}</div>
+                    <div class="preview-badge {{ 'habil' if colegiado.es_habil else 'inhabil' }}">
+                        <i class="ph ph-seal-check"></i>
+                        {{ 'Hábil' if colegiado.es_habil else 'Inhábil' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- URL Copy -->
+        <div class="url-section">
+            <label>Tu enlace personal:</label>
+            <div class="url-box">
+                <input type="text" 
+                       id="mi-sitio-url" 
+                       value="{{ request.url.scheme }}://{{ request.url.netloc }}/colegiado/{{ colegiado.codigo_matricula }}" 
+                       readonly>
+                <button class="btn-copy" onclick="copiarMiSitio()">
+                    <i class="ph ph-copy" id="copy-icon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <a href="/colegiado/{{ colegiado.codigo_matricula }}" 
+               target="_blank" 
+               class="btn-action primary">
+                <i class="ph ph-arrow-square-out"></i>
+                Ver mi sitio
+            </a>
+            <button class="btn-action secondary" onclick="compartirMiSitio()">
+                <i class="ph ph-share-network"></i>
+                Compartir
+            </button>
+        </div>
+
+        <!-- Features List -->
+        <div class="features-list">
+            <div class="feature-item">
+                <i class="ph ph-check-circle"></i>
+                <span>Perfil público verificable 24/7</span>
+            </div>
+            <div class="feature-item">
+                <i class="ph ph-check-circle"></i>
+                <span>QR de verificación incluido</span>
+            </div>
+            <div class="feature-item">
+                <i class="ph ph-check-circle"></i>
+                <span>Adaptado a móviles y PC</span>
+            </div>
+        </div>
+
+        <!-- Tip -->
+        <div class="tip-box">
+            <i class="ph ph-lightbulb"></i>
+            <p>Completa tu perfil en <strong>"Mi Perfil"</strong> para que tu sitio web muestre toda tu información profesional.</p>
+        </div>
+        
+        {% else %}
+        <!-- NO TIENE COLEGIADO VINCULADO -->
+        
+        <div class="empty-state" style="text-align:center; padding:40px 20px;">
+            <i class="ph ph-warning" style="font-size:48px; color:#f59e0b; margin-bottom:16px; display:block;"></i>
+            <h4 style="font-size:18px; margin-bottom:8px; color:white;">Perfil no vinculado</h4>
+            <p style="font-size:14px; color:#94a3b8; margin-bottom:20px; line-height:1.6;">
+                Tu cuenta de usuario aún no está vinculada a un registro de colegiado.
+                <br>Esto puede deberse a que:
+            </p>
+            <ul style="text-align:left; font-size:13px; color:#64748b; max-width:280px; margin:0 auto 20px; line-height:1.8;">
+                <li>Ingresaste con un código de prueba</li>
+                <li>Tu DNI no coincide con el registro</li>
+                <li>Aún no estás registrado como colegiado</li>
+            </ul>
+            <p style="font-size:13px; color:#94a3b8;">
+                <strong style="color:#fbbf24;">Solución:</strong> Contacta a la administración del Colegio para vincular tu cuenta.
+            </p>
+        </div>
+        
+        {% endif %}
+
+    </div>
+</dialog>
+
+
+
+<!--================================================-->
+<!-- HERRAMIENTAS PRO-->
+<!--================================================-->
+<!-- 
+=====================================
+PASO 1: AGREGAR TARJETA EN SERVICIOS (o HERRAMIENTAS)
+=====================================
+-->
+
+<!-- SE PUSO JUNTO A MI SITIO WEB EN EL FAB DOCK
+<div class="option-card" onclick="Modal.open('modal-herramientas')">
+    <div class="option-icon purple"><i class="ph ph-toolbox"></i></div>
+    <span class="option-label">Herramientas</span>
+</div>
+-->
+
+<!-- 
+=====================================
+PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
+=====================================
+-->
+
+<dialog id="modal-herramientas">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-toolbox" style="color:#a78bfa;"></i> Herramientas Pro</h3>
+        <button class="modal-close" onclick="Modal.close('modal-herramientas')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+        
+        <!-- Tabs de categorías -->
+        <div class="tools-tabs">
+            <button class="tools-tab active" onclick="cambiarTabHerramientas('sunat', this)">
+                <i class="ph ph-buildings"></i> SUNAT
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('calc', this)">
+                <i class="ph ph-calculator"></i> Cálculos
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('facturacion', this)">
+                <i class="ph ph-receipt"></i> Facturación
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('consultas', this)">
+                <i class="ph ph-magnifying-glass"></i> Consultas
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('bancos', this)">
+                <i class="ph ph-bank"></i> Bancos
+            </button>
+        </div>
+
+        <!-- Contenido de tabs -->
+        <div class="tools-content">
+            
+            <!-- TAB: SUNAT -->
+            <div id="tab-sunat" class="tools-panel active">
+                <div class="tools-grid">
+                    <a href="https://e-menu.sunat.gob.pe/cl-ti-itmenu/MenuInternet.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-key"></i></div>
+                        <span class="tool-name">Clave SOL</span>
+                        <span class="tool-desc">Menú principal</span>
+                    </a>
+                    <a href="https://e-rhe.sunat.gob.pe/ol-ti-itrhemisgen/RECIBO_HONORARIOS_ELECTRONICO.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-file-text"></i></div>
+                        <span class="tool-name">Emitir RHE</span>
+                        <span class="tool-desc">Recibo Honorarios</span>
+                    </a>
+                    <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-magnifying-glass"></i></div>
+                        <span class="tool-name">Consulta RUC</span>
+                        <span class="tool-desc">Buscar contribuyente</span>
+                    </a>
+                    <a href="https://e-menu.sunat.gob.pe/cl-ti-itmenu/MenuInternet.htm?pestession=DECLARACIONES" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-file-arrow-up"></i></div>
+                        <span class="tool-name">Declaraciones</span>
+                        <span class="tool-desc">PDT / Declara Fácil</span>
+                    </a>
+                    <a href="https://www.sunat.gob.pe/ol-ti-itmoam/OL-AD-ITE-AMG-Cro/cronograma.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-calendar"></i></div>
+                        <span class="tool-name">Cronograma</span>
+                        <span class="tool-desc">Vencimientos 2025</span>
+                    </a>
+                    <a href="https://ww1.sunat.gob.pe/ol-ti-itdaaboram/busqam.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-clipboard-text"></i></div>
+                        <span class="tool-name">Mis Trámites</span>
+                        <span class="tool-desc">Estado de solicitudes</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- TAB: CALCULADORAS -->
+            <div id="tab-calc" class="tools-panel">
+                <div class="calc-section">
+                    <!-- Calculadora IGV -->
+                    <div class="calc-card">
+                        <div class="calc-header">
+                            <i class="ph ph-percent"></i>
+                            <span>Calculadora IGV</span>
+                        </div>
+                        <div class="calc-body">
+                            <div class="calc-input-group">
+                                <label>Monto:</label>
+                                <input type="number" id="calc-igv-monto" placeholder="0.00" oninput="calcularIGV()">
+                            </div>
+                            <div class="calc-toggle">
+                                <button class="calc-toggle-btn active" onclick="setTipoIGV('sin')" id="btn-sin-igv">Sin IGV</button>
+                                <button class="calc-toggle-btn" onclick="setTipoIGV('con')" id="btn-con-igv">Con IGV</button>
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row">
+                                    <span>Base Imponible:</span>
+                                    <strong id="igv-base">S/ 0.00</strong>
+                                </div>
+                                <div class="calc-result-row">
+                                    <span>IGV (18%):</span>
+                                    <strong id="igv-monto">S/ 0.00</strong>
+                                </div>
+                                <div class="calc-result-row total">
+                                    <span>Total:</span>
+                                    <strong id="igv-total">S/ 0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calculadora Renta 4ta -->
+                    <div class="calc-card">
+                        <div class="calc-header">
+                            <i class="ph ph-money"></i>
+                            <span>Retención 4ta Categoría</span>
+                        </div>
+                        <div class="calc-body">
+                            <div class="calc-input-group">
+                                <label>Monto RHE:</label>
+                                <input type="number" id="calc-4ta-monto" placeholder="0.00" oninput="calcularRenta4ta()">
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row">
+                                    <span>Retención 8%:</span>
+                                    <strong id="renta4ta-retencion">S/ 0.00</strong>
+                                </div>
+                                <div class="calc-result-row">
+                                    <span>Aplica retención:</span>
+                                    <strong id="renta4ta-aplica">-</strong>
+                                </div>
+                                <div class="calc-result-row total">
+                                    <span>Neto a recibir:</span>
+                                    <strong id="renta4ta-neto">S/ 0.00</strong>
+                                </div>
+                            </div>
+                            <div class="calc-note">
+                                <i class="ph ph-info"></i>
+                                Retención aplica si RHE > S/ 1,500
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Cambio -->
+                    <div class="calc-card">
+                        <div class="calc-header">
+                            <i class="ph ph-currency-dollar"></i>
+                            <span>Tipo de Cambio</span>
+                            <span class="calc-badge" id="tc-fecha">Cargando...</span>
+                        </div>
+                        <div class="calc-body">
+                            <div class="tc-display">
+                                <div class="tc-item">
+                                    <span class="tc-label">Compra</span>
+                                    <span class="tc-value" id="tc-compra">-</span>
+                                </div>
+                                <div class="tc-item">
+                                    <span class="tc-label">Venta</span>
+                                    <span class="tc-value" id="tc-venta">-</span>
+                                </div>
+                            </div>
+                            <div class="calc-input-group" style="margin-top:12px;">
+                                <label>Convertir USD:</label>
+                                <input type="number" id="tc-usd" placeholder="100.00" oninput="convertirTC()">
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row total">
+                                    <span>Equivale a:</span>
+                                    <strong id="tc-resultado">S/ 0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: FACTURACIÓN ELECTRÓNICA -->
+            <div id="tab-facturacion" class="tools-panel">
+                <!-- Destacado: Facturalo.pro -->
+                <div class="featured-tool">
+                    <div class="featured-badge">
+                        <i class="ph ph-star"></i> Recomendado para Loreto
+                    </div>
+                    <div class="featured-content">
+                        <div class="featured-logo">
+                            <i class="ph ph-lightning"></i>
+                        </div>
+                        <div class="featured-info">
+                            <h4>Facturalo.pro</h4>
+                            <p>Sistema de Facturación Electrónica regional</p>
+                            <ul class="featured-benefits">
+                                <li><i class="ph ph-check"></i> Soporte local en Iquitos</li>
+                                <li><i class="ph ph-check"></i> Precio especial para colegiados CCPL</li>
+                                <li><i class="ph ph-check"></i> Integración con SUNAT garantizada</li>
+                                <li><i class="ph ph-check"></i> Capacitación incluida</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <a href="https://facturalo.pro" target="_blank" class="featured-btn">
+                        <i class="ph ph-arrow-square-out"></i> Visitar Facturalo.pro
+                    </a>
+                </div>
+
+                <div class="tools-divider">
+                    <span>Otros proveedores</span>
+                </div>
+
+                <div class="tools-grid compact">
+                    <a href="https://www.nubefact.com" target="_blank" class="tool-link small">
+                        <div class="tool-icon gray"><i class="ph ph-cloud"></i></div>
+                        <span class="tool-name">Nubefact</span>
+                    </a>
+                    <a href="https://www.efact.pe" target="_blank" class="tool-link small">
+                        <div class="tool-icon gray"><i class="ph ph-file-text"></i></div>
+                        <span class="tool-name">eFact</span>
+                    </a>
+                    <a href="https://www.bizlinks.com.pe" target="_blank" class="tool-link small">
+                        <div class="tool-icon gray"><i class="ph ph-link"></i></div>
+                        <span class="tool-name">Bizlinks</span>
+                    </a>
+                    <a href="https://www.pse.pe" target="_blank" class="tool-link small">
+                        <div class="tool-icon gray"><i class="ph ph-buildings"></i></div>
+                        <span class="tool-name">PSE.pe</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- TAB: CONSULTAS -->
+            <div id="tab-consultas" class="tools-panel">
+                <div class="tools-grid">
+                    <a href="https://www.sbs.gob.pe/app/pp/sistip_portal/paginas/publicacion/tipocambiopromedio.aspx" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-currency-dollar"></i></div>
+                        <span class="tool-name">Tipo Cambio SBS</span>
+                        <span class="tool-desc">Oficial diario</span>
+                    </a>
+                    <a href="https://www.mef.gob.pe/es/valor-de-la-uit" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-chart-line-up"></i></div>
+                        <span class="tool-name">UIT Vigente</span>
+                        <span class="tool-desc">S/ 5,350 (2025)</span>
+                    </a>
+                    <a href="https://www.mef.gob.pe/es/tribunal-fiscal" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-scales"></i></div>
+                        <span class="tool-name">Tribunal Fiscal</span>
+                        <span class="tool-desc">Resoluciones</span>
+                    </a>
+                    <a href="https://busquedas.elperuano.pe/normaslegales/" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-newspaper"></i></div>
+                        <span class="tool-name">El Peruano</span>
+                        <span class="tool-desc">Normas legales</span>
+                    </a>
+                    <a href="https://www.sunarp.gob.pe/seccion/servicios/consulta-vehicular.html" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-car"></i></div>
+                        <span class="tool-name">SUNARP</span>
+                        <span class="tool-desc">Consulta vehicular</span>
+                    </a>
+                    <a href="https://www.essalud.gob.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon blue"><i class="ph ph-first-aid-kit"></i></div>
+                        <span class="tool-name">ESSALUD</span>
+                        <span class="tool-desc">Aportes y servicios</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- TAB: BANCOS -->
+            <div id="tab-bancos" class="tools-panel">
+                <div class="tools-grid">
+                    <a href="https://www.viabcp.com" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-bcp"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">BCP</span>
+                        <span class="tool-desc">Banca por Internet</span>
+                    </a>
+                    <a href="https://www.bbva.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-bbva"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">BBVA</span>
+                        <span class="tool-desc">Banca empresas</span>
+                    </a>
+                    <a href="https://interbank.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-ibk"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">Interbank</span>
+                        <span class="tool-desc">Banca digital</span>
+                    </a>
+                    <a href="https://www.scotiabank.com.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-scotia"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">Scotiabank</span>
+                        <span class="tool-desc">Scotia en línea</span>
+                    </a>
+                    <a href="https://www.bn.com.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-bn"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">Banco Nación</span>
+                        <span class="tool-desc">Multired virtual</span>
+                    </a>
+                    <a href="https://www.banbif.com.pe" target="_blank" class="tool-link">
+                        <div class="tool-icon bank-banbif"><i class="ph ph-bank"></i></div>
+                        <span class="tool-name">BanBif</span>
+                        <span class="tool-desc">Banca en línea</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</dialog>
+
+
+
+<!-- ============================================== -->
+<!-- SCRIPTS -->
+<!-- ============================================== -->
+<script src="/static/js/modules/ux-system.js"></script>
+<script src="/static/js/pages/dashboard_colegiado.js"></script>
+<script src="/static/js/pages/mi_sitio_web.js"></script>
+<script src="/static/js/pages/herramientas_pro.js"></script>
+{% block extra_scripts %}{% endblock %}
+{% block mic_floating %}{% endblock %}
+{% endblock %}
