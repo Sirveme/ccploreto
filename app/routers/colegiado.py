@@ -218,6 +218,8 @@ async def actualizar_datos_estudios(
         colegiado.grado_academico = grado_academico if grado_academico else None
     if especialidad is not None:
         colegiado.especialidad = especialidad.strip() if especialidad else None
+    if comite_funcional is not None:
+        colegiado.comite_funcional = comite_funcional if comite_funcional else None
     
     colegiado.datos_actualizados_at = datetime.now(timezone.utc)
     verificar_datos_completos(colegiado)
@@ -350,6 +352,7 @@ async def actualizar_todos_los_datos(
     email: str = Form(None),
     telefono: str = Form(None),
     direccion: str = Form(None),
+    referencia_domicilio: str = Form(None),      # ← NUEVO
     fecha_nacimiento: str = Form(None),
     lugar_nacimiento: str = Form(None),
     estado_civil: str = Form(None),
@@ -359,12 +362,14 @@ async def actualizar_todos_los_datos(
     fecha_titulo: str = Form(None),
     grado_academico: str = Form(None),
     especialidad: str = Form(None),
+    comite_funcional: str = Form(None),           # ← NUEVO
     # Laborales
     situacion_laboral: str = Form(None),
     centro_trabajo: str = Form(None),
     cargo: str = Form(None),
     ruc_empleador: str = Form(None),
     direccion_trabajo: str = Form(None),
+    referencia_trabajo: str = Form(None),         # ← NUEVO
     telefono_trabajo: str = Form(None),
     # Familiares
     nombre_conyuge: str = Form(None),
@@ -378,6 +383,17 @@ async def actualizar_todos_los_datos(
     facebook: str = Form(None),
     instagram: str = Form(None),
     tiktok: str = Form(None),
+    # Mi Página Web
+    sobre_mi: str = Form(None),                   # ← NUEVO
+    exp_empresa_1: str = Form(None),              # ← NUEVO
+    exp_cargo_1: str = Form(None),                # ← NUEVO
+    exp_periodo_1: str = Form(None),              # ← NUEVO
+    exp_empresa_2: str = Form(None),              # ← NUEVO
+    exp_cargo_2: str = Form(None),                # ← NUEVO
+    exp_periodo_2: str = Form(None),              # ← NUEVO
+    exp_empresa_3: str = Form(None),              # ← NUEVO
+    exp_cargo_3: str = Form(None),                # ← NUEVO
+    exp_periodo_3: str = Form(None),              # ← NUEVO
     # Foto
     foto: UploadFile = File(None),
     member: Member = Depends(get_current_member),
@@ -432,8 +448,12 @@ async def actualizar_todos_los_datos(
         colegiado.ruc_empleador = ruc_empleador.strip() if ruc_empleador else None
     if direccion_trabajo is not None:
         colegiado.direccion_trabajo = direccion_trabajo.strip() if direccion_trabajo else None
+    if referencia_trabajo is not None:
+        colegiado.referencia_trabajo = referencia_trabajo.strip() if referencia_trabajo else None
     if telefono_trabajo is not None:
         colegiado.telefono_trabajo = telefono_trabajo.strip() if telefono_trabajo else None
+    if referencia_domicilio is not None:
+        colegiado.referencia_domicilio = referencia_domicilio.strip() if referencia_domicilio else None
     
     # === FAMILIARES ===
     if nombre_conyuge is not None:
@@ -459,6 +479,25 @@ async def actualizar_todos_los_datos(
     if tiktok is not None:
         colegiado.tiktok = tiktok.strip() if tiktok else None    
     
+    # === MI PÁGINA WEB ===
+    if sobre_mi is not None:
+        colegiado.sobre_mi = sobre_mi.strip() if sobre_mi else None
+    
+    experiencia = []
+    for emp, car, per in [
+        (exp_empresa_1, exp_cargo_1, exp_periodo_1),
+        (exp_empresa_2, exp_cargo_2, exp_periodo_2),
+        (exp_empresa_3, exp_cargo_3, exp_periodo_3),
+    ]:
+        if emp and emp.strip():
+            experiencia.append({
+                'empresa': emp.strip(),
+                'cargo': car.strip() if car else '',
+                'periodo': per.strip() if per else '',
+            })
+    colegiado.experiencia_laboral = experiencia if experiencia else []
+
+
     # === FOTO ===
     if foto and foto.filename:
         foto_url = await guardar_foto(foto, colegiado.organization_id, colegiado.id)

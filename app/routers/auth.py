@@ -116,10 +116,25 @@ async def login(
                 Colegiado.dni == input_info['valor_normalizado']
             ).first()
             
-            if colegiado and colegiado.member_id:
-                member = db.query(Member).filter(Member.id == colegiado.member_id).first()
-                if member:
-                    user = member.user
+            if colegiado:
+                # Ruta 1: Via member_id vinculado
+                if colegiado.member_id:
+                    member = db.query(Member).filter(Member.id == colegiado.member_id).first()
+                    if member:
+                        user = member.user
+                
+                # Ruta 2: Via matrícula del colegiado en User.public_id
+                if not user and colegiado.codigo_matricula:
+                    mat = colegiado.codigo_matricula
+                    for variante in [mat, mat.replace('-', '')]:
+                        user = db.query(User).filter(User.public_id == variante).first()
+                        if user:
+                            break
+                    # Forma corta: '10-0201' -> '10201'
+                    if not user and '-' in mat:
+                        partes = mat.split('-', 1)
+                        corta = partes[0] + partes[1].lstrip('0')
+                        user = db.query(User).filter(User.public_id == corta).first()
     
     elif input_info['tipo'] == 'matricula':
         # Buscar por matrícula en colegiados
@@ -179,6 +194,13 @@ async def login(
 
     # 6. Éxito: Crear Sesión
     return create_session_response(user, membership)
+
+
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie("access_token", path="/")
+    return response
 
 
 # --- SWITCH PROFILE ---
