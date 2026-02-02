@@ -47,26 +47,82 @@ def get_current_member(request: Request, db: Session = Depends(get_db)):
 @router.get("/dashboard")
 async def dashboard_home(request: Request, member: Member = Depends(get_current_member), db: Session = Depends(get_db)):
     current_theme = getattr(request.state, "theme", None)
+    current_org = getattr(request.state, "org", {})
+    org_config = current_org.get("config", {})
 
     # BUSCAR ÚLTIMO BOLETÍN ACTIVO
     latest_bulletin = db.query(Bulletin).filter(
         Bulletin.organization_id == member.organization_id
     ).order_by(Bulletin.created_at.desc()).first()
 
-    # BUSCAR OTRAS MEMBRESÍAS (Multi-propiedad)
+    # BUSCAR OTRAS MEMBRESÍAS
     my_profiles = db.query(Member).join(Organization).filter(
         Member.user_id == member.user_id,
-        Member.is_active == True,
-        Member.id != member.id # Excluir la actual
+        Member.is_active == True
     ).all()
+
+    # ========================================
+    # BUSCAR DATOS DEL COLEGIADO (CÓDIGO NUEVO)
+    # ========================================
+    from app.models import Colegiado
     
-    return templates.TemplateResponse("pages/dashboard.html", {
+    user_input = member.user.public_id if member.user else None
+    colegiado = None
+    
+    if user_input:
+        user_input = user_input.strip().upper()
+        
+        if len(user_input) == 8 and user_input.isdigit():
+            colegiado = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.dni == user_input
+            ).first()
+        
+        elif '-' in user_input:
+            colegiado = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == user_input
+            ).first()
+        
+        elif user_input.startswith('10'):
+            resto = user_input[2:]
+            numero = ''
+            letra = ''
+            for i, char in enumerate(resto):
+                if char.isdigit():
+                    numero += char
+                else:
+                    letra = resto[i:].upper()
+                    break
+            
+            numero_formateado = numero.zfill(4)
+            matricula = f"10-{numero_formateado}{letra}"
+            
+            colegiado = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == matricula
+            ).first()
+    
+    if not colegiado:
+        colegiado = db.query(Colegiado).filter(
+            Colegiado.member_id == member.id
+        ).first()
+    
+    if not colegiado and user_input and len(user_input) == 8 and user_input.isdigit():
+        colegiado = db.query(Colegiado).filter(
+            Colegiado.dni == user_input
+        ).first()
+    
+    print(f"DEBUG COLEGIADO: input='{user_input}' -> encontrado={colegiado.codigo_matricula if colegiado else 'NINGUNO'}")
+    # ========================================
+    
+    return templates.TemplateResponse("pages/dashboard_colegiado.html", {
         "request": request,
         "user": member,
+        "colegiado": colegiado,
         "profiles": my_profiles,
-        "deuda": "S/ 150.00", # Esto deberías conectarlo a la tabla Debts real
-        "vencimiento": "15 Ene 2024",
         "theme": current_theme,
+        "config": org_config,
         "vapid_public_key": os.getenv("VAPID_PUBLIC_KEY"),
-        "latest_bulletin": latest_bulletin 
+        "latest_bulletin": latest_bulletin
     })
