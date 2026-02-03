@@ -1,7 +1,7 @@
 """
-Router: Sistema de Alertas Tributarias
-=======================================
-Endpoints para gestionar RUCs y configuración de alertas de vencimientos
+Router: Sistema de Alertas Tributarias v2
+=========================================
+Usa cronograma oficial SUNAT desde la base de datos
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,164 +19,33 @@ router = APIRouter(prefix="/api/avisos", tags=["avisos"])
 
 
 # ============================================================
-# CRONOGRAMA SUNAT 2026 - Obligaciones Mensuales
-# Vencimientos según último dígito del RUC
-# ============================================================
-CRONOGRAMA_2026 = {
-    # Periodo: { ultimo_digito: dia_vencimiento }
-    "2026-01": {0: 14, 1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24, 9: 11, "buenos": 25},
-    "2026-02": {0: 14, 1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24, 9: 11, "buenos": 25},
-    "2026-03": {0: 16, 1: 17, 2: 20, 3: 21, 4: 22, 5: 23, 6: 24, 7: 25, 8: 26, 9: 13, "buenos": 27},
-    "2026-04": {0: 15, 1: 16, 2: 17, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-05": {0: 15, 1: 18, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-06": {0: 15, 1: 16, 2: 17, 3: 18, 4: 19, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-07": {0: 15, 1: 16, 2: 17, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-08": {0: 14, 1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24, 9: 11, "buenos": 25},
-    "2026-09": {0: 15, 1: 16, 2: 17, 3: 18, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-10": {0: 15, 1: 16, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-    "2026-11": {0: 14, 1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24, 9: 11, "buenos": 25},
-    "2026-12": {0: 15, 1: 16, 2: 17, 3: 18, 4: 19, 5: 22, 6: 23, 7: 24, 8: 25, 9: 12, "buenos": 26},
-}
-
-# Fechas fijas 2026
-FECHAS_FIJAS_2026 = {
-    "cts_mayo": date(2026, 5, 15),
-    "cts_noviembre": date(2026, 11, 16),  # 15 cae domingo
-    "gratificacion_julio": date(2026, 7, 15),
-    "gratificacion_diciembre": date(2026, 12, 15),
-}
-
-# AFP: Primeros 5 días hábiles del mes siguiente
-# Simplificado: usamos día 5 como referencia
-AFP_DIA_VENCIMIENTO = 5
-
-
-# ============================================================
 # FUNCIONES AUXILIARES
 # ============================================================
 
-def get_fecha_vencimiento_mensual(ruc: str, periodo: str) -> Optional[date]:
-    """
-    Calcula la fecha de vencimiento para obligaciones mensuales (PDT621, PLAME)
-    según el último dígito del RUC y el periodo.
-    """
-    if periodo not in CRONOGRAMA_2026:
-        return None
-    
-    ultimo_digito = int(ruc[-1])
-    dia = CRONOGRAMA_2026[periodo].get(ultimo_digito)
-    
-    if not dia:
-        return None
-    
-    # El vencimiento es en el mes SIGUIENTE al periodo
-    year, month = map(int, periodo.split('-'))
-    if month == 12:
-        year += 1
-        month = 1
-    else:
-        month += 1
-    
-    return date(year, month, dia)
+def get_grupo_ruc(ultimo_digito: str) -> str:
+    """Convierte último dígito a grupo SUNAT"""
+    if ultimo_digito == '0':
+        return '0'
+    elif ultimo_digito == '1':
+        return '1'
+    elif ultimo_digito in ('2', '3'):
+        return '2-3'
+    elif ultimo_digito in ('4', '5'):
+        return '4-5'
+    elif ultimo_digito in ('6', '7'):
+        return '6-7'
+    elif ultimo_digito in ('8', '9'):
+        return '8-9'
+    return '0'
 
 
-def get_fecha_vencimiento_afp(periodo: str) -> date:
-    """
-    AFP vence los primeros 5 días hábiles del mes siguiente.
-    Simplificamos usando día 5.
-    """
-    year, month = map(int, periodo.split('-'))
-    if month == 12:
-        year += 1
-        month = 1
-    else:
-        month += 1
-    
-    return date(year, month, AFP_DIA_VENCIMIENTO)
-
-
-def get_proximos_vencimientos(rucs: List[dict], dias_adelante: int = 30) -> List[dict]:
-    """
-    Genera lista de próximos vencimientos para los RUCs dados.
-    """
+def get_periodo_anterior() -> str:
+    """Retorna el periodo tributario anterior (para el cual se declara este mes)"""
     hoy = date.today()
-    limite = hoy + timedelta(days=dias_adelante)
-    vencimientos = []
-    
-    # Determinar periodos relevantes
-    periodo_actual = f"{hoy.year}-{hoy.month:02d}"
-    periodo_anterior = f"{hoy.year}-{(hoy.month - 1):02d}" if hoy.month > 1 else f"{hoy.year - 1}-12"
-    
-    for ruc_info in rucs:
-        ruc = ruc_info['ruc']
-        nombre = ruc_info['nombre']
-        ultimo_digito = ruc[-1]
-        
-        # PDT 621 - Periodo anterior (declaración mensual)
-        fecha_pdt = get_fecha_vencimiento_mensual(ruc, periodo_anterior)
-        if fecha_pdt and hoy <= fecha_pdt <= limite:
-            dias_restantes = (fecha_pdt - hoy).days
-            vencimientos.append({
-                'tipo': f'PDT 621 - {periodo_anterior}',
-                'empresa': nombre,
-                'ruc': ruc,
-                'fecha': fecha_pdt.isoformat(),
-                'dias_restantes': dias_restantes,
-                'obligacion': 'pdt621'
-            })
-        
-        # PLAME - Mismo vencimiento que PDT
-        if fecha_pdt and hoy <= fecha_pdt <= limite:
-            dias_restantes = (fecha_pdt - hoy).days
-            vencimientos.append({
-                'tipo': f'PLAME - {periodo_anterior}',
-                'empresa': nombre,
-                'ruc': ruc,
-                'fecha': fecha_pdt.isoformat(),
-                'dias_restantes': dias_restantes,
-                'obligacion': 'plame'
-            })
-        
-        # AFP - Vence ANTES que PDT/PLAME
-        fecha_afp = get_fecha_vencimiento_afp(periodo_anterior)
-        if hoy <= fecha_afp <= limite:
-            dias_restantes = (fecha_afp - hoy).days
-            vencimientos.append({
-                'tipo': f'AFP/ONP - {periodo_anterior}',
-                'empresa': nombre,
-                'ruc': ruc,
-                'fecha': fecha_afp.isoformat(),
-                'dias_restantes': dias_restantes,
-                'obligacion': 'afp'
-            })
-    
-    # Fechas fijas (CTS, Gratificaciones) - Una sola vez, no por RUC
-    if rucs:  # Solo si tiene al menos un RUC
-        for key, fecha in FECHAS_FIJAS_2026.items():
-            if hoy <= fecha <= limite:
-                dias_restantes = (fecha - hoy).days
-                tipo_nombre = {
-                    'cts_mayo': 'CTS Mayo',
-                    'cts_noviembre': 'CTS Noviembre', 
-                    'gratificacion_julio': 'Gratificación Julio',
-                    'gratificacion_diciembre': 'Gratificación Diciembre'
-                }.get(key, key)
-                
-                obligacion = 'cts' if 'cts' in key else 'gratificacion'
-                
-                vencimientos.append({
-                    'tipo': tipo_nombre,
-                    'empresa': 'Todas las empresas',
-                    'ruc': '-',
-                    'fecha': fecha.isoformat(),
-                    'dias_restantes': dias_restantes,
-                    'obligacion': obligacion
-                })
-    
-    # Ordenar por fecha
-    vencimientos.sort(key=lambda x: x['fecha'])
-    
-    return vencimientos
+    if hoy.month == 1:
+        return f"{hoy.year - 1}-12"
+    else:
+        return f"{hoy.year}-{hoy.month - 1:02d}"
 
 
 # ============================================================
@@ -188,13 +57,11 @@ async def get_config(
     member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
-    """
-    Obtiene la configuración de alertas y RUCs del colegiado.
-    """
-    # Obtener colegiado_id del member
+    """Obtiene configuración de alertas y RUCs del colegiado"""
+    
     colegiado = db.execute(
-        text("SELECT id FROM colegiados WHERE member_id = :member_id"),
-        {"member_id": member.id}
+        text("SELECT id FROM colegiados WHERE member_id = :mid"),
+        {"mid": member.id}
     ).fetchone()
     
     if not colegiado:
@@ -205,7 +72,7 @@ async def get_config(
     # Obtener RUCs
     rucs_result = db.execute(
         text("""
-            SELECT ruc, razon_social 
+            SELECT ruc, razon_social, ultimo_digito, grupo_ruc, es_buen_contribuyente
             FROM colegiado_ruc 
             WHERE colegiado_id = :cid
             ORDER BY razon_social
@@ -213,24 +80,48 @@ async def get_config(
         {"cid": colegiado_id}
     ).fetchall()
     
-    rucs = [{"numero": r[0], "nombre": r[1]} for r in rucs_result]
+    rucs = [{
+        "numero": r[0],
+        "nombre": r[1] or f"RUC {r[0]}",
+        "ultimoDigito": r[2],
+        "grupo": r[3],
+        "esBuenContribuyente": r[4]
+    } for r in rucs_result]
     
     # Obtener configuración
     config_result = db.execute(
         text("""
-            SELECT obligacion, activo, dias_antes, horas
+            SELECT dias_antes, horas_alerta,
+                   pdt621_activo, plame_activo, afp_activo,
+                   cts_activo, gratificacion_activo, renta_anual_activo
             FROM alerta_config
             WHERE colegiado_id = :cid
         """),
         {"cid": colegiado_id}
-    ).fetchall()
+    ).fetchone()
     
-    config = {}
-    for c in config_result:
-        config[c[0]] = {
-            "activo": c[1],
-            "dias_antes": c[2] or [],
-            "horas": c[3] or []
+    if config_result:
+        config = {
+            "dias_antes": config_result[0] or [5, 3, 1],
+            "horas": config_result[1] or [8, 14, 19],
+            "pdt621": config_result[2],
+            "plame": config_result[3],
+            "afp": config_result[4],
+            "cts": config_result[5],
+            "gratificacion": config_result[6],
+            "renta_anual": config_result[7]
+        }
+    else:
+        # Configuración por defecto
+        config = {
+            "dias_antes": [5, 3, 1],
+            "horas": [8, 14, 19],
+            "pdt621": True,
+            "plame": True,
+            "afp": True,
+            "cts": False,
+            "gratificacion": False,
+            "renta_anual": False
         }
     
     return JSONResponse({"rucs": rucs, "config": config})
@@ -242,13 +133,11 @@ async def save_config(
     member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
-    """
-    Guarda la configuración de alertas y RUCs del colegiado.
-    """
-    # Obtener colegiado_id
+    """Guarda configuración de alertas y RUCs"""
+    
     colegiado = db.execute(
-        text("SELECT id FROM colegiados WHERE member_id = :member_id"),
-        {"member_id": member.id}
+        text("SELECT id FROM colegiados WHERE member_id = :mid"),
+        {"mid": member.id}
     ).fetchone()
     
     if not colegiado:
@@ -260,14 +149,11 @@ async def save_config(
     rucs = data.get("rucs", [])
     
     # Eliminar RUCs que ya no están
-    rucs_numeros = [r["numero"] for r in rucs]
-    if rucs_numeros:
+    if rucs:
+        rucs_numeros = tuple([r.get("numero") or r.get("ruc") for r in rucs])
         db.execute(
-            text("""
-                DELETE FROM colegiado_ruc 
-                WHERE colegiado_id = :cid AND ruc NOT IN :rucs
-            """),
-            {"cid": colegiado_id, "rucs": tuple(rucs_numeros)}
+            text("DELETE FROM colegiado_ruc WHERE colegiado_id = :cid AND ruc NOT IN :rucs"),
+            {"cid": colegiado_id, "rucs": rucs_numeros}
         )
     else:
         db.execute(
@@ -277,41 +163,62 @@ async def save_config(
     
     # Insertar/actualizar RUCs
     for ruc in rucs:
+        numero = ruc.get("numero") or ruc.get("ruc")
+        nombre = ruc.get("nombre") or ruc.get("razon_social") or f"RUC {numero}"
+        es_bueno = ruc.get("esBuenContribuyente", False)
+        
         db.execute(
             text("""
-                INSERT INTO colegiado_ruc (colegiado_id, ruc, razon_social)
-                VALUES (:cid, :ruc, :nombre)
+                INSERT INTO colegiado_ruc (colegiado_id, ruc, razon_social, es_buen_contribuyente)
+                VALUES (:cid, :ruc, :nombre, :bueno)
                 ON CONFLICT (colegiado_id, ruc) 
-                DO UPDATE SET razon_social = EXCLUDED.razon_social
+                DO UPDATE SET razon_social = EXCLUDED.razon_social,
+                              es_buen_contribuyente = EXCLUDED.es_buen_contribuyente
             """),
-            {"cid": colegiado_id, "ruc": ruc["numero"], "nombre": ruc["nombre"]}
+            {"cid": colegiado_id, "ruc": numero, "nombre": nombre, "bueno": es_bueno}
         )
     
     # Guardar configuración de alertas
     config = data.get("config", {})
-    for obligacion, settings in config.items():
-        db.execute(
-            text("""
-                INSERT INTO alerta_config (colegiado_id, obligacion, activo, dias_antes, horas, updated_at)
-                VALUES (:cid, :ob, :activo, :dias, :horas, NOW())
-                ON CONFLICT (colegiado_id, obligacion) 
-                DO UPDATE SET 
-                    activo = EXCLUDED.activo,
-                    dias_antes = EXCLUDED.dias_antes,
-                    horas = EXCLUDED.horas,
-                    updated_at = NOW()
-            """),
-            {
-                "cid": colegiado_id,
-                "ob": obligacion,
-                "activo": settings.get("activo", True),
-                "dias": settings.get("dias_antes", [3, 5]),
-                "horas": settings.get("horas", [8, 14])
-            }
-        )
+    
+    db.execute(
+        text("""
+            INSERT INTO alerta_config (
+                colegiado_id, dias_antes, horas_alerta,
+                pdt621_activo, plame_activo, afp_activo,
+                cts_activo, gratificacion_activo, renta_anual_activo,
+                updated_at
+            ) VALUES (
+                :cid, :dias, :horas,
+                :pdt621, :plame, :afp,
+                :cts, :grati, :renta,
+                NOW()
+            )
+            ON CONFLICT (colegiado_id) DO UPDATE SET
+                dias_antes = EXCLUDED.dias_antes,
+                horas_alerta = EXCLUDED.horas_alerta,
+                pdt621_activo = EXCLUDED.pdt621_activo,
+                plame_activo = EXCLUDED.plame_activo,
+                afp_activo = EXCLUDED.afp_activo,
+                cts_activo = EXCLUDED.cts_activo,
+                gratificacion_activo = EXCLUDED.gratificacion_activo,
+                renta_anual_activo = EXCLUDED.renta_anual_activo,
+                updated_at = NOW()
+        """),
+        {
+            "cid": colegiado_id,
+            "dias": config.get("dias_antes", [5, 3, 1]),
+            "horas": config.get("horas", [8, 14, 19]),
+            "pdt621": config.get("pdt621", True),
+            "plame": config.get("plame", True),
+            "afp": config.get("afp", True),
+            "cts": config.get("cts", False),
+            "grati": config.get("gratificacion", False),
+            "renta": config.get("renta_anual", False)
+        }
+    )
     
     db.commit()
-    
     return {"success": True}
 
 
@@ -320,13 +227,11 @@ async def get_proximos(
     member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
-    """
-    Obtiene los próximos vencimientos para los RUCs del colegiado.
-    """
-    # Obtener colegiado_id
+    """Obtiene próximos vencimientos usando cronograma oficial SUNAT"""
+    
     colegiado = db.execute(
-        text("SELECT id FROM colegiados WHERE member_id = :member_id"),
-        {"member_id": member.id}
+        text("SELECT id FROM colegiados WHERE member_id = :mid"),
+        {"mid": member.id}
     ).fetchone()
     
     if not colegiado:
@@ -334,41 +239,167 @@ async def get_proximos(
     
     colegiado_id = colegiado[0]
     
-    # Obtener RUCs
+    # Obtener RUCs del colegiado
     rucs_result = db.execute(
         text("""
-            SELECT ruc, razon_social 
+            SELECT ruc, razon_social, grupo_ruc, es_buen_contribuyente
             FROM colegiado_ruc 
             WHERE colegiado_id = :cid
         """),
         {"cid": colegiado_id}
     ).fetchall()
     
-    rucs = [{"ruc": r[0], "nombre": r[1]} for r in rucs_result]
+    if not rucs_result:
+        return JSONResponse({"vencimientos": []})
     
-    # Calcular vencimientos
-    vencimientos = get_proximos_vencimientos(rucs, dias_adelante=30)
+    vencimientos = []
+    hoy = date.today()
+    periodo = get_periodo_anterior()
+    
+    # Para cada RUC, buscar su vencimiento en el cronograma
+    for ruc_row in rucs_result:
+        ruc = ruc_row[0]
+        nombre = ruc_row[1] or f"RUC {ruc}"
+        grupo = ruc_row[2]
+        es_bueno = ruc_row[3]
+        
+        # Usar grupo "buenos" si aplica
+        grupo_buscar = "buenos" if es_bueno else grupo
+        
+        # Buscar en cronograma SUNAT
+        cronograma = db.execute(
+            text("""
+                SELECT fecha_vencimiento 
+                FROM cronograma_sunat
+                WHERE periodo = :periodo AND grupo_ruc = :grupo
+            """),
+            {"periodo": periodo, "grupo": grupo_buscar}
+        ).fetchone()
+        
+        if cronograma and cronograma[0] >= hoy:
+            fecha_vence = cronograma[0]
+            dias = (fecha_vence - hoy).days
+            
+            # PDT 621
+            vencimientos.append({
+                "tipo": f"PDT 621 - {periodo}",
+                "ruc": ruc,
+                "empresa": nombre,
+                "fecha": fecha_vence.isoformat(),
+                "dias_restantes": dias,
+                "obligacion": "pdt621"
+            })
+            
+            # PLAME (misma fecha)
+            vencimientos.append({
+                "tipo": f"PLAME - {periodo}",
+                "ruc": ruc,
+                "empresa": nombre,
+                "fecha": fecha_vence.isoformat(),
+                "dias_restantes": dias,
+                "obligacion": "plame"
+            })
+    
+    # AFP - 5to día hábil (usar función de BD)
+    afp_result = db.execute(
+        text("""
+            SELECT get_fecha_afp(:anio, :mes) as fecha_afp
+        """),
+        {"anio": hoy.year, "mes": hoy.month}
+    ).fetchone()
+    
+    if afp_result and afp_result[0]:
+        fecha_afp = afp_result[0]
+        if isinstance(fecha_afp, str):
+            fecha_afp = datetime.strptime(fecha_afp, '%Y-%m-%d').date()
+        
+        # Si ya pasó, calcular para siguiente mes
+        if fecha_afp < hoy:
+            mes_sig = hoy.month + 1 if hoy.month < 12 else 1
+            anio_sig = hoy.year if hoy.month < 12 else hoy.year + 1
+            afp_result = db.execute(
+                text("SELECT get_fecha_afp(:anio, :mes)"),
+                {"anio": anio_sig, "mes": mes_sig}
+            ).fetchone()
+            if afp_result:
+                fecha_afp = afp_result[0]
+                if isinstance(fecha_afp, str):
+                    fecha_afp = datetime.strptime(fecha_afp, '%Y-%m-%d').date()
+        
+        dias_afp = (fecha_afp - hoy).days
+        if dias_afp >= 0:
+            vencimientos.append({
+                "tipo": "AFP/ONP",
+                "ruc": "Todos",
+                "empresa": "⚠️ Vence ANTES que PLAME",
+                "fecha": fecha_afp.isoformat(),
+                "dias_restantes": dias_afp,
+                "obligacion": "afp"
+            })
+    
+    # Fechas fijas (CTS, Gratificaciones)
+    fechas_fijas = db.execute(
+        text("""
+            SELECT concepto, descripcion, fecha_vencimiento
+            FROM fechas_fijas_tributarias
+            WHERE anio = :anio AND fecha_vencimiento >= :hoy
+            ORDER BY fecha_vencimiento
+        """),
+        {"anio": hoy.year, "hoy": hoy}
+    ).fetchall()
+    
+    for ff in fechas_fijas:
+        concepto, desc, fecha = ff
+        dias = (fecha - hoy).days
+        if dias <= 60:  # Solo mostrar próximos 60 días
+            vencimientos.append({
+                "tipo": desc or concepto.replace('_', ' ').title(),
+                "ruc": "Todos",
+                "empresa": "Fecha fija",
+                "fecha": fecha.isoformat(),
+                "dias_restantes": dias,
+                "obligacion": "cts" if "cts" in concepto else "gratificacion"
+            })
+    
+    # Ordenar por fecha
+    vencimientos.sort(key=lambda x: x["dias_restantes"])
     
     return JSONResponse({"vencimientos": vencimientos})
+
+
+@router.get("/cronograma/{periodo}")
+async def get_cronograma(periodo: str, db: Session = Depends(get_db)):
+    """
+    Obtiene el cronograma completo de un periodo.
+    Útil para mostrar tabla de vencimientos.
+    """
+    result = db.execute(
+        text("""
+            SELECT grupo_ruc, fecha_vencimiento
+            FROM cronograma_sunat
+            WHERE periodo = :periodo
+            ORDER BY fecha_vencimiento
+        """),
+        {"periodo": periodo}
+    ).fetchall()
+    
+    cronograma = {r[0]: r[1].isoformat() for r in result}
+    return JSONResponse(cronograma)
 
 
 # ============================================================
 # CONSULTA RUC SUNAT
 # ============================================================
 
-@router.get("/sunat/ruc/{ruc}")
+@router.get("/ruc/{ruc}")
 async def consultar_ruc(ruc: str):
-    """
-    Consulta un RUC en SUNAT.
-    Por ahora usamos un servicio gratuito de consulta.
-    En producción, usar API oficial o servicio autorizado.
-    """
+    """Consulta RUC en API externa"""
+    
     if len(ruc) != 11 or not ruc.isdigit():
         return JSONResponse({"error": "RUC inválido"}, status_code=400)
     
     try:
-        # Usar API gratuita de consulta RUC
-        # NOTA: En producción, usar servicio oficial o de pago
+        # API gratuita (limitada)
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"https://api.apis.net.pe/v1/ruc?numero={ruc}",
@@ -378,33 +409,26 @@ async def consultar_ruc(ruc: str):
             if response.status_code == 200:
                 data = response.json()
                 return JSONResponse({
-                    "nombre": data.get("nombre", data.get("razonSocial", "No encontrado")),
+                    "nombre": data.get("nombre") or data.get("razonSocial", f"RUC {ruc}"),
                     "estado": data.get("estado", "ACTIVO"),
                     "condicion": data.get("condicion", "HABIDO"),
                     "direccion": data.get("direccion", "")
                 })
-            else:
-                # Fallback: generar nombre genérico
-                return JSONResponse({
-                    "nombre": f"CONTRIBUYENTE RUC {ruc}",
-                    "estado": "ACTIVO",
-                    "condicion": "HABIDO",
-                    "direccion": ""
-                })
-                
     except Exception as e:
-        # En caso de error, permitir agregar con nombre genérico
-        return JSONResponse({
-            "nombre": f"RUC {ruc}",
-            "estado": "NO VERIFICADO",
-            "condicion": "-",
-            "direccion": ""
-        })
+        print(f"Error consultando RUC: {e}")
+    
+    # Fallback
+    return JSONResponse({
+        "nombre": f"Contribuyente RUC {ruc}",
+        "estado": "NO VERIFICADO",
+        "condicion": "-",
+        "direccion": ""
+    })
 
 
-# Ruta alternativa sin prefijo /api/avisos
+# Router alternativo para /api/sunat/ruc
 router_sunat = APIRouter(prefix="/api/sunat", tags=["sunat"])
 
 @router_sunat.get("/ruc/{ruc}")
-async def consultar_ruc_alt(ruc: str):
+async def consultar_ruc_sunat(ruc: str):
     return await consultar_ruc(ruc)
