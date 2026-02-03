@@ -1356,21 +1356,21 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
     </div>
     
     <div class="modal-body avisos-body">
-        <!-- Tabs -->
+        <!-- Tabs - Orden lógico: Configurar → Mis RUCs → Próximos -->
         <div class="avisos-tabs">
-            <button class="tab-btn active" onclick="AvisosApp.switchTab('proximos')">
-                <i class="ph ph-calendar-check"></i> Próximos
+            <button class="tab-btn active" onclick="AvisosApp.switchTab('configurar')">
+                <i class="ph ph-gear"></i> Configurar
             </button>
             <button class="tab-btn" onclick="AvisosApp.switchTab('mis-rucs')">
                 <i class="ph ph-buildings"></i> Mis RUCs
             </button>
-            <button class="tab-btn" onclick="AvisosApp.switchTab('configurar')">
-                <i class="ph ph-gear"></i> Configurar
+            <button class="tab-btn" onclick="AvisosApp.switchTab('proximos')">
+                <i class="ph ph-calendar-check"></i> Próximos
             </button>
         </div>
 
         <!-- TAB: Próximos Vencimientos -->
-        <div id="tab-proximos" class="tab-content active">
+        <div id="tab-proximos" class="tab-content">
             <div class="proximos-list" id="lista-proximos">
                 <!-- Se llena dinámicamente -->
             </div>
@@ -1402,9 +1402,12 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
             </div>
         </div>
 
-        <!-- TAB: Configurar Alertas -->
-        <div id="tab-configurar" class="tab-content">
-            <p class="config-intro">Configura cuándo recibir alertas para cada obligación</p>
+        <!-- TAB: Configurar Alertas (PRIMERO - activo por defecto) -->
+        <div id="tab-configurar" class="tab-content active">
+            <p class="config-intro">
+                <strong>Paso 1:</strong> Define cuándo quieres recibir alertas.<br>
+                <small>Luego agrega los RUCs de tus clientes en la pestaña "Mis RUCs"</small>
+            </p>
             
             <div class="obligaciones-config" id="config-obligaciones">
                 <!-- PDT 621 -->
