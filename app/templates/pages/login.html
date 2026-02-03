@@ -35,7 +35,7 @@
             <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Identificación</label>
             <div class="relative">
                 <i class="ph ph-identification-card absolute left-4 top-3.5 text-slate-500 text-lg"></i>
-                <input type="text" name="dni" placeholder="DNI / Matrícula" required 
+                <input type="text" name="dni" placeholder="Ingrese su DNI (8 dígitos)" maxlength="8" inputmode="numeric" required 
                        class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:border-primary focus:ring-1 focus:ring-[{{ theme.primary_color }}] outline-none transition-all">
             </div>
         </div>
@@ -60,6 +60,13 @@
         </button>
 
     </form>
+
+    <!-- Agregar después del botón de login -->
+    <div class="login-links" style="margin-top:20px;text-align:center;">
+        <a href="/auth/recuperar-clave" style="color:#94a3b8;font-size:13px;text-decoration:none;">
+            ¿Olvidó su clave?
+        </a>
+    </div>
 
     <div class="mt-auto pt-10 text-center">
         <p class="text-[10px] text-slate-600">

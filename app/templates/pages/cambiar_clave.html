@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambiar Clave | {{ org.name if org else 'ColegiosPro' }}</title>
+    
+    <!-- Phosphor Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --gold: #d4af37;
+            --gold-light: rgba(212, 175, 55, 0.15);
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --surface: rgba(30, 41, 59, 0.95);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        
+        .icon-header {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 24px;
+            border-radius: 20px;
+            background: var(--gold-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: var(--gold);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        
+        .alert {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-warning {
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: #fbbf24;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+        
+        .input-wrapper {
+            position: relative;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            padding-right: 48px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px;
+        }
+        
+        .toggle-password:hover {
+            color: var(--gold);
+        }
+        
+        .requirements {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            padding-left: 4px;
+        }
+        
+        .requirements li {
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .requirements li.valid {
+            color: var(--success);
+        }
+        
+        .requirements li.invalid {
+            color: var(--text-muted);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold) 0%, #b8942e 100%);
+            color: #0f172a;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #resultado {
+            margin-top: 20px;
+        }
+        
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="icon-header">
+                <i class="ph ph-key"></i>
+            </div>
+            
+            <h1>Cambiar Clave</h1>
+            <p class="subtitle">Por seguridad, debe establecer una nueva clave de acceso</p>
+            
+            <div class="alert alert-warning">
+                <i class="ph ph-warning" style="font-size:20px;"></i>
+                <span>Esta es su clave temporal. Debe cambiarla para continuar.</span>
+            </div>
+            
+            <form id="form-cambiar-clave" hx-post="/auth/cambiar-clave" hx-target="#resultado" hx-swap="innerHTML">
+                <div class="form-group">
+                    <label class="form-label">Clave Actual (su DNI)</label>
+                    <div class="input-wrapper">
+                        <input type="password" name="clave_actual" class="form-input" 
+                               placeholder="Ingrese su clave actual" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword(this)">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Nueva Clave</label>
+                    <div class="input-wrapper">
+                        <input type="password" name="clave_nueva" id="clave_nueva" class="form-input" 
+                               placeholder="Ingrese su nueva clave" required
+                               oninput="validarClave()">
+                        <button type="button" class="toggle-password" onclick="togglePassword(this)">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                    <ul class="requirements" id="requisitos">
+                        <li id="req-length" class="invalid">
+                            <i class="ph ph-circle"></i> Mínimo 6 caracteres
+                        </li>
+                        <li id="req-upper" class="invalid">
+                            <i class="ph ph-circle"></i> Al menos una letra mayúscula
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Confirmar Nueva Clave</label>
+                    <div class="input-wrapper">
+                        <input type="password" name="clave_confirmar" id="clave_confirmar" class="form-input" 
+                               placeholder="Repita su nueva clave" required
+                               oninput="validarCoincidencia()">
+                        <button type="button" class="toggle-password" onclick="togglePassword(this)">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                    <p id="match-status" style="font-size:12px;margin-top:6px;"></p>
+                </div>
+                
+                <div id="resultado"></div>
+                
+                <button type="submit" class="btn btn-primary" id="btn-submit">
+                    <i class="ph ph-check-circle"></i>
+                    Guardar Nueva Clave
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <script>
+        function togglePassword(btn) {
+            const input = btn.parentElement.querySelector('input');
+            const icon = btn.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'ph ph-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'ph ph-eye';
+            }
+        }
+        
+        function validarClave() {
+            const clave = document.getElementById('clave_nueva').value;
+            const reqLength = document.getElementById('req-length');
+            const reqUpper = document.getElementById('req-upper');
+            
+            // Mínimo 6 caracteres
+            if (clave.length >= 6) {
+                reqLength.className = 'valid';
+                reqLength.innerHTML = '<i class="ph ph-check-circle"></i> Mínimo 6 caracteres';
+            } else {
+                reqLength.className = 'invalid';
+                reqLength.innerHTML = '<i class="ph ph-circle"></i> Mínimo 6 caracteres';
+            }
+            
+            // Al menos una mayúscula
+            if (/[A-Z]/.test(clave)) {
+                reqUpper.className = 'valid';
+                reqUpper.innerHTML = '<i class="ph ph-check-circle"></i> Al menos una letra mayúscula';
+            } else {
+                reqUpper.className = 'invalid';
+                reqUpper.innerHTML = '<i class="ph ph-circle"></i> Al menos una letra mayúscula';
+            }
+            
+            validarCoincidencia();
+        }
+        
+        function validarCoincidencia() {
+            const nueva = document.getElementById('clave_nueva').value;
+            const confirmar = document.getElementById('clave_confirmar').value;
+            const status = document.getElementById('match-status');
+            
+            if (confirmar.length === 0) {
+                status.textContent = '';
+                return;
+            }
+            
+            if (nueva === confirmar) {
+                status.innerHTML = '<span style="color:#10b981;"><i class="ph ph-check"></i> Las claves coinciden</span>';
+            } else {
+                status.innerHTML = '<span style="color:#ef4444;"><i class="ph ph-x"></i> Las claves no coinciden</span>';
+            }
+        }
+        
+        // Mostrar spinner al enviar
+        document.getElementById('form-cambiar-clave').addEventListener('htmx:beforeRequest', function() {
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Guardando...';
+        });
+        
+        document.getElementById('form-cambiar-clave').addEventListener('htmx:afterRequest', function() {
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-check-circle"></i> Guardar Nueva Clave';
+        });
+    </script>
+</body>
+</html>
