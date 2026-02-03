@@ -1,3 +1,7 @@
+/* ============================================
+   ESTILOS MODAL AVISOS - Mobile First
+   ============================================ */
+
 .modal-avisos-full {
     width: 100%;
     max-width: 100%;
@@ -228,8 +232,9 @@
 }
 
 .ruc-digito {
-    width: 36px;
+    min-width: 36px;
     height: 36px;
+    padding: 0 8px;
     border-radius: 8px;
     background: var(--gold, #d4af37);
     color: #000;
@@ -237,7 +242,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 16px;
+    font-size: 13px;
     flex-shrink: 0;
 }
 
