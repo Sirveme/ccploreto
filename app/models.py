@@ -357,18 +357,21 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     
-    # Credenciales Únicas (Para entrar al sistema)
-    public_id = Column(String, unique=True, index=True) # DNI
-    access_code = Column(String) # Hash del Password
+    public_id = Column(String, unique=True, index=True)  # DNI
+    access_code = Column(String)  # Hash del Password
     
-    name = Column(String) # Nombre Real (Juan Pérez)
+    name = Column(String)
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
-    photo_url = Column(String, nullable=True) # Foto de perfil global
+    photo_url = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relación: Un usuario puede ser miembro de muchos lugares
+    # NUEVOS CAMPOS
+    debe_cambiar_clave = Column(Boolean, default=True)
+    login_count = Column(Integer, default=0)
+    ultimo_login = Column(DateTime(timezone=True), nullable=True)
+    
     memberships = relationship("Member", back_populates="user")
 
 
