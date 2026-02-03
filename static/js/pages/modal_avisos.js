@@ -103,6 +103,18 @@ const AvisosApp = {
     },
 
     // Renderizar lista de RUCs
+    // Obtener grupo RUC según último dígito (como agrupa SUNAT)
+    getGrupoRuc(ultimoDigito) {
+        const d = String(ultimoDigito);
+        if (d === '0') return '0';
+        if (d === '1') return '1';
+        if (d === '2' || d === '3') return '2-3';
+        if (d === '4' || d === '5') return '4-5';
+        if (d === '6' || d === '7') return '6-7';
+        if (d === '8' || d === '9') return '8-9';
+        return d;
+    },
+
     renderRucs() {
         const lista = document.getElementById('lista-rucs');
         const empty = document.getElementById('empty-rucs');
@@ -117,9 +129,11 @@ const AvisosApp = {
         
         if (empty) empty.style.display = 'none';
         
-        lista.innerHTML = this.config.rucs.map(r => `
+        lista.innerHTML = this.config.rucs.map(r => {
+            const grupo = this.getGrupoRuc(r.ultimoDigito);
+            return `
             <div class="ruc-card">
-                <div class="ruc-digito">${r.ultimoDigito}</div>
+                <div class="ruc-digito" title="Grupo SUNAT: ${grupo}">${grupo}</div>
                 <div class="ruc-data">
                     <div class="ruc-numero">${r.ruc}</div>
                     <div class="ruc-nombre">${r.nombre}</div>
@@ -128,7 +142,7 @@ const AvisosApp = {
                     <i class="ph ph-trash"></i>
                 </button>
             </div>
-        `).join('');
+        `}).join('');
     },
 
     // Renderizar próximos vencimientos
