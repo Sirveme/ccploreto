@@ -3,6 +3,7 @@
 <link rel="stylesheet" href="/static/css/pages/dashboard_colegiado.css">
 <link rel="stylesheet" href="/static/css/pages/mi_sitio_web.css">
 <link rel="stylesheet" href="/static/css/pages/herramientas_pro.css">
+<link rel="stylesheet" href="/static/css/pages/modal_avisos.css">
 
 <style>
 /* === FAB DOCK (Floating Action Buttons) === */
@@ -863,7 +864,7 @@
 </dialog>
 
 <!-- Modales placeholder -->
-{% for modal_id in ['modal-pagos', 'modal-pagar', 'modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-avisos', 'modal-estadisticas', 'modal-calculadora', 'modal-normas'] %}
+{% for modal_id in ['modal-pagos', 'modal-pagar', 'modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-estadisticas', 'modal-calculadora', 'modal-normas'] %}
 <dialog id="{{ modal_id }}">
     <div class="modal-header">
         <h3 class="modal-title">{{ modal_id.replace('modal-', '').replace('-', ' ').title() }}</h3>
@@ -1343,6 +1344,308 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
 </dialog>
 
 
+<!-- ============================================
+     MODAL AVISOS - Sistema de Alertas Tributarias
+     Reemplaza el placeholder modal-avisos en dashboard_colegiado.html
+     ============================================ -->
+
+<dialog id="modal-avisos" class="modal-avisos-full">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-bell-ringing"></i> Mis Alertas Tributarias</h3>
+        <button class="modal-close" onclick="Modal.close('modal-avisos')"><i class="ph ph-x"></i></button>
+    </div>
+    
+    <div class="modal-body avisos-body">
+        <!-- Tabs -->
+        <div class="avisos-tabs">
+            <button class="tab-btn active" onclick="AvisosApp.switchTab('proximos')">
+                <i class="ph ph-calendar-check"></i> Próximos
+            </button>
+            <button class="tab-btn" onclick="AvisosApp.switchTab('mis-rucs')">
+                <i class="ph ph-buildings"></i> Mis RUCs
+            </button>
+            <button class="tab-btn" onclick="AvisosApp.switchTab('configurar')">
+                <i class="ph ph-gear"></i> Configurar
+            </button>
+        </div>
+
+        <!-- TAB: Próximos Vencimientos -->
+        <div id="tab-proximos" class="tab-content active">
+            <div class="proximos-list" id="lista-proximos">
+                <!-- Se llena dinámicamente -->
+            </div>
+            <div class="empty-state" id="empty-proximos" style="display:none;">
+                <i class="ph ph-calendar-blank"></i>
+                <p>Agrega RUCs para ver sus vencimientos</p>
+            </div>
+        </div>
+
+        <!-- TAB: Mis RUCs -->
+        <div id="tab-mis-rucs" class="tab-content">
+            <div class="add-ruc-form">
+                <input type="text" id="input-nuevo-ruc" placeholder="Ingresa RUC (11 dígitos)" 
+                       maxlength="11" inputmode="numeric" pattern="[0-9]*"
+                       onkeypress="if(event.key==='Enter') AvisosApp.agregarRuc()">
+                <button class="btn-add-ruc" onclick="AvisosApp.agregarRuc()">
+                    <i class="ph ph-plus"></i>
+                </button>
+            </div>
+            
+            <div class="rucs-list" id="lista-rucs">
+                <!-- Se llena dinámicamente -->
+            </div>
+            
+            <div class="empty-state" id="empty-rucs" style="display:none;">
+                <i class="ph ph-buildings"></i>
+                <p>Aún no tienes RUCs registrados</p>
+                <small>Agrega los RUCs de tus clientes para recibir alertas</small>
+            </div>
+        </div>
+
+        <!-- TAB: Configurar Alertas -->
+        <div id="tab-configurar" class="tab-content">
+            <p class="config-intro">Configura cuándo recibir alertas para cada obligación</p>
+            
+            <div class="obligaciones-config" id="config-obligaciones">
+                <!-- PDT 621 -->
+                <div class="obligacion-card" data-tipo="pdt621">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('pdt621')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon blue"><i class="ph ph-file-text"></i></span>
+                            <div>
+                                <strong>PDT 621</strong>
+                                <small>IGV - Renta Mensual</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-pdt621" checked onchange="AvisosApp.toggleAlerta('pdt621')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config" id="config-pdt621">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="pdt621">
+                                <button class="dia-btn" data-dias="5">5</button>
+                                <button class="dia-btn active" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="pdt621">
+                                <button class="hora-btn" data-hora="07:00">7am</button>
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn" data-hora="10:00">10am</button>
+                                <button class="hora-btn" data-hora="12:00">12pm</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn" data-hora="16:00">4pm</button>
+                                <button class="hora-btn" data-hora="18:00">6pm</button>
+                                <button class="hora-btn active" data-hora="19:00">7pm</button>
+                                <button class="hora-btn" data-hora="21:00">9pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PLAME -->
+                <div class="obligacion-card" data-tipo="plame">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('plame')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon green"><i class="ph ph-users"></i></span>
+                            <div>
+                                <strong>PLAME</strong>
+                                <small>Planilla Electrónica</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-plame" checked onchange="AvisosApp.toggleAlerta('plame')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config collapsed" id="config-plame">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="plame">
+                                <button class="dia-btn" data-dias="5">5</button>
+                                <button class="dia-btn active" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="plame">
+                                <button class="hora-btn" data-hora="07:00">7am</button>
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn" data-hora="10:00">10am</button>
+                                <button class="hora-btn" data-hora="12:00">12pm</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn" data-hora="16:00">4pm</button>
+                                <button class="hora-btn" data-hora="18:00">6pm</button>
+                                <button class="hora-btn" data-hora="19:00">7pm</button>
+                                <button class="hora-btn" data-hora="21:00">9pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AFP -->
+                <div class="obligacion-card" data-tipo="afp">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('afp')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon orange"><i class="ph ph-piggy-bank"></i></span>
+                            <div>
+                                <strong>AFP/ONP</strong>
+                                <small>⚠️ Vence ANTES que PLAME</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-afp" checked onchange="AvisosApp.toggleAlerta('afp')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config collapsed" id="config-afp">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="afp">
+                                <button class="dia-btn active" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="2">2</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="afp">
+                                <button class="hora-btn" data-hora="07:00">7am</button>
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn" data-hora="10:00">10am</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn" data-hora="18:00">6pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTS -->
+                <div class="obligacion-card" data-tipo="cts">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('cts')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon purple"><i class="ph ph-wallet"></i></span>
+                            <div>
+                                <strong>CTS</strong>
+                                <small>15 Mayo y 15 Noviembre</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-cts" onchange="AvisosApp.toggleAlerta('cts')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config collapsed" id="config-cts">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="cts">
+                                <button class="dia-btn" data-dias="5">5</button>
+                                <button class="dia-btn active" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="cts">
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn" data-hora="18:00">6pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gratificaciones -->
+                <div class="obligacion-card" data-tipo="grati">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('grati')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon pink"><i class="ph ph-gift"></i></span>
+                            <div>
+                                <strong>Gratificaciones</strong>
+                                <small>15 Julio y 15 Diciembre</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-grati" onchange="AvisosApp.toggleAlerta('grati')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config collapsed" id="config-grati">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="grati">
+                                <button class="dia-btn" data-dias="5">5</button>
+                                <button class="dia-btn active" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="grati">
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn" data-hora="18:00">6pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Renta Anual -->
+                <div class="obligacion-card" data-tipo="renta-anual">
+                    <div class="obligacion-header" onclick="AvisosApp.toggleObligacion('renta-anual')">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon red"><i class="ph ph-calendar"></i></span>
+                            <div>
+                                <strong>Renta Anual</strong>
+                                <small>Marzo-Junio según tipo</small>
+                            </div>
+                        </div>
+                        <label class="toggle-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="toggle-renta-anual" onchange="AvisosApp.toggleAlerta('renta-anual')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="obligacion-config collapsed" id="config-renta-anual">
+                        <div class="config-row">
+                            <label>Días antes del vencimiento:</label>
+                            <div class="dias-selector" data-tipo="renta-anual">
+                                <button class="dia-btn active" data-dias="5">5</button>
+                                <button class="dia-btn" data-dias="3">3</button>
+                                <button class="dia-btn" data-dias="1">1</button>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <label>Horarios de alerta:</label>
+                            <div class="horarios-selector" data-tipo="renta-anual">
+                                <button class="hora-btn active" data-hora="08:00">8am</button>
+                                <button class="hora-btn active" data-hora="14:00">2pm</button>
+                                <button class="hora-btn active" data-hora="19:00">7pm</button>
+                            </div>
+                            <small class="hint">Máximo 3 horarios</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-guardar-config" onclick="AvisosApp.guardarConfiguracion()">
+                <i class="ph ph-floppy-disk"></i> Guardar Configuración
+            </button>
+        </div>
+    </div>
+</dialog>
+
+
 
 <!-- ============================================== -->
 <!-- SCRIPTS -->
@@ -1351,6 +1654,7 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
 <script src="/static/js/pages/dashboard_colegiado.js"></script>
 <script src="/static/js/pages/mi_sitio_web.js"></script>
 <script src="/static/js/pages/herramientas_pro.js"></script>
+<script src="/static/js/pages/modal_avisos.js"></script>
 {% block extra_scripts %}{% endblock %}
 {% block mic_floating %}{% endblock %}
 {% endblock %}
