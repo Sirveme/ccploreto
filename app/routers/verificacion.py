@@ -25,14 +25,9 @@ async def verificar_certificado_ccpl(
 ):
     """
     Verificación pública de certificado CCPL.
-    
-    URL: https://colegiospro.org.pe/verificar/ccpl?codigo=2026-0000226&seguridad=A7X9-K2M4-P8Q1
-    
-    No requiere autenticación.
-    Registra cada intento en verificaciones_log.
     """
     
-    # Capturar datos del visitante (SIN preguntar nada)
+    # Capturar datos del visitante
     ip_origen = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent", "")
     referer = request.headers.get("referer", "")
@@ -68,60 +63,78 @@ async def verificar_certificado_ccpl(
         
     elif cert.codigo_seguridad is None:
         # Certificado antiguo (antes del sistema de seguridad)
-        exito = True
-        motivo = None
-        mensaje = "Certificado válido (emitido antes del sistema de seguridad)."
-        datos_certificado = {
-            "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
-            "matricula": cert.matricula,
-            "estado": "HÁBIL" if cert.fecha_vigencia_hasta >= date.today() else "VENCIDO",
-            "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
-            "fecha_emision": cert.fecha_emision.isoformat(),
-            "nota": "Certificado emitido antes de implementar código de seguridad"
-        }
-
-    elif cert.codigo_seguridad.upper().replace("-", "").replace(" ", "") != seguridad.upper().replace("-", "").replace(" ", ""):
-        exito = False
-        motivo = "seguridad_incorrecta"
-        mensaje = "Código de seguridad incorrecto."
-        datos_certificado = None
-
-    elif seguridad and cert.codigo_seguridad != seguridad.upper().replace(" ", "").replace("-", ""):
-        exito = False
-        motivo = "seguridad_incorrecta"
-        mensaje = "Código de seguridad incorrecto."
-        datos_certificado = None
-        
-    elif cert.estado == "anulado":
-        exito = False
-        motivo = "certificado_anulado"
-        mensaje = "Este certificado ha sido ANULADO."
-        datos_certificado = None
-        
-    elif cert.fecha_vigencia_hasta < date.today():
-        exito = True  # Existe y es auténtico, pero vencido
-        motivo = "certificado_vencido"
-        mensaje = "Certificado auténtico pero VENCIDO."
-        datos_certificado = {
-            "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
-            "matricula": cert.matricula,
-            "estado": "VENCIDO",
-            "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
-            "fecha_emision": cert.fecha_emision.isoformat()
-        }
-    else:
-        exito = True
-        motivo = None
-        mensaje = "Certificado VÁLIDO y VIGENTE."
-        datos_certificado = {
-            "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
-            "matricula": cert.matricula,
-            "estado": "HÁBIL",
-            "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
-            "fecha_emision": cert.fecha_emision.isoformat()
-        }
+        if cert.estado == "anulado":
+            exito = False
+            motivo = "certificado_anulado"
+            mensaje = "Este certificado ha sido ANULADO."
+            datos_certificado = None
+        elif cert.fecha_vigencia_hasta < date.today():
+            exito = True
+            motivo = "certificado_vencido"
+            mensaje = "Certificado auténtico pero VENCIDO (emitido antes del sistema de seguridad)."
+            datos_certificado = {
+                "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
+                "matricula": cert.matricula,
+                "estado": "VENCIDO",
+                "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
+                "fecha_emision": cert.fecha_emision.isoformat()
+            }
+        else:
+            exito = True
+            motivo = None
+            mensaje = "Certificado válido (emitido antes del sistema de seguridad)."
+            datos_certificado = {
+                "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
+                "matricula": cert.matricula,
+                "estado": "HÁBIL",
+                "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
+                "fecha_emision": cert.fecha_emision.isoformat()
+            }
     
-    # REGISTRAR VERIFICACIÓN (sin importar resultado)
+    else:
+        # Certificado con código de seguridad - normalizar y comparar
+        db_code = cert.codigo_seguridad.upper().replace("-", "").replace(" ", "")
+        input_code = seguridad.upper().replace("-", "").replace(" ", "")
+        
+        # DEBUG - eliminar después
+        print(f"DEBUG: BD=[{db_code}] INPUT=[{input_code}] IGUALES={db_code == input_code}")
+        
+        if db_code != input_code:
+            exito = False
+            motivo = "seguridad_incorrecta"
+            mensaje = "Código de seguridad incorrecto."
+            datos_certificado = None
+            
+        elif cert.estado == "anulado":
+            exito = False
+            motivo = "certificado_anulado"
+            mensaje = "Este certificado ha sido ANULADO."
+            datos_certificado = None
+            
+        elif cert.fecha_vigencia_hasta < date.today():
+            exito = True
+            motivo = "certificado_vencido"
+            mensaje = "Certificado auténtico pero VENCIDO."
+            datos_certificado = {
+                "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
+                "matricula": cert.matricula,
+                "estado": "VENCIDO",
+                "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
+                "fecha_emision": cert.fecha_emision.isoformat()
+            }
+        else:
+            exito = True
+            motivo = None
+            mensaje = "Certificado VÁLIDO y VIGENTE."
+            datos_certificado = {
+                "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
+                "matricula": cert.matricula,
+                "estado": "HÁBIL",
+                "vigente_hasta": cert.fecha_vigencia_hasta.isoformat(),
+                "fecha_emision": cert.fecha_emision.isoformat()
+            }
+    
+    # REGISTRAR VERIFICACIÓN
     db.execute(
         text("""
             INSERT INTO verificaciones_log (
@@ -146,7 +159,7 @@ async def verificar_certificado_ccpl(
             "exito": exito,
             "motivo": motivo,
             "ip": ip_origen,
-            "ua": user_agent[:500] if user_agent else None,  # Limitar longitud
+            "ua": user_agent[:500] if user_agent else None,
             "ref": referer[:500] if referer else None
         }
     )
@@ -155,7 +168,7 @@ async def verificar_certificado_ccpl(
     # Respuesta JSON
     respuesta = {
         "valido": exito and motivo is None,
-        "autentico": exito,  # True si existe en BD (aunque esté vencido)
+        "autentico": exito,
         "mensaje": mensaje,
         "codigo": codigo
     }
