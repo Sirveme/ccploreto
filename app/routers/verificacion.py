@@ -80,6 +80,12 @@ async def verificar_certificado_ccpl(
             "nota": "Certificado emitido antes de implementar código de seguridad"
         }
 
+    elif cert.codigo_seguridad.upper().replace("-", "").replace(" ", "") != seguridad.upper().replace("-", "").replace(" ", ""):
+        exito = False
+        motivo = "seguridad_incorrecta"
+        mensaje = "Código de seguridad incorrecto."
+        datos_certificado = None
+
     elif seguridad and cert.codigo_seguridad != seguridad.upper().replace(" ", "").replace("-", ""):
         exito = False
         motivo = "seguridad_incorrecta"
