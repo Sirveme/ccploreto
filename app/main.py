@@ -13,7 +13,8 @@ from .database import engine, SessionLocal
 from .models import Organization
 from .config import redis_client, DEFAULT_THEME, THEMES, SECRET_KEY
 # Importamos todos los routers
-from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado, avisos
+from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado, avisos, verificacion
+
 from app.routers.public import router, router_landing
 #from app.routers.api_colegiado import router as api_colegiado_router
 
@@ -138,7 +139,7 @@ app.include_router(router)
 app.include_router(router_landing)
 app.include_router(avisos.router)
 app.include_router(avisos.router_sunat)  # Para consulta de RUC
-
+app.include_router(verificacion.router)  # Público, sin prefijo de API
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
