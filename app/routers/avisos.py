@@ -168,19 +168,13 @@ async def save_config(
         
         db.execute(
             text("""
-                INSERT INTO colegiado_ruc 
-                    (colegiado_id, ruc, razon_social, ultimo_digito, grupo_ruc, es_buen_contribuyente)
-                VALUES 
-                    (:cid, :ruc, :nombre, :digito, :grupo, :bueno)
+                INSERT INTO colegiado_ruc (colegiado_id, ruc, razon_social, es_buen_contribuyente)
+                VALUES (:cid, :ruc, :nombre, :bueno)
+                ON CONFLICT (colegiado_id, ruc) 
+                DO UPDATE SET razon_social = EXCLUDED.razon_social,
+                            es_buen_contribuyente = EXCLUDED.es_buen_contribuyente
             """),
-            {
-                "cid": colegiado_id,
-                "ruc": numero,
-                "nombre": nombre,
-                "digito": ultimo_digito,
-                "grupo": grupo,
-                "bueno": es_bueno
-            }
+            {"cid": colegiado_id, "ruc": numero, "nombre": nombre, "bueno": es_bueno}
         )
     
     # ================================================
