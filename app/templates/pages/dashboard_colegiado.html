@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="/static/css/pages/mi_sitio_web.css">
 <link rel="stylesheet" href="/static/css/pages/herramientas_pro.css">
 <link rel="stylesheet" href="/static/css/pages/modal_avisos.css">
+<link rel="stylesheet" href="/static/css/pages/modal-pagos.css">
 
 <style>
 /* === FAB DOCK (Floating Action Buttons) === */
@@ -863,8 +864,72 @@
     </div>
 </dialog>
 
+<!-- ========================================
+     MODAL: MIS PAGOS
+     Reemplazar el placeholder existente en dashboard_colegiado.html
+     ======================================== -->
+
+<dialog id="modal-pagos">
+    <div class="modal-header">
+        <h3 class="modal-title">
+            <i class="ph ph-wallet"></i>
+            Mis Pagos
+        </h3>
+        <button class="modal-close" onclick="Modal.close('modal-pagos')">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+    
+    <div class="modal-body">
+        <!-- Tabs -->
+        <div class="pagos-tabs">
+            <button class="pagos-tab active" data-tab="resumen">
+                <i class="ph ph-chart-pie"></i>
+                <span>Resumen</span>
+            </button>
+            <button class="pagos-tab" data-tab="historial">
+                <i class="ph ph-clock-counter-clockwise"></i>
+                <span>Historial</span>
+            </button>
+            <button class="pagos-tab" data-tab="deudas">
+                <i class="ph ph-receipt"></i>
+                <span>Deudas</span>
+            </button>
+        </div>
+        
+        <!-- Tab: Resumen -->
+        <div id="pagos-resumen" class="pagos-tab-content active">
+            <!-- Se carga dinámicamente -->
+            <div class="pagos-skeleton">
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+            </div>
+        </div>
+        
+        <!-- Tab: Historial -->
+        <div id="pagos-historial" class="pagos-tab-content">
+            <!-- Se carga dinámicamente -->
+            <div class="pagos-empty">
+                <i class="ph ph-receipt"></i>
+                <p>Cargando historial...</p>
+            </div>
+        </div>
+        
+        <!-- Tab: Deudas -->
+        <div id="pagos-deudas" class="pagos-tab-content">
+            <!-- Se carga dinámicamente -->
+            <div class="pagos-empty">
+                <i class="ph ph-list-checks"></i>
+                <p>Cargando deudas...</p>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+
+
 <!-- Modales placeholder -->
-{% for modal_id in ['modal-pagos', 'modal-pagar', 'modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-estadisticas', 'modal-calculadora', 'modal-normas'] %}
+{% for modal_id in [ 'modal-pagar', 'modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-estadisticas', 'modal-calculadora', 'modal-normas'] %}
 <dialog id="{{ modal_id }}">
     <div class="modal-header">
         <h3 class="modal-title">{{ modal_id.replace('modal-', '').replace('-', ' ').title() }}</h3>
@@ -1569,6 +1634,7 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
 <!-- ============================================== -->
 <script src="/static/js/modules/ux-system.js"></script>
 <script src="/static/js/pages/dashboard_colegiado.js"></script>
+<script src="/static/js/modules/modal-pagos.js"></script>
 <!--
 <script src="/static/js/pages/mi_sitio_web.js"></script>
 <script src="/static/js/pages/herramientas_pro.js"></script>
