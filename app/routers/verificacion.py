@@ -97,7 +97,7 @@ async def verificar_certificado_ccpl(
         input_code = seguridad.upper().replace("-", "").replace(" ", "")
         
         # DEBUG - eliminar después
-        print(f"DEBUG: BD=[{db_code}] INPUT=[{input_code}] IGUALES={db_code == input_code}")
+        #print(f"DEBUG: BD=[{db_code}] INPUT=[{input_code}] IGUALES={db_code == input_code}")
         
         if db_code != input_code:
             exito = False

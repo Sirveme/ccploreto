@@ -8,7 +8,7 @@ Identificación por DNI o código de matrícula.
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime, timezone
 from typing import Optional
 import json
@@ -211,6 +211,74 @@ async def registrar_pago(
     )
     
     db.add(nuevo_pago)
+    db.flush()
+    
+    # Verificar si el colegio acepta pagos sin validación
+    certificado_auto = False
+    print(f"DEBUG PAGO: org_id={org['id']}")
+    try:
+        org_config = db.execute(
+            text("SELECT config FROM organizations WHERE id = :oid"),
+            {"oid": org["id"]}
+        ).fetchone()
+        print(f"DEBUG CONFIG: {type(org_config.config) if org_config else 'NONE'}")
+        if org_config and org_config.config:
+            config = org_config.config if isinstance(org_config.config, dict) else json.loads(org_config.config)
+            certificado_auto = config.get("finanzas", {}).get("validacion_automatica", False)
+            print(f"DEBUG AUTO: {certificado_auto}")
+    except Exception as e:
+        print(f"⚠️ Error leyendo config: {e}")
+    
+    certificado_info = None
+    
+    if certificado_auto:
+        # Modo automático: aprobar pago + emitir certificado de inmediato
+        nuevo_pago.status = "approved"
+        nuevo_pago.reviewed_at = datetime.now(timezone.utc)
+        
+        # Imputar a deudas (FIFO)
+        deudas = db.query(Debt).filter(
+            Debt.colegiado_id == colegiado_id,
+            Debt.status.in_(["pending", "partial"])
+        ).order_by(Debt.due_date.asc(), Debt.created_at.asc()).all()
+        
+        monto_restante = nuevo_pago.amount
+        for deuda in deudas:
+            if monto_restante <= 0:
+                break
+            if monto_restante >= deuda.balance:
+                monto_restante -= deuda.balance
+                deuda.balance = 0
+                deuda.status = "paid"
+            else:
+                deuda.balance -= monto_restante
+                deuda.status = "partial"
+                monto_restante = 0
+        
+        # Actualizar condición si quedó al día
+        deudas_pendientes = db.query(Debt).filter(
+            Debt.colegiado_id == colegiado_id,
+            Debt.status.in_(["pending", "partial"])
+        ).count()
+        
+        if deudas_pendientes == 0:
+            colegiado_obj = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+            if colegiado_obj and colegiado_obj.condicion == "inhabil":
+                colegiado_obj.condicion = "habil"
+                colegiado_obj.fecha_actualizacion_condicion = datetime.now(timezone.utc)
+        
+        db.flush()
+        
+        try:
+            certificado_info = emitir_certificado_automatico(
+                db=db,
+                colegiado_id=colegiado_id,
+                payment_id=nuevo_pago.id,
+                ip_origen=request.client.host if request.client else None
+            )
+        except Exception as e:
+            print(f"⚠️ Error emitiendo certificado automático: {e}")
+    
     db.commit()
     
     # Notificar a admins via WebSocket
@@ -224,7 +292,51 @@ async def registrar_pago(
     except:
         pass
     
-    # Respuesta exitosa
+    # Respuesta según modo
+    if certificado_auto and certificado_info and certificado_info.get("emitido"):
+        codigo = certificado_info["codigo"]
+        vigencia = certificado_info["vigencia_hasta"]
+        return HTMLResponse(f'''
+            <div style="text-align: center; padding: 20px 0;">
+                <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg width="30" height="30" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h3 style="color: #22c55e; font-size: 18px; font-weight: 700; margin-bottom: 8px;">¡Pago Aprobado!</h3>
+                <p style="color: var(--texto-gris); font-size: 14px; margin-bottom: 5px;">
+                    Certificado <span style="color: var(--dorado); font-weight: 600;">{codigo}</span> emitido.
+                </p>
+                <p style="color: var(--texto-gris); font-size: 12px; margin-bottom: 15px;">
+                    Vigente hasta: {vigencia}
+                </p>
+                <a href="/api/certificados/descargar/{codigo}" target="_blank"
+                   style="display: inline-block; background: linear-gradient(135deg, var(--dorado), var(--dorado-claro)); color: var(--oscuro); padding: 12px 25px; border-radius: 25px; font-weight: 700; text-decoration: none;">
+                    📄 DESCARGAR CERTIFICADO
+                </a>
+            </div>
+        ''')
+    
+    if certificado_auto and certificado_info and not certificado_info.get("emitido"):
+        # Modo auto pero no se pudo emitir (ej: sigue inhábil)
+        return HTMLResponse(f'''
+            <div style="text-align: center; padding: 20px 0;">
+                <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(234, 179, 8, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg width="30" height="30" fill="none" stroke="#eab308" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h3 style="color: #eab308; font-size: 18px; font-weight: 700; margin-bottom: 8px;">Pago Aprobado</h3>
+                <p style="color: var(--texto-gris); font-size: 14px; margin-bottom: 5px;">
+                    Tu pago de <span style="color: #22c55e; font-weight: 600;">S/ {monto:.2f}</span> fue procesado.
+                </p>
+                <p style="color: var(--texto-gris); font-size: 12px; opacity: 0.7;">
+                    {certificado_info.get("error", "El certificado se emitirá cuando se complete el pago total.")}
+                </p>
+            </div>
+        ''')
+    
+    # Modo con validación manual (default)
     return HTMLResponse(f'''
         <div style="text-align: center; padding: 20px 0;">
             <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
