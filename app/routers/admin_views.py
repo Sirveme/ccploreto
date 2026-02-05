@@ -1,7 +1,5 @@
 """
 Router: Vistas Admin (HTML)
-===========================
-Páginas del panel de administración
 """
 
 from fastapi import APIRouter, Depends, Request
@@ -11,7 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Organization, Colegiado, Payment
+from app.models import Organization, Colegiado, Payment, Member
+from app.routers.dashboard import get_current_member  # <-- Importar de dashboard
 
 router = APIRouter(tags=["admin-views"])
 templates = Jinja2Templates(directory="app/templates")
@@ -20,36 +19,42 @@ templates = Jinja2Templates(directory="app/templates")
 @router.get("/admin/config", response_class=HTMLResponse)
 async def admin_config_page(
     request: Request,
+    member: Member = Depends(get_current_member),  # <-- Usar la dependencia
     db: Session = Depends(get_db)
 ):
     """Panel de configuración del colegio"""
     
-    # Auth check
-    user = getattr(request.state, 'user', None)
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
-    
-    # Org
+    # Org desde el middleware
     org = getattr(request.state, 'org', None)
     if not org:
-        org = db.query(Organization).first()
+        org_obj = db.query(Organization).filter(
+            Organization.id == member.organization_id
+        ).first()
+        org = {
+            "id": org_obj.id,
+            "name": org_obj.name,
+            "slug": org_obj.slug,
+            "config": org_obj.config or {}
+        } if org_obj else None
     
-    config = org.config if org and org.config else {}
+    config = org.get("config", {}) if org else {}
     
     # Stats rápidas
-    stats = {"total_colegiados": 0, "habiles": 0, "morosos": 0}
-    if org:
+    stats = {"total_colegiados": 0, "habiles": 0, "morosos": 0, "pagos_pendientes": 0}
+    org_id = org.get("id") if org else member.organization_id
+    
+    if org_id:
         total = db.query(func.count(Colegiado.id)).filter(
-            Colegiado.organization_id == org.id
+            Colegiado.organization_id == org_id
         ).scalar() or 0
         
         habiles = db.query(func.count(Colegiado.id)).filter(
-            Colegiado.organization_id == org.id,
+            Colegiado.organization_id == org_id,
             Colegiado.condicion == 'habil'
         ).scalar() or 0
         
         pendientes = db.query(func.count(Payment.id)).filter(
-            Payment.organization_id == org.id,
+            Payment.organization_id == org_id,
             Payment.status == 'review'
         ).scalar() or 0
         
@@ -65,9 +70,9 @@ async def admin_config_page(
         "pages/admin/admin-config.html",
         {
             "request": request,
-            "user": user,
-            "org": org,
-            "config": config,
-            "stats": stats
+            "user": member,        # El member logueado
+            "org": org,            # Diccionario con datos de org
+            "config": config,      # Config JSON de la org
+            "stats": stats         # Métricas para las cards
         }
     )
