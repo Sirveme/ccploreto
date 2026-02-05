@@ -67,12 +67,16 @@ async def admin_config_page(
         }
     
     return templates.TemplateResponse(
-        "pages/admin/admin-config.html",
-        {
-            "request": request,
-            "user": member,        # El member logueado
-            "org": org,            # Diccionario con datos de org
-            "config": config,      # Config JSON de la org
-            "stats": stats         # Métricas para las cards
-        }
-    )
+    "pages/admin/admin-config.html",
+    {
+        "request": request,
+        "user": {
+            "id": member.id,
+            "name": member.user.name if member.user else "Admin",
+            "role": member.role
+        },
+        "org": org,
+        "config": config,
+        "stats": stats
+    }
+)
