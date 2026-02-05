@@ -1,0 +1,966 @@
+{% extends "base_admin.html" %}
+{% block title %}Configuración - {{ org.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/pages/admin-config.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    
+    <!-- ============================================
+         HEADER
+         ============================================ -->
+    <header class="admin-header">
+        <div class="admin-logo">
+            <img src="{{ org.logo_url or '/static/img/logo-default.png' }}" alt="Logo">
+            <div class="admin-logo-text">
+                {{ org.siglas or 'COLEGIO' }} <span>Admin</span>
+            </div>
+        </div>
+        <div class="admin-user">
+            <div class="admin-user-info">
+                <div class="admin-user-name">{{ user.name }}</div>
+                <div class="admin-user-role">Administrador</div>
+            </div>
+            <div class="admin-avatar">{{ user.name[0] }}</div>
+        </div>
+    </header>
+    
+    <!-- ============================================
+         BANNER DE INSIGHTS / AGENTE CONSEJERO
+         ============================================ -->
+    <div class="insight-banner" id="insight-banner">
+        <div class="insight-icon" id="insight-icon">
+            <i class="ph ph-lightbulb"></i>
+        </div>
+        <div class="insight-content">
+            <div class="insight-label">
+                <span class="live-dot"></span>
+                <span id="insight-label">Consejo del día</span>
+            </div>
+            <div class="insight-title" id="insight-title">Cargando análisis...</div>
+            <div class="insight-description" id="insight-description">
+                Analizando datos de tu institución...
+            </div>
+        </div>
+        <button class="insight-action" id="insight-action" onclick="AgenteConsejero.accion()">
+            Ver más
+        </button>
+        <button class="insight-dismiss" onclick="AgenteConsejero.siguiente()">
+            <i class="ph ph-arrow-right"></i>
+        </button>
+    </div>
+    
+    <!-- ============================================
+         MÉTRICAS RÁPIDAS
+         ============================================ -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-header">
+                <div class="metric-icon gold">
+                    <i class="ph ph-users"></i>
+                </div>
+                <span class="metric-trend up">+12%</span>
+            </div>
+            <div class="metric-value" id="metric-colegiados">{{ stats.total_colegiados or '---' }}</div>
+            <div class="metric-label">Colegiados Activos</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <div class="metric-icon green">
+                    <i class="ph ph-check-circle"></i>
+                </div>
+                <span class="metric-trend up">{{ stats.porcentaje_habiles or '--' }}%</span>
+            </div>
+            <div class="metric-value" id="metric-habiles">{{ stats.habiles or '---' }}</div>
+            <div class="metric-label">Habilitados</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <div class="metric-icon red">
+                    <i class="ph ph-warning"></i>
+                </div>
+                <span class="metric-trend down">{{ stats.porcentaje_morosos or '--' }}%</span>
+            </div>
+            <div class="metric-value" id="metric-morosos">{{ stats.morosos or '---' }}</div>
+            <div class="metric-label">Con Deuda</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <div class="metric-icon blue">
+                    <i class="ph ph-currency-circle-dollar"></i>
+                </div>
+                <span class="metric-trend neutral">Este mes</span>
+            </div>
+            <div class="metric-value" id="metric-recaudado">S/ {{ '{:,.0f}'.format(stats.recaudado_mes or 0) }}</div>
+            <div class="metric-label">Recaudado</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <div class="metric-icon purple">
+                    <i class="ph ph-clock"></i>
+                </div>
+                <span class="metric-trend warning">Pendientes</span>
+            </div>
+            <div class="metric-value" id="metric-pendientes">{{ stats.pagos_pendientes or '0' }}</div>
+            <div class="metric-label">Pagos por Validar</div>
+        </div>
+    </div>
+    
+    <!-- ============================================
+         LAYOUT DE CONFIGURACIÓN
+         ============================================ -->
+    <div class="config-layout">
+        
+        <!-- NAVEGACIÓN LATERAL -->
+        <nav class="config-nav">
+            <div class="config-nav-title">Configuración</div>
+            
+            <div class="config-nav-item active" data-section="identidad">
+                <div class="config-nav-icon"><i class="ph ph-buildings"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Identidad</div>
+                    <div class="config-nav-desc">Datos institucionales</div>
+                </div>
+            </div>
+            
+            <div class="config-nav-item" data-section="finanzas">
+                <div class="config-nav-icon"><i class="ph ph-wallet"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Finanzas</div>
+                    <div class="config-nav-desc">Cuotas y pagos</div>
+                </div>
+                <span class="config-nav-badge">Activo</span>
+            </div>
+            
+            <div class="config-nav-item" data-section="habilidad">
+                <div class="config-nav-icon"><i class="ph ph-certificate"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Habilidad</div>
+                    <div class="config-nav-desc">Reglas y certificados</div>
+                </div>
+            </div>
+            
+            <div class="config-nav-item" data-section="alertas">
+                <div class="config-nav-icon"><i class="ph ph-bell-ringing"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Alertas</div>
+                    <div class="config-nav-desc">Notificaciones</div>
+                </div>
+            </div>
+            
+            <div class="config-nav-item" data-section="documentos">
+                <div class="config-nav-icon"><i class="ph ph-file-text"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Documentos</div>
+                    <div class="config-nav-desc">Certificados y firmas</div>
+                </div>
+            </div>
+            
+            <div class="config-nav-title" style="margin-top:16px;">Próximamente</div>
+            
+            <div class="config-nav-item disabled" data-section="sedes">
+                <div class="config-nav-icon"><i class="ph ph-map-pin"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Sedes</div>
+                    <div class="config-nav-desc">Locales y centros</div>
+                </div>
+                <span class="config-nav-badge soon">Pronto</span>
+            </div>
+            
+            <div class="config-nav-item disabled" data-section="alquileres">
+                <div class="config-nav-icon"><i class="ph ph-calendar-blank"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Reservas</div>
+                    <div class="config-nav-desc">Auditorios y más</div>
+                </div>
+                <span class="config-nav-badge soon">Pronto</span>
+            </div>
+            
+            <div class="config-nav-item disabled" data-section="roles">
+                <div class="config-nav-icon"><i class="ph ph-shield-check"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Roles</div>
+                    <div class="config-nav-desc">Permisos y accesos</div>
+                </div>
+                <span class="config-nav-badge soon">Pronto</span>
+            </div>
+            
+            <div class="config-nav-item disabled" data-section="integraciones">
+                <div class="config-nav-icon"><i class="ph ph-plugs-connected"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Integraciones</div>
+                    <div class="config-nav-desc">APIs y pasarelas</div>
+                </div>
+                <span class="config-nav-badge soon">Pronto</span>
+            </div>
+        </nav>
+        
+        <!-- PANEL DE CONTENIDO -->
+        <main class="config-panel">
+            
+            <!-- ========== SECCIÓN: IDENTIDAD ========== -->
+            <section id="section-identidad" class="config-section-panel active">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-buildings"></i>
+                        <div>
+                            <h2>Identidad Institucional</h2>
+                            <p>Datos y presentación de tu colegio profesional</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-secondary">
+                            <i class="ph ph-arrow-counter-clockwise"></i> Restaurar
+                        </button>
+                        <button class="btn-admin btn-admin-primary" onclick="ConfigAdmin.guardar('identidad')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-identification-card"></i>
+                            Datos Básicos
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">
+                                    Nombre Completo <span class="required">*</span>
+                                </label>
+                                <input type="text" class="config-input" name="nombre_completo"
+                                       value="{{ config.nombre_completo or org.name }}"
+                                       placeholder="Colegio de Contadores Públicos de Loreto">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Siglas</label>
+                                <input type="text" class="config-input" name="siglas"
+                                       value="{{ config.siglas or 'CCPL' }}"
+                                       placeholder="CCPL">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">RUC</label>
+                                <input type="text" class="config-input" name="ruc"
+                                       value="{{ config.ruc or '' }}"
+                                       placeholder="20123456789" maxlength="11">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Email Institucional</label>
+                                <input type="email" class="config-input" name="email"
+                                       value="{{ config.email or '' }}"
+                                       placeholder="info@ccploreto.org.pe">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Teléfono</label>
+                                <input type="tel" class="config-input" name="telefono"
+                                       value="{{ config.telefono or '' }}"
+                                       placeholder="065-123456">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Web Oficial</label>
+                                <input type="url" class="config-input" name="web"
+                                       value="{{ config.web or '' }}"
+                                       placeholder="https://ccploreto.org.pe">
+                            </div>
+                            
+                            <div class="config-field full-width">
+                                <label class="config-label">Dirección</label>
+                                <input type="text" class="config-input" name="direccion"
+                                       value="{{ config.direccion or '' }}"
+                                       placeholder="Jr. Putumayo 123, Iquitos, Loreto">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-image"></i>
+                            Imagen Institucional
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">Logo Principal</label>
+                                <div class="config-upload-area" onclick="ConfigAdmin.uploadFile('logo')">
+                                    <img src="{{ config.logo_url or '/static/img/logo-placeholder.png' }}" 
+                                         alt="Logo" id="preview-logo" style="max-height:80px;">
+                                    <p>Clic para cambiar</p>
+                                </div>
+                                <input type="file" id="input-logo" hidden accept="image/*">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Logo para Certificados</label>
+                                <div class="config-upload-area" onclick="ConfigAdmin.uploadFile('logo_cert')">
+                                    <img src="{{ config.logo_certificados_url or '/static/img/logo-placeholder.png' }}" 
+                                         alt="Logo Certificados" id="preview-logo_cert" style="max-height:80px;">
+                                    <p>Clic para cambiar</p>
+                                </div>
+                                <input type="file" id="input-logo_cert" hidden accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-users-three"></i>
+                            Representantes
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">Decano/a</label>
+                                <input type="text" class="config-input" name="decano_nombre"
+                                       value="{{ config.decano_nombre or '' }}"
+                                       placeholder="CPC. Juan Pérez García">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Secretario/a</label>
+                                <input type="text" class="config-input" name="secretario_nombre"
+                                       value="{{ config.secretario_nombre or '' }}"
+                                       placeholder="CPC. María López Díaz">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Tesorero/a</label>
+                                <input type="text" class="config-input" name="tesorero_nombre"
+                                       value="{{ config.tesorero_nombre or '' }}"
+                                       placeholder="CPC. Carlos Ruiz Mendoza">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ========== SECCIÓN: FINANZAS ========== -->
+            <section id="section-finanzas" class="config-section-panel">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-wallet"></i>
+                        <div>
+                            <h2>Configuración Financiera</h2>
+                            <p>Cuotas, métodos de pago y políticas de cobranza</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-primary" onclick="ConfigAdmin.guardar('finanzas')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-money"></i>
+                            Cuotas y Aportes
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">
+                                    Cuota Mensual <span class="required">*</span>
+                                </label>
+                                <div class="config-input-group">
+                                    <input type="number" class="config-input" name="cuota_mensual"
+                                           value="{{ config.cuota_mensual or 20 }}"
+                                           min="0" step="0.50">
+                                    <span class="config-addon">S/</span>
+                                </div>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Moneda</label>
+                                <select class="config-input config-select" name="moneda">
+                                    <option value="PEN" {{ 'selected' if config.moneda == 'PEN' else '' }}>Soles (PEN)</option>
+                                    <option value="USD" {{ 'selected' if config.moneda == 'USD' else '' }}>Dólares (USD)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Día de Corte Mensual</label>
+                                <select class="config-input config-select" name="dia_corte">
+                                    {% for dia in range(1, 29) %}
+                                    <option value="{{ dia }}" {{ 'selected' if config.dia_corte == dia else '' }}>
+                                        Día {{ dia }}
+                                    </option>
+                                    {% endfor %}
+                                    <option value="ultimo">Último día del mes</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">
+                                    Meses de Mora Permitida
+                                    <i class="ph ph-question help" title="Después de estos meses, el colegiado pasa a Inhábil"></i>
+                                </label>
+                                <select class="config-input config-select" name="meses_mora_maxima">
+                                    {% for m in [1,2,3,4,5,6] %}
+                                    <option value="{{ m }}" {{ 'selected' if config.meses_mora_maxima == m else '' }}>
+                                        {{ m }} {{ 'mes' if m == 1 else 'meses' }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-credit-card"></i>
+                            Métodos de Pago
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field full-width">
+                                <label class="config-label">Yape / Plin</label>
+                                <div class="config-input-group">
+                                    <input type="tel" class="config-input" name="numero_yape"
+                                           value="{{ config.numero_yape or '' }}"
+                                           placeholder="987654321" maxlength="9">
+                                    <span class="config-addon">
+                                        <i class="ph ph-device-mobile"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Banco</label>
+                                <select class="config-input config-select" name="banco">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="BCP" {{ 'selected' if config.banco == 'BCP' else '' }}>BCP</option>
+                                    <option value="BBVA" {{ 'selected' if config.banco == 'BBVA' else '' }}>BBVA</option>
+                                    <option value="Interbank" {{ 'selected' if config.banco == 'Interbank' else '' }}>Interbank</option>
+                                    <option value="Scotiabank" {{ 'selected' if config.banco == 'Scotiabank' else '' }}>Scotiabank</option>
+                                    <option value="BanBif" {{ 'selected' if config.banco == 'BanBif' else '' }}>BanBif</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Número de Cuenta</label>
+                                <input type="text" class="config-input" name="cuenta_banco"
+                                       value="{{ config.cuenta_banco or '' }}"
+                                       placeholder="123-456789-0-12">
+                            </div>
+                            
+                            <div class="config-field full-width">
+                                <label class="config-label">CCI (Código Interbancario)</label>
+                                <input type="text" class="config-input" name="cci"
+                                       value="{{ config.cci or '' }}"
+                                       placeholder="00212345678901234567" maxlength="20">
+                            </div>
+                            
+                            <div class="config-field full-width">
+                                <label class="config-label">Titular de la Cuenta</label>
+                                <input type="text" class="config-input" name="titular_cuenta"
+                                       value="{{ config.titular_cuenta or '' }}"
+                                       placeholder="Colegio de Contadores Públicos de Loreto">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-shield-check"></i>
+                            Política de Validación
+                        </h3>
+                        
+                        <div class="config-toggle {{ 'active' if config.confia_pago_declarado else '' }}" 
+                             onclick="ConfigAdmin.toggle(this, 'confia_pago_declarado')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-check-square"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Confiar en Pago Declarado</h4>
+                                    <p>Si está activo, los pagos se aprueban automáticamente al subir el voucher. Si no, un tesorero debe validar cada pago.</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="confia_pago_declarado" value="{{ 'true' if config.confia_pago_declarado else 'false' }}">
+                        </div>
+                        
+                        <div class="config-toggle {{ 'active' if config.aplica_mora else '' }}" 
+                             onclick="ConfigAdmin.toggle(this, 'aplica_mora')"
+                             style="margin-top:12px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-percent"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Aplicar Mora por Atraso</h4>
+                                    <p>Cobrar recargo adicional a cuotas vencidas</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="aplica_mora" value="{{ 'true' if config.aplica_mora else 'false' }}">
+                        </div>
+                        
+                        <div class="config-grid" style="margin-top:16px;" id="config-mora-detalles">
+                            <div class="config-field">
+                                <label class="config-label">Porcentaje de Mora</label>
+                                <div class="config-input-group">
+                                    <input type="number" class="config-input" name="porcentaje_mora"
+                                           value="{{ config.porcentaje_mora or 2 }}"
+                                           min="0" max="100" step="0.5">
+                                    <span class="config-addon">%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Días de Gracia</label>
+                                <input type="number" class="config-input" name="dias_gracia"
+                                       value="{{ config.dias_gracia or 5 }}"
+                                       min="0" max="30">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-gift"></i>
+                            Beneficio/Campaña Activa
+                        </h3>
+                        
+                        <div class="config-toggle {{ 'active' if config.beneficio_activo else '' }}" 
+                             onclick="ConfigAdmin.toggle(this, 'beneficio_activo')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-tag"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Activar Beneficio/Descuento</h4>
+                                    <p>Promoción temporal para incentivar pagos</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="beneficio_activo" value="{{ 'true' if config.beneficio_activo else 'false' }}">
+                        </div>
+                        
+                        <div class="config-grid" style="margin-top:16px;" id="config-beneficio-detalles">
+                            <div class="config-field">
+                                <label class="config-label">Nombre del Beneficio</label>
+                                <input type="text" class="config-input" name="beneficio_nombre"
+                                       value="{{ config.beneficio_nombre or '' }}"
+                                       placeholder="60 Aniversario CCPL">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Descuento</label>
+                                <div class="config-input-group">
+                                    <input type="number" class="config-input" name="beneficio_descuento"
+                                           value="{{ config.beneficio_descuento or 50 }}"
+                                           min="0" max="100">
+                                    <span class="config-addon">%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Vigencia Hasta</label>
+                                <input type="date" class="config-input" name="beneficio_vigencia"
+                                       value="{{ config.beneficio_vigencia or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ========== SECCIÓN: HABILIDAD ========== -->
+            <section id="section-habilidad" class="config-section-panel">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-certificate"></i>
+                        <div>
+                            <h2>Reglas de Habilidad</h2>
+                            <p>Condiciones para la habilitación profesional</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-primary" onclick="ConfigAdmin.guardar('habilidad')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-gavel"></i>
+                            Políticas de Habilitación
+                        </h3>
+                        
+                        <div class="config-toggle {{ 'active' if config.habilita_automatico else '' }}" 
+                             onclick="ConfigAdmin.toggle(this, 'habilita_automatico')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-robot"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Habilitación Automática</h4>
+                                    <p>Al ponerse al día con sus cuotas, el colegiado recupera su habilidad automáticamente</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="habilita_automatico" value="{{ 'true' if config.habilita_automatico else 'false' }}">
+                        </div>
+                        
+                        <div class="config-toggle" 
+                             onclick="ConfigAdmin.toggle(this, 'permite_convenio')"
+                             style="margin-top:12px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-handshake"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Permitir Convenio de Pago</h4>
+                                    <p>Habilitar temporalmente mientras cumple un plan de pagos</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="permite_convenio" value="false">
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-scroll"></i>
+                            Certificado de Habilidad
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">Vigencia del Certificado</label>
+                                <select class="config-input config-select" name="vigencia_certificado">
+                                    <option value="fin_mes" {{ 'selected' if config.vigencia_certificado == 'fin_mes' else '' }}>
+                                        Hasta fin del mes actual
+                                    </option>
+                                    <option value="30" {{ 'selected' if config.vigencia_certificado == '30' else '' }}>
+                                        30 días calendario
+                                    </option>
+                                    <option value="60" {{ 'selected' if config.vigencia_certificado == '60' else '' }}>
+                                        60 días calendario
+                                    </option>
+                                    <option value="90" {{ 'selected' if config.vigencia_certificado == '90' else '' }}>
+                                        90 días calendario
+                                    </option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Correlativo Actual</label>
+                                <input type="text" class="config-input" name="correlativo_certificado"
+                                       value="{{ config.correlativo_certificado or '2026-000001' }}"
+                                       placeholder="2026-000001">
+                            </div>
+                        </div>
+                        
+                        <div class="config-toggle {{ 'active' if config.mostrar_foto_certificado else '' }}" 
+                             onclick="ConfigAdmin.toggle(this, 'mostrar_foto_certificado')"
+                             style="margin-top:16px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-user-square"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Incluir Foto en Certificado</h4>
+                                    <p>Mostrar la foto del colegiado en el certificado de habilidad</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="mostrar_foto_certificado" value="{{ 'true' if config.mostrar_foto_certificado else 'false' }}">
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ========== SECCIÓN: ALERTAS ========== -->
+            <section id="section-alertas" class="config-section-panel">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-bell-ringing"></i>
+                        <div>
+                            <h2>Sistema de Alertas</h2>
+                            <p>Notificaciones y recordatorios automáticos</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-primary" onclick="ConfigAdmin.guardar('alertas')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-clock"></i>
+                            Recordatorios de Pago
+                        </h3>
+                        
+                        <div class="config-toggle active" onclick="ConfigAdmin.toggle(this, 'alerta_pre_vencimiento')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-calendar-check"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Alerta Pre-Vencimiento</h4>
+                                    <p>Recordar días antes del vencimiento de cuota</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="alerta_pre_vencimiento" value="true">
+                        </div>
+                        
+                        <div class="config-grid" style="margin-top:16px;">
+                            <div class="config-field full-width">
+                                <label class="config-label">Días antes del vencimiento</label>
+                                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                                    {% for dia in [1, 3, 5, 7, 15] %}
+                                    <label class="checkbox-pill">
+                                        <input type="checkbox" name="dias_pre_vencimiento" value="{{ dia }}"
+                                               {{ 'checked' if dia in (config.dias_pre_vencimiento or [5,3,1]) else '' }}>
+                                        <span>{{ dia }} día{{ 's' if dia > 1 else '' }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="config-toggle active" onclick="ConfigAdmin.toggle(this, 'alerta_post_vencimiento')"
+                             style="margin-top:16px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-warning"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Alerta Post-Vencimiento</h4>
+                                    <p>Notificar cuando la cuota ya venció</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="alerta_post_vencimiento" value="true">
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-paper-plane-tilt"></i>
+                            Canales de Notificación
+                        </h3>
+                        
+                        <div class="config-grid">
+                            <div class="config-toggle active" onclick="ConfigAdmin.toggle(this, 'canal_push')">
+                                <div class="config-toggle-info">
+                                    <div class="config-toggle-icon"><i class="ph ph-device-mobile"></i></div>
+                                    <div class="config-toggle-text">
+                                        <h4>Push Notifications</h4>
+                                        <p>Notificaciones en el navegador/app</p>
+                                    </div>
+                                </div>
+                                <div class="toggle-switch"></div>
+                            </div>
+                            
+                            <div class="config-toggle" onclick="ConfigAdmin.toggle(this, 'canal_email')">
+                                <div class="config-toggle-info">
+                                    <div class="config-toggle-icon"><i class="ph ph-envelope"></i></div>
+                                    <div class="config-toggle-text">
+                                        <h4>Email</h4>
+                                        <p>Correo electrónico</p>
+                                    </div>
+                                </div>
+                                <div class="toggle-switch"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-confetti"></i>
+                            Alertas Especiales
+                        </h3>
+                        
+                        <div class="config-toggle" onclick="ConfigAdmin.toggle(this, 'alerta_cumpleanos')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon"><i class="ph ph-cake"></i></div>
+                                <div class="config-toggle-text">
+                                    <h4>Felicitación de Cumpleaños</h4>
+                                    <p>Enviar mensaje automático en el día de cumpleaños</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ========== SECCIÓN: DOCUMENTOS ========== -->
+            <section id="section-documentos" class="config-section-panel">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-file-text"></i>
+                        <div>
+                            <h2>Documentos y Firmas</h2>
+                            <p>Plantillas, firmas digitales y formatos oficiales</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-primary" onclick="ConfigAdmin.guardar('documentos')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-signature"></i>
+                            Firmas Autorizadas
+                        </h3>
+                        <div class="config-grid">
+                            <div class="config-field">
+                                <label class="config-label">Firma del Decano/a</label>
+                                <div class="config-upload-area" onclick="ConfigAdmin.uploadFile('firma_decano')">
+                                    <img src="{{ config.firma_decano_url or '/static/img/firma-placeholder.png' }}" 
+                                         alt="Firma" id="preview-firma_decano" style="max-height:60px;">
+                                    <p>PNG transparente recomendado</p>
+                                </div>
+                                <input type="file" id="input-firma_decano" hidden accept="image/*">
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Firma del Secretario/a</label>
+                                <div class="config-upload-area" onclick="ConfigAdmin.uploadFile('firma_secretario')">
+                                    <img src="{{ config.firma_secretario_url or '/static/img/firma-placeholder.png' }}" 
+                                         alt="Firma" id="preview-firma_secretario" style="max-height:60px;">
+                                    <p>PNG transparente recomendado</p>
+                                </div>
+                                <input type="file" id="input-firma_secretario" hidden accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3 class="config-section-title">
+                            <i class="ph ph-article"></i>
+                            Texto Legal del Certificado
+                        </h3>
+                        <div class="config-field full-width">
+                            <label class="config-label">Leyenda del Certificado de Habilidad</label>
+                            <textarea class="config-input config-textarea" name="leyenda_certificado"
+                                      rows="4" placeholder="El presente certificado acredita que el profesional...">{{ config.leyenda_certificado or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ========== SECCIONES PRÓXIMAMENTE ========== -->
+            <section id="section-sedes" class="config-section-panel">
+                <div class="config-panel-body" style="text-align:center; padding:60px;">
+                    <i class="ph ph-map-pin" style="font-size:64px; color:var(--admin-text-muted); opacity:0.3;"></i>
+                    <h3 style="margin:20px 0 8px; color:var(--admin-text-muted);">Gestión de Sedes</h3>
+                    <p style="color:var(--admin-text-muted);">Configura múltiples locales, centros recreacionales y oficinas.</p>
+                    <span class="status-badge inactive" style="margin-top:16px;">Próximamente</span>
+                </div>
+            </section>
+            
+            <section id="section-alquileres" class="config-section-panel">
+                <div class="config-panel-body" style="text-align:center; padding:60px;">
+                    <i class="ph ph-calendar-blank" style="font-size:64px; color:var(--admin-text-muted); opacity:0.3;"></i>
+                    <h3 style="margin:20px 0 8px; color:var(--admin-text-muted);">Sistema de Reservas</h3>
+                    <p style="color:var(--admin-text-muted);">Auditorios, lozas deportivas, habitaciones y más.</p>
+                    <span class="status-badge inactive" style="margin-top:16px;">Próximamente</span>
+                </div>
+            </section>
+            
+            <section id="section-roles" class="config-section-panel">
+                <div class="config-panel-body" style="text-align:center; padding:60px;">
+                    <i class="ph ph-shield-check" style="font-size:64px; color:var(--admin-text-muted); opacity:0.3;"></i>
+                    <h3 style="margin:20px 0 8px; color:var(--admin-text-muted);">Roles y Permisos</h3>
+                    <p style="color:var(--admin-text-muted);">Asigna tareas específicas a tu equipo según tu forma de trabajar.</p>
+                    <span class="status-badge inactive" style="margin-top:16px;">Próximamente</span>
+                </div>
+            </section>
+            
+            <section id="section-integraciones" class="config-section-panel">
+                <div class="config-panel-body" style="text-align:center; padding:60px;">
+                    <i class="ph ph-plugs-connected" style="font-size:64px; color:var(--admin-text-muted); opacity:0.3;"></i>
+                    <h3 style="margin:20px 0 8px; color:var(--admin-text-muted);">Integraciones</h3>
+                    <p style="color:var(--admin-text-muted);">Pasarelas de pago, firma digital RENIEC, facturación electrónica.</p>
+                    <span class="status-badge inactive" style="margin-top:16px;">Próximamente</span>
+                </div>
+            </section>
+            
+        </main>
+    </div>
+    
+</div>
+
+<!-- Estilos adicionales inline -->
+<style>
+.config-section-panel { display: none; }
+.config-section-panel.active { display: block; }
+
+.config-upload-area {
+    border: 2px dashed var(--admin-border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.config-upload-area:hover {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent-glow);
+}
+
+.config-upload-area p {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--admin-text-muted);
+}
+
+.checkbox-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--admin-border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.checkbox-pill:has(input:checked) {
+    background: var(--admin-accent-glow);
+    border-color: var(--admin-accent);
+}
+
+.checkbox-pill input { display: none; }
+
+.checkbox-pill span {
+    font-size: 13px;
+    color: var(--admin-text);
+}
+
+.config-nav-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/modules/admin-config.js"></script>
+<script src="/static/js/modules/agente-consejero.js"></script>
+{% endblock %}
