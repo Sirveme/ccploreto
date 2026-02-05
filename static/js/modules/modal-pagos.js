@@ -1,165 +1,363 @@
 /**
- * modal-pagos.js
- * Módulo lazy: estado de cuenta, historial de pagos, registrar pago
+ * Modal Pagos - Dashboard Colegiado
+ * Historial de pagos, estado de cuenta y deudas pendientes
  */
-(function() {
-    'use strict';
 
-    const MODAL_ID = 'modal-pagos';
-    let initialized = false;
-
-    function init() {
-        if (initialized) return;
-        initialized = true;
-        cargarEstadoCuenta();
-    }
-
-    // ========================================
-    // CARGAR ESTADO DE CUENTA
-    // ========================================
-    async function cargarEstadoCuenta() {
-        const container = document.getElementById('modal-pagos-content');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div style="text-align:center; padding:32px; color:#94a3b8;">
-                <i class="ph ph-spinner" style="font-size:24px; animation: spin 1s linear infinite;"></i>
-                <p style="margin-top:8px;">Cargando estado de cuenta...</p>
-            </div>
-        `;
-
+const ModalPagos = {
+    data: null,
+    isLoading: false,
+    
+    /**
+     * Inicializa el modal de pagos
+     */
+    init() {
+        console.log('[ModalPagos] Inicializando...');
+        this.bindEvents();
+    },
+    
+    /**
+     * Bindea eventos
+     */
+    bindEvents() {
+        // Tabs
+        document.querySelectorAll('.pagos-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const targetId = e.currentTarget.dataset.tab;
+                this.switchTab(targetId);
+            });
+        });
+    },
+    
+    /**
+     * Cambia de tab
+     */
+    switchTab(tabId) {
+        // Desactivar tabs
+        document.querySelectorAll('.pagos-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.pagos-tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Activar tab seleccionado
+        document.querySelector(`.pagos-tab[data-tab="${tabId}"]`)?.classList.add('active');
+        document.getElementById(`pagos-${tabId}`)?.classList.add('active');
+    },
+    
+    /**
+     * Abre el modal y carga datos
+     */
+    async open() {
+        Modal.open('modal-pagos');
+        
+        if (!this.data) {
+            await this.cargarDatos();
+        }
+    },
+    
+    /**
+     * Carga datos del servidor
+     */
+    async cargarDatos() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        
+        this.mostrarLoading();
+        
         try {
-            const matricula = APP_CONFIG.user?.matricula;
-            if (!matricula) throw new Error('Matrícula no disponible');
-
-            const res = await fetch(`/api/pagos/estado-cuenta/${matricula}`);
-            if (!res.ok) throw new Error('Error al cargar');
-            const data = await res.json();
-
-            renderEstadoCuenta(container, data);
-
-        } catch (err) {
+            const response = await fetch('/api/colegiado/mis-pagos');
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}`);
+            }
+            
+            this.data = await response.json();
+            this.renderizar();
+            
+        } catch (error) {
+            console.error('[ModalPagos] Error cargando datos:', error);
+            this.mostrarError('No se pudieron cargar los datos. Intenta de nuevo.');
+        } finally {
+            this.isLoading = false;
+        }
+    },
+    
+    /**
+     * Muestra estado de carga
+     */
+    mostrarLoading() {
+        const container = document.getElementById('pagos-resumen');
+        if (container) {
             container.innerHTML = `
-                <div style="text-align:center; padding:32px; color:#ef4444;">
-                    <i class="ph ph-warning-circle" style="font-size:32px;"></i>
-                    <p style="margin-top:8px;">${err.message}</p>
-                    <button onclick="window._pagosModule.recargar()" 
-                        class="btn-retry" style="margin-top:12px; padding:8px 16px; 
-                        border-radius:8px; border:1px solid #334155; 
-                        background:transparent; color:#94a3b8; cursor:pointer;">
-                        Reintentar
+                <div class="pagos-skeleton">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+            `;
+        }
+    },
+    
+    /**
+     * Muestra mensaje de error
+     */
+    mostrarError(mensaje) {
+        const container = document.getElementById('pagos-resumen');
+        if (container) {
+            container.innerHTML = `
+                <div class="pagos-empty">
+                    <i class="ph ph-warning-circle"></i>
+                    <p>${mensaje}</p>
+                    <button class="btn-secondary" onclick="ModalPagos.cargarDatos()" style="margin-top:12px;">
+                        <i class="ph ph-arrow-clockwise"></i> Reintentar
                     </button>
                 </div>
             `;
         }
-    }
-
-    function renderEstadoCuenta(container, data) {
-        const { deuda_total, cuotas_pendientes, ultimo_pago, historial } = data;
-
-        const deudaColor = deuda_total > 0 ? '#f59e0b' : '#10b981';
-        const deudaIcon = deuda_total > 0 ? 'ph-warning' : 'ph-check-circle';
-
+    },
+    
+    /**
+     * Renderiza todos los datos
+     */
+    renderizar() {
+        this.renderResumen();
+        this.renderHistorial();
+        this.renderDeudas();
+    },
+    
+    /**
+     * Renderiza el resumen de cuenta
+     */
+    renderResumen() {
+        const container = document.getElementById('pagos-resumen');
+        if (!container || !this.data) return;
+        
+        const { resumen } = this.data;
+        
         container.innerHTML = `
-            <!-- Resumen -->
-            <div style="
-                background: linear-gradient(135deg, ${deudaColor}15, ${deudaColor}05);
-                border: 1px solid ${deudaColor}30;
-                border-radius: 12px; padding: 20px; margin-bottom: 16px;
-            ">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <div style="font-size:12px; color:#94a3b8; text-transform:uppercase;">Deuda Total</div>
-                        <div style="font-size:28px; font-weight:700; color:${deudaColor}; margin-top:4px;">
-                            S/ ${deuda_total.toFixed(2)}
-                        </div>
-                    </div>
-                    <i class="ph ${deudaIcon}" style="font-size:40px; color:${deudaColor}; opacity:0.5;"></i>
+            <div class="cuenta-resumen">
+                <div class="cuenta-card deuda">
+                    <div class="cuenta-label">Deuda Total</div>
+                    <div class="cuenta-valor">S/ ${this.formatMonto(resumen.deuda_total)}</div>
                 </div>
-                ${cuotas_pendientes > 0 ? `
-                    <div style="margin-top:8px; font-size:13px; color:#94a3b8;">
-                        ${cuotas_pendientes} cuota(s) pendiente(s)
-                    </div>
-                ` : ''}
+                <div class="cuenta-card pagado">
+                    <div class="cuenta-label">Pagado</div>
+                    <div class="cuenta-valor">S/ ${this.formatMonto(resumen.total_pagado)}</div>
+                </div>
+                <div class="cuenta-card pendiente">
+                    <div class="cuenta-label">En Revisión</div>
+                    <div class="cuenta-valor">S/ ${this.formatMonto(resumen.en_revision)}</div>
+                </div>
             </div>
-
-            ${deuda_total > 0 ? `
-                <button onclick="window._pagosModule.iniciarPago()" style="
-                    width:100%; padding:14px; border-radius:12px; border:none;
-                    background:#6366f1; color:white; font-size:15px; font-weight:600;
-                    cursor:pointer; margin-bottom:20px;
-                ">
-                    <i class="ph ph-credit-card"></i> Registrar Pago
+            
+            ${resumen.deuda_total > 0 ? `
+                <button class="btn-pagar-deuda" onclick="ModalPagos.irAPagar()">
+                    <i class="ph ph-credit-card"></i>
+                    Pagar Deuda
                 </button>
-            ` : ''}
-
-            <!-- Historial -->
-            <div style="font-size:14px; font-weight:600; margin-bottom:12px; color:#e2e8f0;">
-                Historial de Pagos
-            </div>
-            ${historial && historial.length > 0 ? 
-                historial.map(p => renderPago(p)).join('') 
-                : '<p style="text-align:center; color:#64748b; padding:20px;">Sin pagos registrados</p>'
-            }
+            ` : `
+                <div class="pagos-info-box">
+                    <i class="ph ph-check-circle"></i>
+                    <p>¡Excelente! Estás al día con tus pagos. No tienes deudas pendientes.</p>
+                </div>
+            `}
         `;
-    }
-
-    function renderPago(pago) {
-        const estadoMap = {
-            'aprobado': { color: '#10b981', icon: 'ph-check-circle', label: 'Aprobado' },
-            'pendiente': { color: '#f59e0b', icon: 'ph-clock', label: 'Pendiente' },
-            'rechazado': { color: '#ef4444', icon: 'ph-x-circle', label: 'Rechazado' },
-            'review': { color: '#6366f1', icon: 'ph-eye', label: 'En revisión' }
+    },
+    
+    /**
+     * Renderiza el historial de pagos
+     */
+    renderHistorial() {
+        const container = document.getElementById('pagos-historial');
+        if (!container || !this.data) return;
+        
+        const { pagos } = this.data;
+        
+        if (!pagos || pagos.length === 0) {
+            container.innerHTML = `
+                <div class="pagos-empty">
+                    <i class="ph ph-receipt"></i>
+                    <p>No tienes pagos registrados</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="pagos-lista">
+                ${pagos.map(p => this.renderPagoItem(p)).join('')}
+            </div>
+        `;
+    },
+    
+    /**
+     * Renderiza un item de pago
+     */
+    renderPagoItem(pago) {
+        const estadoTexto = {
+            'approved': 'Aprobado',
+            'review': 'En revisión',
+            'rejected': 'Rechazado'
         };
-        const estado = estadoMap[pago.estado] || estadoMap['pendiente'];
-
+        
+        const metodosIcono = {
+            'Yape': 'ph-device-mobile',
+            'Plin': 'ph-device-mobile',
+            'Transferencia': 'ph-bank',
+            'Efectivo': 'ph-money'
+        };
+        
         return `
-            <div style="
-                padding:14px; margin-bottom:8px;
-                background:rgba(255,255,255,0.03);
-                border-radius:10px; border:1px solid rgba(255,255,255,0.05);
-                display:flex; justify-content:space-between; align-items:center;
-            ">
-                <div>
-                    <div style="font-size:14px; font-weight:500;">${pago.fecha}</div>
-                    <div style="font-size:12px; color:#64748b; margin-top:2px;">
-                        ${pago.metodo} · Op. ${pago.numero_operacion || '-'}
-                    </div>
+            <div class="pago-item" onclick="ModalPagos.verDetalle(${pago.id})">
+                <div class="pago-info">
+                    <span class="pago-fecha">${pago.fecha}</span>
+                    <span class="pago-concepto">${pago.concepto || 'Pago de cuotas'}</span>
+                    <span class="pago-metodo">
+                        <i class="ph ${metodosIcono[pago.metodo] || 'ph-credit-card'}"></i>
+                        ${pago.metodo} ${pago.operacion ? `• ${pago.operacion}` : ''}
+                    </span>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-size:15px; font-weight:600;">S/ ${pago.monto.toFixed(2)}</div>
-                    <div style="font-size:11px; color:${estado.color}; margin-top:2px;">
-                        <i class="ph ${estado.icon}"></i> ${estado.label}
-                    </div>
+                <div class="pago-monto-estado">
+                    <span class="pago-monto">S/ ${this.formatMonto(pago.monto)}</span>
+                    <span class="pago-estado ${pago.estado}">${estadoTexto[pago.estado] || pago.estado}</span>
                 </div>
             </div>
         `;
-    }
-
-    // ========================================
-    // FLUJO DE PAGO
-    // ========================================
-    function iniciarPago() {
-        SoundFX.play('click');
-        // TODO: Mostrar paso 1 del flujo de pago
-        // (monto, método, voucher)
-        Toast.show('Módulo de pago en desarrollo', 'info');
-    }
-
-    // ========================================
-    // ESCUCHAR APERTURA
-    // ========================================
-    const modal = document.getElementById(MODAL_ID);
-    if (modal) {
-        modal.addEventListener('modal:opened', () => {
-            init();
-            if (initialized) cargarEstadoCuenta();
+    },
+    
+    /**
+     * Renderiza las deudas pendientes
+     */
+    renderDeudas() {
+        const container = document.getElementById('pagos-deudas');
+        if (!container || !this.data) return;
+        
+        const { deudas } = this.data;
+        
+        if (!deudas || deudas.length === 0) {
+            container.innerHTML = `
+                <div class="pagos-empty">
+                    <i class="ph ph-check-circle"></i>
+                    <p>No tienes deudas pendientes</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Calcular total
+        const total = deudas.reduce((sum, d) => sum + d.balance, 0);
+        
+        container.innerHTML = `
+            <div class="deudas-lista">
+                ${deudas.map(d => this.renderDeudaItem(d)).join('')}
+            </div>
+            
+            <div class="cuenta-resumen" style="margin-top:20px;">
+                <div class="cuenta-card deuda" style="grid-column: span 2;">
+                    <div class="cuenta-label">Total a Pagar</div>
+                    <div class="cuenta-valor">S/ ${this.formatMonto(total)}</div>
+                </div>
+            </div>
+            
+            <button class="btn-pagar-deuda" onclick="ModalPagos.irAPagar()">
+                <i class="ph ph-credit-card"></i>
+                Pagar Ahora
+            </button>
+        `;
+    },
+    
+    /**
+     * Renderiza un item de deuda
+     */
+    renderDeudaItem(deuda) {
+        const hoy = new Date();
+        const vence = new Date(deuda.vencimiento);
+        const esVencida = vence < hoy;
+        const diasRestantes = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
+        
+        let claseVencimiento = '';
+        let textoVencimiento = '';
+        
+        if (esVencida) {
+            claseVencimiento = 'vencida';
+            textoVencimiento = `Vencida hace ${Math.abs(diasRestantes)} días`;
+        } else if (diasRestantes <= 7) {
+            claseVencimiento = 'proxima';
+            textoVencimiento = `Vence en ${diasRestantes} días`;
+        } else {
+            textoVencimiento = `Vence: ${this.formatFecha(deuda.vencimiento)}`;
+        }
+        
+        return `
+            <div class="deuda-item ${claseVencimiento}">
+                <div class="deuda-info">
+                    <span class="deuda-concepto">${deuda.concepto}</span>
+                    <span class="deuda-periodo">${deuda.periodo}</span>
+                    <span class="deuda-vence">${textoVencimiento}</span>
+                </div>
+                <span class="deuda-monto">S/ ${this.formatMonto(deuda.balance)}</span>
+            </div>
+        `;
+    },
+    
+    /**
+     * Ir a la pantalla de pago
+     */
+    irAPagar() {
+        Modal.close('modal-pagos');
+        // Abrir modal de pago o redirigir
+        if (typeof Modal !== 'undefined' && document.getElementById('modal-pagar')) {
+            Modal.open('modal-pagar');
+        } else {
+            // Redirigir a la página de pago
+            window.location.href = '/pagos/formulario';
+        }
+    },
+    
+    /**
+     * Ver detalle de un pago
+     */
+    verDetalle(pagoId) {
+        // Por ahora solo log, después se puede implementar modal de detalle
+        console.log('[ModalPagos] Ver detalle:', pagoId);
+        
+        const pago = this.data?.pagos?.find(p => p.id === pagoId);
+        if (pago) {
+            Toast.show(`Pago #${pagoId}: S/ ${this.formatMonto(pago.monto)} - ${pago.estado}`, 'info');
+        }
+    },
+    
+    /**
+     * Refresca los datos
+     */
+    async refresh() {
+        this.data = null;
+        await this.cargarDatos();
+    },
+    
+    /**
+     * Formatea un monto
+     */
+    formatMonto(monto) {
+        if (!monto && monto !== 0) return '0.00';
+        return parseFloat(monto).toFixed(2);
+    },
+    
+    /**
+     * Formatea una fecha
+     */
+    formatFecha(fechaStr) {
+        if (!fechaStr) return '-';
+        const fecha = new Date(fechaStr);
+        return fecha.toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
         });
     }
+};
 
-    window._pagosModule = {
-        recargar: cargarEstadoCuenta,
-        iniciarPago: iniciarPago
-    };
+// Inicializar cuando se cargue el DOM
+document.addEventListener('DOMContentLoaded', () => {
+    ModalPagos.init();
+});
 
-})();
+// Exponer globalmente
+window.ModalPagos = ModalPagos;
