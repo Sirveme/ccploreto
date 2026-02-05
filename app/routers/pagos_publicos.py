@@ -18,6 +18,7 @@ import os
 from app.database import get_db
 from app.models import Colegiado, Debt, Payment, Organization
 from app.routers.ws import manager
+from app.services.emitir_certificado_service import emitir_certificado_automatico
 
 router = APIRouter(prefix="/pagos", tags=["Pagos Públicos"])
 
@@ -923,12 +924,34 @@ async def validar_pago_colegiado(
                 colegiado.condicion = "habil"
                 colegiado.fecha_actualizacion_condicion = datetime.now(timezone.utc)
         
+        #db.commit()
+        
+        # Sincronizar cambios ORM antes de emitir certificado
+        db.flush()
+        
+        # Emitir certificado automáticamente
+        certificado_info = None
+        try:
+            certificado_info = emitir_certificado_automatico(
+                db=db,
+                colegiado_id=pago.colegiado_id,
+                payment_id=pago.id
+            )
+        except Exception as e:
+            print(f"⚠️ Error emitiendo certificado: {e}")
+        
         db.commit()
         
-        return {
+        respuesta = {
             "success": True,
             "mensaje": "Pago aprobado",
             "saldo_a_favor": monto_restante if monto_restante > 0 else 0
         }
+        
+        if certificado_info and certificado_info.get("emitido"):
+            respuesta["certificado"] = certificado_info
+            respuesta["mensaje"] = f"Pago aprobado. Certificado {certificado_info['codigo']} emitido."
+        
+        return respuesta
     
     raise HTTPException(status_code=400, detail="Acción no válida")
