@@ -1,0 +1,804 @@
+/* ============================================
+   PANEL DE CONFIGURACIÓN - ADMIN DASHBOARD
+   Diseño premium, inspirador, profesional
+   ============================================ */
+
+:root {
+    --admin-bg: #0a0f1a;
+    --admin-surface: #111827;
+    --admin-surface-hover: #1a2234;
+    --admin-border: rgba(255,255,255,0.08);
+    --admin-text: #e2e8f0;
+    --admin-text-muted: #64748b;
+    --admin-accent: #fbbf24;
+    --admin-accent-glow: rgba(251, 191, 36, 0.15);
+    --admin-success: #22c55e;
+    --admin-warning: #f59e0b;
+    --admin-danger: #ef4444;
+    --admin-info: #3b82f6;
+    --admin-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+/* ============================================
+   LAYOUT PRINCIPAL
+   ============================================ */
+
+.admin-container {
+    min-height: 100vh;
+    background: var(--admin-bg);
+    color: var(--admin-text);
+}
+
+.admin-header {
+    background: var(--admin-surface);
+    border-bottom: 1px solid var(--admin-border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.admin-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-logo img {
+    height: 40px;
+    width: auto;
+}
+
+.admin-logo-text {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.admin-logo-text span {
+    color: var(--admin-accent);
+}
+
+.admin-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-user-info {
+    text-align: right;
+}
+
+.admin-user-name {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.admin-user-role {
+    font-size: 12px;
+    color: var(--admin-text-muted);
+}
+
+.admin-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--admin-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: #0a0f1a;
+}
+
+/* ============================================
+   BANNER MOTIVACIONAL / TIPS
+   ============================================ */
+
+.insight-banner {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.insight-banner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.insight-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.insight-icon i {
+    font-size: 28px;
+    color: #60a5fa;
+}
+
+.insight-icon.success { background: rgba(34, 197, 94, 0.2); }
+.insight-icon.success i { color: #4ade80; }
+
+.insight-icon.warning { background: rgba(245, 158, 11, 0.2); }
+.insight-icon.warning i { color: #fbbf24; }
+
+.insight-icon.tip { background: rgba(168, 85, 247, 0.2); }
+.insight-icon.tip i { color: #c084fc; }
+
+.insight-content {
+    flex: 1;
+}
+
+.insight-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #60a5fa;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.insight-label .live-dot {
+    width: 6px;
+    height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.insight-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.insight-description {
+    font-size: 14px;
+    color: var(--admin-text-muted);
+    line-height: 1.5;
+}
+
+.insight-action {
+    padding: 10px 20px;
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 10px;
+    color: #60a5fa;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.insight-action:hover {
+    background: rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+
+.insight-dismiss {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--admin-text-muted);
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.insight-dismiss:hover {
+    opacity: 1;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ============================================
+   MÉTRICAS RÁPIDAS
+   ============================================ */
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 0 24px;
+    margin-bottom: 24px;
+}
+
+.metric-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.metric-card:hover {
+    border-color: rgba(251, 191, 36, 0.3);
+    transform: translateY(-2px);
+}
+
+.metric-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle at top right, var(--admin-accent-glow) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.metric-card:hover::after {
+    opacity: 1;
+}
+
+.metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.metric-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.metric-icon.gold { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.metric-icon.green { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.metric-icon.blue { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.metric-icon.red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.metric-icon.purple { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+
+.metric-trend {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.metric-trend.up { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.metric-trend.down { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.metric-trend.neutral { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+
+.metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.metric-label {
+    font-size: 13px;
+    color: var(--admin-text-muted);
+}
+
+/* ============================================
+   NAVEGACIÓN DE CONFIGURACIÓN
+   ============================================ */
+
+.config-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+    padding: 0 24px 24px;
+    min-height: calc(100vh - 200px);
+}
+
+@media (max-width: 1024px) {
+    .config-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.config-nav {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 16px;
+    padding: 16px;
+    height: fit-content;
+    position: sticky;
+    top: 100px;
+}
+
+.config-nav-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--admin-text-muted);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+
+.config-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+}
+
+.config-nav-item:hover {
+    background: var(--admin-surface-hover);
+}
+
+.config-nav-item.active {
+    background: var(--admin-accent-glow);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.config-nav-item.active .config-nav-icon {
+    color: var(--admin-accent);
+}
+
+.config-nav-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--admin-text-muted);
+    transition: all 0.2s;
+}
+
+.config-nav-text {
+    flex: 1;
+}
+
+.config-nav-label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.config-nav-desc {
+    font-size: 11px;
+    color: var(--admin-text-muted);
+}
+
+.config-nav-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--admin-accent);
+    font-weight: 600;
+}
+
+.config-nav-badge.soon {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+}
+
+/* ============================================
+   PANEL DE CONFIGURACIÓN
+   ============================================ */
+
+.config-panel {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.config-panel-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.config-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.config-panel-title i {
+    font-size: 24px;
+    color: var(--admin-accent);
+}
+
+.config-panel-title h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.config-panel-title p {
+    font-size: 13px;
+    color: var(--admin-text-muted);
+    margin: 4px 0 0;
+}
+
+.config-panel-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.config-panel-body {
+    padding: 24px;
+}
+
+/* ============================================
+   CAMPOS DE FORMULARIO
+   ============================================ */
+
+.config-section {
+    margin-bottom: 32px;
+}
+
+.config-section:last-child {
+    margin-bottom: 0;
+}
+
+.config-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--admin-text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-section-title i {
+    color: var(--admin-accent);
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.config-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.config-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--admin-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.config-label .required {
+    color: var(--admin-danger);
+}
+
+.config-label .help {
+    color: var(--admin-text-muted);
+    cursor: help;
+}
+
+.config-input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: var(--admin-text);
+    transition: all 0.2s;
+}
+
+.config-input:focus {
+    outline: none;
+    border-color: var(--admin-accent);
+    box-shadow: 0 0 0 3px var(--admin-accent-glow);
+}
+
+.config-input::placeholder {
+    color: var(--admin-text-muted);
+}
+
+.config-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.config-input-group {
+    display: flex;
+    gap: 0;
+}
+
+.config-input-group .config-input {
+    border-radius: 10px 0 0 10px;
+    flex: 1;
+}
+
+.config-input-group .config-addon {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--admin-border);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: var(--admin-text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.config-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+.config-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Toggle/Switch */
+.config-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.config-toggle:hover {
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.config-toggle.active {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent-glow);
+}
+
+.config-toggle-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.config-toggle-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--admin-text-muted);
+}
+
+.config-toggle.active .config-toggle-icon {
+    background: var(--admin-accent);
+    color: #0a0f1a;
+}
+
+.config-toggle-text h4 {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 0 2px;
+}
+
+.config-toggle-text p {
+    font-size: 12px;
+    color: var(--admin-text-muted);
+    margin: 0;
+}
+
+.toggle-switch {
+    width: 48px;
+    height: 26px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 13px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: all 0.3s;
+}
+
+.config-toggle.active .toggle-switch {
+    background: var(--admin-accent);
+}
+
+.config-toggle.active .toggle-switch::after {
+    left: 25px;
+}
+
+/* ============================================
+   BOTONES
+   ============================================ */
+
+.btn-admin {
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+}
+
+.btn-admin-primary {
+    background: var(--admin-gradient);
+    color: #0a0f1a;
+}
+
+.btn-admin-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
+}
+
+.btn-admin-secondary {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--admin-border);
+    color: var(--admin-text);
+}
+
+.btn-admin-secondary:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.btn-admin-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--admin-danger);
+}
+
+.btn-admin-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+/* ============================================
+   ESTADOS Y BADGES
+   ============================================ */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.status-badge.inactive {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+}
+
+.status-badge.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ============================================
+   ANIMACIONES
+   ============================================ */
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.config-panel {
+    animation: slideIn 0.4s ease;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .admin-header {
+        padding: 12px 16px;
+    }
+    
+    .insight-banner {
+        margin: 16px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .metrics-grid {
+        padding: 0 16px;
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .config-layout {
+        padding: 0 16px 16px;
+    }
+    
+    .config-nav {
+        position: static;
+    }
+    
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+}

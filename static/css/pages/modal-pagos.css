@@ -1,0 +1,351 @@
+/* ============================================
+   MODAL PAGOS - Estilos
+   Para dashboard_colegiado.html
+   ============================================ */
+
+/* Tabs del modal */
+.pagos-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 20px;
+}
+
+.pagos-tab {
+    flex: 1;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.pagos-tab:hover {
+    color: #e2e8f0;
+    background: rgba(255,255,255,0.05);
+}
+
+.pagos-tab.active {
+    color: #fbbf24;
+    border-bottom: 2px solid #fbbf24;
+}
+
+.pagos-tab i {
+    font-size: 18px;
+}
+
+/* Contenido de tabs */
+.pagos-tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.pagos-tab-content.active {
+    display: block;
+}
+
+/* Resumen de cuenta */
+.cuenta-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.cuenta-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.cuenta-card.deuda {
+    border-left: 3px solid #ef4444;
+}
+
+.cuenta-card.pagado {
+    border-left: 3px solid #22c55e;
+}
+
+.cuenta-card.pendiente {
+    border-left: 3px solid #f59e0b;
+}
+
+.cuenta-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.cuenta-valor {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.cuenta-card.deuda .cuenta-valor { color: #ef4444; }
+.cuenta-card.pagado .cuenta-valor { color: #22c55e; }
+.cuenta-card.pendiente .cuenta-valor { color: #f59e0b; }
+
+/* Lista de pagos */
+.pagos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pago-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.pago-item:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.pago-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pago-fecha {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.pago-concepto {
+    font-size: 14px;
+    color: #e2e8f0;
+}
+
+.pago-metodo {
+    font-size: 11px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pago-monto-estado {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.pago-monto {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.pago-estado {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.pago-estado.approved {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.pago-estado.review {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.pago-estado.rejected {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* Deudas pendientes */
+.deudas-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.deuda-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.deuda-item.vencida {
+    border-left: 3px solid #ef4444;
+}
+
+.deuda-item.proxima {
+    border-left: 3px solid #f59e0b;
+}
+
+.deuda-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.deuda-concepto {
+    font-size: 14px;
+    color: #e2e8f0;
+}
+
+.deuda-periodo {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.deuda-vence {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.deuda-monto {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ef4444;
+}
+
+/* Botón pagar */
+.btn-pagar-deuda {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #0f172a;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-pagar-deuda:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
+}
+
+.btn-pagar-deuda:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Empty state */
+.pagos-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+}
+
+.pagos-empty i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.pagos-empty p {
+    margin: 0;
+}
+
+/* Sección de información adicional */
+.pagos-info-box {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.pagos-info-box i {
+    color: #3b82f6;
+    font-size: 18px;
+    margin-top: 2px;
+}
+
+.pagos-info-box p {
+    margin: 0;
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+/* Loading skeleton */
+.pagos-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skeleton-item {
+    height: 70px;
+    background: linear-gradient(90deg, 
+        rgba(255,255,255,0.03) 25%, 
+        rgba(255,255,255,0.08) 50%, 
+        rgba(255,255,255,0.03) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 12px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .cuenta-resumen {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .cuenta-valor {
+        font-size: 20px;
+    }
+    
+    .pago-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .pago-monto-estado {
+        align-items: flex-start;
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-between;
+    }
+}
