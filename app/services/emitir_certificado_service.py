@@ -11,7 +11,6 @@ from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import secrets
 
-
 def generar_codigo_seguridad() -> str:
     caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
     grupos = []
