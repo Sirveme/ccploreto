@@ -165,7 +165,7 @@
 
     <!-- HEADER -->
     <header class="header-pro fade-in">
-        <div class="avatar-pro" onclick="Modal.open('modal-perfil')">
+        <div class="avatar-pro" onclick="abrirModalLazy('modal-perfil')">
             {% if colegiado and colegiado.foto_url %}
                 <img src="{{ colegiado.foto_url }}" alt="Foto">
             {% else %}
@@ -230,7 +230,7 @@
                 <i class="ph ph-chart-line"></i>
                 Indicadores del Día
             </span>
-            <button class="btn-expand" onclick="Modal.open('modal-indicadores')" title="Ver más">
+            <button class="btn-expand" onclick="abrirModalLazy('modal-indicadores')" title="Ver más">
                 <i class="ph ph-arrows-out-simple"></i>
             </button>
         </div>
@@ -265,41 +265,41 @@
     <section class="options-section fade-in fade-in-delay-3">
         <h2 class="section-title">Servicios</h2>
         <div class="options-grid">
-            <div class="option-card" onclick="Modal.open('modal-pagos')">
+            <div class="option-card" onclick="abrirModalLazy('modal-pagos')">
                 <div class="option-icon blue"><i class="ph ph-wallet"></i></div>
                 <span class="option-label">Mis Pagos</span>
             </div>
-            <div class="option-card" onclick="Modal.open('modal-justificaciones')">
+            <div class="option-card" onclick="abrirModalLazy('modal-justificaciones')">
                 <div class="option-icon yellow"><i class="ph ph-calendar-x"></i></div>
                 <span class="option-label">Justificar</span>
             </div>
             {% if config.modules.capacitaciones %}
-            <div class="option-card" onclick="Modal.open('modal-cursos')">
+            <div class="option-card" onclick="abrirModalLazy('modal-cursos')">
                 <div class="option-icon purple"><i class="ph ph-certificate"></i></div>
                 <span class="option-label">Cursos</span>
             </div>
             {% endif %}
-            <div class="option-card" onclick="Modal.open('modal-chat')">
+            <div class="option-card" onclick="abrirModalLazy('modal-chat')">
                 <div class="option-icon cyan"><i class="ph ph-chat-circle"></i></div>
                 <span class="option-label">Chat</span>
             </div>
             {% if config.modules.votaciones %}
-            <div class="option-card" onclick="Modal.open('modal-votaciones')">
+            <div class="option-card" onclick="abrirModalLazy('modal-votaciones')">
                 <div class="option-icon indigo"><i class="ph ph-check-square"></i></div>
                 <span class="option-label">Votar</span>
             </div>
             {% endif %}
             {% if config.modules.convenios %}
-            <div class="option-card" onclick="Modal.open('modal-convenios')">
+            <div class="option-card" onclick="abrirModalLazy('modal-convenios')">
                 <div class="option-icon teal"><i class="ph ph-handshake"></i></div>
                 <span class="option-label">Convenios</span>
             </div>
             {% endif %}
-            <div class="option-card" onclick="Modal.open('modal-bolsa')">
+            <div class="option-card" onclick="abrirModalLazy('modal-bolsa')">
                 <div class="option-icon orange"><i class="ph ph-briefcase"></i></div>
                 <span class="option-label">Bolsa</span>
             </div>
-            <div class="option-card" onclick="Modal.open('modal-perfil')">
+            <div class="option-card" onclick="abrirModalLazy('modal-perfil')">
                 <div class="option-icon slate"><i class="ph ph-user-circle"></i></div>
                 <span class="option-label">Mi Perfil</span>
             </div>
@@ -310,19 +310,19 @@
     <section class="options-section fade-in fade-in-delay-4">
         <h2 class="section-title">Herramientas</h2>
         <div class="options-grid">
-            <div class="option-card" onclick="Modal.open('modal-avisos')">
+            <div class="option-card" onclick="abrirModalLazy('modal-avisos')">
                 <div class="option-icon pink"><i class="ph ph-megaphone"></i></div>
                 <span class="option-label">Avisos</span>
             </div>
-            <div class="option-card" onclick="Modal.open('modal-estadisticas')">
+            <div class="option-card" onclick="abrirModalLazy('modal-estadisticas')">
                 <div class="option-icon gold"><i class="ph ph-chart-pie"></i></div>
                 <span class="option-label">Estadísticas</span>
             </div>
-            <div class="option-card" onclick="Modal.open('modal-calculadora')">
+            <div class="option-card" onclick="abrirModalLazy('modal-calculadora')">
                 <div class="option-icon green"><i class="ph ph-calculator"></i></div>
                 <span class="option-label">Calculadora</span>
             </div>
-            <div class="option-card" onclick="Modal.open('modal-normas')">
+            <div class="option-card" onclick="abrirModalLazy('modal-normas')">
                 <div class="option-icon red"><i class="ph ph-book-open"></i></div>
                 <span class="option-label">Normas</span>
             </div>
@@ -338,7 +338,7 @@
             <i class="ph ph-file-text"></i>
             Constancia
         </button>
-        <button class="dock-btn secondary" onclick="Modal.open('modal-pagar')">
+        <button class="dock-btn secondary" onclick="abrirModalLazy('modal-pagar')">
             <i class="ph ph-currency-circle-dollar"></i>
             Pagar
         </button>
@@ -891,11 +891,11 @@ Buscar la sección "options-grid" de SERVICIOS y agregar:
 
 <!-- FAB DOCK: Mi Sitio + Herramientas -->
 <div class="fab-dock with-labels">
-    <button class="fab-btn cyan" onclick="Modal.open('modal-mi-sitio')">
+    <button class="fab-btn cyan" onclick="abrirModalLazy('modal-mi-sitio')">
         <i class="ph ph-globe"></i>
         <span class="fab-label">Mi Sitio</span>
     </button>
-    <button class="fab-btn purple" onclick="Modal.open('modal-herramientas')">
+    <button class="fab-btn purple" onclick="abrirModalLazy('modal-herramientas')">
         <i class="ph ph-toolbox"></i>
         <span class="fab-label">Herramientas</span>
     </button>
@@ -1039,7 +1039,7 @@ PASO 1: AGREGAR TARJETA EN SERVICIOS (o HERRAMIENTAS)
 -->
 
 <!-- SE PUSO JUNTO A MI SITIO WEB EN EL FAB DOCK
-<div class="option-card" onclick="Modal.open('modal-herramientas')">
+<div class="option-card" onclick="abrirModalLazy('modal-herramientas')">
     <div class="option-icon purple"><i class="ph ph-toolbox"></i></div>
     <span class="option-label">Herramientas</span>
 </div>
@@ -1569,9 +1569,11 @@ PASO 2: AGREGAR MODAL HERRAMIENTAS PRO
 <!-- ============================================== -->
 <script src="/static/js/modules/ux-system.js"></script>
 <script src="/static/js/pages/dashboard_colegiado.js"></script>
+<!--
 <script src="/static/js/pages/mi_sitio_web.js"></script>
 <script src="/static/js/pages/herramientas_pro.js"></script>
 <script src="/static/js/pages/modal_avisos.js"></script>
+-->
 {% block extra_scripts %}{% endblock %}
 {% block mic_floating %}{% endblock %}
 {% endblock %}
