@@ -2,6 +2,8 @@
 Router: Sistema de Alertas Tributarias v2
 =========================================
 Usa cronograma oficial SUNAT desde la base de datos
+
+FIX aplicado: INSERT en colegiado_ruc ahora incluye ultimo_digito y grupo_ruc
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -112,7 +114,6 @@ async def get_config(
             "renta_anual": config_result[7]
         }
     else:
-        # Configuración por defecto
         config = {
             "dias_antes": [5, 3, 1],
             "horas": [8, 14, 19],
@@ -145,40 +146,46 @@ async def save_config(
     
     colegiado_id = colegiado[0]
     
-    # Guardar RUCs
+    # ================================================
+    # GUARDAR RUCs (delete all + insert — simple y seguro)
+    # ================================================
     rucs = data.get("rucs", [])
     
-    # Eliminar RUCs que ya no están
-    if rucs:
-        rucs_numeros = tuple([r.get("numero") or r.get("ruc") for r in rucs])
-        db.execute(
-            text("DELETE FROM colegiado_ruc WHERE colegiado_id = :cid AND ruc NOT IN :rucs"),
-            {"cid": colegiado_id, "rucs": rucs_numeros}
-        )
-    else:
-        db.execute(
-            text("DELETE FROM colegiado_ruc WHERE colegiado_id = :cid"),
-            {"cid": colegiado_id}
-        )
+    db.execute(
+        text("DELETE FROM colegiado_ruc WHERE colegiado_id = :cid"),
+        {"cid": colegiado_id}
+    )
     
-    # Insertar/actualizar RUCs
     for ruc in rucs:
         numero = ruc.get("numero") or ruc.get("ruc")
+        if not numero or len(numero) != 11:
+            continue
+            
         nombre = ruc.get("nombre") or ruc.get("razon_social") or f"RUC {numero}"
         es_bueno = ruc.get("esBuenContribuyente", False)
+        ultimo_digito = int(numero[-1])
+        grupo = get_grupo_ruc(str(ultimo_digito))
         
         db.execute(
             text("""
-                INSERT INTO colegiado_ruc (colegiado_id, ruc, razon_social, es_buen_contribuyente)
-                VALUES (:cid, :ruc, :nombre, :bueno)
-                ON CONFLICT (colegiado_id, ruc) 
-                DO UPDATE SET razon_social = EXCLUDED.razon_social,
-                              es_buen_contribuyente = EXCLUDED.es_buen_contribuyente
+                INSERT INTO colegiado_ruc 
+                    (colegiado_id, ruc, razon_social, ultimo_digito, grupo_ruc, es_buen_contribuyente)
+                VALUES 
+                    (:cid, :ruc, :nombre, :digito, :grupo, :bueno)
             """),
-            {"cid": colegiado_id, "ruc": numero, "nombre": nombre, "bueno": es_bueno}
+            {
+                "cid": colegiado_id,
+                "ruc": numero,
+                "nombre": nombre,
+                "digito": ultimo_digito,
+                "grupo": grupo,
+                "bueno": es_bueno
+            }
         )
     
-    # Guardar configuración de alertas
+    # ================================================
+    # GUARDAR CONFIGURACIÓN DE ALERTAS
+    # ================================================
     config = data.get("config", {})
     
     db.execute(
@@ -219,7 +226,7 @@ async def save_config(
     )
     
     db.commit()
-    return {"success": True}
+    return {"success": True, "rucs_guardados": len(rucs)}
 
 
 @router.get("/proximos")
@@ -351,7 +358,7 @@ async def get_proximos(
     for ff in fechas_fijas:
         concepto, desc, fecha = ff
         dias = (fecha - hoy).days
-        if dias <= 60:  # Solo mostrar próximos 60 días
+        if dias <= 60:
             vencimientos.append({
                 "tipo": desc or concepto.replace('_', ' ').title(),
                 "ruc": "Todos",
@@ -369,10 +376,7 @@ async def get_proximos(
 
 @router.get("/cronograma/{periodo}")
 async def get_cronograma(periodo: str, db: Session = Depends(get_db)):
-    """
-    Obtiene el cronograma completo de un periodo.
-    Útil para mostrar tabla de vencimientos.
-    """
+    """Obtiene el cronograma completo de un periodo"""
     result = db.execute(
         text("""
             SELECT grupo_ruc, fecha_vencimiento
@@ -399,7 +403,6 @@ async def consultar_ruc(ruc: str):
         return JSONResponse({"error": "RUC inválido"}, status_code=400)
     
     try:
-        # API gratuita (limitada)
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"https://api.apis.net.pe/v1/ruc?numero={ruc}",
