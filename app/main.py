@@ -17,6 +17,8 @@ from .routers import auth, dashboard, ws, api, admin, security, pets, finance, s
 
 from app.routers.public import router, router_landing
 #from app.routers.api_colegiado import router as api_colegiado_router
+from app.routers.admin_config_router import router as admin_config_router
+from app.routers.admin_views import router as admin_views_router
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -140,6 +142,8 @@ app.include_router(router_landing)
 app.include_router(avisos.router)
 app.include_router(avisos.router_sunat)  # Para consulta de RUC
 app.include_router(verificacion.router)  # Público, sin prefijo de API
+app.include_router(admin_config_router)
+app.include_router(admin_views_router)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
