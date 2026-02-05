@@ -35,11 +35,11 @@
     // ============================================
     // INICIALIZACIÓN
     // ============================================
-    function init() {
+    async function init() {
         if (initialized) return;
         initialized = true;
 
-        cargarConfiguracion();
+        await cargarConfiguracion();
         bindEvents();
         aplicarConfigUI();
         renderRucs();
@@ -203,7 +203,43 @@
         }
     }
 
-    function cargarConfiguracion() {
+    async function cargarConfiguracion() {
+        // Fuente de verdad: backend (tabla alerta_config + colegiado_ruc)
+        try {
+            const res = await fetch('/api/avisos/config');
+            if (res.ok) {
+                const data = await res.json();
+
+                // Mapear config del backend → formato interno JS
+                if (data.config) {
+                    config.obligaciones.pdt621 = data.config.pdt621 ?? true;
+                    config.obligaciones.plame = data.config.plame ?? true;
+                    config.obligaciones.afp = data.config.afp ?? true;
+                    config.obligaciones.cts = data.config.cts ?? false;
+                    config.obligaciones.grati = data.config.gratificacion ?? false;
+                    config.obligaciones.renta = data.config.renta_anual ?? false;
+                    config.dias_antes = data.config.dias_antes || [5, 3];
+                    config.horas = data.config.horas || [8, 14, 19];
+                }
+
+                // Mapear RUCs del backend → formato interno JS
+                if (data.rucs && data.rucs.length > 0) {
+                    config.rucs = data.rucs.map(r => ({
+                        ruc: r.numero || r.ruc,
+                        nombre: r.nombre,
+                        ultimoDigito: r.ultimoDigito ?? parseInt((r.numero || '0').slice(-1))
+                    }));
+                }
+
+                // Sincronizar localStorage con BD
+                localStorage.setItem('avisos_config', JSON.stringify(config));
+                return;
+            }
+        } catch (e) {
+            // Backend no disponible, fallback a localStorage
+        }
+
+        // Fallback: localStorage
         const saved = localStorage.getItem('avisos_config');
         if (saved) {
             try {
