@@ -1,45 +1,73 @@
 """
 Endpoint: Mis Pagos del Colegiado
-=================================
-Agregar este código al router de dashboard.py o crear un nuevo archivo pagos_colegiado.py
+Rutas para el modal de pagos en el dashboard
 
-Este endpoint retorna:
-- Resumen de cuenta (deuda total, pagado, en revisión)
-- Historial de pagos
-- Deudas pendientes
+REEMPLAZAR app/routers/pagos_colegiado.py CON ESTE CONTENIDO
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import text, func
-from datetime import datetime, timezone
+from sqlalchemy import func
+import jwt
+import os
 
 from app.database import get_db
-from app.models import Payment, Debt, Colegiado
-from app.routers.dashboard import get_current_member  # Reutilizar la autenticación existente
+from app.models import Payment, Debt, Colegiado, Member
 
-# Si es archivo nuevo:
 router = APIRouter(prefix="/api/colegiado", tags=["colegiado"])
 
-# Si agregas a dashboard.py, usar el router existente
+# Configuración JWT
+SECRET_KEY = os.getenv("SECRET_KEY", "tu-clave-secreta")
+ALGORITHM = "HS256"
 
 
-@router.get("/api/colegiado/mis-pagos")
-async def mis_pagos(
-    member = Depends(get_current_member),
-    db: Session = Depends(get_db)
-):
+def get_member_from_token(request: Request, db: Session):
     """
-    Obtiene el historial de pagos y estado de cuenta del colegiado logueado.
-    
-    Retorna:
-    - resumen: {deuda_total, total_pagado, en_revision}
-    - pagos: lista de pagos con fecha, monto, estado, método
-    - deudas: lista de deudas pendientes con concepto, periodo, balance, vencimiento
+    Extrae el member del token JWT - Versión para APIs
+    Lanza HTTPException en vez de redirigir
     """
+    token = request.cookies.get("access_token")
     
-    # Obtener colegiado del member logueado
+    if not token:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    
+    try:
+        # Parsear "Bearer token_value"
+        parts = token.split()
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            token_value = parts[1]
+        else:
+            token_value = token
+        
+        # Decodificar JWT - usa "sub" como get_current_member
+        payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
+        member_id = payload.get("sub")
+        
+        if not member_id:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        
+        member = db.query(Member).filter(Member.id == member_id).first()
+        if not member:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+        
+        return member
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Sesión expirada")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    except Exception as e:
+        print(f"⚠️ Error auth API: {e}")
+        raise HTTPException(status_code=401, detail="Error de autenticación")
+
+
+@router.get("/mis-pagos")
+async def mis_pagos(request: Request, db: Session = Depends(get_db)):
+    """
+    Obtiene historial de pagos y estado de cuenta del colegiado logueado.
+    """
+    member = get_member_from_token(request, db)
+    
     colegiado = db.query(Colegiado).filter(
         Colegiado.member_id == member.id
     ).first()
@@ -47,75 +75,55 @@ async def mis_pagos(
     if not colegiado:
         raise HTTPException(status_code=404, detail="Colegiado no encontrado")
     
-    # ========================================
-    # RESUMEN DE CUENTA
-    # ========================================
-    
-    # Deuda total (deudas pending + partial)
+    # RESUMEN
     deuda_total = db.query(func.coalesce(func.sum(Debt.balance), 0)).filter(
         Debt.colegiado_id == colegiado.id,
         Debt.status.in_(['pending', 'partial'])
     ).scalar() or 0
     
-    # Total pagado (pagos approved)
     total_pagado = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
         Payment.colegiado_id == colegiado.id,
         Payment.status == 'approved'
     ).scalar() or 0
     
-    # En revisión (pagos review)
     en_revision = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
         Payment.colegiado_id == colegiado.id,
         Payment.status == 'review'
     ).scalar() or 0
     
-    # ========================================
     # HISTORIAL DE PAGOS
-    # ========================================
-    
     pagos_db = db.query(Payment).filter(
         Payment.colegiado_id == colegiado.id
     ).order_by(Payment.created_at.desc()).limit(50).all()
     
-    pagos = []
-    for p in pagos_db:
-        pagos.append({
-            "id": p.id,
-            "fecha": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "-",
-            "monto": float(p.amount) if p.amount else 0,
-            "metodo": p.payment_method or "-",
-            "operacion": p.operation_code,
-            "estado": p.status,
-            "concepto": p.notes or "Pago de cuotas",
-            "rechazo_motivo": p.rejection_reason
-        })
+    pagos = [{
+        "id": p.id,
+        "fecha": p.created_at.strftime("%d/%m/%Y") if p.created_at else "-",
+        "monto": float(p.amount) if p.amount else 0,
+        "metodo": p.payment_method or "-",
+        "operacion": p.operation_code,
+        "estado": p.status,
+        "concepto": p.notes or "Pago de cuotas",
+        "rechazo_motivo": p.rejection_reason
+    } for p in pagos_db]
     
-    # ========================================
     # DEUDAS PENDIENTES
-    # ========================================
-    
     deudas_db = db.query(Debt).filter(
         Debt.colegiado_id == colegiado.id,
         Debt.status.in_(['pending', 'partial'])
     ).order_by(Debt.due_date.asc()).all()
     
-    deudas = []
-    for d in deudas_db:
-        deudas.append({
-            "id": d.id,
-            "concepto": d.concept or "Cuota",
-            "periodo": d.periodo or "-",
-            "monto_original": float(d.amount) if d.amount else 0,
-            "balance": float(d.balance) if d.balance else 0,
-            "vencimiento": d.due_date.isoformat() if d.due_date else None,
-            "estado": d.status
-        })
+    deudas = [{
+        "id": d.id,
+        "concepto": d.concept or "Cuota mensual",
+        "periodo": d.periodo or "-",
+        "monto_original": float(d.amount) if d.amount else 0,
+        "balance": float(d.balance) if d.balance else 0,
+        "vencimiento": d.due_date.isoformat() if d.due_date else None,
+        "estado": d.status
+    } for d in deudas_db]
     
-    # ========================================
-    # RESPUESTA
-    # ========================================
-    
-    return JSONResponse({
+    return {
         "resumen": {
             "deuda_total": float(deuda_total),
             "total_pagado": float(total_pagado),
@@ -128,22 +136,14 @@ async def mis_pagos(
             "matricula": colegiado.codigo_matricula,
             "condicion": colegiado.condicion
         }
-    })
+    }
 
 
-# ========================================
-# ENDPOINT PARA OBTENER DETALLE DE UN PAGO
-# ========================================
-
-@router.get("/api/colegiado/pago/{pago_id}")
-async def detalle_pago(
-    pago_id: int,
-    member = Depends(get_current_member),
-    db: Session = Depends(get_db)
-):
-    """Obtiene el detalle de un pago específico del colegiado"""
+@router.get("/pago/{pago_id}")
+async def detalle_pago(request: Request, pago_id: int, db: Session = Depends(get_db)):
+    """Obtiene detalle de un pago específico"""
+    member = get_member_from_token(request, db)
     
-    # Obtener colegiado
     colegiado = db.query(Colegiado).filter(
         Colegiado.member_id == member.id
     ).first()
@@ -151,7 +151,6 @@ async def detalle_pago(
     if not colegiado:
         raise HTTPException(status_code=404, detail="Colegiado no encontrado")
     
-    # Obtener pago (verificando que pertenece al colegiado)
     pago = db.query(Payment).filter(
         Payment.id == pago_id,
         Payment.colegiado_id == colegiado.id
@@ -160,7 +159,7 @@ async def detalle_pago(
     if not pago:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
     
-    return JSONResponse({
+    return {
         "id": pago.id,
         "fecha": pago.created_at.strftime("%d/%m/%Y %H:%M") if pago.created_at else "-",
         "monto": float(pago.amount) if pago.amount else 0,
@@ -170,10 +169,5 @@ async def detalle_pago(
         "concepto": pago.notes or "Pago de cuotas",
         "voucher_url": pago.voucher_url,
         "rechazo_motivo": pago.rejection_reason,
-        "revisado_en": pago.reviewed_at.strftime("%d/%m/%Y %H:%M") if pago.reviewed_at else None,
-        "pagador": {
-            "tipo": pago.pagador_tipo,
-            "nombre": pago.pagador_nombre,
-            "documento": pago.pagador_documento
-        } if pago.pagador_tipo != 'titular' else None
-    })
+        "revisado_en": pago.reviewed_at.strftime("%d/%m/%Y %H:%M") if pago.reviewed_at else None
+    }
