@@ -171,33 +171,7 @@ async def get_current_member_api(request: Request, db: Session):
         raise HTTPException(status_code=401, detail="Error de autenticación")
 
 
-@router.get("/api/colegiado/mis-pagos")
-async def get_mis_pagos(request: Request, db: Session = Depends(get_db)):
-    """
-    Endpoint para el Modal Mis Pagos
-    """
-    member = await get_current_member_api(request, db)
-    
-    # Datos de demo
-    return {
-        "resumen": {
-            "deuda_total": 240.00,
-            "total_pagado": 960.00,
-            "en_revision": 80.00
-        },
-        "pagos": [
-            {"id": 1, "fecha": "15/01/2025", "concepto": "Cuotas Oct-Dic 2024", "metodo": "Yape", "operacion": "OP-78451236", "monto": 240.00, "estado": "approved"},
-            {"id": 2, "fecha": "05/02/2025", "concepto": "Cuota Enero 2025", "metodo": "Yape", "operacion": "OP-89562147", "monto": 80.00, "estado": "review"},
-            {"id": 3, "fecha": "20/12/2024", "concepto": "Cuotas Jul-Sep 2024", "metodo": "Transferencia", "operacion": "TRF-456123", "monto": 240.00, "estado": "approved"},
-            {"id": 4, "fecha": "15/09/2024", "concepto": "Cuotas Abr-Jun 2024", "metodo": "Efectivo", "operacion": None, "monto": 240.00, "estado": "approved"},
-            {"id": 5, "fecha": "01/02/2025", "concepto": "Cuota Febrero 2025", "metodo": "Plin", "operacion": "PLN-123456", "monto": 80.00, "estado": "rejected"}
-        ],
-        "deudas": [
-            {"id": 101, "concepto": "Cuota mensual", "periodo": "Febrero 2025", "vencimiento": "2025-02-28", "balance": 80.00},
-            {"id": 102, "concepto": "Cuota mensual", "periodo": "Marzo 2025", "vencimiento": "2025-03-31", "balance": 80.00},
-            {"id": 103, "concepto": "Cuota mensual", "periodo": "Abril 2025", "vencimiento": "2025-04-30", "balance": 80.00}
-        ]
-    }
+
 
 
 @router.get("/api/ai/stats")
