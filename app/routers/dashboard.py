@@ -132,20 +132,47 @@ async def dashboard_home(request: Request, member: Member = Depends(get_current_
 # AGREGAR AL FINAL DE app/routers/dashboard.py
 # ============================================================
 
+# ============================================================
+# AGREGAR AL FINAL DE app/routers/dashboard.py
+# ============================================================
+
+# Helper para APIs (no redirige, lanza excepción)
+async def get_current_member_api(request: Request, db: Session):
+    """
+    Versión para endpoints API - lanza HTTPException en vez de redirigir
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    
+    try:
+        # Decodificar JWT
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        member_id = payload.get("member_id")
+        if not member_id:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        
+        member = db.query(Member).filter(Member.id == member_id).first()
+        if not member:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+        
+        return member
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Sesión expirada")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Error de autenticación")
+
+
 @router.get("/api/colegiado/mis-pagos")
 async def get_mis_pagos(request: Request, db: Session = Depends(get_db)):
     """
     Endpoint para el Modal Mis Pagos
-    Retorna resumen, historial y deudas del colegiado
     """
-    # Obtener member autenticado
-    member = await get_current_member(request, db)
-    if not member:
-        raise HTTPException(status_code=401, detail="No autenticado")
+    member = await get_current_member_api(request, db)
     
-    # Por ahora retornar datos de demo
-    # TODO: Conectar con tablas reales de pagos/deudas
-    
+    # Datos de demo
     return {
         "resumen": {
             "deuda_total": 240.00,
@@ -153,138 +180,68 @@ async def get_mis_pagos(request: Request, db: Session = Depends(get_db)):
             "en_revision": 80.00
         },
         "pagos": [
-            {
-                "id": 1,
-                "fecha": "15/01/2025",
-                "concepto": "Cuotas Oct-Dic 2024",
-                "metodo": "Yape",
-                "operacion": "OP-78451236",
-                "monto": 240.00,
-                "estado": "approved"
-            },
-            {
-                "id": 2,
-                "fecha": "05/02/2025",
-                "concepto": "Cuota Enero 2025",
-                "metodo": "Yape",
-                "operacion": "OP-89562147",
-                "monto": 80.00,
-                "estado": "review"
-            },
-            {
-                "id": 3,
-                "fecha": "20/12/2024",
-                "concepto": "Cuotas Jul-Sep 2024",
-                "metodo": "Transferencia",
-                "operacion": "TRF-456123",
-                "monto": 240.00,
-                "estado": "approved"
-            },
-            {
-                "id": 4,
-                "fecha": "15/09/2024",
-                "concepto": "Cuotas Abr-Jun 2024",
-                "metodo": "Efectivo",
-                "operacion": None,
-                "monto": 240.00,
-                "estado": "approved"
-            },
-            {
-                "id": 5,
-                "fecha": "01/02/2025",
-                "concepto": "Cuota Febrero 2025",
-                "metodo": "Plin",
-                "operacion": "PLN-123456",
-                "monto": 80.00,
-                "estado": "rejected"
-            }
+            {"id": 1, "fecha": "15/01/2025", "concepto": "Cuotas Oct-Dic 2024", "metodo": "Yape", "operacion": "OP-78451236", "monto": 240.00, "estado": "approved"},
+            {"id": 2, "fecha": "05/02/2025", "concepto": "Cuota Enero 2025", "metodo": "Yape", "operacion": "OP-89562147", "monto": 80.00, "estado": "review"},
+            {"id": 3, "fecha": "20/12/2024", "concepto": "Cuotas Jul-Sep 2024", "metodo": "Transferencia", "operacion": "TRF-456123", "monto": 240.00, "estado": "approved"},
+            {"id": 4, "fecha": "15/09/2024", "concepto": "Cuotas Abr-Jun 2024", "metodo": "Efectivo", "operacion": None, "monto": 240.00, "estado": "approved"},
+            {"id": 5, "fecha": "01/02/2025", "concepto": "Cuota Febrero 2025", "metodo": "Plin", "operacion": "PLN-123456", "monto": 80.00, "estado": "rejected"}
         ],
         "deudas": [
-            {
-                "id": 101,
-                "concepto": "Cuota mensual",
-                "periodo": "Febrero 2025",
-                "vencimiento": "2025-02-28",
-                "balance": 80.00
-            },
-            {
-                "id": 102,
-                "concepto": "Cuota mensual",
-                "periodo": "Marzo 2025",
-                "vencimiento": "2025-03-31",
-                "balance": 80.00
-            },
-            {
-                "id": 103,
-                "concepto": "Cuota mensual",
-                "periodo": "Abril 2025",
-                "vencimiento": "2025-04-30",
-                "balance": 80.00
-            }
+            {"id": 101, "concepto": "Cuota mensual", "periodo": "Febrero 2025", "vencimiento": "2025-02-28", "balance": 80.00},
+            {"id": 102, "concepto": "Cuota mensual", "periodo": "Marzo 2025", "vencimiento": "2025-03-31", "balance": 80.00},
+            {"id": 103, "concepto": "Cuota mensual", "periodo": "Abril 2025", "vencimiento": "2025-04-30", "balance": 80.00}
         ]
     }
 
 
-# ============================================================
-# ENDPOINTS DE IA (para el FAB chatbot)
-# ============================================================
-
 @router.get("/api/ai/stats")
-async def get_ai_stats(request: Request):
-    """
-    Estadísticas de uso de IA para mostrar en el FAB
-    Por ahora datos de demo
-    """
+async def get_ai_stats(request: Request, db: Session = Depends(get_db)):
+    """Estadísticas de IA"""
+    # No requiere auth estricta
     return {
         "consultasMes": 127,
         "costoMes": 3.50,
         "limiteMes": 10.00,
-        "ahorroEstimado": 850.00,
         "disponible": True
     }
 
 
 @router.post("/api/ai/chat")
 async def ai_chat(request: Request, db: Session = Depends(get_db)):
-    """
-    Endpoint para el chat con IA
-    Por ahora retorna respuestas pre-definidas (RAG básico)
-    """
+    """Chat con IA - Respuestas RAG"""
     try:
         body = await request.json()
         message = body.get("message", "").lower()
-        model = body.get("model", "claude")
     except:
         message = ""
-        model = "claude"
     
-    # Respuestas RAG básicas
-    if any(word in message for word in ["pago", "pagar", "cuota", "deuda"]):
+    # RAG básico
+    if any(w in message for w in ["pago", "pagar", "cuota", "deuda"]):
         response = {
             "type": "steps",
             "category": "Pagos",
             "title": "¿Cómo pagar mis cuotas?",
-            "description": "Tienes varias opciones para ponerte al día:",
+            "description": "Tienes varias opciones:",
             "steps": [
                 {"title": "Yape o Plin", "description": "Escanea el QR o transfiere al 987-654-321"},
-                {"title": "Transferencia Bancaria", "description": "BCP Cta. Cte. 123-456789-0-12"},
-                {"title": "Presencial", "description": "En oficinas de Lunes a Viernes, 8am-6pm"}
+                {"title": "Transferencia", "description": "BCP Cta. Cte. 123-456789-0-12"},
+                {"title": "Presencial", "description": "Lunes a Viernes, 8am-6pm"}
             ],
-            "tip": {"label": "Tip rápido", "text": "Los pagos por Yape se validan en menos de 24 horas."},
+            "tip": {"label": "Tip", "text": "Yape se valida en menos de 24 horas."},
             "source": {"name": "Tesorería CCPL", "verified": True}
         }
-    elif any(word in message for word in ["certificado", "constancia", "habil"]):
+    elif any(w in message for w in ["certificado", "constancia", "habil"]):
         response = {
             "type": "article",
             "category": "Trámites",
             "title": "Constancia de Habilidad",
-            "description": "La constancia certifica que estás habilitado para ejercer. Se genera automáticamente cuando estás al día.",
+            "description": "Se genera automáticamente cuando estás al día en tus cuotas.",
             "icon": "certificate",
             "citation": {"text": "Todo colegiado deberá mantener su condición de hábil.", "source": "Estatuto Art. 45"},
             "tip": "Descárgala desde Dashboard → Certificados",
             "source": {"name": "Reglamento CCPL", "verified": True}
         }
-    elif any(word in message for word in ["horario", "atencion", "oficina", "donde"]):
+    elif any(w in message for w in ["horario", "atencion", "oficina"]):
         response = {
             "type": "featured",
             "category": "Información",
@@ -292,52 +249,34 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
             "description": "Jr. Putumayo 123, Iquitos",
             "icon": "map-pin",
             "steps": [
-                {"title": "Lunes a Viernes", "description": "8:00 AM - 1:00 PM y 3:00 PM - 6:00 PM"},
-                {"title": "Sábados", "description": "9:00 AM - 12:00 PM (solo urgentes)"}
+                {"title": "Lunes a Viernes", "description": "8am-1pm y 3pm-6pm"},
+                {"title": "Sábados", "description": "9am-12pm (urgentes)"}
             ],
-            "tip": "La mayoría de trámites puedes hacerlos desde esta plataforma."
+            "tip": "La mayoría de trámites puedes hacerlos online."
         }
-    elif any(word in message for word in ["descuento", "beneficio", "promocion", "aniversario"]):
+    elif any(w in message for w in ["descuento", "beneficio", "aniversario"]):
         response = {
             "type": "featured",
-            "category": "🎉 Beneficio Activo",
-            "title": "60 Aniversario CCPL - 50% Descuento",
-            "description": "Regulariza tu deuda con 50% de descuento en cuotas atrasadas. ¡Válido hasta el 28 de febrero!",
+            "category": "🎉 Beneficio",
+            "title": "60 Aniversario - 50% Descuento",
+            "description": "Regulariza con 50% de descuento. ¡Hasta el 28 de febrero!",
             "icon": "confetti",
-            "warning": "Solo para cuotas generadas antes del 2024.",
-            "tip": {"label": "¿Cómo aprovecharlo?", "text": "El descuento se aplica automáticamente."},
+            "warning": "Solo cuotas anteriores al 2024.",
+            "tip": {"label": "Cómo aprovecharlo", "text": "Se aplica automáticamente."},
             "source": {"name": "Junta Directiva", "verified": True}
-        }
-    elif any(word in message for word in ["curso", "capacitacion", "seminario"]):
-        response = {
-            "type": "featured",
-            "category": "Capacitación",
-            "title": "Próximos Cursos",
-            "description": "Mantente actualizado con nuestra oferta de capacitación.",
-            "icon": "graduation-cap",
-            "steps": [
-                {"title": "Actualización NIIF 2025", "description": "20 horas. Inicio: 15 de febrero"},
-                {"title": "Cierre Contable 2024", "description": "Taller práctico. 10 de febrero"}
-            ],
-            "tip": {"label": "Beneficio", "text": "Colegiados hábiles tienen 30% de descuento."}
         }
     else:
         response = {
             "type": "article",
             "category": "Asistente IA",
             "title": "¿En qué puedo ayudarte?",
-            "description": "Puedo asistirte con pagos, certificados, trámites, cursos y más. Intenta ser específico.",
+            "description": "Pregúntame sobre pagos, certificados, trámites o cursos.",
             "icon": "robot",
             "related": [
-                {"title": "¿Cómo pago mis cuotas?", "icon": "credit-card"},
-                {"title": "Obtener constancia", "icon": "certificate"},
-                {"title": "Horarios de atención", "icon": "clock"}
-            ],
-            "tip": "También puedes navegar por el Dashboard."
+                {"title": "¿Cómo pago?", "icon": "credit-card"},
+                {"title": "Mi constancia", "icon": "certificate"},
+                {"title": "Horarios", "icon": "clock"}
+            ]
         }
     
-    return {
-        "response": response,
-        "model": model,
-        "cost": 0.001  # Costo simulado
-    }
+    return {"response": response, "cost": 0.001}
