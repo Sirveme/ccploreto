@@ -459,10 +459,31 @@
 .ai-chat-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-height: 0; /* CRÍTICO para que flex + overflow funcione */
+}
+
+/* Scrollbar personalizado */
+.ai-chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-chat-messages::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+}
+
+.ai-chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.3);
+    border-radius: 3px;
+}
+
+.ai-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(168, 85, 247, 0.5);
 }
 
 .ai-chat-message {
@@ -650,5 +671,38 @@
     .ai-fab-option {
         padding: 12px 14px;
         font-size: 13px;
+    }
+}
+
+/* ============================================
+   KNOWLEDGE CARDS DENTRO DEL CHAT
+   ============================================ */
+
+.ai-chat-response {
+    width: 100%;
+    animation: cardFadeIn 0.4s ease;
+}
+
+.ai-chat-response .knowledge-card {
+    margin: 0;
+    max-width: 100%;
+}
+
+.ai-chat-response .card-footer {
+    padding: 10px 12px;
+}
+
+.ai-chat-response .card-action {
+    padding: 6px 10px;
+}
+
+@keyframes cardFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
