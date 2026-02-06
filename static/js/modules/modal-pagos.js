@@ -3,7 +3,10 @@
  * Historial de pagos, estado de cuenta y deudas pendientes
  */
 
-const ModalPagos = {
+// Evitar redeclaración
+if (typeof window.ModalPagos === 'undefined') {
+
+window.ModalPagos = {
     data: null,
     isLoading: false,
     
@@ -358,6 +361,4 @@ const ModalPagos = {
 document.addEventListener('DOMContentLoaded', () => {
     ModalPagos.init();
 });
-
-// Exponer globalmente
-window.ModalPagos = ModalPagos;
+}
