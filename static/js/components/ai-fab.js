@@ -464,19 +464,52 @@ const AIFab = {
     /**
      * Agrega mensaje al chat
      */
-    addMessage(text, type) {
+    addMessage(content, type) {
+        const container = document.getElementById('ai-chat-messages');
+        if (!container) return;
+        
+        // Si es respuesta del bot y viene como card
+        if (type === 'bot' && typeof content === 'object') {
+            // Usar el renderizador de cards
+            if (typeof AIKnowledgeCards !== 'undefined') {
+                const cardHTML = AIKnowledgeCards.render(content);
+                const wrapper = document.createElement('div');
+                wrapper.className = 'ai-chat-response';
+                wrapper.innerHTML = cardHTML;
+                container.appendChild(wrapper);
+            } else {
+                // Fallback a texto
+                const text = content.description || content.text || JSON.stringify(content);
+                this.addTextMessage(text, type);
+            }
+        } else {
+            // Mensaje de texto normal
+            this.addTextMessage(content, type);
+        }
+        
+        container.scrollTop = container.scrollHeight;
+        
+        // Guardar en historial
+        const historyContent = typeof content === 'object' 
+            ? (content.description || content.text || '')
+            : content;
+        this.chatHistory.push({ 
+            role: type === 'user' ? 'user' : 'assistant', 
+            content: historyContent 
+        });
+    },
+    
+    /**
+     * Agrega mensaje de texto simple
+     */
+    addTextMessage(text, type) {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
         
         const div = document.createElement('div');
         div.className = `ai-chat-message ${type}`;
         div.innerHTML = text.replace(/\n/g, '<br>');
-        
         container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        
-        // Guardar en historial
-        this.chatHistory.push({ role: type === 'user' ? 'user' : 'assistant', content: text });
     },
     
     /**
@@ -501,27 +534,176 @@ const AIFab = {
     
     /**
      * Respuesta de fallback cuando no hay API
+     * Retorna objetos card para demo visual
      */
     getFallbackResponse(message) {
         const msg = message.toLowerCase();
         
-        if (msg.includes('cuota') || msg.includes('pago') || msg.includes('deuda')) {
-            return 'Para consultar tu estado de cuenta y cuotas pendientes, ve a la sección "Mis Pagos" en tu dashboard. Allí podrás ver el detalle de tus aportes y realizar pagos.';
+        // CONSULTA SOBRE PAGOS / CUOTAS
+        if (msg.includes('cuota') || msg.includes('pago') || msg.includes('pagar') || msg.includes('deuda')) {
+            return {
+                "type": "steps",
+                "category": "Pagos",
+                "title": "¿Cómo pagar mis cuotas?",
+                "description": "Tienes varias opciones para ponerte al día:",
+                "steps": [
+                    {
+                        "title": "Yape o Plin",
+                        "description": "Escanea el QR o transfiere al 987-654-321. Sube tu voucher en el sistema."
+                    },
+                    {
+                        "title": "Transferencia Bancaria",
+                        "description": "BCP Cta. Cte. 123-456789-0-12. Envía el comprobante por el sistema."
+                    },
+                    {
+                        "title": "Presencial",
+                        "description": "En oficinas de Lunes a Viernes, 8am-1pm y 3pm-6pm."
+                    }
+                ],
+                "tip": {
+                    "label": "Tip rápido",
+                    "text": "Los pagos por Yape/Plin se validan en menos de 24 horas. ¡Es la forma más rápida!"
+                },
+                "source": {
+                    "name": "Tesorería CCPL",
+                    "icon": "wallet",
+                    "verified": true
+                }
+            };
         }
         
-        if (msg.includes('certificado') || msg.includes('constancia') || msg.includes('habilidad')) {
-            return 'Los certificados de habilidad se generan automáticamente cuando estás al día en tus cuotas. Puedes descargarlos desde la sección "Certificados" en tu dashboard.';
+        // CONSULTA SOBRE CERTIFICADOS / CONSTANCIAS
+        if (msg.includes('certificado') || msg.includes('constancia') || msg.includes('habilidad') || msg.includes('habil')) {
+            return {
+                "type": "article",
+                "category": "Trámites",
+                "title": "Constancia de Habilidad Profesional",
+                "description": "La constancia certifica que estás habilitado para ejercer. Se genera automáticamente cuando estás al día en tus cuotas.",
+                "icon": "certificate",
+                "source": {
+                    "name": "Reglamento CCPL",
+                    "icon": "book-open",
+                    "verified": true
+                },
+                "citation": {
+                    "text": "Todo colegiado en ejercicio deberá mantener su condición de hábil, acreditada mediante la constancia correspondiente.",
+                    "source": "Estatuto CCPL, Art. 45"
+                },
+                "tip": {
+                    "label": "Acceso rápido",
+                    "text": "Descarga tu constancia desde Dashboard → Certificados. Incluye código QR de verificación."
+                }
+            };
         }
         
-        if (msg.includes('horario') || msg.includes('atencion') || msg.includes('oficina')) {
-            return 'La atención en oficina es de Lunes a Viernes de 8:00am a 1:00pm y de 3:00pm a 6:00pm. También puedes realizar la mayoría de trámites desde esta plataforma.';
+        // CONSULTA SOBRE HORARIOS / ATENCIÓN
+        if (msg.includes('horario') || msg.includes('atencion') || msg.includes('oficina') || msg.includes('donde')) {
+            return {
+                "type": "featured",
+                "category": "Información",
+                "title": "Horarios y Ubicación",
+                "description": "Nuestras oficinas están ubicadas en Jr. Putumayo 123, Iquitos.",
+                "icon": "map-pin",
+                "steps": [
+                    {
+                        "title": "Lunes a Viernes",
+                        "description": "8:00 AM - 1:00 PM / 3:00 PM - 6:00 PM"
+                    },
+                    {
+                        "title": "Sábados",
+                        "description": "9:00 AM - 12:00 PM (solo trámites urgentes)"
+                    }
+                ],
+                "tip": "La mayoría de trámites puedes realizarlos desde esta plataforma, sin necesidad de ir presencialmente."
+            };
         }
         
-        if (msg.includes('dato') || msg.includes('actualizar') || msg.includes('perfil')) {
-            return 'Puedes actualizar tus datos personales desde la sección "Mi Perfil" en el dashboard. Para cambios en tu información profesional (especialidad, centro laboral), contacta a secretaría.';
+        // CONSULTA SOBRE ACTUALIZAR DATOS
+        if (msg.includes('dato') || msg.includes('actualizar') || msg.includes('perfil') || msg.includes('cambiar')) {
+            return {
+                "type": "article",
+                "category": "Mi Cuenta",
+                "title": "Actualización de Datos",
+                "description": "Puedes actualizar tu información personal directamente desde el Dashboard.",
+                "icon": "user-gear",
+                "steps": [
+                    {
+                        "title": "Datos de contacto",
+                        "description": "Email, teléfono, dirección → Mi Perfil → Editar"
+                    },
+                    {
+                        "title": "Información profesional",
+                        "description": "Especialidad, centro laboral → Contactar a Secretaría"
+                    }
+                ],
+                "tip": "Mantén tu email actualizado para recibir notificaciones importantes y alertas de vencimiento."
+            };
         }
         
-        return 'Entiendo tu consulta. Para darte información más precisa, te sugiero:\n\n1. Revisar las secciones de tu dashboard\n2. Consultar la sección de preguntas frecuentes\n3. Contactar a secretaría al teléfono que aparece en el pie de página\n\n¿Hay algo más específico en lo que pueda ayudarte?';
+        // CONSULTA SOBRE DESCUENTOS / BENEFICIOS
+        if (msg.includes('descuento') || msg.includes('beneficio') || msg.includes('promocion') || msg.includes('aniversario')) {
+            return {
+                "type": "featured",
+                "category": "🎉 Beneficio Activo",
+                "title": "60 Aniversario CCPL - 50% de Descuento",
+                "description": "Por nuestro aniversario, todos los colegiados con deuda pueden regularizarse con 50% de descuento en cuotas atrasadas.",
+                "icon": "confetti",
+                "source": {
+                    "name": "Junta Directiva",
+                    "verified": true
+                },
+                "tip": {
+                    "label": "¿Cómo aprovecharlo?",
+                    "text": "El descuento se aplica automáticamente. Solo paga el monto con descuento y sube tu voucher."
+                },
+                "warning": "Válido hasta el 28 de febrero. Solo para cuotas generadas antes del 2024."
+            };
+        }
+        
+        // CONSULTA SOBRE CURSOS
+        if (msg.includes('curso') || msg.includes('capacitacion') || msg.includes('seminario') || msg.includes('taller')) {
+            return {
+                "type": "featured",
+                "category": "Capacitación",
+                "title": "Próximos Cursos y Seminarios",
+                "description": "Mantente actualizado con nuestra oferta de capacitación continua.",
+                "icon": "graduation-cap",
+                "steps": [
+                    {
+                        "title": "Actualización NIIF 2025",
+                        "description": "20 horas certificadas. Inicio: 15 de febrero"
+                    },
+                    {
+                        "title": "Cierre Contable 2024",
+                        "description": "Taller práctico. 10 de febrero, 6pm"
+                    },
+                    {
+                        "title": "Excel Financiero Avanzado",
+                        "description": "Curso virtual. Inscripciones abiertas"
+                    }
+                ],
+                "tip": {
+                    "label": "Beneficio para colegiados hábiles",
+                    "text": "30% de descuento en todos los cursos. ¡Ponte al día y aprovecha!"
+                }
+            };
+        }
+        
+        // RESPUESTA GENÉRICA
+        return {
+            "type": "article",
+            "category": "Asistente IA",
+            "title": "¿En qué más puedo ayudarte?",
+            "description": "Puedo asistirte con información sobre trámites, pagos, certificados, cursos y más. Intenta preguntar de forma específica.",
+            "icon": "robot",
+            "related": [
+                {"title": "¿Cómo pago mis cuotas?", "icon": "credit-card"},
+                {"title": "Obtener constancia", "icon": "certificate"},
+                {"title": "Horarios de atención", "icon": "clock"},
+                {"title": "Cursos disponibles", "icon": "graduation-cap"}
+            ],
+            "tip": "También puedes navegar por las secciones del Dashboard para encontrar lo que necesitas."
+        };
     },
     
     /**
