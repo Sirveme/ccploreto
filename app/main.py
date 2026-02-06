@@ -15,6 +15,8 @@ from .config import redis_client, DEFAULT_THEME, THEMES, SECRET_KEY
 # Importamos todos los routers
 from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado, avisos, verificacion
 
+from app.routers import pagos_colegiado
+
 from app.routers.public import router, router_landing
 #from app.routers.api_colegiado import router as api_colegiado_router
 from app.routers.admin_config_router import router as admin_config_router
@@ -144,6 +146,7 @@ app.include_router(avisos.router_sunat)  # Para consulta de RUC
 app.include_router(verificacion.router)  # Público, sin prefijo de API
 app.include_router(admin_config_router)
 app.include_router(admin_views_router)
+app.include_router(pagos_colegiado.router)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
