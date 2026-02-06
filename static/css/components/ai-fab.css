@@ -19,6 +19,19 @@
     align-items: flex-end;
     gap: 12px;
     font-family: 'Inter', -apple-system, sans-serif;
+    /* CRÍTICO: No bloquear clics en otras áreas */
+    pointer-events: none;
+}
+
+/* Habilitar pointer-events solo en elementos interactivos */
+.ai-fab-container > * {
+    pointer-events: auto;
+}
+
+.ai-fab-tooltip,
+.ai-fab-menu,
+.ai-fab {
+    pointer-events: auto;
 }
 
 /* ============================================
@@ -683,17 +696,313 @@
     animation: cardFadeIn 0.4s ease;
 }
 
-.ai-chat-response .knowledge-card {
-    margin: 0;
-    max-width: 100%;
+/* Card Base */
+.kc-card {
+    background: linear-gradient(145deg, #1a1f35 0%, #0d1117 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 8px;
 }
 
-.ai-chat-response .card-footer {
-    padding: 10px 12px;
+/* Category tag */
+.kc-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #a855f7;
+    font-weight: 600;
+    margin-bottom: 6px;
 }
 
-.ai-chat-response .card-action {
-    padding: 6px 10px;
+/* Title */
+.kc-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+}
+
+/* Description */
+.kc-desc {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin: 0 0 10px 0;
+}
+
+/* Article card */
+.kc-article {
+    display: grid;
+    grid-template-columns: 1fr 60px;
+}
+
+.kc-article .kc-content {
+    padding: 14px;
+}
+
+.kc-article .kc-icon-box {
+    background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kc-article .kc-icon-box i {
+    font-size: 28px;
+    color: rgba(255,255,255,0.9);
+}
+
+/* Featured card */
+.kc-featured .kc-banner {
+    height: 80px;
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kc-featured .kc-banner i {
+    font-size: 36px;
+    color: white;
+}
+
+.kc-featured .kc-content {
+    padding: 14px;
+}
+
+/* Steps card */
+.kc-steps .kc-content {
+    padding: 14px;
+}
+
+.kc-steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.kc-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border-left: 3px solid #a855f7;
+}
+
+.kc-step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.kc-step-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.kc-step-content strong {
+    font-size: 13px;
+    color: #e2e8f0;
+    display: block;
+}
+
+.kc-step-content p {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 4px 0 0;
+    line-height: 1.4;
+}
+
+/* Metric card */
+.kc-metric {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+}
+
+.kc-metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.kc-metric-icon.purple { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.kc-metric-icon.green { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.kc-metric-icon.blue { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.kc-metric-icon.orange { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+.kc-metric-icon.red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+.kc-metric-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.kc-metric-label {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Tip */
+.kc-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(34, 197, 94, 0.08);
+    border-left: 3px solid #22c55e;
+    border-radius: 0 8px 8px 0;
+    margin-top: 10px;
+}
+
+.kc-tip > i {
+    color: #22c55e;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.kc-tip-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #22c55e;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.kc-tip-text {
+    font-size: 12px;
+    color: #d4d4d8;
+    line-height: 1.4;
+}
+
+/* Citation */
+.kc-citation {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid #fbbf24;
+    border-radius: 0 8px 8px 0;
+    margin-top: 10px;
+}
+
+.kc-citation > i {
+    color: #fbbf24;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.kc-citation-text {
+    font-size: 12px;
+    color: #d4d4d8;
+    font-style: italic;
+    line-height: 1.4;
+    display: block;
+}
+
+.kc-citation-source {
+    display: block;
+    font-size: 11px;
+    color: #a1a1aa;
+    margin-top: 4px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+/* Warning */
+.kc-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border-left: 3px solid #ef4444;
+    border-radius: 0 8px 8px 0;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #fca5a5;
+}
+
+.kc-warning i {
+    color: #ef4444;
+    flex-shrink: 0;
+}
+
+/* Source */
+.kc-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.kc-source i {
+    color: #a855f7;
+}
+
+.kc-verified {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+/* Related */
+.kc-related {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.kc-related-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    font-size: 11px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.kc-related-item:hover {
+    background: rgba(168, 85, 247, 0.1);
+    color: #c084fc;
+}
+
+.kc-related-item i {
+    color: #a855f7;
 }
 
 @keyframes cardFadeIn {
