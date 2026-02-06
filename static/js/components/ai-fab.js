@@ -717,7 +717,30 @@ const AIFab = {
     getFallbackResponse(message) {
         const msg = message.toLowerCase();
         
-        // CONSULTA SOBRE PAGOS / CUOTAS
+        // ACCIÓN: QUIERO PAGAR → Abrir modal de pagos
+        if (msg.includes('quiero pagar') || msg.includes('deseo pagar') || msg.includes('voy a pagar') || msg.includes('realizar pago') || msg.includes('hacer un pago')) {
+            // Cerrar chat y abrir modal de pagos
+            setTimeout(() => {
+                this.closeChat();
+                if (typeof ModalPagos !== 'undefined') {
+                    ModalPagos.open();
+                }
+            }, 1500);
+            
+            return {
+                "type": "article",
+                "category": "Acción",
+                "title": "¡Perfecto! Abriendo el módulo de pagos...",
+                "description": "Te llevo al formulario de pago donde podrás registrar tu pago con Yape, Plin o transferencia.",
+                "icon": "credit-card",
+                "tip": {
+                    "label": "Recuerda",
+                    "text": "Ten a la mano tu voucher o captura del pago para subirlo."
+                }
+            };
+        }
+        
+        // CONSULTA SOBRE PAGOS / CUOTAS (informativo)
         if (msg.includes('cuota') || msg.includes('pago') || msg.includes('pagar') || msg.includes('deuda')) {
             return {
                 "type": "steps",
