@@ -8,7 +8,7 @@ REEMPLAZAR app/routers/pagos_colegiado.py CON ESTE CONTENIDO
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import jwt
+from jose import jwt, JWTError
 import os
 
 from app.database import get_db
@@ -52,10 +52,9 @@ def get_member_from_token(request: Request, db: Session):
         
         return member
         
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Sesión expirada")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Token inválido")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
     except Exception as e:
         print(f"⚠️ Error auth API: {e}")
         raise HTTPException(status_code=401, detail="Error de autenticación")
