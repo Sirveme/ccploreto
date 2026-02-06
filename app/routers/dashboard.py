@@ -138,17 +138,22 @@ async def dashboard_home(request: Request, member: Member = Depends(get_current_
 
 # Helper para APIs (no redirige, lanza excepción)
 async def get_current_member_api(request: Request, db: Session):
-    """
-    Versión para endpoints API - lanza HTTPException en vez de redirigir
-    """
+    """Versión para APIs - NO redirige"""
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=401, detail="No autenticado")
     
     try:
-        # Decodificar JWT
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        member_id = payload.get("member_id")
+        # IMPORTANTE: Quitar "Bearer " del token
+        parts = token.split()
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            token_value = parts[1]
+        else:
+            token_value = token
+        
+        payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
+        member_id = payload.get("sub")
+        
         if not member_id:
             raise HTTPException(status_code=401, detail="Token inválido")
         
@@ -157,11 +162,12 @@ async def get_current_member_api(request: Request, db: Session):
             raise HTTPException(status_code=401, detail="Usuario no encontrado")
         
         return member
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Sesión expirada")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Token inválido")
+        
+    except JWTError as e:
+        print(f"⚠️ JWT Error: {e}")
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
     except Exception as e:
+        print(f"⚠️ Error auth: {e}")
         raise HTTPException(status_code=401, detail="Error de autenticación")
 
 
