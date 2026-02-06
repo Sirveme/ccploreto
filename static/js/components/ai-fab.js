@@ -7,7 +7,7 @@
  * - Muestra presencia constante de IA
  * - Muestra consumo institucional (propaganda)
  * - Permite seleccionar modelo (Claude, GPT, Gemini)
- * - Chat integrado
+ * - Chat integrado con Knowledge Cards
  */
 
 const AIFab = {
@@ -468,20 +468,13 @@ const AIFab = {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
         
-        // Si es respuesta del bot y viene como card
+        // Si es respuesta del bot y viene como card/objeto
         if (type === 'bot' && typeof content === 'object') {
-            // Usar el renderizador de cards
-            if (typeof AIKnowledgeCards !== 'undefined') {
-                const cardHTML = AIKnowledgeCards.render(content);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'ai-chat-response';
-                wrapper.innerHTML = cardHTML;
-                container.appendChild(wrapper);
-            } else {
-                // Fallback a texto
-                const text = content.description || content.text || JSON.stringify(content);
-                this.addTextMessage(text, type);
-            }
+            const cardHTML = this.renderCard(content);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'ai-chat-response';
+            wrapper.innerHTML = cardHTML;
+            container.appendChild(wrapper);
         } else {
             // Mensaje de texto normal
             this.addTextMessage(content, type);
@@ -497,6 +490,191 @@ const AIFab = {
             role: type === 'user' ? 'user' : 'assistant', 
             content: historyContent 
         });
+    },
+    
+    /**
+     * Renderiza una card según su tipo
+     */
+    renderCard(card) {
+        if (!card) return '';
+        
+        // Si tiene múltiples cards
+        if (card.cards) {
+            return card.cards.map(c => this.renderCard(c)).join('');
+        }
+        
+        switch(card.type) {
+            case 'steps':
+                return this.renderStepsCard(card);
+            case 'article':
+                return this.renderArticleCard(card);
+            case 'featured':
+                return this.renderFeaturedCard(card);
+            case 'metric':
+                return this.renderMetricCard(card);
+            default:
+                return this.renderArticleCard(card);
+        }
+    },
+    
+    /**
+     * Card tipo pasos
+     */
+    renderStepsCard(card) {
+        const stepsHTML = (card.steps || []).map((step, i) => `
+            <div class="kc-step">
+                <div class="kc-step-num">${i + 1}</div>
+                <div class="kc-step-content">
+                    <strong>${step.title}</strong>
+                    ${step.description ? `<p>${step.description}</p>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        return `
+            <div class="kc-card kc-steps">
+                ${card.category ? `<div class="kc-category"><i class="ph ph-tag"></i> ${card.category}</div>` : ''}
+                <h3 class="kc-title">${card.title}</h3>
+                ${card.description ? `<p class="kc-desc">${card.description}</p>` : ''}
+                <div class="kc-steps-list">${stepsHTML}</div>
+                ${card.tip ? this.renderTip(card.tip) : ''}
+                ${card.source ? this.renderSource(card.source) : ''}
+            </div>
+        `;
+    },
+    
+    /**
+     * Card tipo artículo
+     */
+    renderArticleCard(card) {
+        return `
+            <div class="kc-card kc-article">
+                <div class="kc-content">
+                    ${card.category ? `<div class="kc-category"><i class="ph ph-tag"></i> ${card.category}</div>` : ''}
+                    <h3 class="kc-title">${card.title}</h3>
+                    ${card.description ? `<p class="kc-desc">${card.description}</p>` : ''}
+                    ${card.citation ? this.renderCitation(card.citation) : ''}
+                    ${card.tip ? this.renderTip(card.tip) : ''}
+                    ${card.source ? this.renderSource(card.source) : ''}
+                    ${card.related ? this.renderRelated(card.related) : ''}
+                </div>
+                <div class="kc-icon-box">
+                    <i class="ph ph-${card.icon || 'article'}"></i>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Card tipo destacado
+     */
+    renderFeaturedCard(card) {
+        const stepsHTML = card.steps ? (card.steps || []).map((step, i) => `
+            <div class="kc-step">
+                <div class="kc-step-num">${i + 1}</div>
+                <div class="kc-step-content">
+                    <strong>${step.title}</strong>
+                    ${step.description ? `<p>${step.description}</p>` : ''}
+                </div>
+            </div>
+        `).join('') : '';
+        
+        return `
+            <div class="kc-card kc-featured">
+                <div class="kc-banner">
+                    <i class="ph ph-${card.icon || 'sparkle'}"></i>
+                </div>
+                <div class="kc-content">
+                    ${card.category ? `<div class="kc-category"><i class="ph ph-star"></i> ${card.category}</div>` : ''}
+                    <h3 class="kc-title">${card.title}</h3>
+                    ${card.description ? `<p class="kc-desc">${card.description}</p>` : ''}
+                    ${stepsHTML ? `<div class="kc-steps-list">${stepsHTML}</div>` : ''}
+                    ${card.warning ? `<div class="kc-warning"><i class="ph ph-warning"></i> ${card.warning}</div>` : ''}
+                    ${card.tip ? this.renderTip(card.tip) : ''}
+                    ${card.source ? this.renderSource(card.source) : ''}
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Card tipo métrica
+     */
+    renderMetricCard(card) {
+        return `
+            <div class="kc-card kc-metric">
+                <div class="kc-metric-icon ${card.color || 'purple'}">
+                    <i class="ph ph-${card.icon || 'chart-line-up'}"></i>
+                </div>
+                <div class="kc-metric-data">
+                    <div class="kc-metric-value">${card.value}</div>
+                    <div class="kc-metric-label">${card.label}</div>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Renderiza tip
+     */
+    renderTip(tip) {
+        const text = typeof tip === 'string' ? tip : tip.text;
+        const label = typeof tip === 'object' && tip.label ? tip.label : 'Tip';
+        return `
+            <div class="kc-tip">
+                <i class="ph ph-lightbulb"></i>
+                <div>
+                    <span class="kc-tip-label">${label}</span>
+                    <span class="kc-tip-text">${text}</span>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Renderiza cita/base legal
+     */
+    renderCitation(citation) {
+        const text = typeof citation === 'string' ? citation : citation.text;
+        const source = typeof citation === 'object' ? citation.source : null;
+        return `
+            <div class="kc-citation">
+                <i class="ph ph-quotes"></i>
+                <div>
+                    <span class="kc-citation-text">${text}</span>
+                    ${source ? `<span class="kc-citation-source">— ${source}</span>` : ''}
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Renderiza fuente
+     */
+    renderSource(source) {
+        const name = typeof source === 'string' ? source : source.name;
+        const verified = typeof source === 'object' && source.verified;
+        return `
+            <div class="kc-source">
+                <i class="ph ph-book-open"></i>
+                <span>${name}</span>
+                ${verified ? '<span class="kc-verified">✓ Verificado</span>' : ''}
+            </div>
+        `;
+    },
+    
+    /**
+     * Renderiza relacionados
+     */
+    renderRelated(related) {
+        if (!related || !related.length) return '';
+        const items = related.slice(0, 4).map(r => `
+            <div class="kc-related-item">
+                <i class="ph ph-${r.icon || 'link'}"></i>
+                <span>${r.title}</span>
+            </div>
+        `).join('');
+        return `<div class="kc-related">${items}</div>`;
     },
     
     /**
