@@ -353,6 +353,30 @@ function toggleSonidos() {
     Toast.show(enabled ? 'Sonidos activados' : 'Sonidos desactivados', 'info', 2000);
 }
 
+async function abrirFormularioPago() {
+    // Obtener datos del colegiado desde el endpoint
+    try {
+        const response = await fetch('/api/colegiado/mis-pagos');
+        const data = await response.json();
+        
+        if (data && typeof AIFab !== 'undefined') {
+            const colegiado = {
+                id: data.colegiado?.id,
+                nombre: data.colegiado?.nombre,
+                dni: data.colegiado?.dni || '',
+                matricula: data.colegiado?.matricula,
+                condicion: data.colegiado?.condicion,
+                deuda: data.resumen
+            };
+            AIFab.openPagoFormPrellenado(colegiado);
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        if (typeof Toast !== 'undefined') Toast.show('Error al cargar datos', 'error');
+    }
+}
+
+
 // ============================================
 // INICIALIZACIÓN
 // ============================================
