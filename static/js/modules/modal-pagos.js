@@ -304,13 +304,17 @@ window.ModalPagos = {
      * Ir a la pantalla de pago
      */
     irAPagar() {
-        Modal.close('modal-pagos');
-        // Abrir modal de pago o redirigir
-        if (typeof Modal !== 'undefined' && document.getElementById('modal-pagar')) {
-            Modal.open('modal-pagar');
-        } else {
-            // Redirigir a la página de pago
-            window.location.href = '/pagos/formulario';
+        this.close();
+        // Usar el formulario del FAB con datos del colegiado
+        if (typeof AIFab !== 'undefined' && this.data?.colegiado) {
+            const colegiado = {
+                id: this.data.colegiado.id || null,
+                nombre: this.data.colegiado.nombre,
+                dni: this.data.colegiado.dni || '',
+                matricula: this.data.colegiado.matricula,
+                deuda: this.data.resumen
+            };
+            AIFab.openPagoFormPrellenado(colegiado);
         }
     },
     
