@@ -3,7 +3,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Member, Bulletin, Organization, User
+from app.models import Member, Bulletin, Organization, User, Colegiado, Debt, Payment
+from sqlalchemy import func
 from jose import jwt, JWTError
 from app.config import SECRET_KEY 
 from app.utils.security import ALGORITHM
@@ -11,6 +12,9 @@ import os
 
 router = APIRouter(tags=["dashboard"])
 templates = Jinja2Templates(directory="app/templates")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "tu-clave-secreta")
+ALGORITHM = "HS256"
 
 # Dependencia para proteger rutas (CON FIX DE BUCLE)
 def get_current_member(request: Request, db: Session = Depends(get_db)):
@@ -132,10 +136,6 @@ async def dashboard_home(request: Request, member: Member = Depends(get_current_
 # AGREGAR AL FINAL DE app/routers/dashboard.py
 # ============================================================
 
-# ============================================================
-# AGREGAR AL FINAL DE app/routers/dashboard.py
-# ============================================================
-
 # Helper para APIs (no redirige, lanza excepción)
 async def get_current_member_api(request: Request, db: Session):
     """Versión para APIs - NO redirige"""
@@ -186,77 +186,350 @@ async def get_ai_stats(request: Request, db: Session = Depends(get_db)):
     }
 
 
+def get_colegiado_silently(request: Request, db: Session):
+    """
+    Intenta obtener el colegiado de la sesión actual.
+    Retorna None si no hay sesión o está expirada (NO lanza excepción).
+    """
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        
+        # Parsear "Bearer token_value"
+        parts = token.split()
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            token_value = parts[1]
+        else:
+            token_value = token
+        
+        # Decodificar JWT
+        payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
+        member_id = payload.get("sub")
+        
+        if not member_id:
+            return None
+        
+        # Buscar member y colegiado
+        member = db.query(Member).filter(Member.id == member_id).first()
+        if not member:
+            return None
+        
+        colegiado = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
+        return colegiado
+        
+    except (JWTError, Exception) as e:
+        # Silencioso - sesión inválida o expirada
+        return None
+
+
+def calcular_resumen_deuda(db: Session, colegiado_id: int) -> dict:
+    """Calcula resumen de deuda del colegiado"""
+    deuda_total = db.query(func.coalesce(func.sum(Debt.balance), 0)).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.status.in_(['pending', 'partial'])
+    ).scalar() or 0
+    
+    cantidad_cuotas = db.query(func.count(Debt.id)).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.status.in_(['pending', 'partial'])
+    ).scalar() or 0
+    
+    en_revision = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
+        Payment.colegiado_id == colegiado_id,
+        Payment.status == 'review'
+    ).scalar() or 0
+    
+    return {
+        "total": float(deuda_total),
+        "cantidad_cuotas": cantidad_cuotas,
+        "en_revision": float(en_revision)
+    }
+
+
+"""
+Endpoint: AI Chat con Acciones Inteligentes
+============================================
+Reemplazar la función ai_chat en dashboard.py
+
+Detecta si hay sesión válida y retorna datos del colegiado
+para pre-llenar formularios cuando sea posible.
+"""
+
+
+# ============================================
+# ENDPOINT PRINCIPAL
+# ============================================
+
 @router.post("/api/ai/chat")
 async def ai_chat(request: Request, db: Session = Depends(get_db)):
-    """Chat con IA - Respuestas RAG"""
+    """
+    Chat con IA - Respuestas RAG con acciones inteligentes.
+    Detecta sesión y pre-llena datos cuando es posible.
+    """
     try:
         body = await request.json()
         message = body.get("message", "").lower()
     except:
         message = ""
     
-    # RAG básico
-    if any(w in message for w in ["pago", "pagar", "cuota", "deuda"]):
+    # ========================================
+    # Intentar obtener datos del colegiado
+    # ========================================
+    colegiado = get_colegiado_silently(request, db)
+    colegiado_data = None
+    
+    if colegiado:
+        deuda = calcular_resumen_deuda(db, colegiado.id)
+        colegiado_data = {
+            "id": colegiado.id,
+            "nombre": colegiado.apellidos_nombres,
+            "dni": colegiado.dni,
+            "matricula": colegiado.codigo_matricula,
+            "condicion": colegiado.condicion,
+            "deuda": deuda
+        }
+    
+    # ========================================
+    # ACCIONES: Detectar intención de acción
+    # ========================================
+    
+    # ACCIÓN: Quiero pagar
+    if any(phrase in message for phrase in [
+        "quiero pagar", "deseo pagar", "voy a pagar", 
+        "realizar pago", "hacer pago", "registrar pago",
+        "pagar ahora", "pagar mi deuda", "pagar cuota"
+    ]):
+        if colegiado_data and colegiado_data["deuda"]["total"] > 0:
+            # Con sesión y tiene deuda
+            response = {
+                "type": "article",
+                "category": "Acción",
+                "title": f"¡Listo! Abriendo formulario de pago...",
+                "description": f"Tienes S/ {colegiado_data['deuda']['total']:.2f} pendiente en {colegiado_data['deuda']['cantidad_cuotas']} cuota(s).",
+                "icon": "credit-card",
+                "tip": {"label": "Recuerda", "text": "Ten a la mano tu voucher o captura del pago."}
+            }
+        elif colegiado_data and colegiado_data["deuda"]["total"] == 0:
+            # Con sesión pero sin deuda
+            response = {
+                "type": "article",
+                "category": "✅ Al día",
+                "title": "¡No tienes deudas pendientes!",
+                "description": "Estás al día con tus cuotas. ¡Gracias por tu puntualidad!",
+                "icon": "check-circle",
+            }
+            return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+        else:
+            # Sin sesión válida
+            response = {
+                "type": "article",
+                "category": "Acción",
+                "title": "Abriendo formulario de pago...",
+                "description": "Ingresa tu DNI o matrícula para consultar tu deuda y registrar tu pago.",
+                "icon": "credit-card",
+                "tip": {"label": "Tip", "text": "Los pagos por Yape/Plin se validan en menos de 24 horas."}
+            }
+        
+        return {
+            "response": response, 
+            "action": "open_pago_form", 
+            "colegiado": colegiado_data,
+            "cost": 0.001
+        }
+    
+    # ACCIÓN: Ver mi deuda / estado de cuenta
+    if any(phrase in message for phrase in [
+        "ver mi deuda", "cuanto debo", "cuánto debo", 
+        "mi deuda", "estado de cuenta", "mis cuotas",
+        "que debo", "qué debo"
+    ]):
+        if colegiado_data:
+            deuda = colegiado_data["deuda"]
+            if deuda["total"] > 0:
+                response = {
+                    "type": "featured",
+                    "category": "Estado de Cuenta",
+                    "title": f"Deuda pendiente: S/ {deuda['total']:.2f}",
+                    "description": f"Tienes {deuda['cantidad_cuotas']} cuota(s) pendiente(s).",
+                    "icon": "receipt",
+                    "tip": {"label": "Acción rápida", "text": "Di 'quiero pagar' para registrar tu pago."}
+                }
+                if deuda["en_revision"] > 0:
+                    response["warning"] = f"Tienes S/ {deuda['en_revision']:.2f} en revisión."
+            else:
+                response = {
+                    "type": "article",
+                    "category": "✅ Al día",
+                    "title": "¡Estás al día!",
+                    "description": "No tienes cuotas pendientes. ¡Felicitaciones!",
+                    "icon": "check-circle",
+                }
+        else:
+            response = {
+                "type": "article",
+                "category": "Consulta",
+                "title": "Consulta tu deuda",
+                "description": "Abriendo el formulario para que ingreses tu DNI o matrícula.",
+                "icon": "search",
+            }
+        
+        return {
+            "response": response, 
+            "action": "open_estado_cuenta", 
+            "colegiado": colegiado_data,
+            "cost": 0.001
+        }
+    
+    # ACCIÓN: Ver certificado / constancia
+    if any(phrase in message for phrase in [
+        "ver certificado", "descargar certificado", "mi certificado",
+        "constancia", "obtener constancia", "descargar constancia",
+        "certificado de habilidad", "estoy habil", "estoy hábil"
+    ]):
+        if colegiado_data:
+            es_habil = colegiado_data["condicion"] in ["habil", "vitalicio", "Hábil", "Vitalicio"]
+            if es_habil:
+                response = {
+                    "type": "article",
+                    "category": "✅ Certificado",
+                    "title": "Abriendo certificados...",
+                    "description": "Estás HÁBIL. Puedes descargar tu constancia de habilidad.",
+                    "icon": "certificate",
+                }
+                return {
+                    "response": response, 
+                    "action": "open_certificados", 
+                    "colegiado": colegiado_data,
+                    "cost": 0.001
+                }
+            else:
+                response = {
+                    "type": "article",
+                    "category": "⚠️ Atención",
+                    "title": "Actualmente estás INHÁBIL",
+                    "description": f"Tienes S/ {colegiado_data['deuda']['total']:.2f} pendiente. Regulariza para obtener tu certificado.",
+                    "icon": "alert-triangle",
+                    "tip": {"label": "Siguiente paso", "text": "Di 'quiero pagar' para regularizarte."}
+                }
+                return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+        else:
+            response = {
+                "type": "article",
+                "category": "Certificados",
+                "title": "Consulta tu habilidad",
+                "description": "Ingresa tu DNI o matrícula para verificar tu estado y descargar tu certificado.",
+                "icon": "certificate",
+            }
+        
+        return {
+            "response": response, 
+            "action": "open_consulta_habilidad", 
+            "colegiado": colegiado_data,
+            "cost": 0.001
+        }
+    
+    # ACCIÓN: Ayuda / qué puedes hacer
+    if any(phrase in message for phrase in [
+        "ayuda", "que puedes hacer", "qué puedes hacer",
+        "opciones", "comandos", "funciones"
+    ]):
+        response = {
+            "type": "steps",
+            "category": "Ayuda",
+            "title": "¿Cómo puedo ayudarte?",
+            "description": "Puedo realizar estas acciones por ti:",
+            "steps": [
+                {"title": "💳 'Quiero pagar'", "description": "Abre el formulario de pago directo"},
+                {"title": "📊 'Ver mi deuda'", "description": "Consulta tu estado de cuenta"},
+                {"title": "📜 'Mi certificado'", "description": "Descarga tu constancia de habilidad"},
+                {"title": "🕐 'Horarios'", "description": "Info de atención en oficina"},
+            ],
+            "tip": {"label": "Tip", "text": "También puedes usar comandos de voz. ¡Solo habla!"}
+        }
+        return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+    
+    # ========================================
+    # RAG INFORMATIVO (sin acción, solo info)
+    # ========================================
+    
+    # INFO: Cómo pagar (sin intención de pagar ahora)
+    if any(w in message for w in ["como pago", "cómo pago", "formas de pago", "metodos de pago", "métodos de pago"]):
         response = {
             "type": "steps",
             "category": "Pagos",
-            "title": "¿Cómo pagar mis cuotas?",
-            "description": "Tienes varias opciones:",
+            "title": "Formas de pago disponibles",
+            "description": "Puedes pagar por cualquiera de estos medios:",
             "steps": [
-                {"title": "Yape o Plin", "description": "Escanea el QR o transfiere al 987-654-321"},
-                {"title": "Transferencia", "description": "BCP Cta. Cte. 123-456789-0-12"},
-                {"title": "Presencial", "description": "Lunes a Viernes, 8am-6pm"}
+                {"title": "Yape / Plin", "description": "Al número que aparece en el formulario de pago"},
+                {"title": "Transferencia bancaria", "description": "A la cuenta BCP del colegio"},
+                {"title": "Presencial", "description": "En oficinas, Lunes a Viernes 8am-6pm"}
             ],
-            "tip": {"label": "Tip", "text": "Yape se valida en menos de 24 horas."},
+            "tip": {"label": "¿Listo para pagar?", "text": "Di 'quiero pagar' y te abro el formulario."},
             "source": {"name": "Tesorería CCPL", "verified": True}
         }
-    elif any(w in message for w in ["certificado", "constancia", "habil"]):
-        response = {
-            "type": "article",
-            "category": "Trámites",
-            "title": "Constancia de Habilidad",
-            "description": "Se genera automáticamente cuando estás al día en tus cuotas.",
-            "icon": "certificate",
-            "citation": {"text": "Todo colegiado deberá mantener su condición de hábil.", "source": "Estatuto Art. 45"},
-            "tip": "Descárgala desde Dashboard → Certificados",
-            "source": {"name": "Reglamento CCPL", "verified": True}
-        }
-    elif any(w in message for w in ["horario", "atencion", "oficina"]):
+        return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+    
+    # INFO: Horarios
+    if any(w in message for w in ["horario", "atencion", "atención", "oficina", "direccion", "dirección"]):
         response = {
             "type": "featured",
             "category": "Información",
             "title": "Horarios de Atención",
-            "description": "Jr. Putumayo 123, Iquitos",
+            "description": "Jr. Putumayo 484, Iquitos",
             "icon": "map-pin",
             "steps": [
-                {"title": "Lunes a Viernes", "description": "8am-1pm y 3pm-6pm"},
-                {"title": "Sábados", "description": "9am-12pm (urgentes)"}
+                {"title": "Lunes a Viernes", "description": "8:00am - 1:00pm y 3:00pm - 6:00pm"},
+                {"title": "Sábados", "description": "9:00am - 12:00pm (solo urgentes)"}
             ],
-            "tip": "La mayoría de trámites puedes hacerlos online."
+            "tip": "La mayoría de trámites puedes hacerlos online desde aquí."
         }
-    elif any(w in message for w in ["descuento", "beneficio", "aniversario"]):
+        return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+    
+    # INFO: Beneficios / descuentos
+    if any(w in message for w in ["descuento", "beneficio", "aniversario", "promocion", "promoción"]):
         response = {
             "type": "featured",
-            "category": "🎉 Beneficio",
+            "category": "🎉 Beneficio Vigente",
             "title": "60 Aniversario - 50% Descuento",
-            "description": "Regulariza con 50% de descuento. ¡Hasta el 28 de febrero!",
-            "icon": "confetti",
-            "warning": "Solo cuotas anteriores al 2024.",
-            "tip": {"label": "Cómo aprovecharlo", "text": "Se aplica automáticamente."},
-            "source": {"name": "Junta Directiva", "verified": True}
+            "description": "Regulariza tus cuotas atrasadas con 50% de descuento. ¡Hasta el 28 de febrero!",
+            "icon": "gift",
+            "warning": "Aplica solo a cuotas anteriores al 2024.",
+            "tip": {"label": "Aprovéchalo", "text": "El descuento se aplica automáticamente al pagar."},
+            "source": {"name": "Junta Directiva CCPL", "verified": True}
         }
-    else:
-        response = {
-            "type": "article",
-            "category": "Asistente IA",
-            "title": "¿En qué puedo ayudarte?",
-            "description": "Pregúntame sobre pagos, certificados, trámites o cursos.",
-            "icon": "robot",
-            "related": [
-                {"title": "¿Cómo pago?", "icon": "credit-card"},
-                {"title": "Mi constancia", "icon": "certificate"},
-                {"title": "Horarios", "icon": "clock"}
-            ]
-        }
+        return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
     
-    return {"response": response, "cost": 0.001}
+    # INFO: Requisitos para colegiarse
+    if any(w in message for w in ["colegiar", "requisito", "inscripcion", "inscripción", "nuevo colegiado"]):
+        response = {
+            "type": "steps",
+            "category": "Colegiatura",
+            "title": "Requisitos para Colegiarse",
+            "description": "Documentos necesarios para la colegiatura:",
+            "steps": [
+                {"title": "Título profesional", "description": "Original y copia legalizada"},
+                {"title": "DNI", "description": "Copia simple"},
+                {"title": "Fotos", "description": "2 fotos tamaño carnet fondo blanco"},
+                {"title": "Pago", "description": "Derecho de colegiatura"}
+            ],
+            "tip": "Consulta montos actualizados en Secretaría."
+        }
+        return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}
+    
+    # DEFAULT: Respuesta genérica
+    response = {
+        "type": "article",
+        "category": "Asistente CCPL",
+        "title": "¿En qué puedo ayudarte?",
+        "description": "Soy el asistente virtual del CCPL. Puedo ayudarte con pagos, certificados, consultas y más.",
+        "icon": "robot",
+        "related": [
+            {"title": "Quiero pagar", "icon": "credit-card"},
+            {"title": "Ver mi deuda", "icon": "receipt"},
+            {"title": "Mi certificado", "icon": "certificate"},
+            {"title": "Horarios", "icon": "clock"}
+        ]
+    }
+    
+    return {"response": response, "action": None, "colegiado": colegiado_data, "cost": 0.001}

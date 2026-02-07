@@ -215,17 +215,17 @@ async def registrar_pago(
     
     # Verificar si el colegio acepta pagos sin validación
     certificado_auto = False
-    print(f"DEBUG PAGO: org_id={org['id']}")
+    #print(f"DEBUG PAGO: org_id={org['id']}")
     try:
         org_config = db.execute(
             text("SELECT config FROM organizations WHERE id = :oid"),
             {"oid": org["id"]}
         ).fetchone()
-        print(f"DEBUG CONFIG: {type(org_config.config) if org_config else 'NONE'}")
+        #print(f"DEBUG CONFIG: {type(org_config.config) if org_config else 'NONE'}")
         if org_config and org_config.config:
             config = org_config.config if isinstance(org_config.config, dict) else json.loads(org_config.config)
             certificado_auto = config.get("finanzas", {}).get("validacion_automatica", False)
-            print(f"DEBUG AUTO: {certificado_auto}")
+            #print(f"DEBUG AUTO: {certificado_auto}")
     except Exception as e:
         print(f"⚠️ Error leyendo config: {e}")
     
