@@ -304,7 +304,7 @@ window.ModalPagos = {
      * Ir a la pantalla de pago
      */
     irAPagar() {
-        this.close();
+        ModalPagos.close();
         // Usar el formulario del FAB con datos del colegiado
         if (typeof AIFab !== 'undefined' && this.data?.colegiado) {
             const colegiado = {

@@ -388,6 +388,19 @@ if (typeof NeuralCore === 'undefined') {
             this.bubbleMain.innerText = main;
             this.bubbleSub.innerText = sub || "";
             this.bubbleContainer.classList.remove('hidden');
+
+            // Agregar botón cerrar si no existe
+            if (!document.getElementById('btn-cerrar-bubble')) {
+                const btnCerrar = document.createElement('button');
+                btnCerrar.id = 'btn-cerrar-bubble';
+                btnCerrar.innerHTML = '×';
+                btnCerrar.style.cssText = 'position:absolute;top:10px;right:15px;background:none;border:none;color:#888;font-size:24px;cursor:pointer;';
+                btnCerrar.onclick = () => {
+                    if (this.isListening) this.recognition.stop();
+                    this.hideBubble();
+                };
+                this.bubbleContainer.querySelector('#ai-bubble-content')?.appendChild(btnCerrar);
+            }
             
             const content = document.getElementById('ai-bubble-content');
             content.className = "px-8 py-6 rounded-3xl shadow-2xl flex flex-col items-center text-center border-2 backdrop-blur-xl transition-all";
