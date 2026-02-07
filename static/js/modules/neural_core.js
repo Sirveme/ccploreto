@@ -127,17 +127,29 @@ if (typeof NeuralCore === 'undefined') {
             console.log("🧠 Enviando:", text);
 
             try {
-                const response = await fetch('/api/brain/process-command', {
+                const response = await fetch('/api/ai/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ command: text, url: window.location.pathname })
+                    body: JSON.stringify({ message: text })  // ← "message", no "command"
                 });
                 const result = await response.json();
                 
-                if (result.status === 'ok') {
-                    this.executeAction(result.action);
+                // El endpoint retorna: { response, action, colegiado }
+                if (result.response) {
+                    // Hablar la respuesta
+                    const mensaje = result.response.title || result.response.description || "Procesando";
+                    this.speak(mensaje);
+                    
+                    // Ejecutar acción si existe
+                    if (result.action) {
+                        setTimeout(() => {
+                            this.executeAIAction(result.action, result.colegiado);
+                        }, 1500);
+                    } else {
+                        setTimeout(() => this.hideBubble(), 3000);
+                    }
                 } else {
-                    this.showBubble("Error", result.msg || "No entendí", "error");
+                    this.showBubble("Error", "No entendí", "error");
                     this.speak("No pude procesar la orden.");
                     setTimeout(() => this.hideBubble(), 3000);
                 }
@@ -145,6 +157,58 @@ if (typeof NeuralCore === 'undefined') {
                 console.error(e);
                 this.showBubble("Error", "Conexión fallida", "error");
                 setTimeout(() => this.hideBubble(), 3000);
+            }
+        }
+
+
+        // --- NUEVA FUNCIÓN para acciones del AI Chat ---
+        executeAIAction(action, colegiado = null) {
+            console.log("⚡ AI Action:", action, colegiado ? colegiado.nombre : 'Sin sesión');
+            
+            switch(action) {
+                case 'open_pago_form':
+                    if (colegiado && colegiado.deuda && colegiado.deuda.total > 0) {
+                        // Con sesión → Cargar formulario pre-llenado
+                        const params = new URLSearchParams({
+                            colegiado_id: colegiado.id,
+                            nombre: colegiado.nombre,
+                            monto: colegiado.deuda.total
+                        }).toString();
+                        this.loadServerUI(`/finance/payment/form?${params}`);
+                    } else {
+                        // Sin sesión → Modal público
+                        const modal = document.getElementById('reactivacionModal');
+                        if (modal) {
+                            if (typeof openModal === 'function') openModal(modal);
+                            else modal.classList.add('active');
+                            // Activar tab Pagar
+                            setTimeout(() => {
+                                const tabs = modal.querySelectorAll('.tab-btn, .modal-tab');
+                                if (tabs[2]) tabs[2].click();
+                            }, 100);
+                        }
+                    }
+                    this.hideBubble();
+                    break;
+                    
+                case 'open_estado_cuenta':
+                    if (typeof ModalPagos !== 'undefined') {
+                        ModalPagos.open();
+                    }
+                    this.hideBubble();
+                    break;
+                    
+                case 'open_certificados':
+                    if (typeof ModalCertificados !== 'undefined') {
+                        ModalCertificados.open();
+                    } else if (typeof abrirModalLazy === 'function') {
+                        abrirModalLazy('modal-certificados');
+                    }
+                    this.hideBubble();
+                    break;
+                    
+                default:
+                    this.hideBubble();
             }
         }
 
