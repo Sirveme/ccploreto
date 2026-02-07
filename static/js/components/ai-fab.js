@@ -442,6 +442,13 @@ const AIFab = {
                 this.hideTyping();
                 this.addMessage(data.response, 'bot');
                 
+                // Ejecutar acción si viene (con datos del colegiado si existen)
+                if (data.action) {
+                    setTimeout(() => {
+                        this.executeAction(data.action, data.colegiado);
+                    }, 1500);
+                }
+                
                 // Actualizar costo si viene
                 if (data.cost) {
                     this.stats.costoMes += data.cost;
@@ -458,6 +465,297 @@ const AIFab = {
             setTimeout(() => {
                 this.addMessage(this.getFallbackResponse(message), 'bot');
             }, 500);
+        }
+    },
+    
+    /**
+     * Ejecuta una acción del chatbot
+     * @param {string} action - Nombre de la acción
+     * @param {object|null} colegiado - Datos del colegiado (si hay sesión válida)
+     */
+    executeAction(action, colegiado = null) {
+        console.log('[AI FAB] Ejecutando acción:', action, 'Colegiado:', colegiado ? colegiado.nombre : 'Sin sesión');
+        this.closeChat();
+        
+        switch(action) {
+            case 'open_pago_form':
+                if (colegiado && colegiado.deuda && colegiado.deuda.total > 0) {
+                    // Con sesión válida y tiene deuda → Modal pre-llenado
+                    this.openPagoFormPrellenado(colegiado);
+                } else {
+                    // Sin sesión o sin deuda → Modal público
+                    this.openModalPublico('reactivacionModal', 2); // Tab índice 2 = Pagar
+                }
+                break;
+                
+            case 'open_estado_cuenta':
+                if (colegiado) {
+                    // Con sesión → Modal Mis Pagos
+                    if (typeof ModalPagos !== 'undefined') {
+                        ModalPagos.open();
+                    }
+                } else {
+                    // Sin sesión → Modal público consulta
+                    this.openModalPublico('reactivacionModal', 2);
+                }
+                break;
+                
+            case 'open_certificados':
+                if (typeof ModalCertificados !== 'undefined') {
+                    ModalCertificados.open();
+                } else if (typeof abrirModalLazy === 'function') {
+                    abrirModalLazy('modal-certificados');
+                } else {
+                    // Fallback: modal constancia
+                    this.openModalPublico('modal-constancia');
+                }
+                break;
+                
+            case 'open_consulta_habilidad':
+                // Abrir modal de consultas
+                this.openModalPublico('consultasModal');
+                break;
+                
+            // Acciones legacy (compatibilidad)
+            case 'open_modal_pagos':
+                if (typeof ModalPagos !== 'undefined') {
+                    ModalPagos.open();
+                }
+                break;
+                
+            default:
+                console.log('[AI FAB] Acción no reconocida:', action);
+        }
+    },
+    
+    /**
+     * Abre un modal público (para usuarios sin sesión)
+     * @param {string} modalId - ID del modal
+     * @param {number} tabIndex - Índice del tab a activar (opcional)
+     */
+    openModalPublico(modalId, tabIndex = null) {
+        // Intentar diferentes métodos de apertura
+        if (typeof openModal === 'function') {
+            openModal(modalId);
+        } else {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        // Activar tab específico si se indica
+        if (tabIndex !== null) {
+            setTimeout(() => {
+                const tabs = document.querySelectorAll(`#${modalId} .tab-btn, #${modalId} .modal-tab`);
+                if (tabs[tabIndex]) {
+                    tabs[tabIndex].click();
+                }
+            }, 100);
+        }
+    },
+    
+    /**
+     * Abre formulario de pago pre-llenado para usuario logueado
+     * @param {object} colegiado - Datos del colegiado con deuda
+     */
+    openPagoFormPrellenado(colegiado) {
+        console.log('[AI FAB] Abriendo formulario pre-llenado para:', colegiado.nombre);
+        
+        // Verificar si existe el modal de pago rápido, si no, crearlo
+        let modal = document.getElementById('modal-pago-rapido');
+        if (!modal) {
+            modal = this.crearModalPagoRapido();
+            document.body.appendChild(modal);
+        }
+        
+        // Llenar datos
+        this.llenarFormularioPago(colegiado);
+        
+        // Abrir modal
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    },
+    
+    /**
+     * Crea el modal de pago rápido para usuarios logueados
+     */
+    crearModalPagoRapido() {
+        const modal = document.createElement('div');
+        modal.id = 'modal-pago-rapido';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h2>💳 Registrar Pago</h2>
+                    <button class="modal-close" onclick="document.getElementById('modal-pago-rapido').classList.remove('active'); document.body.style.overflow = '';">×</button>
+                </div>
+                <div class="modal-body" id="pago-rapido-content">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        `;
+        
+        // Cerrar al hacer clic fuera
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+        
+        return modal;
+    },
+    
+    /**
+     * Llena el formulario de pago con datos del colegiado
+     */
+    llenarFormularioPago(colegiado) {
+        const container = document.getElementById('pago-rapido-content');
+        if (!container) return;
+        
+        const deuda = colegiado.deuda;
+        
+        container.innerHTML = `
+            <div style="background: var(--surface, #1a1a2e); border-radius: 12px; padding: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+                <div style="width: 45px; height: 45px; background: linear-gradient(135deg, var(--dorado, #d4af37), #b8962e); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 18px;">
+                    ${colegiado.nombre.charAt(0)}
+                </div>
+                <div>
+                    <p style="color: var(--texto-claro, #fff); font-weight: 600; margin: 0;">${colegiado.nombre}</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 4px 0 0 0;">Mat: ${colegiado.matricula} • DNI: ${colegiado.dni}</p>
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05)); border: 1px solid var(--dorado, #d4af37); border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center;">
+                <p style="color: var(--texto-gris, #888); font-size: 13px; margin: 0 0 5px 0;">Deuda pendiente (${deuda.cantidad_cuotas} cuota${deuda.cantidad_cuotas > 1 ? 's' : ''})</p>
+                <p style="color: var(--dorado, #d4af37); font-size: 32px; font-weight: 800; margin: 0;">S/ ${deuda.total.toFixed(2)}</p>
+                ${deuda.en_revision > 0 ? `<p style="color: #f59e0b; font-size: 12px; margin: 10px 0 0 0;">⏳ S/ ${deuda.en_revision.toFixed(2)} en revisión</p>` : ''}
+            </div>
+            
+            <form id="form-pago-rapido" onsubmit="window.AIFab.enviarPagoRapido(event)">
+                <input type="hidden" name="colegiado_id" value="${colegiado.id}">
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Monto a pagar (S/)</label>
+                    <input type="number" name="monto" id="pago-rapido-monto" step="0.01" required 
+                           value="${deuda.total.toFixed(2)}"
+                           style="width: 100%; background: var(--surface, #1a1a2e); border: 1px solid rgba(212,175,55,0.3); border-radius: 10px; padding: 12px 15px; color: var(--texto-claro, #fff); font-size: 20px; font-weight: 700; outline: none;">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Método de pago</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: block; background: var(--surface, #1a1a2e); border: 2px solid rgba(212,175,55,0.3); padding: 12px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s;">
+                            <input type="radio" name="metodo_pago" value="Yape" checked style="display: none;">
+                            <span style="color: var(--texto-claro, #fff); font-weight: 600;">📱 Yape / Plin</span>
+                        </label>
+                        <label style="display: block; background: var(--surface, #1a1a2e); border: 2px solid rgba(212,175,55,0.3); padding: 12px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s;">
+                            <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
+                            <span style="color: var(--texto-claro, #fff); font-weight: 600;">🏦 Transferencia</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Nº de Operación</label>
+                    <input type="text" name="numero_operacion" placeholder="Ej: 123456789"
+                           style="width: 100%; background: var(--surface, #1a1a2e); border: 1px solid rgba(212,175,55,0.3); border-radius: 10px; padding: 12px 15px; color: var(--texto-claro, #fff); font-family: monospace; letter-spacing: 2px; outline: none;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Voucher (opcional)</label>
+                    <input type="file" name="voucher" accept="image/*" 
+                           style="width: 100%; color: var(--texto-gris, #888); font-size: 14px;">
+                    <p style="color: var(--texto-gris, #888); font-size: 11px; margin-top: 5px;">Sube foto del voucher si no tienes el código</p>
+                </div>
+                
+                <div id="pago-rapido-resultado"></div>
+                
+                <button type="submit" id="btn-pago-rapido" 
+                        style="width: 100%; background: linear-gradient(135deg, var(--dorado, #d4af37), #b8962e); color: #000; border: none; padding: 15px; border-radius: 25px; font-weight: 700; font-size: 16px; cursor: pointer; transition: all 0.2s;">
+                    ✓ REGISTRAR PAGO
+                </button>
+            </form>
+        `;
+        
+        // Estilos para radio buttons seleccionados
+        const radios = container.querySelectorAll('input[type="radio"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                container.querySelectorAll('input[type="radio"]').forEach(r => {
+                    r.parentElement.style.borderColor = r.checked ? 'var(--dorado, #d4af37)' : 'rgba(212,175,55,0.3)';
+                    r.parentElement.style.background = r.checked ? 'rgba(212,175,55,0.1)' : 'var(--surface, #1a1a2e)';
+                });
+            });
+            // Trigger inicial
+            if (radio.checked) {
+                radio.parentElement.style.borderColor = 'var(--dorado, #d4af37)';
+                radio.parentElement.style.background = 'rgba(212,175,55,0.1)';
+            }
+        });
+    },
+    
+    /**
+     * Envía el pago desde el formulario rápido
+     */
+    async enviarPagoRapido(event) {
+        event.preventDefault();
+        
+        const form = document.getElementById('form-pago-rapido');
+        const formData = new FormData(form);
+        const resultadoDiv = document.getElementById('pago-rapido-resultado');
+        const btnSubmit = document.getElementById('btn-pago-rapido');
+        
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '⏳ Enviando...';
+        
+        try {
+            const response = await fetch('/pagos/registrar', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const html = await response.text();
+            
+            if (response.ok && !html.includes('error') && !html.includes('❌')) {
+                resultadoDiv.innerHTML = `
+                    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px;">
+                        ✅ ¡Pago registrado exitosamente!<br>
+                        <small style="color: var(--texto-gris, #888);">Será validado en las próximas horas.</small>
+                    </div>
+                `;
+                btnSubmit.innerHTML = '✓ REGISTRADO';
+                btnSubmit.style.background = '#22c55e';
+                
+                // Cerrar modal después de 2 segundos
+                setTimeout(() => {
+                    document.getElementById('modal-pago-rapido').classList.remove('active');
+                    document.body.style.overflow = '';
+                    // Refrescar datos si existe ModalPagos
+                    if (typeof ModalPagos !== 'undefined' && ModalPagos.refresh) {
+                        ModalPagos.refresh();
+                    }
+                }, 2000);
+            } else {
+                resultadoDiv.innerHTML = `
+                    <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                        ❌ Error al registrar pago. Intenta de nuevo.
+                    </div>
+                `;
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '✓ REGISTRAR PAGO';
+            }
+        } catch (error) {
+            console.error('[AI FAB] Error enviando pago:', error);
+            resultadoDiv.innerHTML = `
+                <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                    ❌ Error de conexión. Intenta de nuevo.
+                </div>
+            `;
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '✓ REGISTRAR PAGO';
         }
     },
     
