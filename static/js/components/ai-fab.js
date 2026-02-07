@@ -574,6 +574,7 @@ const AIFab = {
         this.llenarFormularioPago(colegiado);
         
         // Abrir modal
+        modal.style.display = 'flex';
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     },
@@ -585,27 +586,42 @@ const AIFab = {
         const modal = document.createElement('div');
         modal.id = 'modal-pago-rapido';
         modal.className = 'modal-overlay';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
         modal.innerHTML = `
-            <div class="modal-container" style="max-width: 480px;">
-                <div class="modal-header">
-                    <h2>💳 Registrar Pago</h2>
-                    <button class="modal-close" onclick="document.getElementById('modal-pago-rapido').classList.remove('active'); document.body.style.overflow = '';">×</button>
+            <div class="modal-container" style="background:var(--surface,#1a1a2e);border-radius:16px;max-width:420px;width:90%;max-height:90vh;overflow-y:auto;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <h2 style="color:var(--texto-claro,#fff);margin:0;font-size:18px;">💳 Registrar Pago</h2>
+                    <button id="btn-cerrar-pago-rapido" style="background:none;border:none;color:var(--texto-gris,#888);font-size:24px;cursor:pointer;padding:0;line-height:1;">×</button>
                 </div>
-                <div class="modal-body" id="pago-rapido-content">
-                    <!-- Se llena dinámicamente -->
-                </div>
+                <div class="modal-body" id="pago-rapido-content" style="padding:20px;"></div>
             </div>
         `;
         
+        // Cerrar con X
+        modal.querySelector('#btn-cerrar-pago-rapido').onclick = () => this.cerrarModalPagoRapido();
+        
         // Cerrar al hacer clic fuera
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
+        modal.onclick = (e) => {
+            if (e.target === modal) this.cerrarModalPagoRapido();
+        };
+        
+        // Cerrar con ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                this.cerrarModalPagoRapido();
             }
         });
         
         return modal;
+    },
+
+    cerrarModalPagoRapido() {
+        const modal = document.getElementById('modal-pago-rapido');
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
     },
     
     /**
