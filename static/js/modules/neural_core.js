@@ -168,20 +168,24 @@ if (typeof NeuralCore === 'undefined') {
             switch(action) {
                 case 'open_pago_form':
                     if (colegiado && colegiado.deuda && colegiado.deuda.total > 0) {
-                        // Con sesión → Cargar formulario pre-llenado
-                        const params = new URLSearchParams({
-                            colegiado_id: colegiado.id,
-                            nombre: colegiado.nombre,
-                            monto: colegiado.deuda.total
-                        }).toString();
-                        this.loadServerUI(`/finance/payment/form?${params}`);
+                        // Usar el modal del FAB si existe
+                        if (typeof AIFab !== 'undefined' && AIFab.openPagoFormPrellenado) {
+                            AIFab.openPagoFormPrellenado(colegiado);
+                        } else {
+                            // Fallback: cargar del servidor
+                            const params = new URLSearchParams({
+                                colegiado_id: colegiado.id,
+                                nombre: colegiado.nombre,
+                                monto: colegiado.deuda.total
+                            }).toString();
+                            this.loadServerUI(`/finance/payment/form?${params}`);
+                        }
                     } else {
                         // Sin sesión → Modal público
                         const modal = document.getElementById('reactivacionModal');
                         if (modal) {
                             if (typeof openModal === 'function') openModal(modal);
                             else modal.classList.add('active');
-                            // Activar tab Pagar
                             setTimeout(() => {
                                 const tabs = modal.querySelectorAll('.tab-btn, .modal-tab');
                                 if (tabs[2]) tabs[2].click();
