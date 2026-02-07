@@ -479,7 +479,7 @@ const AIFab = {
         
         switch(action) {
             case 'open_pago_form':
-                if (colegiado && colegiado.deuda && colegiado.deuda.total > 0) {
+                if (colegiado && colegiado.deuda && (colegiado.deuda.total > 0 || colegiado.deuda.deuda_total > 0)) {
                     // Con sesión válida y tiene deuda → Modal pre-llenado
                     this.openPagoFormPrellenado(colegiado);
                 } else {
@@ -646,7 +646,7 @@ const AIFab = {
             
             <div style="background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05)); border: 1px solid var(--dorado, #d4af37); border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center;">
                 <p style="color: var(--texto-gris, #888); font-size: 13px; margin: 0 0 5px 0;">Deuda pendiente (${deuda.cantidad_cuotas} cuota${deuda.cantidad_cuotas > 1 ? 's' : ''})</p>
-                <p style="color: var(--dorado, #d4af37); font-size: 32px; font-weight: 800; margin: 0;">S/ ${deuda.total.toFixed(2)}</p>
+                <p style="color: var(--dorado, #d4af37); font-size: 32px; font-weight: 800; margin: 0;">S/ ${(deuda.deuda_total || deuda.total || 0).toFixed(2)}</p>
                 ${deuda.en_revision > 0 ? `<p style="color: #f59e0b; font-size: 12px; margin: 10px 0 0 0;">⏳ S/ ${deuda.en_revision.toFixed(2)} en revisión</p>` : ''}
             </div>
             
@@ -656,7 +656,7 @@ const AIFab = {
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Monto a pagar (S/)</label>
                     <input type="number" name="monto" id="pago-rapido-monto" step="0.01" required 
-                           value="${deuda.total.toFixed(2)}"
+                           value="${(deuda.deuda_total || deuda.total || 0).toFixed(2)}"
                            style="width: 100%; background: var(--surface, #1a1a2e); border: 1px solid rgba(212,175,55,0.3); border-radius: 10px; padding: 12px 15px; color: var(--texto-claro, #fff); font-size: 20px; font-weight: 700; outline: none;">
                 </div>
                 
