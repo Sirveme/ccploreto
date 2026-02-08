@@ -15,6 +15,7 @@ from reportlab.lib.units import mm, cm
 from reportlab.lib.colors import Color, black, white, HexColor
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -284,7 +285,7 @@ class CertificadoHabilidad:
         # QR Code (derecha)
         qr_buffer = self._generar_qr()
         c.drawImage(
-            qr_buffer,
+            ImageReader(qr_buffer),
             width - 130,
             y_pie - 20,
             width=70,
