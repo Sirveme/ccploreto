@@ -531,6 +531,8 @@ class Colegiado(Base):
     organization = relationship("Organization")
     member = relationship("Member", foreign_keys=[member_id])
 
+    certificados = relationship("CertificadoEmitido", back_populates="colegiado")
+
     @property
     def es_habil(self):
         return self.condicion in ('habil', 'vitalicio')
