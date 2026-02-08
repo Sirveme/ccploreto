@@ -148,6 +148,10 @@ async def registrar_pago(
     pagador_documento: str = Form(None),
     notas: str = Form(None),
     voucher: UploadFile = File(None),
+    tipo_comprobante: str = Form("recibo"),       # ← NUEVO
+    ruc_factura: str = Form(None),                 # ← NUEVO
+    razon_social: str = Form(None),                # ← NUEVO
+    requiere_certificado: str = Form(None),        # ← NUEVO
     db: Session = Depends(get_db)
 ):
     """Registra un pago de colegiado (sin login)."""
@@ -269,25 +273,57 @@ async def registrar_pago(
         
         db.flush()
         
-        try:
-            certificado_info = emitir_certificado_automatico(
-                db=db,
-                colegiado_id=colegiado_id,
-                payment_id=nuevo_pago.id,
-                ip_origen=request.client.host if request.client else None
-            )
-        except Exception as e:
-            print(f"⚠️ Error emitiendo certificado automático: {e}")
-
-        # Emitir comprobante electrónico (boleta/factura)
+        # ============================================
+        # CERTIFICADO: Solo si lo solicitó
+        # ============================================
+        certificado_info = None
+        if requiere_certificado == "1":
+            try:
+                certificado_info = emitir_certificado_automatico(
+                    db=db,
+                    colegiado_id=colegiado_id,
+                    payment_id=nuevo_pago.id,
+                    ip_origen=request.client.host if request.client else None
+                )
+            except Exception as e:
+                print(f"⚠️ Error emitiendo certificado automático: {e}")
+        
+        # ============================================
+        # COMPROBANTE: Según tipo seleccionado
+        # ============================================
         comprobante_info = None
-        try:
-            from app.services.facturacion import emitir_comprobante_automatico
-            comprobante_info = await emitir_comprobante_automatico(db, nuevo_pago.id)
-            if comprobante_info.get("success"):
-                print(f"✅ Comprobante emitido: {comprobante_info.get('pdf_url')}")
-        except Exception as e:
-            print(f"⚠️ Error emitiendo comprobante: {e}")
+        if tipo_comprobante in ["boleta", "factura"]:
+            try:
+                from app.services.facturacion import FacturacionService
+                service = FacturacionService(db, org["id"])
+                
+                if service.esta_configurado():
+                    tipo_doc = "01" if tipo_comprobante == "factura" else "03"
+                    
+                    # Si es factura, forzar datos de empresa
+                    forzar_datos = None
+                    if tipo_comprobante == "factura" and ruc_factura:
+                        forzar_datos = {
+                            "tipo_doc": "6",  # RUC
+                            "num_doc": ruc_factura,
+                            "nombre": razon_social or "CLIENTE",
+                            "direccion": None,
+                            "email": None
+                        }
+                    
+                    resultado = await service.emitir_comprobante_por_pago(
+                        nuevo_pago.id, 
+                        tipo=tipo_doc,
+                        forzar_datos_cliente=forzar_datos
+                    )
+                    
+                    if resultado.get("success"):
+                        comprobante_info = resultado
+                        print(f"✅ Comprobante emitido: {resultado.get('pdf_url')}")
+                    else:
+                        print(f"⚠️ Error comprobante: {resultado.get('error')}")
+            except Exception as e:
+                print(f"⚠️ Error emitiendo comprobante: {e}")
 
     
     db.commit()
@@ -303,64 +339,92 @@ async def registrar_pago(
     except:
         pass
     
-    # Respuesta según modo
-    if certificado_auto and certificado_info and certificado_info.get("emitido"):
-        codigo = certificado_info["codigo"]
-        vigencia = certificado_info["vigencia_hasta"]
-        return HTMLResponse(f'''
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <svg width="30" height="30" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                </div>
-                <h3 style="color: #22c55e; font-size: 18px; font-weight: 700; margin-bottom: 8px;">¡Pago Aprobado!</h3>
-                <p style="color: var(--texto-gris); font-size: 14px; margin-bottom: 5px;">
-                    Certificado <span style="color: var(--dorado); font-weight: 600;">{codigo}</span> emitido.
-                </p>
-                <p style="color: var(--texto-gris); font-size: 12px; margin-bottom: 15px;">
-                    Vigente hasta: {vigencia}
-                </p>
-                <a href="/api/certificados/descargar/{codigo}" target="_blank"
-                   style="display: inline-block; background: linear-gradient(135deg, var(--dorado), var(--dorado-claro)); color: var(--oscuro); padding: 12px 25px; border-radius: 25px; font-weight: 700; text-decoration: none;">
-                    📄 DESCARGAR CERTIFICADO
-                </a>
-            </div>
-        ''')
+    # ============================================
+    # RESPUESTAS SEGÚN MODO
+    # ============================================
     
-    if certificado_auto and certificado_info and not certificado_info.get("emitido"):
-        # Modo auto pero no se pudo emitir (ej: sigue inhábil)
+    if certificado_auto:
+        # Construir respuesta con documentos generados
+        docs_html = ""
+        
+        # Certificado
+        if certificado_info and certificado_info.get("emitido"):
+            codigo = certificado_info["codigo"]
+            vigencia = certificado_info["vigencia_hasta"]
+            docs_html += f'''
+                <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                    <p style="color: #22c55e; font-weight: 600; margin: 0 0 5px 0;">📜 Certificado de Habilidad</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">Código: {codigo}</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">Vigente hasta: {vigencia}</p>
+                    <a href="/api/certificados/descargar/{codigo}" target="_blank"
+                       style="display: inline-block; background: #22c55e; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                        📥 DESCARGAR PDF
+                    </a>
+                </div>
+            '''
+        elif requiere_certificado == "1":
+            docs_html += f'''
+                <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                    <p style="color: #eab308; font-weight: 600; margin: 0 0 5px 0;">⚠️ Certificado no emitido</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">
+                        {certificado_info.get("error", "Aún tienes deuda pendiente") if certificado_info else "Debes estar al día para obtener certificado"}
+                    </p>
+                </div>
+            '''
+        
+        # Comprobante
+        if comprobante_info and comprobante_info.get("success"):
+            tipo_nombre = "Factura" if tipo_comprobante == "factura" else "Boleta"
+            pdf_url = comprobante_info.get("pdf_url", "")
+            docs_html += f'''
+                <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                    <p style="color: #3b82f6; font-weight: 600; margin: 0 0 5px 0;">📄 {tipo_nombre} Electrónica</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">
+                        {comprobante_info.get("serie", "")}-{comprobante_info.get("numero", "")}
+                    </p>
+                    {f'<a href="{pdf_url}" target="_blank" style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">📥 DESCARGAR PDF</a>' if pdf_url else ''}
+                </div>
+            '''
+        elif tipo_comprobante == "recibo":
+            docs_html += f'''
+                <div style="background: rgba(107,114,128,0.1); border: 1px solid rgba(107,114,128,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                    <p style="color: var(--texto-gris, #888); font-weight: 600; margin: 0 0 5px 0;">🧾 Recibo Interno</p>
+                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">
+                        Se emitirá recibo de pago interno.
+                    </p>
+                </div>
+            '''
+        
         return HTMLResponse(f'''
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(234, 179, 8, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <svg width="30" height="30" fill="none" stroke="#eab308" viewBox="0 0 24 24">
+            <div style="text-align: center; padding: 15px 0;">
+                <div style="width: 50px; height: 50px; margin: 0 auto 12px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg width="25" height="25" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
                     </svg>
                 </div>
-                <h3 style="color: #eab308; font-size: 18px; font-weight: 700; margin-bottom: 8px;">Pago Aprobado</h3>
-                <p style="color: var(--texto-gris); font-size: 14px; margin-bottom: 5px;">
-                    Tu pago de <span style="color: #22c55e; font-weight: 600;">S/ {monto:.2f}</span> fue procesado.
+                <h3 style="color: #22c55e; font-size: 16px; font-weight: 700; margin-bottom: 5px;">¡Pago Aprobado!</h3>
+                <p style="color: var(--texto-gris, #888); font-size: 13px; margin-bottom: 15px;">
+                    S/ {monto:.2f} procesado correctamente
                 </p>
-                <p style="color: var(--texto-gris); font-size: 12px; opacity: 0.7;">
-                    {certificado_info.get("error", "El certificado se emitirá cuando se complete el pago total.")}
-                </p>
+                {docs_html}
             </div>
         ''')
     
     # Modo con validación manual (default)
     return HTMLResponse(f'''
-        <div style="text-align: center; padding: 20px 0;">
-            <div style="width: 60px; height: 60px; margin: 0 auto 15px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <svg width="30" height="30" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+        <div style="text-align: center; padding: 15px 0;">
+            <div style="width: 50px; height: 50px; margin: 0 auto 12px; background: rgba(234, 179, 8, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <svg width="25" height="25" fill="none" stroke="#eab308" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
             </div>
-            <h3 style="color: #22c55e; font-size: 18px; font-weight: 700; margin-bottom: 8px;">¡Pago Registrado!</h3>
-            <p style="color: var(--texto-gris); font-size: 14px; margin-bottom: 5px;">
-                Tu pago de <span style="color: #22c55e; font-weight: 600;">S/ {monto:.2f}</span> está en revisión.
+            <h3 style="color: #eab308; font-size: 16px; font-weight: 700; margin-bottom: 5px;">Pago en Revisión</h3>
+            <p style="color: var(--texto-gris, #888); font-size: 13px;">
+                Tu pago de S/ {monto:.2f} será validado en las próximas horas.
             </p>
-            <p style="color: var(--texto-gris); font-size: 12px; opacity: 0.7;">
-                Recibirás confirmación en las próximas horas hábiles.
+            <p style="color: var(--texto-gris, #888); font-size: 11px; margin-top: 10px; opacity: 0.7;">
+                {f"Solicitaste: {tipo_comprobante.capitalize()}" if tipo_comprobante != "recibo" else ""}
+                {" + Certificado" if requiere_certificado == "1" else ""}
             </p>
         </div>
     ''')
