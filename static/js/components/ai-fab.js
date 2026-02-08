@@ -674,15 +674,19 @@ const AIFab = {
                     </div>
                 </div>
                 
-                <!-- Método de pago compacto -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.05); border: 2px solid var(--dorado); padding: 8px; border-radius: 8px; cursor: pointer;">
-                        <input type="radio" name="metodo_pago" value="Yape/Plin" checked style="display: none;">
-                        <span style="color: #fff; font-size: 12px; font-weight: 600;">📱 Yape/Plin</span>
+                <!-- Método de pago -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px;">
+                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid var(--dorado); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="metodo_pago" value="Yape" checked style="display: none;">
+                        <span style="color: #fff; font-size: 11px; font-weight: 600;">💜 Yape</span>
                     </label>
-                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px; border-radius: 8px; cursor: pointer;">
+                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="metodo_pago" value="Plin" style="display: none;">
+                        <span style="color: #fff; font-size: 11px; font-weight: 600;">💚 Plin</span>
+                    </label>
+                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
                         <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
-                        <span style="color: #fff; font-size: 12px; font-weight: 600;">🏦 Transferencia</span>
+                        <span style="color: #fff; font-size: 11px; font-weight: 600;">🏦 Transf.</span>
                     </label>
                 </div>
                 
@@ -771,6 +775,14 @@ const AIFab = {
             });
         });
     },
+
+    cerrarModal() {
+        const modal = document.getElementById('modal-pago-rapido');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    },
     
     /**
      * Envía el pago desde el formulario rápido
@@ -795,9 +807,13 @@ const AIFab = {
             const html = await response.text();
             
             if (response.ok && !html.includes('❌')) {
-                // ÉXITO: Reemplazar todo el contenido del modal con el resultado
                 const container = document.getElementById('pago-rapido-content');
                 container.innerHTML = html;
+                
+                // Refrescar datos de MIS PAGOS si está abierto
+                if (typeof ModalPagos !== 'undefined' && ModalPagos.cargarDatos) {
+                    setTimeout(() => ModalPagos.cargarDatos(), 500);
+                }
             } else {
                 resultadoDiv.innerHTML = html;
                 btnSubmit.disabled = false;
