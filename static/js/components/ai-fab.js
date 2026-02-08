@@ -652,7 +652,7 @@ const AIFab = {
             </div>
             
             <div style="background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05)); border: 1px solid var(--dorado, #d4af37); border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center;">
-                <p style="color: var(--texto-gris, #888); font-size: 13px; margin: 0 0 5px 0;">Deuda pendiente (${deuda.cantidad_cuotas} cuota${deuda.cantidad_cuotas > 1 ? 's' : ''})</p>
+                <p class="subtexto">Deuda pendiente (${deuda.cantidad_cuotas || '?'} cuota${(deuda.cantidad_cuotas || 0) > 1 ? 's' : ''})</p>
                 <p style="color: var(--dorado, #d4af37); font-size: 32px; font-weight: 800; margin: 0;">S/ ${(deuda.deuda_total || deuda.total || 0).toFixed(2)}</p>
                 ${deuda.en_revision > 0 ? `<p style="color: #f59e0b; font-size: 12px; margin: 10px 0 0 0;">⏳ S/ ${deuda.en_revision.toFixed(2)} en revisión</p>` : ''}
             </div>
@@ -743,12 +743,8 @@ const AIFab = {
             const html = await response.text();
             
             if (response.ok && !html.includes('error') && !html.includes('❌')) {
-                resultadoDiv.innerHTML = `
-                    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px;">
-                        ✅ ¡Pago registrado exitosamente!<br>
-                        <small style="color: var(--texto-gris, #888);">Será validado en las próximas horas.</small>
-                    </div>
-                `;
+                // Mostrar la respuesta del servidor directamente (ya viene formateada)
+                resultadoDiv.innerHTML = html;
                 btnSubmit.innerHTML = '✓ REGISTRADO';
                 btnSubmit.style.background = '#22c55e';
                 
