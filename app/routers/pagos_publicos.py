@@ -1174,6 +1174,7 @@ async def descargar_comprobante_pdf(
 ):
     """Proxy para descargar PDF de comprobante desde facturalo.pro"""
     import httpx
+    from fastapi.responses import Response
     
     org = request.state.org
     if not org:
@@ -1190,16 +1191,15 @@ async def descargar_comprobante_pdf(
     ).fetchone()
     
     if not config:
-        raise HTTPException(status_code=404, detail="Configuración de facturación no encontrada")
+        raise HTTPException(status_code=404, detail="Configuración no encontrada")
     
-    # Descargar PDF
+    if not config.facturalo_token or not config.facturalo_secret:
+        raise HTTPException(status_code=400, detail="Credenciales facturalo.pro no configuradas")
+    
     url = f"https://facturalo.pro/api/v1/comprobantes/{comprobante_id}/pdf"
     
-    print(f"🔍 Descargando PDF: {url}")
-    print(f"🔑 Token: {config.facturalo_token[:10]}...")
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(
             url,
             headers={
                 "x-api-key": config.facturalo_token,
@@ -1207,22 +1207,18 @@ async def descargar_comprobante_pdf(
             }
         )
         
-        print(f"📥 Status: {response.status_code}")
-        print(f"📥 Content-Type: {response.headers.get('content-type', 'N/A')}")
+        if resp.status_code != 200:
+            print(f"❌ Facturalo error {resp.status_code}: {resp.text[:300]}")
+            raise HTTPException(status_code=resp.status_code, detail="Error al obtener PDF")
         
-        # Verificar si es PDF válido
-        content_type = response.headers.get('content-type', '')
+        # Verificar que sea PDF (empieza con %PDF)
+        content = resp.content
+        if not content[:4] == b'%PDF':
+            print(f"⚠️ No es PDF válido, primeros bytes: {content[:50]}")
+            raise HTTPException(status_code=400, detail="El archivo no es un PDF válido")
         
-        if response.status_code != 200:
-            print(f"❌ Error: {response.text[:500]}")
-            raise HTTPException(status_code=response.status_code, detail=f"Error facturalo.pro: {response.text[:200]}")
-        
-        if 'application/pdf' not in content_type and 'application/octet-stream' not in content_type:
-            print(f"⚠️ No es PDF, contenido: {response.text[:500]}")
-            raise HTTPException(status_code=400, detail=f"Respuesta no es PDF: {content_type}")
-        
-        return StreamingResponse(
-            io.BytesIO(response.content),
+        return Response(
+            content=content,
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f"attachment; filename=Boleta_{comprobante_id[:8]}.pdf"
