@@ -784,7 +784,7 @@ const AIFab = {
         const btnSubmit = document.getElementById('btn-pago-rapido');
         
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '⏳ Enviando...';
+        btnSubmit.innerHTML = '⏳ Procesando...';
         
         try {
             const response = await fetch('/pagos/registrar', {
@@ -794,35 +794,19 @@ const AIFab = {
             
             const html = await response.text();
             
-            if (response.ok && !html.includes('error') && !html.includes('❌')) {
-                // Mostrar la respuesta del servidor directamente (ya viene formateada)
-                resultadoDiv.innerHTML = html;
-                btnSubmit.style.display = 'none'; // Ocultar botón después de éxito
-                btnSubmit.innerHTML = '✓ REGISTRADO';
-                btnSubmit.style.background = '#22c55e';
-                
-                // Cerrar modal después de 2 segundos
-                setTimeout(() => {
-                    document.getElementById('modal-pago-rapido').classList.remove('active');
-                    document.body.style.overflow = '';
-                    // Refrescar datos si existe ModalPagos
-                    if (typeof ModalPagos !== 'undefined' && ModalPagos.refresh) {
-                        ModalPagos.refresh();
-                    }
-                }, 2000);
+            if (response.ok && !html.includes('❌')) {
+                // ÉXITO: Reemplazar todo el contenido del modal con el resultado
+                const container = document.getElementById('pago-rapido-content');
+                container.innerHTML = html;
             } else {
-                resultadoDiv.innerHTML = `
-                    <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-                        ❌ Error al registrar pago. Intenta de nuevo.
-                    </div>
-                `;
+                resultadoDiv.innerHTML = html;
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '✓ REGISTRAR PAGO';
             }
         } catch (error) {
-            console.error('[AI FAB] Error enviando pago:', error);
+            console.error('[AI FAB] Error:', error);
             resultadoDiv.innerHTML = `
-                <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 10px; border-radius: 8px; font-size: 12px;">
                     ❌ Error de conexión. Intenta de nuevo.
                 </div>
             `;
