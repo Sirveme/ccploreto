@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 import enum
 from sqlalchemy.dialects.postgresql import JSONB
+from datetime import datetime
 
 # --- ENUMS (Para restringir valores y evitar errores) ---
 class MemberRole(str, enum.Enum):
@@ -533,3 +534,132 @@ class Colegiado(Base):
     @property
     def es_habil(self):
         return self.condicion in ('habil', 'vitalicio')
+
+
+class CertificadoEmitido(Base):
+    """Certificados de Habilitación Digital emitidos"""
+    
+    __tablename__ = "certificados_emitidos"
+    
+    id = Column(Integer, primary_key=True)
+    
+    # Código de verificación único (YYYY-NNNNNNN)
+    codigo_verificacion = Column(String(20), unique=True, nullable=False, index=True)
+    
+    # Colegiado
+    colegiado_id = Column(Integer, ForeignKey("colegiados.id"), nullable=False)
+    
+    # Snapshot de datos al momento de emisión
+    nombres = Column(String(200), nullable=False)
+    apellidos = Column(String(200), nullable=False)
+    matricula = Column(String(20), nullable=False)
+    
+    # Vigencia
+    fecha_emision = Column(DateTime(timezone=True), server_default=func.now())
+    fecha_vigencia_hasta = Column(Date, nullable=False)
+    en_fraccionamiento = Column(Boolean, default=False)
+    
+    # Pago que habilitó este certificado
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)
+    
+    # Estado: vigente, vencido, anulado
+    estado = Column(String(20), default="vigente")
+    
+    # Auditoría
+    emitido_por = Column(Integer, ForeignKey("members.id"), nullable=True)
+    ip_emision = Column(String(45), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    colegiado = relationship("Colegiado", back_populates="certificados")
+    payment = relationship("Payment", foreign_keys=[payment_id])
+    emitido_por_member = relationship("Member", foreign_keys=[emitido_por])
+    
+    @property
+    def nombre_completo(self) -> str:
+        return f"CPC. {self.nombres} {self.apellidos}"
+    
+    @property
+    def esta_vigente(self) -> bool:
+        from datetime import date
+        return self.estado == "vigente" and self.fecha_vigencia_hasta >= date.today()
+    
+    @property
+    def estado_actual(self) -> str:
+        from datetime import date
+        if self.estado == "anulado":
+            return "ANULADO"
+        elif self.fecha_vigencia_hasta < date.today():
+            return "VENCIDO"
+        return "VIGENTE"
+
+
+
+# Al final de app/models.py agregar:
+
+class ConfiguracionFacturacion(Base):
+    __tablename__ = "configuracion_facturacion"
+    
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    ruc = Column(String(11))
+    razon_social = Column(String(255))
+    nombre_comercial = Column(String(255))
+    direccion = Column(String(500))
+    ubigeo = Column(String(6))
+    serie_boleta = Column(String(10), default="B001")
+    serie_factura = Column(String(10), default="F001")
+    ultimo_numero_boleta = Column(Integer, default=0)
+    ultimo_numero_factura = Column(Integer, default=0)
+    facturalo_url = Column(String(255))
+    facturalo_token = Column(String(255))
+    facturalo_secret = Column(String(255))
+    facturalo_empresa_id = Column(String(50))
+    tipo_afectacion_igv = Column(String(2), default="20")  # 20=Exonerado
+    porcentaje_igv = Column(Integer, default=0)
+    emitir_automatico = Column(Boolean, default=False)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relación
+    organization = relationship("Organization")
+
+
+class Comprobante(Base):
+    __tablename__ = "comprobantes"
+    
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    payment_id = Column(Integer, ForeignKey("payments.id"))
+    tipo = Column(String(2))  # 01=Factura, 03=Boleta
+    serie = Column(String(10))
+    numero = Column(Integer)
+    fecha_emision = Column(DateTime(timezone=True), server_default=func.now())
+    fecha_vencimiento = Column(DateTime(timezone=True), nullable=True)
+    moneda = Column(String(3), default="PEN")
+    subtotal = Column(Numeric(12, 2))
+    igv = Column(Numeric(12, 2), default=0)
+    total = Column(Numeric(12, 2))
+    cliente_tipo_doc = Column(String(1))
+    cliente_num_doc = Column(String(15))
+    cliente_nombre = Column(String(255))
+    cliente_direccion = Column(String(500))
+    cliente_email = Column(String(255))
+    items = Column(JSON)
+    status = Column(String(20), default="pending")
+    facturalo_id = Column(String(100))
+    facturalo_response = Column(JSON)
+    sunat_response_code = Column(String(10))
+    sunat_response_description = Column(Text)
+    sunat_hash = Column(String(100))
+    pdf_url = Column(String(500))
+    xml_url = Column(String(500))
+    cdr_url = Column(String(500))
+    observaciones = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relaciones
+    payment = relationship("Payment", backref="comprobante")
+    organization = relationship("Organization")
