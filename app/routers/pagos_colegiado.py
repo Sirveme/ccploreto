@@ -79,6 +79,12 @@ async def mis_pagos(request: Request, db: Session = Depends(get_db)):
         Debt.colegiado_id == colegiado.id,
         Debt.status.in_(['pending', 'partial'])
     ).scalar() or 0
+
+    # Cantidad CUotas Pendientes (para mostrar en el frontend, no es un campo obligatorio)
+    cantidad_cuotas = db.query(func.count(Debt.id)).filter(
+        Debt.colegiado_id == colegiado.id,
+        Debt.status.in_(['pending', 'partial'])
+    ).scalar() or 0
     
     total_pagado = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
         Payment.colegiado_id == colegiado.id,
@@ -126,7 +132,8 @@ async def mis_pagos(request: Request, db: Session = Depends(get_db)):
         "resumen": {
             "deuda_total": float(deuda_total),
             "total_pagado": float(total_pagado),
-            "en_revision": float(en_revision)
+            "en_revision": float(en_revision),
+            "cantidad_cuotas": cantidad_cuotas
         },
         "pagos": pagos,
         "deudas": deudas,
