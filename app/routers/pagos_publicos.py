@@ -1182,7 +1182,7 @@ async def descargar_comprobante_pdf(
     # Obtener credenciales
     config = db.execute(
         text("""
-            SELECT api_key, api_secret 
+            SELECT facturalo_token, facturalo_secret 
             FROM configuracion_facturacion 
             WHERE organization_id = :org_id AND activo = true
         """),
@@ -1192,15 +1192,15 @@ async def descargar_comprobante_pdf(
     if not config:
         raise HTTPException(status_code=404, detail="Configuración de facturación no encontrada")
     
-    # Descargar PDF de facturalo.pro
+    # Descargar PDF
     url = f"https://facturalo.pro/api/v1/comprobantes/{comprobante_id}/pdf"
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url,
             headers={
-                "x-api-key": config.api_key,
-                "x-api-secret": config.api_secret
+                "x-api-key": config.facturalo_token,
+                "x-api-secret": config.facturalo_secret
             }
         )
         
