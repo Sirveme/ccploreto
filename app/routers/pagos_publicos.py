@@ -1195,6 +1195,9 @@ async def descargar_comprobante_pdf(
     # Descargar PDF
     url = f"https://facturalo.pro/api/v1/comprobantes/{comprobante_id}/pdf"
     
+    print(f"🔍 Descargando PDF: {url}")
+    print(f"🔑 Token: {config.facturalo_token[:10]}...")
+    
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url,
@@ -1204,13 +1207,24 @@ async def descargar_comprobante_pdf(
             }
         )
         
+        print(f"📥 Status: {response.status_code}")
+        print(f"📥 Content-Type: {response.headers.get('content-type', 'N/A')}")
+        
+        # Verificar si es PDF válido
+        content_type = response.headers.get('content-type', '')
+        
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Error al obtener PDF")
+            print(f"❌ Error: {response.text[:500]}")
+            raise HTTPException(status_code=response.status_code, detail=f"Error facturalo.pro: {response.text[:200]}")
+        
+        if 'application/pdf' not in content_type and 'application/octet-stream' not in content_type:
+            print(f"⚠️ No es PDF, contenido: {response.text[:500]}")
+            raise HTTPException(status_code=400, detail=f"Respuesta no es PDF: {content_type}")
         
         return StreamingResponse(
             io.BytesIO(response.content),
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=comprobante_{comprobante_id}.pdf"
+                "Content-Disposition": f"attachment; filename=Boleta_{comprobante_id[:8]}.pdf"
             }
         )
