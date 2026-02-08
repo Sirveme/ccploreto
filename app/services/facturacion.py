@@ -228,31 +228,16 @@ class FacturacionService:
         
         return items
     
+    # REEMPLAZAR el método _enviar_a_facturalo() en app/services/facturacion.py
+
     async def _enviar_a_facturalo(self, comprobante: Comprobante) -> Dict:
         """
         Envía el comprobante a facturalo.pro
-        
-        Estructura esperada por facturalo.pro (a confirmar cuando esté la API):
-        POST /api/v1/documents
-        {
-            "serie": "B001",
-            "numero": 1,
-            "tipo_documento": "03",
-            "fecha_emision": "2025-02-07",
-            "cliente": {...},
-            "items": [...],
-            "totales": {...}
-        }
         """
         
-        # Construir payload para facturalo.pro
+        # Construir payload según especificación facturalo.pro
         payload = {
-            "tipo_documento": comprobante.tipo,
-            "serie": comprobante.serie,
-            "numero": comprobante.numero,
-            "fecha_emision": comprobante.fecha_emision.strftime("%Y-%m-%d"),
-            "moneda": comprobante.moneda,
-            
+            "tipo_comprobante": comprobante.tipo,  # '03' boleta, '01' factura
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
@@ -260,46 +245,50 @@ class FacturacionService:
                 "direccion": comprobante.cliente_direccion,
                 "email": comprobante.cliente_email
             },
-            
-            "items": comprobante.items,
-            
-            "totales": {
-                "subtotal": comprobante.subtotal,
-                "igv": comprobante.igv,
-                "total": comprobante.total
-            }
+            "items": [{
+                "descripcion": item.get("descripcion", "Cuotas de colegiatura"),
+                "cantidad": item.get("cantidad", 1),
+                "unidad_medida": "ZZ",
+                "precio_unitario": item.get("precio_unitario", comprobante.total),
+                "tipo_afectacion_igv": self.config.tipo_afectacion_igv  # '20' exonerado
+            } for item in (comprobante.items or [{"descripcion": "Cuotas de colegiatura", "precio_unitario": comprobante.total}])],
+            "enviar_email": bool(comprobante.cliente_email),
+            "referencia_externa": f"PAGO-{comprobante.payment_id}"
         }
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.config.facturalo_url}/documents",
+                    f"{self.config.facturalo_url}/comprobantes",  # Endpoint correcto
                     json=payload,
                     headers={
-                        "Authorization": f"Bearer {self.config.facturalo_token}",
                         "Content-Type": "application/json",
-                        "X-Empresa-ID": self.config.facturalo_empresa_id
+                        "X-API-Key": self.config.facturalo_token,
+                        "X-API-Secret": self.config.facturalo_secret  # Nuevo campo
                     }
                 )
                 
                 data = response.json()
                 
-                if response.status_code == 200 or response.status_code == 201:
+                if response.status_code in [200, 201] and data.get("exito"):
+                    comp_data = data.get("comprobante", {})
+                    archivos = data.get("archivos", {})
                     return {
                         "success": True,
-                        "facturalo_id": data.get("id"),
+                        "facturalo_id": comp_data.get("id"),
                         "response": data,
-                        "sunat_code": data.get("sunat_response", {}).get("code", "0"),
-                        "sunat_description": data.get("sunat_response", {}).get("description"),
-                        "hash": data.get("hash"),
-                        "pdf_url": data.get("links", {}).get("pdf"),
-                        "xml_url": data.get("links", {}).get("xml"),
-                        "cdr_url": data.get("links", {}).get("cdr")
+                        "sunat_code": comp_data.get("codigo_sunat", "0"),
+                        "sunat_description": comp_data.get("mensaje_sunat"),
+                        "hash": comp_data.get("hash_cpe"),
+                        "pdf_url": archivos.get("pdf_url"),
+                        "xml_url": archivos.get("xml_url"),
+                        "cdr_url": archivos.get("cdr_url"),
+                        "numero_formato": comp_data.get("numero_formato")
                     }
                 else:
                     return {
                         "success": False,
-                        "error": data.get("message", "Error desconocido"),
+                        "error": data.get("mensaje", data.get("error", "Error desconocido")),
                         "response": data
                     }
                     
