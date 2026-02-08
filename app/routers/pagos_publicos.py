@@ -20,6 +20,9 @@ from app.models import Colegiado, Debt, Payment, Organization
 from app.routers.ws import manager
 from app.services.emitir_certificado_service import emitir_certificado_automatico
 
+import io
+from fastapi.responses import StreamingResponse
+
 router = APIRouter(prefix="/pagos", tags=["Pagos Públicos"])
 
 
@@ -372,19 +375,24 @@ async def registrar_pago(
                 </div>
             '''
         
+        comprobante_uuid = comprobante_info.get("external_id", "")
         # Comprobante
         if comprobante_info and comprobante_info.get("success"):
             tipo_nombre = "Factura" if tipo_comprobante == "factura" else "Boleta"
-            pdf_url = comprobante_info.get("pdf_url", "")
+            comprobante_uuid = comprobante_info.get("external_id", "")
             docs_html += f'''
                 <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
                     <p style="color: #3b82f6; font-weight: 600; margin: 0 0 5px 0;">📄 {tipo_nombre} Electrónica</p>
                     <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">
                         {comprobante_info.get("serie", "")}-{comprobante_info.get("numero", "")}
                     </p>
-                    {f'<a href="{pdf_url}" target="_blank" style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">📥 DESCARGAR PDF</a>' if pdf_url else ''}
+                    <a href="/pagos/comprobante/{comprobante_uuid}/pdf" target="_blank" 
+                    style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                        📥 DESCARGAR PDF
+                    </a>
                 </div>
             '''
+
         elif tipo_comprobante == "recibo":
             docs_html += f'''
                 <div style="background: rgba(107,114,128,0.1); border: 1px solid rgba(107,114,128,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
@@ -1142,3 +1150,58 @@ async def validar_pago_colegiado(
         return respuesta
     
     raise HTTPException(status_code=400, detail="Acción no válida")
+
+
+# ==========================================
+# PROXY PARA DESCARGA DE COMPROBANTES PDF
+# ==========================================
+"""Este endpoint actúa como proxy para descargar el PDF de un comprobante desde facturalo.pro, utilizando las credenciales almacenadas en la configuración de facturación de la organización."""
+
+@router.get("/comprobante/{comprobante_id}/pdf")
+async def descargar_comprobante_pdf(
+    comprobante_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Proxy para descargar PDF de comprobante desde facturalo.pro"""
+    import httpx
+    
+    org = request.state.org
+    if not org:
+        raise HTTPException(status_code=400, detail="Organización no identificada")
+    
+    # Obtener credenciales
+    config = db.execute(
+        text("""
+            SELECT api_key, api_secret 
+            FROM configuracion_facturacion 
+            WHERE organization_id = :org_id AND activo = true
+        """),
+        {"org_id": org["id"]}
+    ).fetchone()
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuración de facturación no encontrada")
+    
+    # Descargar PDF de facturalo.pro
+    url = f"https://facturalo.pro/api/v1/comprobantes/{comprobante_id}/pdf"
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            url,
+            headers={
+                "x-api-key": config.api_key,
+                "x-api-secret": config.api_secret
+            }
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Error al obtener PDF")
+        
+        return StreamingResponse(
+            io.BytesIO(response.content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=comprobante_{comprobante_id}.pdf"
+            }
+        )
