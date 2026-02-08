@@ -375,21 +375,26 @@ async def registrar_pago(
                 </div>
             '''
         
-        comprobante_uuid = comprobante_info.get("external_id", "")
+        #comprobante_uuid = comprobante_info.get("external_id", "")
         # Comprobante
         if comprobante_info and comprobante_info.get("success"):
             tipo_nombre = "Factura" if tipo_comprobante == "factura" else "Boleta"
-            comprobante_uuid = comprobante_info.get("external_id", "")
+            pdf_url = comprobante_info.get("pdf_url", "")
+            
+            # Extraer UUID de la URL
+            comprobante_uuid = ""
+            if pdf_url and "/comprobantes/" in pdf_url:
+                import re
+                match = re.search(r'/comprobantes/([^/]+)/pdf', pdf_url)
+                comprobante_uuid = match.group(1) if match else ""
+            
             docs_html += f'''
                 <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
                     <p style="color: #3b82f6; font-weight: 600; margin: 0 0 5px 0;">📄 {tipo_nombre} Electrónica</p>
                     <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">
                         {comprobante_info.get("serie", "")}-{comprobante_info.get("numero", "")}
                     </p>
-                    <a href="/pagos/comprobante/{comprobante_uuid}/pdf" target="_blank" 
-                    style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">
-                        📥 DESCARGAR PDF
-                    </a>
+                    {f'<a href="/pagos/comprobante/{comprobante_uuid}/pdf" target="_blank" style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">📥 DESCARGAR PDF</a>' if comprobante_uuid else '<p style="color: #888; font-size: 11px;">PDF no disponible</p>'}
                 </div>
             '''
 
@@ -415,6 +420,10 @@ async def registrar_pago(
                     S/ {monto:.2f} procesado correctamente
                 </p>
                 {docs_html}
+                <button onclick="window.AIFab?.cerrarModal()" 
+                        style="margin-top: 10px; background: rgba(255,255,255,0.1); color: #888; border: none; padding: 10px 25px; border-radius: 20px; font-size: 12px; cursor: pointer;">
+                    CERRAR
+                </button>
             </div>
         ''')
     
