@@ -131,7 +131,9 @@ async def mis_pagos(request: Request, db: Session = Depends(get_db)):
         "pagos": pagos,
         "deudas": deudas,
         "colegiado": {
+            "id": colegiado.id,
             "nombre": colegiado.apellidos_nombres,
+            "dni": colegiado.dni,
             "matricula": colegiado.codigo_matricula,
             "condicion": colegiado.condicion
         }
