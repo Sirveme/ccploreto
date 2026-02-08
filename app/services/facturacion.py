@@ -12,12 +12,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models import (
-    Comprobante, 
-    ConfiguracionFacturacion, 
     Payment, 
     Colegiado,
     Organization
 )
+from app.models.comprobante import Comprobante, ConfiguracionFacturacion
 
 
 class FacturacionService:
