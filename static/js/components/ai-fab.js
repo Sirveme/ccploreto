@@ -444,6 +444,9 @@ const AIFab = {
                 
                 // Ejecutar acción si viene (con datos del colegiado si existen)
                 if (data.action) {
+                    console.log('[DEBUG] action:', data.action);
+                    console.log('[DEBUG] colegiado del backend:', JSON.stringify(data.colegiado));
+
                     setTimeout(() => {
                         this.executeAction(data.action, data.colegiado);
                     }, 1500);
@@ -628,6 +631,10 @@ const AIFab = {
      * Llena el formulario de pago con datos del colegiado
      */
     llenarFormularioPago(colegiado) {
+        console.log('[DEBUG] llenarFormularioPago recibió:', JSON.stringify(colegiado));
+        console.log('[DEBUG] colegiado recibido:', colegiado);
+        console.log('[DEBUG] colegiado.id:', colegiado?.id);
+
         const container = document.getElementById('pago-rapido-content');
         if (!container) return;
         
