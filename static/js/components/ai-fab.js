@@ -635,120 +635,138 @@ const AIFab = {
         if (!container) return;
         
         const deuda = colegiado.deuda || {};
-        const esHabil = ['habil', 'vitalicio'].includes(colegiado.condicion?.toLowerCase());
-        const tieneDeuda = (deuda.deuda_total || deuda.total || 0) > 0;
+        const cantCuotas = deuda.cantidad_cuotas || 0;
+        const montoDeuda = (deuda.deuda_total || deuda.total || 0);
+        const enRevision = deuda.en_revision || 0;
         
         container.innerHTML = `
-            <div style="background: var(--surface, #1a1a2e); border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px;">
-                <div style="width: 45px; height: 45px; background: linear-gradient(135deg, var(--dorado, #d4af37), #b8962e); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 18px;">
-                    ${colegiado.nombre?.charAt(0) || '?'}
-                </div>
-                <div>
-                    <p style="color: var(--texto-claro, #fff); font-weight: 600; margin: 0;">${colegiado.nombre || 'Colegiado'}</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 4px 0 0 0;">Mat: ${colegiado.matricula || '-'} • DNI: ${colegiado.dni || '-'}</p>
-                </div>
-            </div>
-            
-            <div style="background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05)); border: 1px solid var(--dorado, #d4af37); border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;">
-                <p style="color: var(--texto-gris, #888); font-size: 13px; margin: 0 0 5px 0;">Deuda pendiente (${deuda.cantidad_cuotas || 0} cuota${(deuda.cantidad_cuotas || 0) !== 1 ? 's' : ''})</p>
-                <p style="color: var(--dorado, #d4af37); font-size: 28px; font-weight: 800; margin: 0;">S/ ${(deuda.deuda_total || deuda.total || 0).toFixed(2)}</p>
-                ${(deuda.en_revision || 0) > 0 ? `<p style="color: #f59e0b; font-size: 12px; margin: 8px 0 0 0;">⏳ S/ ${deuda.en_revision.toFixed(2)} en revisión</p>` : ''}
-            </div>
-            
             <form id="form-pago-rapido" onsubmit="window.AIFab.enviarPagoRapido(event)">
                 <input type="hidden" name="colegiado_id" value="${colegiado.id || ''}">
                 
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Monto a pagar (S/)</label>
-                    <input type="number" name="monto" id="pago-rapido-monto" step="0.01" min="1" required 
-                        value="${(deuda.deuda_total || deuda.total || 0).toFixed(2)}"
-                        style="width: 100%; background: var(--surface, #1a1a2e); border: 1px solid rgba(212,175,55,0.3); border-radius: 10px; padding: 12px 15px; color: var(--texto-claro, #fff); font-size: 18px; font-weight: 700; outline: none;">
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Método de pago</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <label style="display: block; background: var(--surface, #1a1a2e); border: 2px solid var(--dorado, #d4af37); padding: 10px; border-radius: 10px; text-align: center; cursor: pointer;">
-                            <input type="radio" name="metodo_pago" value="Yape" checked style="display: none;">
-                            <span style="color: var(--texto-claro, #fff); font-weight: 600; font-size: 14px;">📱 Yape / Plin</span>
-                        </label>
-                        <label style="display: block; background: var(--surface, #1a1a2e); border: 2px solid rgba(212,175,55,0.3); padding: 10px; border-radius: 10px; text-align: center; cursor: pointer;">
-                            <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
-                            <span style="color: var(--texto-claro, #fff); font-weight: 600; font-size: 14px;">🏦 Transferencia</span>
-                        </label>
+                <!-- Header compacto -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--dorado), #b8962e); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 16px; flex-shrink: 0;">
+                        ${colegiado.nombre?.charAt(0) || '?'}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <p style="color: #fff; font-weight: 600; margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${colegiado.nombre || 'Colegiado'}</p>
+                        <p style="color: #888; font-size: 11px; margin: 2px 0 0 0;">Mat: ${colegiado.matricula || '-'} • DNI: ${colegiado.dni || '-'}</p>
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0;">
+                        <p style="color: var(--dorado); font-size: 18px; font-weight: 800; margin: 0;">S/ ${montoDeuda.toFixed(2)}</p>
+                        <p style="color: #888; font-size: 10px; margin: 2px 0 0 0;">${cantCuotas} cuota${cantCuotas !== 1 ? 's' : ''} pend.</p>
                     </div>
                 </div>
                 
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Nº de Operación</label>
-                    <input type="text" name="numero_operacion" placeholder="Ej: 123456789"
-                        style="width: 100%; background: var(--surface, #1a1a2e); border: 1px solid rgba(212,175,55,0.3); border-radius: 10px; padding: 10px 15px; color: var(--texto-claro, #fff); font-family: monospace; letter-spacing: 2px; outline: none;">
-                </div>
+                ${enRevision > 0 ? `<p style="color: #f59e0b; font-size: 11px; margin: 0 0 10px 0; text-align: center;">⏳ S/ ${enRevision.toFixed(2)} en revisión</p>` : ''}
                 
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Voucher (opcional)</label>
-                    <input type="file" name="voucher" accept="image/*" 
-                        style="width: 100%; color: var(--texto-gris, #888); font-size: 13px;">
-                </div>
-                
-                <!-- SECCIÓN: Comprobante -->
-                <div style="background: var(--surface, #1a1a2e); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
-                    <label style="display: block; color: var(--texto-gris, #888); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">📄 Comprobante de pago</label>
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-                            <input type="radio" name="tipo_comprobante" value="recibo" checked style="accent-color: var(--dorado, #d4af37);">
-                            <span style="color: var(--texto-claro, #fff); font-size: 13px;">Recibo interno (por defecto)</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-                            <input type="radio" name="tipo_comprobante" value="boleta" style="accent-color: var(--dorado, #d4af37);">
-                            <span style="color: var(--texto-claro, #fff); font-size: 13px;">Boleta electrónica</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-                            <input type="radio" name="tipo_comprobante" value="factura" style="accent-color: var(--dorado, #d4af37);">
-                            <span style="color: var(--texto-claro, #fff); font-size: 13px;">Factura electrónica</span>
-                        </label>
+                <!-- Monto y Método en fila -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="display: block; color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Monto (S/)</label>
+                        <input type="number" name="monto" step="0.01" min="1" required value="${montoDeuda.toFixed(2)}"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: #fff; font-size: 16px; font-weight: 700;">
                     </div>
-                    <div id="campo-ruc" style="display: none; margin-top: 10px;">
-                        <input type="text" name="ruc_factura" placeholder="RUC (11 dígitos)" maxlength="11" pattern="[0-9]{11}"
-                            style="width: 100%; background: var(--oscuro, #0d0d1a); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: var(--texto-claro, #fff); font-family: monospace;">
-                        <input type="text" name="razon_social" placeholder="Razón Social" 
-                            style="width: 100%; background: var(--oscuro, #0d0d1a); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: var(--texto-claro, #fff); margin-top: 8px;">
+                    <div>
+                        <label style="display: block; color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Nº Operación</label>
+                        <input type="text" name="numero_operacion" placeholder="123456789"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: #fff; font-family: monospace;">
                     </div>
                 </div>
                 
-                <!-- SECCIÓN: Certificado -->
-                <div style="background: var(--surface, #1a1a2e); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" name="requiere_certificado" value="1" style="width: 18px; height: 18px; accent-color: var(--dorado, #d4af37);">
-                        <span style="color: var(--texto-claro, #fff); font-size: 13px;">📜 Requiero Certificado de Habilidad</span>
+                <!-- Método de pago compacto -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.05); border: 2px solid var(--dorado); padding: 8px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="metodo_pago" value="Yape/Plin" checked style="display: none;">
+                        <span style="color: #fff; font-size: 12px; font-weight: 600;">📱 Yape/Plin</span>
                     </label>
-                    <p style="color: var(--texto-gris, #888); font-size: 11px; margin: 6px 0 0 28px;">
-                        ${esHabil ? 'Se emitirá automáticamente al aprobar el pago' : '⚠️ Debes estar al día para obtener certificado'}
-                    </p>
+                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
+                        <span style="color: #fff; font-size: 12px; font-weight: 600;">🏦 Transferencia</span>
+                    </label>
                 </div>
                 
+                <!-- Voucher compacto -->
+                <div style="margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; color: #888; font-size: 11px; cursor: pointer;">
+                        <input type="file" name="voucher" accept="image/*" style="width: 0; height: 0; opacity: 0; position: absolute;">
+                        <span style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(212,175,55,0.3); border-radius: 6px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px;">
+                            📷 <span id="voucher-name">Adjuntar voucher (opcional)</span>
+                        </span>
+                    </label>
+                </div>
+                
+                <!-- Opciones: Comprobante y Certificado en paralelo -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                    <!-- Comprobante -->
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px;">
+                        <p style="color: #888; font-size: 9px; text-transform: uppercase; margin: 0 0 6px 0;">📄 Comprobante</p>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer;">
+                            <input type="radio" name="tipo_comprobante" value="recibo" checked style="accent-color: var(--dorado); width: 14px; height: 14px;">
+                            <span style="color: #ccc; font-size: 11px;">Recibo</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer;">
+                            <input type="radio" name="tipo_comprobante" value="boleta" style="accent-color: var(--dorado); width: 14px; height: 14px;">
+                            <span style="color: #ccc; font-size: 11px;">Boleta</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="tipo_comprobante" value="factura" style="accent-color: var(--dorado); width: 14px; height: 14px;">
+                            <span style="color: #ccc; font-size: 11px;">Factura</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Certificado -->
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; justify-content: center;">
+                        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="requiere_certificado" value="1" style="accent-color: var(--dorado); width: 16px; height: 16px; margin-top: 2px;">
+                            <div>
+                                <span style="color: #ccc; font-size: 11px; font-weight: 600;">📜 Certificado</span>
+                                <p style="color: #666; font-size: 9px; margin: 2px 0 0 0;">Habilidad profesional</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Campo RUC (oculto por defecto) -->
+                <div id="campo-ruc" style="display: none; margin-bottom: 12px;">
+                    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                        <input type="text" name="ruc_factura" placeholder="RUC" maxlength="11" pattern="[0-9]{11}"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 8px; color: #fff; font-family: monospace; font-size: 12px;">
+                        <input type="text" name="razon_social" placeholder="Razón Social"
+                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 8px; color: #fff; font-size: 12px;">
+                    </div>
+                </div>
+                
+                <!-- Resultado -->
                 <div id="pago-rapido-resultado"></div>
                 
+                <!-- Botón -->
                 <button type="submit" id="btn-pago-rapido" 
-                        style="width: 100%; background: linear-gradient(135deg, var(--dorado, #d4af37), #b8962e); color: #000; border: none; padding: 14px; border-radius: 25px; font-weight: 700; font-size: 15px; cursor: pointer;">
+                        style="width: 100%; background: linear-gradient(135deg, var(--dorado), #b8962e); color: #000; border: none; padding: 12px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 5px;">
                     ✓ REGISTRAR PAGO
                 </button>
             </form>
         `;
         
-        // Manejar cambio de radio para mostrar/ocultar campo RUC
+        // Event: Mostrar nombre de archivo
+        const fileInput = container.querySelector('input[type="file"]');
+        fileInput?.addEventListener('change', (e) => {
+            const name = e.target.files[0]?.name || 'Adjuntar voucher (opcional)';
+            document.getElementById('voucher-name').textContent = name.length > 25 ? name.substring(0, 22) + '...' : name;
+        });
+        
+        // Event: Toggle RUC field
         container.querySelectorAll('input[name="tipo_comprobante"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                const campoRuc = document.getElementById('campo-ruc');
-                campoRuc.style.display = e.target.value === 'factura' ? 'block' : 'none';
+                document.getElementById('campo-ruc').style.display = e.target.value === 'factura' ? 'block' : 'none';
             });
         });
         
-        // Manejar selección visual de método de pago
-        container.querySelectorAll('input[name="metodo_pago"]').forEach(radio => {
-            radio.addEventListener('change', () => {
-                container.querySelectorAll('input[name="metodo_pago"]').forEach(r => {
-                    r.parentElement.style.borderColor = r.checked ? 'var(--dorado, #d4af37)' : 'rgba(212,175,55,0.3)';
+        // Event: Método de pago visual
+        container.querySelectorAll('.metodo-opt').forEach(label => {
+            label.querySelector('input').addEventListener('change', () => {
+                container.querySelectorAll('.metodo-opt').forEach(l => {
+                    l.style.borderColor = l.querySelector('input').checked ? 'var(--dorado)' : 'rgba(212,175,55,0.2)';
                 });
             });
         });
