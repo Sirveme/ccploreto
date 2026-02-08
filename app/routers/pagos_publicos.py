@@ -224,7 +224,7 @@ async def registrar_pago(
         #print(f"DEBUG CONFIG: {type(org_config.config) if org_config else 'NONE'}")
         if org_config and org_config.config:
             config = org_config.config if isinstance(org_config.config, dict) else json.loads(org_config.config)
-            certificado_auto = config.get("finanzas", {}).get("confia_pago_declarado", False)
+            certificado_auto = config.get("finanzas", {}).get("validacion_automatica", False)
             #print(f"DEBUG AUTO: {certificado_auto}")
     except Exception as e:
         print(f"⚠️ Error leyendo config: {e}")
