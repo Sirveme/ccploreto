@@ -148,6 +148,11 @@ const ConfigAdmin = {
         btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Guardando...';
         btn.disabled = true;
         
+        console.log('[ConfigAdmin] Enviando al servidor:', JSON.stringify({
+            seccion: seccion,
+            config: data
+        }, null, 2));
+
         try {
             const response = await fetch('/api/admin/config', {
                 method: 'POST',
@@ -244,5 +249,35 @@ window.addEventListener('beforeunload', (e) => {
     }
 });
 
+
+// Objeto para configuración de IA
+const ConfigIA = {
+    /**
+     * Abre modal de recarga de saldo
+     */
+    recargar() {
+        // Por ahora solo mensaje, después implementar pasarela
+        Toast.show('Sistema de recarga próximamente disponible', 'info');
+    },
+    
+    /**
+     * Carga estadísticas de uso de IA
+     */
+    async cargarStats() {
+        try {
+            const response = await fetch('/api/admin/ai/stats');
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('ai-cost-month').textContent = `$${data.costo_mes.toFixed(2)}`;
+                document.getElementById('ai-balance').textContent = `$${data.saldo.toFixed(2)}`;
+                document.getElementById('ai-queries').textContent = data.consultas;
+            }
+        } catch (error) {
+            console.log('[ConfigIA] Usando datos de ejemplo');
+        }
+    }
+};
+
 // Exponer globalmente
 window.ConfigAdmin = ConfigAdmin;
+window.ConfigIA = ConfigIA;
