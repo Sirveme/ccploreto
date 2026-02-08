@@ -278,6 +278,17 @@ async def registrar_pago(
             )
         except Exception as e:
             print(f"⚠️ Error emitiendo certificado automático: {e}")
+
+        # Emitir comprobante electrónico (boleta/factura)
+        comprobante_info = None
+        try:
+            from app.services.facturacion import emitir_comprobante_automatico
+            comprobante_info = await emitir_comprobante_automatico(db, nuevo_pago.id)
+            if comprobante_info.get("success"):
+                print(f"✅ Comprobante emitido: {comprobante_info.get('pdf_url')}")
+        except Exception as e:
+            print(f"⚠️ Error emitiendo comprobante: {e}")
+
     
     db.commit()
     
