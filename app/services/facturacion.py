@@ -224,9 +224,8 @@ class FacturacionService:
         # Opción 2: Buscar deudas que fueron pagadas recientemente por este colegiado
         deudas_pagadas = self.db.query(Debt).filter(
             Debt.colegiado_id == payment.colegiado_id,
-            Debt.status == "paid",
-            Debt.updated_at >= payment.created_at
-        ).order_by(Debt.periodo.asc()).all()
+            Debt.status == "paid"
+        ).order_by(Debt.periodo.asc()).limit(12).all()
         
         if deudas_pagadas:
             # Agrupar por concepto
