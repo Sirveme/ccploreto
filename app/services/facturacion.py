@@ -360,10 +360,18 @@ class FacturacionService:
         """
         Envía el comprobante a facturalo.pro
         """
+        from datetime import datetime
+        import pytz
+        
+        # Hora de Perú
+        peru_tz = pytz.timezone('America/Lima')
+        ahora = datetime.now(peru_tz)
         
         # Construir payload según especificación facturalo.pro
         payload = {
             "tipo_comprobante": comprobante.tipo,  # '03' boleta, '01' factura
+            "fecha_emision": ahora.strftime("%Y-%m-%d"),
+            "hora_emision": ahora.strftime("%H:%M:%S"),
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
