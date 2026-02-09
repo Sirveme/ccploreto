@@ -360,12 +360,12 @@ class FacturacionService:
         """
         Envía el comprobante a facturalo.pro
         """
-        from datetime import datetime
-        import pytz
+        from datetime import datetime, timezone, timedelta
         
-        # Hora de Perú
-        peru_tz = pytz.timezone('America/Lima')
-        ahora = datetime.now(peru_tz)
+        
+        # Hora de Perú (UTC-5)
+        peru_offset = timezone(timedelta(hours=-5))
+        ahora = datetime.now(peru_offset)
         
         # Construir payload según especificación facturalo.pro
         payload = {
