@@ -211,7 +211,7 @@ class FacturacionService:
     
     def _construir_items(self, payment: Payment) -> list:
         """Construye los items del comprobante a partir del pago con descripción detallada"""
-        from app.models import Debt, PaymentAllocation
+        from app.models import Debt, Colegiado
         
         items = []
         
