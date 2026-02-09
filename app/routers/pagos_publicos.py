@@ -1174,13 +1174,13 @@ async def descargar_comprobante_pdf(
 ):
     """Proxy para descargar PDF de comprobante desde facturalo.pro"""
     import httpx
+    import re
     from fastapi.responses import Response
     
     org = request.state.org
     if not org:
         raise HTTPException(status_code=400, detail="Organización no identificada")
     
-    # Obtener credenciales
     config = db.execute(
         text("""
             SELECT facturalo_token, facturalo_secret 
@@ -1190,11 +1190,8 @@ async def descargar_comprobante_pdf(
         {"org_id": org["id"]}
     ).fetchone()
     
-    if not config:
+    if not config or not config.facturalo_token:
         raise HTTPException(status_code=404, detail="Configuración no encontrada")
-    
-    if not config.facturalo_token or not config.facturalo_secret:
-        raise HTTPException(status_code=400, detail="Credenciales facturalo.pro no configuradas")
     
     url = f"https://facturalo.pro/api/v1/comprobantes/{comprobante_id}/pdf"
     
@@ -1208,19 +1205,26 @@ async def descargar_comprobante_pdf(
         )
         
         if resp.status_code != 200:
-            print(f"❌ Facturalo error {resp.status_code}: {resp.text[:300]}")
             raise HTTPException(status_code=resp.status_code, detail="Error al obtener PDF")
         
-        # Verificar que sea PDF (empieza con %PDF)
         content = resp.content
         if not content[:4] == b'%PDF':
-            print(f"⚠️ No es PDF válido, primeros bytes: {content[:50]}")
             raise HTTPException(status_code=400, detail="El archivo no es un PDF válido")
+        
+        # Extraer filename del header Content-Disposition de facturalo.pro
+        content_disp = resp.headers.get("content-disposition", "")
+        filename = f"Comprobante_{comprobante_id[:8]}.pdf"  # Default
+        
+        if content_disp:
+            # Buscar filename="..." o filename=...
+            match = re.search(r'filename[*]?=["\']?([^"\';\s]+)', content_disp)
+            if match:
+                filename = match.group(1)
         
         return Response(
             content=content,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=Boleta_{comprobante_id[:8]}.pdf"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
