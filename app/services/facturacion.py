@@ -210,23 +210,150 @@ class FacturacionService:
         }
     
     def _construir_items(self, payment: Payment) -> list:
-        """Construye los items del comprobante a partir del pago"""
+        """Construye los items del comprobante a partir del pago con descripción detallada"""
+        from app.models import Debt, PaymentAllocation
+        
         items = []
         
-        # Si hay deudas relacionadas, crear un item por cada una
-        # Por ahora, un solo item con el concepto del pago
-        items.append({
-            "codigo": "SRV001",
-            "descripcion": payment.notes or "Cuotas de colegiatura",
-            "unidad": "ZZ",  # Unidad de medida: servicio
-            "cantidad": 1,
-            "precio_unitario": payment.amount,
-            "valor_venta": payment.amount,
-            "tipo_afectacion_igv": self.config.tipo_afectacion_igv,  # '20' = Exonerado
-            "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
-        })
+        # Obtener las deudas pagadas con este pago
+        # Opción 1: Si existe tabla de asignaciones
+        # allocations = self.db.query(PaymentAllocation).filter(
+        #     PaymentAllocation.payment_id == payment.id
+        # ).all()
+        
+        # Opción 2: Buscar deudas que fueron pagadas recientemente por este colegiado
+        deudas_pagadas = self.db.query(Debt).filter(
+            Debt.colegiado_id == payment.colegiado_id,
+            Debt.status == "paid",
+            Debt.updated_at >= payment.created_at
+        ).order_by(Debt.periodo.asc()).all()
+        
+        if deudas_pagadas:
+            # Agrupar por concepto
+            conceptos = {}
+            for deuda in deudas_pagadas:
+                concepto = deuda.concept or "Cuota ordinaria"
+                if concepto not in conceptos:
+                    conceptos[concepto] = {
+                        "periodos": [],
+                        "monto_total": 0
+                    }
+                if deuda.periodo:
+                    conceptos[concepto]["periodos"].append(deuda.periodo)
+                conceptos[concepto]["monto_total"] += float(deuda.amount or 0)
+            
+            # Construir descripción para cada concepto
+            for concepto, datos in conceptos.items():
+                periodos = datos["periodos"]
+                cantidad = len(periodos) if periodos else 1
+                
+                # Construir texto de periodos
+                if periodos:
+                    # Formatear: "Enero 2026, Febrero 2026, Marzo 2026" -> "Enero, Febrero, Marzo 2026"
+                    periodos_formateados = self._formatear_periodos(periodos)
+                    descripcion = f"{concepto} {periodos_formateados}"
+                    if cantidad > 1:
+                        descripcion += f" ({cantidad} meses)"
+                else:
+                    descripcion = concepto
+                
+                items.append({
+                    "codigo": "SRV001",
+                    "descripcion": descripcion.upper(),
+                    "unidad": "ZZ",
+                    "cantidad": cantidad,
+                    "precio_unitario": round(payment.amount / cantidad, 2),
+                    "valor_venta": payment.amount,
+                    "tipo_afectacion_igv": self.config.tipo_afectacion_igv,
+                    "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
+                })
+        
+        # Si no hay deudas, usar descripción genérica mejorada
+        if not items:
+            # Obtener datos del colegiado para contexto
+            colegiado = self.db.query(Colegiado).filter(
+                Colegiado.id == payment.colegiado_id
+            ).first()
+            
+            matricula = colegiado.codigo_matricula if colegiado else ""
+            descripcion = payment.notes or "Pago de cuotas de colegiatura"
+            
+            # Agregar referencia al pago
+            if payment.operation_code:
+                descripcion += f" - {payment.payment_method or ''} Nº {payment.operation_code}"
+            
+            if matricula:
+                descripcion = f"COD {matricula} - {descripcion}"
+            
+            items.append({
+                "codigo": "SRV001",
+                "descripcion": descripcion.upper(),
+                "unidad": "ZZ",
+                "cantidad": 1,
+                "precio_unitario": payment.amount,
+                "valor_venta": payment.amount,
+                "tipo_afectacion_igv": self.config.tipo_afectacion_igv,
+                "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
+            })
         
         return items
+
+    def _formatear_periodos(self, periodos: list) -> str:
+        """
+        Formatea lista de periodos de forma legible.
+        
+        Entrada: ["Enero 2026", "Febrero 2026", "Marzo 2026"]
+        Salida: "Enero, Febrero, Marzo 2026"
+        
+        Entrada: ["2026-01", "2026-02", "2026-03"]
+        Salida: "Enero, Febrero, Marzo 2026"
+        """
+        if not periodos:
+            return ""
+        
+        meses_es = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre",
+            "1": "Enero", "2": "Febrero", "3": "Marzo", "4": "Abril",
+            "5": "Mayo", "6": "Junio", "7": "Julio", "8": "Agosto",
+            "9": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        }
+        
+        parsed = []
+        years = set()
+        
+        for p in periodos:
+            p_str = str(p).strip()
+            
+            # Formato "2026-01" o "2026-1"
+            if "-" in p_str and len(p_str.split("-")) == 2:
+                year, mes = p_str.split("-")
+                mes_nombre = meses_es.get(mes.zfill(2), mes)
+                parsed.append(mes_nombre)
+                years.add(year)
+            
+            # Formato "Enero 2026"
+            elif " " in p_str:
+                partes = p_str.split(" ")
+                mes_nombre = partes[0]
+                parsed.append(mes_nombre)
+                if len(partes) > 1:
+                    years.add(partes[1])
+            
+            # Formato desconocido, usar tal cual
+            else:
+                parsed.append(p_str)
+        
+        # Construir resultado
+        if parsed:
+            meses_str = ", ".join(parsed)
+            if years:
+                year = sorted(years)[-1]  # Último año
+                return f"{meses_str} {year}"
+            return meses_str
+        
+        return ", ".join(periodos)
     
     # REEMPLAZAR el método _enviar_a_facturalo() en app/services/facturacion.py
 
