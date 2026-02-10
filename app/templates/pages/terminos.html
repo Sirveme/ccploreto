@@ -1,0 +1,137 @@
+<!--
+    app/templates/pages/terminos.html
+    Términos y Condiciones de Uso - ccploreto.org.pe
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Términos y Condiciones - {{ org.name if org else 'Colegio de Contadores Públicos de Loreto' }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: #0f172a; color: #cbd5e1;
+            line-height: 1.8; padding: 2rem 1.5rem 4rem;
+        }
+        .container { max-width: 780px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #cfab53; text-decoration: none; font-size: 14px; margin-bottom: 2rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 { font-size: 1.8rem; color: #fff; margin-bottom: 0.5rem; }
+        .last-update { font-size: 13px; color: #64748b; margin-bottom: 2.5rem; }
+        h2 {
+            font-size: 1.15rem; color: #e2e8f0; margin: 2rem 0 0.8rem;
+            padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        p, li { font-size: 14px; margin-bottom: 0.8rem; }
+        ul, ol { padding-left: 1.5rem; }
+        li { margin-bottom: 0.4rem; }
+        a { color: #cfab53; }
+        .highlight-box {
+            background: rgba(207,171,83,0.06); border: 1px solid rgba(207,171,83,0.15);
+            border-radius: 8px; padding: 1.2rem 1.5rem; margin: 1.5rem 0;
+        }
+        .highlight-box strong { color: #cfab53; }
+        @media (max-width: 640px) { body { padding: 1.5rem 1rem 3rem; } h1 { font-size: 1.4rem; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Volver al inicio</a>
+
+        <h1>Términos y Condiciones de Uso</h1>
+        <p class="last-update">Última actualización: 10 de febrero de 2026</p>
+
+        <h2>1. Aceptación de los Términos</h2>
+        <p>Al acceder y utilizar el sitio web ccploreto.org.pe (en adelante, "la Plataforma"), usted acepta los presentes Términos y Condiciones en su totalidad. Si no está de acuerdo con alguno de estos términos, le solicitamos no utilizar la Plataforma.</p>
+
+        <h2>2. Titularidad de la Plataforma</h2>
+        <div class="highlight-box">
+            <p><strong>Titular del sitio web:</strong> Colegio de Contadores Públicos de Loreto (CCPL)</p>
+            <p><strong>Domicilio:</strong> Jr. Putumayo 460, Iquitos, Loreto</p>
+            <p><strong>Desarrollo y administración tecnológica:</strong> Perú Sistemas PRO E.I.R.L. (RUC 20615446565) &amp; Sigco</p>
+        </div>
+
+        <h2>3. Servicios Ofrecidos</h2>
+        <p>La Plataforma brinda los siguientes servicios:</p>
+        <ul>
+            <li>Información institucional del Colegio de Contadores Públicos de Loreto.</li>
+            <li>Consulta pública de Constancia de Habilidad profesional.</li>
+            <li>Gestión de colegiatura, pagos de cuotas y emisión de comprobantes electrónicos.</li>
+            <li>Emisión y descarga de Constancias de Habilidad (requiere cuenta de usuario).</li>
+            <li>Inscripción a capacitaciones y eventos institucionales.</li>
+            <li>Reserva de ambientes del CCPL.</li>
+            <li>Portal de transparencia y comunicados institucionales.</li>
+        </ul>
+
+        <h2>4. Registro y Cuenta de Usuario</h2>
+        <p>El acceso a servicios personalizados (pagos, constancias, historial) requiere una cuenta de usuario provista por el CCPL. El usuario es responsable de mantener la confidencialidad de sus credenciales de acceso y de todas las actividades realizadas con su cuenta.</p>
+        <p>El CCPL se reserva el derecho de suspender o cancelar cuentas en caso de uso indebido, incumplimiento de estos términos o a solicitud del titular.</p>
+
+        <h2>5. Consulta Pública de Habilidad</h2>
+        <p>La Plataforma permite a terceros (empleadores, entidades públicas, clientes) consultar el estado de habilidad de un colegiado ingresando su DNI o número de matrícula. Esta consulta es de acceso libre y muestra únicamente la información de carácter público conforme a las funciones de los Colegios Profesionales.</p>
+        <p>Queda prohibido el uso automatizado, masivo o con fines comerciales de esta consulta sin autorización expresa del CCPL.</p>
+
+        <h2>6. Pagos y Comprobantes Electrónicos</h2>
+        <p>Los pagos realizados a través de la Plataforma se procesan mediante los canales habilitados (Yape, Plin, transferencia bancaria). Los comprobantes electrónicos (boletas, facturas) se emiten conforme a la normativa de SUNAT y se envían al correo electrónico registrado del usuario.</p>
+        <p>El CCPL se reserva el derecho de modificar las tarifas de cuotas, servicios y alquileres, comunicando los cambios con la debida anticipación.</p>
+
+        <h2>7. Constancias y Documentos</h2>
+        <p>Las Constancias de Habilidad emitidas a través de la Plataforma tienen validez oficial y cuentan con un código de verificación que permite su autenticación. El CCPL no se responsabiliza por documentos alterados, falsificados o utilizados fuera de su propósito original.</p>
+
+        <h2>8. Propiedad Intelectual</h2>
+        <p>Todo el contenido de la Plataforma — incluyendo diseño, logotipos, textos, gráficos, software y código fuente — es propiedad del CCPL y/o de sus proveedores tecnológicos, y está protegido por las leyes de propiedad intelectual del Perú.</p>
+        <p>Se prohíbe la reproducción, distribución o modificación del contenido sin autorización escrita previa.</p>
+
+        <h2>9. Conducta del Usuario</h2>
+        <p>El usuario se compromete a:</p>
+        <ul>
+            <li>Proporcionar información veraz y actualizada.</li>
+            <li>No utilizar la Plataforma para fines ilegales o no autorizados.</li>
+            <li>No intentar acceder a áreas restringidas o cuentas de otros usuarios.</li>
+            <li>No realizar acciones que comprometan la seguridad o el funcionamiento de la Plataforma.</li>
+            <li>No utilizar bots, scrapers u otros medios automatizados sin autorización.</li>
+        </ul>
+
+        <h2>10. Limitación de Responsabilidad</h2>
+        <p>El CCPL y sus proveedores tecnológicos no serán responsables por:</p>
+        <ul>
+            <li>Interrupciones temporales del servicio por mantenimiento o causas de fuerza mayor.</li>
+            <li>Pérdidas derivadas del uso inadecuado de la Plataforma por parte del usuario.</li>
+            <li>Contenidos de sitios web externos enlazados desde la Plataforma.</li>
+            <li>Errores u omisiones en la información que hayan sido corregidos oportunamente.</li>
+        </ul>
+
+        <h2>11. Protección de Datos Personales</h2>
+        <p>El tratamiento de datos personales se rige por nuestra <a href="/politica-privacidad/">Política de Privacidad</a>, elaborada conforme a la Ley N° 29733 y su reglamento (D.S. N° 016-2024-JUS). Al utilizar la Plataforma, el usuario acepta el tratamiento de sus datos conforme a dicha política.</p>
+
+        <h2>12. Disponibilidad del Servicio</h2>
+        <p>El CCPL se esfuerza por mantener la Plataforma disponible las 24 horas del día, los 7 días de la semana. Sin embargo, no garantiza la disponibilidad ininterrumpida y se reserva el derecho de suspender el servicio temporalmente para mantenimiento, actualizaciones o mejoras.</p>
+
+        <h2>13. Modificaciones</h2>
+        <p>El CCPL se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento. Los cambios entrarán en vigor desde su publicación en la Plataforma. El uso continuado de la Plataforma después de la publicación de modificaciones constituye la aceptación de los nuevos términos.</p>
+
+        <h2>14. Legislación Aplicable y Jurisdicción</h2>
+        <p>Estos Términos y Condiciones se rigen por las leyes de la República del Perú. Cualquier controversia derivada del uso de la Plataforma será sometida a la jurisdicción de los juzgados y tribunales de la ciudad de Iquitos, Loreto.</p>
+
+        <h2>15. Contacto</h2>
+        <p>Para cualquier consulta sobre estos Términos y Condiciones, puede comunicarse con:</p>
+        <div class="highlight-box">
+            <p><strong>Colegio de Contadores Públicos de Loreto</strong></p>
+            <p><strong>Dirección:</strong> Jr. Putumayo 460, Iquitos, Loreto</p>
+            <p><strong>Email:</strong> info@ccploreto.org.pe</p>
+            <p><strong>WhatsApp:</strong> 979 169 813</p>
+        </div>
+
+        <br>
+        <p style="font-size: 12px; color: #475569; text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06);">
+            Colegio de Contadores Públicos de Loreto<br>
+            Plataforma desarrollada por Perú Sistemas PRO E.I.R.L. &amp; Sigco
+        </p>
+    </div>
+</body>
+</html>
