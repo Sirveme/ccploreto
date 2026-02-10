@@ -241,21 +241,20 @@ async def demo_ads(request: Request):
 # Rutas para páginas legales
 # ============================================================
 
-@router.get("/politica-privacidad/", response_class=HTMLResponse)
-@router.get("/politica-privacidad", response_class=HTMLResponse)
+# Línea 244 - cambiar router → app
+@app.get("/politica-privacidad/", response_class=HTMLResponse)
+@app.get("/politica-privacidad", response_class=HTMLResponse)
 async def politica_privacidad(request: Request):
-    """Política de Privacidad - Ley 29733"""
     return templates.TemplateResponse("pages/politica_privacidad.html", {
         "request": request,
-        "org": request.state.org if hasattr(request.state, 'org') else None,
+        "org": getattr(request.state, 'org', None),
     })
 
-
-@router.get("/terminos/", response_class=HTMLResponse)
-@router.get("/terminos", response_class=HTMLResponse)
+# Línea 254 - cambiar router → app
+@app.get("/terminos/", response_class=HTMLResponse)
+@app.get("/terminos", response_class=HTMLResponse)
 async def terminos_condiciones(request: Request):
-    """Términos y Condiciones de Uso"""
     return templates.TemplateResponse("pages/terminos.html", {
         "request": request,
-        "org": request.state.org if hasattr(request.state, 'org') else None,
+        "org": getattr(request.state, 'org', None),
     })
