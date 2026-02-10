@@ -4,10 +4,13 @@ app/services/facturacion.py
 
 Integración con facturalo.pro para emisión de comprobantes
 
-CAMBIOS INTEGRADOS:
-- Fix: Descripción de items incluye datos del colegiado en línea 2
-  Línea 1: CUOTA ORDINARIA ENERO, FEBRERO 2026 (3 MESES)
-  Línea 2: RESTUCCIA ESLAVA, DUILIO CESAR - Colegiado DNI [05393776] Cód. Matr. [10-2244]
+v4 - Cambios:
+- Descripción de items en 3 líneas:
+  L1: CUOTA ORDINARIA ENERO, FEBRERO 2026 (2 MESES)
+  L2: RESTUCCIA ESLAVA, DUILIO CESAR
+  L3: DNI [05393776] Cód. Matr. [10-2244]
+- Pasa estado_colegiado, habil_hasta, url_consulta a facturalo
+- Dirección del pagador (empresa) para facturas
 """
 
 import httpx
@@ -21,14 +24,13 @@ from app.models import (
     ConfiguracionFacturacion,
     Payment,
     Colegiado,
+    Debt,
     Organization
 )
 
 
 class FacturacionService:
-    """
-    Servicio para emitir comprobantes electrónicos vía facturalo.pro
-    """
+    """Servicio para emitir comprobantes electrónicos vía facturalo.pro"""
 
     def __init__(self, db: Session, org_id: int):
         self.db = db
@@ -36,77 +38,89 @@ class FacturacionService:
         self.config = self._get_config()
 
     def _get_config(self) -> Optional[ConfiguracionFacturacion]:
-        """Obtiene la configuración de facturación de la organización"""
         return self.db.query(ConfiguracionFacturacion).filter(
             ConfiguracionFacturacion.organization_id == self.org_id,
             ConfiguracionFacturacion.activo == True
         ).first()
 
     def esta_configurado(self) -> bool:
-        """Verifica si la facturación está configurada"""
         return self.config is not None and self.config.facturalo_token is not None
 
     async def emitir_comprobante_por_pago(
         self,
         payment_id: int,
-        tipo: str = "03",  # '03' = Boleta por defecto
+        tipo: str = "03",
         forzar_datos_cliente: Dict = None
     ) -> Dict[str, Any]:
         """
-        Emite un comprobante electrónico a partir de un pago aprobado
+        Emite un comprobante electrónico a partir de un pago aprobado.
 
         Args:
             payment_id: ID del pago
             tipo: '01' = Factura, '03' = Boleta
-            forzar_datos_cliente: Dict con {tipo_doc, num_doc, nombre, direccion}
-                                  si el cliente es diferente al colegiado
-
-        Returns:
-            Dict con el resultado de la operación
+            forzar_datos_cliente: {tipo_doc, num_doc, nombre, direccion, email}
         """
         if not self.esta_configurado():
             return {"success": False, "error": "Facturación no configurada"}
 
-        # Verificar que no exista comprobante para este pago
         existe = self.db.query(Comprobante).filter(
             Comprobante.payment_id == payment_id
         ).first()
-
         if existe:
-            return {
-                "success": False,
-                "error": "Ya existe comprobante para este pago",
-                "comprobante_id": existe.id
-            }
+            return {"success": False, "error": "Ya existe comprobante para este pago",
+                    "comprobante_id": existe.id}
 
-        # Obtener el pago
         payment = self.db.query(Payment).filter(Payment.id == payment_id).first()
         if not payment:
             return {"success": False, "error": "Pago no encontrado"}
-
         if payment.status != "approved":
             return {"success": False, "error": "El pago no está aprobado"}
 
-        # Obtener datos del cliente
+        # Datos del cliente según tipo de comprobante
         cliente = self._obtener_datos_cliente(payment, forzar_datos_cliente)
 
-        # Determinar serie y número
-        if tipo == "01":  # Factura
+        # Serie y número
+        if tipo == "01":
             serie = self.config.serie_factura
             numero = self.config.ultimo_numero_factura + 1
-        else:  # Boleta
+        else:
             serie = self.config.serie_boleta
             numero = self.config.ultimo_numero_boleta + 1
 
-        # Construir items (con datos del colegiado en descripción)
+        # Items con descripción en 3 líneas
         items = self._construir_items(payment, tipo)
 
-        # Calcular totales
+        # Totales
         subtotal = payment.amount
         igv = subtotal * (self.config.porcentaje_igv / 100) if self.config.porcentaje_igv > 0 else 0
         total = subtotal + igv
 
-        # Crear comprobante en BD (estado pending)
+        # Obtener datos del colegiado para campos extra
+        colegiado = self.db.query(Colegiado).filter(
+            Colegiado.id == payment.colegiado_id
+        ).first()
+
+        # Estado de habilidad y fecha vigencia
+        estado_colegiado = None
+        habil_hasta = None
+        matricula = None
+        if colegiado:
+            matricula = colegiado.codigo_matricula
+            estado_colegiado = "HÁBIL" if getattr(colegiado, 'habilitado', False) else "INHÁBIL"
+            # Calcular vigencia: último periodo pagado
+            habil_hasta = self._calcular_vigencia(colegiado.id)
+
+        # URL de consulta del emisor
+        org = self.db.query(Organization).filter(
+            Organization.id == self.org_id
+        ).first()
+        url_consulta = None
+        if org:
+            slug = getattr(org, 'slug', None) or getattr(org, 'domain', None)
+            if slug:
+                url_consulta = f"{slug}/consulta/habilidad"
+
+        # Crear comprobante en BD
         comprobante = Comprobante(
             organization_id=self.org_id,
             payment_id=payment_id,
@@ -125,10 +139,16 @@ class FacturacionService:
             status="pending"
         )
         self.db.add(comprobante)
-        self.db.flush()  # Para obtener el ID
+        self.db.flush()
 
-        # Enviar a facturalo.pro
-        resultado = await self._enviar_a_facturalo(comprobante)
+        # Enviar a facturalo.pro con campos extra
+        resultado = await self._enviar_a_facturalo(
+            comprobante,
+            codigo_matricula=matricula,
+            estado_colegiado=estado_colegiado,
+            habil_hasta=habil_hasta,
+            url_consulta=url_consulta
+        )
 
         if resultado["success"]:
             comprobante.status = "accepted"
@@ -141,7 +161,6 @@ class FacturacionService:
             comprobante.xml_url = resultado.get("xml_url")
             comprobante.cdr_url = resultado.get("cdr_url")
 
-            # Actualizar correlativo
             if tipo == "01":
                 self.config.ultimo_numero_factura = numero
             else:
@@ -164,12 +183,10 @@ class FacturacionService:
 
     def _obtener_datos_cliente(self, payment: Payment, forzar: Dict = None) -> Dict:
         """
-        Obtiene los datos del cliente para el comprobante.
-        
-        Para Factura: el cliente es quien paga (empresa con RUC).
-        Para Boleta: el cliente es el colegiado (DNI).
+        Datos del cliente para el comprobante.
+        Factura: empresa que paga (RUC + dirección obligatoria)
+        Boleta: colegiado (DNI)
         """
-        # Si se fuerzan datos (ej: empresa con RUC para factura)
         if forzar:
             return {
                 "tipo_doc": forzar.get("tipo_doc", "1"),
@@ -179,7 +196,7 @@ class FacturacionService:
                 "email": forzar.get("email")
             }
 
-        # Si el pagador es empresa con RUC (para facturas)
+        # Empresa con RUC → Factura
         if payment.pagador_tipo == "empresa" and payment.pagador_documento:
             return {
                 "tipo_doc": "6",  # RUC
@@ -189,32 +206,31 @@ class FacturacionService:
                 "email": None
             }
 
-        # Si el pagador es tercero con DNI
+        # Tercero con DNI
         if payment.pagador_tipo == "tercero" and payment.pagador_documento:
             return {
-                "tipo_doc": "1",  # DNI
+                "tipo_doc": "1",
                 "num_doc": payment.pagador_documento,
                 "nombre": payment.pagador_nombre,
                 "direccion": None,
                 "email": None
             }
 
-        # Por defecto: datos del colegiado
+        # Colegiado
         colegiado = self.db.query(Colegiado).filter(
             Colegiado.id == payment.colegiado_id
         ).first()
 
         if colegiado:
             return {
-                "tipo_doc": "1",  # DNI
-                "num_doc": colegiado.dni,  # DNI puro para SUNAT
+                "tipo_doc": "1",
+                "num_doc": colegiado.dni,
                 "nombre": colegiado.apellidos_nombres,
                 "direccion": colegiado.direccion,
                 "email": colegiado.email,
                 "matricula": colegiado.codigo_matricula
             }
 
-        # Fallback
         return {
             "tipo_doc": "0",
             "num_doc": "00000000",
@@ -225,50 +241,40 @@ class FacturacionService:
 
     def _construir_items(self, payment: Payment, tipo_comprobante: str = "03") -> list:
         """
-        Construye los items del comprobante con descripción detallada.
-        
-        La descripción tiene 2 líneas separadas por \\n:
-          Línea 1: Concepto + periodos (ej: "CUOTA ORDINARIA ENERO, FEBRERO 2026")
-          Línea 2: Datos del colegiado (ej: "RESTUCCIA ESLAVA, DUILIO C. - Colegiado DNI [05393776] Cód. Matr. [10-2244]")
-        
-        El \\n es interpretado por pdf_generator.py para renderizar
-        la línea 2 en tamaño más pequeño y color gris.
-        """
-        from app.models import Debt
+        Items con descripción en 3 líneas separadas por \\n:
+          L1: CUOTA ORDINARIA ENERO, FEBRERO 2026 (2 MESES)
+          L2: RESTUCCIA ESLAVA, DUILIO CESAR
+          L3: DNI [05393776] Cód. Matr. [10-2244]
 
+        El \\n es renderizado por pdf_generator.py como líneas separadas.
+        """
         items = []
 
-        # Obtener datos del colegiado (siempre, para la línea 2)
+        # Datos del colegiado para líneas 2 y 3
         colegiado = self.db.query(Colegiado).filter(
             Colegiado.id == payment.colegiado_id
         ).first()
 
-        # Construir línea 2: datos del colegiado
-        linea_colegiado = ""
+        linea_nombre = ""
+        linea_docs = ""
         if colegiado:
-            nombre_col = colegiado.apellidos_nombres or ""
-            dni_col = colegiado.dni or ""
-            matr_col = colegiado.codigo_matricula or ""
-            linea_colegiado = f"{nombre_col} - Colegiado DNI [{dni_col}] Cód. Matr. [{matr_col}]"
+            linea_nombre = colegiado.apellidos_nombres or ""
+            dni = colegiado.dni or ""
+            matr = colegiado.codigo_matricula or ""
+            linea_docs = f"DNI [{dni}] Cód. Matr. [{matr}]"
 
-        # Buscar deudas pagadas con este pago
+        # Buscar deudas pagadas
         deudas_pagadas = self.db.query(Debt).filter(
             Debt.colegiado_id == payment.colegiado_id,
-            Debt.status == "paid",
-            # Si existe payment_id en Debt, filtrar por él
-            # Debt.payment_id == payment.id
+            Debt.status == "paid"
         ).order_by(Debt.periodo.asc()).limit(12).all()
 
         if deudas_pagadas:
-            # Agrupar por concepto
             conceptos = {}
             for deuda in deudas_pagadas:
                 concepto = deuda.concept or "Cuota ordinaria"
                 if concepto not in conceptos:
-                    conceptos[concepto] = {
-                        "periodos": [],
-                        "monto_total": 0
-                    }
+                    conceptos[concepto] = {"periodos": [], "monto_total": 0}
                 if deuda.periodo:
                     conceptos[concepto]["periodos"].append(deuda.periodo)
                 conceptos[concepto]["monto_total"] += float(deuda.amount or 0)
@@ -286,10 +292,12 @@ class FacturacionService:
                 else:
                     linea_1 = concepto
 
-                # Descripción completa: línea 1 + \n + línea 2
+                # 3 líneas separadas por \n
                 descripcion = linea_1.upper()
-                if linea_colegiado:
-                    descripcion += f"\n{linea_colegiado}"
+                if linea_nombre:
+                    descripcion += f"\n{linea_nombre}"
+                if linea_docs:
+                    descripcion += f"\n{linea_docs}"
 
                 items.append({
                     "codigo": "SRV001",
@@ -302,17 +310,17 @@ class FacturacionService:
                     "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
                 })
 
-        # Si no hay deudas, usar descripción genérica
+        # Fallback si no hay deudas
         if not items:
             linea_1 = payment.notes or "Pago de cuotas de colegiatura"
-
-            # Agregar referencia al pago
             if payment.operation_code:
                 linea_1 += f" - {payment.payment_method or ''} Nº {payment.operation_code}"
 
             descripcion = linea_1.upper()
-            if linea_colegiado:
-                descripcion += f"\n{linea_colegiado}"
+            if linea_nombre:
+                descripcion += f"\n{linea_nombre}"
+            if linea_docs:
+                descripcion += f"\n{linea_docs}"
 
             items.append({
                 "codigo": "SRV001",
@@ -327,15 +335,54 @@ class FacturacionService:
 
         return items
 
+    def _calcular_vigencia(self, colegiado_id: int) -> Optional[str]:
+        """
+        Calcula fecha de vigencia de habilidad basada en el último periodo pagado.
+        Ej: Si el último periodo pagado es "2026-03", vigente hasta "31/03/2026".
+
+        Retorna string "DD/MM/YYYY" o None si no se puede calcular.
+        """
+        import calendar
+
+        ultima_deuda = self.db.query(Debt).filter(
+            Debt.colegiado_id == colegiado_id,
+            Debt.status == "paid"
+        ).order_by(Debt.periodo.desc()).first()
+
+        if not ultima_deuda or not ultima_deuda.periodo:
+            return None
+
+        periodo = str(ultima_deuda.periodo).strip()
+
+        try:
+            # Formato "2026-03"
+            if "-" in periodo and len(periodo.split("-")) == 2:
+                year, mes = periodo.split("-")
+                year = int(year)
+                mes = int(mes)
+                ultimo_dia = calendar.monthrange(year, mes)[1]
+                return f"{ultimo_dia:02d}/{mes:02d}/{year}"
+
+            # Formato "Marzo 2026"
+            meses_map = {
+                "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+                "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+                "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
+            }
+            partes = periodo.lower().split()
+            if len(partes) == 2 and partes[0] in meses_map:
+                mes = meses_map[partes[0]]
+                year = int(partes[1])
+                ultimo_dia = calendar.monthrange(year, mes)[1]
+                return f"{ultimo_dia:02d}/{mes:02d}/{year}"
+        except (ValueError, KeyError):
+            pass
+
+        return None
+
     def _formatear_periodos(self, periodos: list) -> str:
         """
-        Formatea lista de periodos de forma legible.
-
-        Entrada: ["2026-01", "2026-02", "2026-03"]
-        Salida: "Enero, Febrero, Marzo 2026"
-
-        Entrada: ["Enero 2026", "Febrero 2026", "Marzo 2026"]
-        Salida: "Enero, Febrero, Marzo 2026"
+        Formatea periodos: ["2026-01","2026-02","2026-03"] -> "Enero, Febrero, Marzo 2026"
         """
         if not periodos:
             return ""
@@ -344,9 +391,6 @@ class FacturacionService:
             "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
             "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
             "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre",
-            "1": "Enero", "2": "Febrero", "3": "Marzo", "4": "Abril",
-            "5": "Mayo", "6": "Junio", "7": "Julio", "8": "Agosto",
-            "9": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
         }
 
         parsed = []
@@ -354,45 +398,38 @@ class FacturacionService:
 
         for p in periodos:
             p_str = str(p).strip()
-
-            # Formato "2026-01" o "2026-1"
             if "-" in p_str and len(p_str.split("-")) == 2:
                 year, mes = p_str.split("-")
                 mes_nombre = meses_es.get(mes.zfill(2), mes)
                 parsed.append(mes_nombre)
                 years.add(year)
-
-            # Formato "Enero 2026"
             elif " " in p_str:
                 partes = p_str.split(" ")
                 parsed.append(partes[0])
                 if len(partes) > 1:
                     years.add(partes[1])
-
-            # Formato desconocido
             else:
                 parsed.append(p_str)
 
         if parsed:
             meses_str = ", ".join(parsed)
             if years:
-                year = sorted(years)[-1]
-                return f"{meses_str} {year}"
+                return f"{meses_str} {sorted(years)[-1]}"
             return meses_str
 
         return ", ".join(periodos)
 
-    async def _enviar_a_facturalo(self, comprobante: Comprobante) -> Dict:
-        """Envía el comprobante a facturalo.pro"""
+    async def _enviar_a_facturalo(self, comprobante: Comprobante,
+                                   codigo_matricula=None, estado_colegiado=None,
+                                   habil_hasta=None, url_consulta=None) -> Dict:
+        """Envía el comprobante a facturalo.pro con campos extra para el PDF"""
 
-        # Hora de Perú (UTC-5)
-        peru_offset = timezone(timedelta(hours=-5))
-        ahora = datetime.now(peru_offset)
-
-        # Construir payload
         payload = {
             "tipo_comprobante": comprobante.tipo,
-            "codigo_matricula": self._obtener_matricula(comprobante.payment_id),
+            "codigo_matricula": codigo_matricula,
+            "estado_colegiado": estado_colegiado,
+            "habil_hasta": habil_hasta,
+            "url_consulta": url_consulta,
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
@@ -458,58 +495,41 @@ class FacturacionService:
             return {"success": False, "error": f"Error inesperado: {str(e)}"}
 
     def _obtener_matricula(self, payment_id: int) -> str:
-        """Obtiene la matrícula del colegiado asociado al pago"""
         payment = self.db.query(Payment).filter(Payment.id == payment_id).first()
         if payment and payment.colegiado_id:
             colegiado = self.db.query(Colegiado).filter(
-                Colegiado.id == payment.colegiado_id
-            ).first()
+                Colegiado.id == payment.colegiado_id).first()
             if colegiado:
                 return colegiado.codigo_matricula
         return None
 
     def obtener_comprobante(self, comprobante_id: int) -> Optional[Comprobante]:
-        """Obtiene un comprobante por ID"""
         return self.db.query(Comprobante).filter(
             Comprobante.id == comprobante_id,
             Comprobante.organization_id == self.org_id
         ).first()
 
     def obtener_comprobante_por_pago(self, payment_id: int) -> Optional[Comprobante]:
-        """Obtiene el comprobante asociado a un pago"""
         return self.db.query(Comprobante).filter(
             Comprobante.payment_id == payment_id
         ).first()
 
-    def listar_comprobantes(
-        self,
-        limit: int = 50,
-        offset: int = 0,
-        tipo: str = None,
-        status: str = None
-    ) -> list:
-        """Lista comprobantes de la organización"""
+    def listar_comprobantes(self, limit=50, offset=0, tipo=None, status=None) -> list:
         query = self.db.query(Comprobante).filter(
-            Comprobante.organization_id == self.org_id
-        )
-
+            Comprobante.organization_id == self.org_id)
         if tipo:
             query = query.filter(Comprobante.tipo == tipo)
         if status:
             query = query.filter(Comprobante.status == status)
-
         return query.order_by(Comprobante.created_at.desc()).offset(offset).limit(limit).all()
 
 
 # ============================================================
-# Función helper para emisión automática
+# Helper para emisión automática
 # ============================================================
 
 async def emitir_comprobante_automatico(db: Session, payment_id: int) -> Dict:
-    """
-    Emite comprobante automáticamente al aprobar un pago.
-    Se llama desde el endpoint de validación de pagos.
-    """
+    """Emite comprobante al aprobar un pago (se llama desde endpoint de validación)"""
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         return {"success": False, "error": "Pago no encontrado"}
@@ -519,12 +539,9 @@ async def emitir_comprobante_automatico(db: Session, payment_id: int) -> Dict:
         ConfiguracionFacturacion.activo == True,
         ConfiguracionFacturacion.emitir_automatico == True
     ).first()
-
     if not config:
         return {"success": False, "error": "Emisión automática no configurada"}
 
-    # Empresa con RUC → Factura, sino → Boleta
     tipo = "01" if payment.pagador_tipo == "empresa" else "03"
-
     service = FacturacionService(db, payment.organization_id)
     return await service.emitir_comprobante_por_pago(payment_id, tipo)
