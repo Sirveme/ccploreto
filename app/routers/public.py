@@ -146,30 +146,3 @@ async def landing_colegiado(
         }
     )
 
-# ==============================================================
-# Agregar RUTAS PARA TERMINOS Y POLITICAS DE PRIVACIDAD PÚBLICAS
-# ==============================================================
-# ============================================================
-# AGREGAR a app/routers/public.py (o app/main.py)
-# Rutas para páginas legales
-# ============================================================
-
-@router.get("/politica-privacidad/", response_class=HTMLResponse)
-@router.get("/politica-privacidad", response_class=HTMLResponse)
-async def politica_privacidad(request: Request):
-    """Política de Privacidad - Ley 29733"""
-    return templates.TemplateResponse("pages/politica_privacidad.html", {
-        "request": request,
-        "org": request.state.org if hasattr(request.state, 'org') else None,
-    })
-
-
-@router.get("/terminos/", response_class=HTMLResponse)
-@router.get("/terminos", response_class=HTMLResponse)
-async def terminos_condiciones(request: Request):
-    """Términos y Condiciones de Uso"""
-    return templates.TemplateResponse("pages/terminos.html", {
-        "request": request,
-        "org": request.state.org if hasattr(request.state, 'org') else None,
-    })
-
