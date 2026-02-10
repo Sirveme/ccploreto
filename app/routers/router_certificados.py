@@ -415,3 +415,102 @@ async def pagina_verificacion():
     })
 
 
+#==============================================================================================
+# Veifica que el endpoint anterior NO se interponga con otros endpoints de router_certificados  👈👀👁👁‍🗨
+# El endpoint /verificacion/{codigo} es específico para verificación pública y no debe interfer
+#==============================================================================================
+# ============================================================
+# AGREGAR AL FINAL DE router_certificados.py
+# (después del router_publico existente)
+# ============================================================
+
+# ============================================
+# Descarga pública de Constancia de Habilidad
+# Solo consulta: retorna HÁBIL / INHÁBIL
+# NO descarga PDF (eso requiere login)
+# ============================================
+
+@router_publico.get("/constancia-habilidad/{dato}")
+async def consulta_constancia_habilidad(
+    dato: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Consulta PÚBLICA de Constancia de Habilidad.
+    Busca por DNI o matrícula.
+    
+    Para empresas, reclutadores y terceros interesados.
+    NO entrega PDF, solo confirma estado HÁBIL/INHÁBIL.
+    
+    El PDF de la Constancia solo se descarga con login del colegiado.
+    """
+    
+    # Buscar colegiado por DNI o matrícula
+    colegiado = db.execute(
+        text("""
+            SELECT 
+                c.id, c.nombres, c.apellidos, c.matricula,
+                c.estado, c.dni,
+                o.name as colegio_nombre
+            FROM colegiados c
+            JOIN organizations o ON c.organization_id = o.id
+            WHERE c.dni = :dato 
+               OR c.matricula = :dato
+            LIMIT 1
+        """),
+        {"dato": dato.strip()}
+    ).fetchone()
+    
+    if not colegiado:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontró un colegiado con ese DNI o matrícula."
+        )
+    
+    es_habil = colegiado.estado == 'activo'
+    
+    # Verificar si tiene certificado/constancia vigente
+    constancia_vigente = db.execute(
+        text("""
+            SELECT 
+                codigo_verificacion,
+                fecha_emision,
+                fecha_vigencia_hasta,
+                estado
+            FROM certificados_emitidos
+            WHERE colegiado_id = :colegiado_id
+              AND estado = 'vigente'
+              AND fecha_vigencia_hasta >= CURRENT_DATE
+            ORDER BY fecha_emision DESC
+            LIMIT 1
+        """),
+        {"colegiado_id": colegiado.id}
+    ).fetchone()
+    
+    response = {
+        "encontrado": True,
+        "nombres": colegiado.nombres,
+        "apellidos": colegiado.apellidos,
+        "matricula": colegiado.matricula,
+        "colegio": colegiado.colegio_nombre,
+        "estado": "HÁBIL" if es_habil else "INHÁBIL",
+        "es_habil": es_habil,
+    }
+    
+    if constancia_vigente:
+        response["constancia"] = {
+            "codigo": constancia_vigente.codigo_verificacion,
+            "fecha_emision": str(constancia_vigente.fecha_emision),
+            "vigente_hasta": str(constancia_vigente.fecha_vigencia_hasta),
+        }
+    else:
+        response["constancia"] = None
+    
+    # Nota: NO incluimos enlace de descarga del PDF
+    # El PDF solo se descarga con login
+    if es_habil:
+        response["nota"] = "El colegiado se encuentra HÁBIL. Para obtener la Constancia de Habilidad en PDF, el colegiado debe acceder con sus credenciales."
+    else:
+        response["nota"] = "El colegiado se encuentra INHÁBIL. Debe regularizar su situación para obtener su Constancia de Habilidad."
+    
+    return response
