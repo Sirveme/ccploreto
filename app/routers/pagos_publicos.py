@@ -420,7 +420,7 @@ async def registrar_pago(
                     S/ {monto:.2f} procesado correctamente
                 </p>
                 {docs_html}
-                <button onclick="window.AIFab?.cerrarModal()" 
+                <button onclick="document.getElementById('modal-pago-rapido')?.classList.remove('active'); document.body.style.overflow='';" 
                         style="margin-top: 10px; background: rgba(255,255,255,0.1); color: #888; border: none; padding: 10px 25px; border-radius: 20px; font-size: 12px; cursor: pointer;">
                     CERRAR
                 </button>
