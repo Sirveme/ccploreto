@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from jose import jwt
@@ -230,3 +230,32 @@ async def resumen(request: Request):
 @app.get("/demo/ads")
 async def demo_ads(request: Request):
     return templates.TemplateResponse("landing/demo_ads.html", {"request": request})
+
+
+
+# ==============================================================
+# Agregar RUTAS PARA TERMINOS Y POLITICAS DE PRIVACIDAD PÚBLICAS
+# ==============================================================
+# ============================================================
+# AGREGAR a app/routers/public.py (o app/main.py)
+# Rutas para páginas legales
+# ============================================================
+
+@router.get("/politica-privacidad/", response_class=HTMLResponse)
+@router.get("/politica-privacidad", response_class=HTMLResponse)
+async def politica_privacidad(request: Request):
+    """Política de Privacidad - Ley 29733"""
+    return templates.TemplateResponse("pages/politica_privacidad.html", {
+        "request": request,
+        "org": request.state.org if hasattr(request.state, 'org') else None,
+    })
+
+
+@router.get("/terminos/", response_class=HTMLResponse)
+@router.get("/terminos", response_class=HTMLResponse)
+async def terminos_condiciones(request: Request):
+    """Términos y Condiciones de Uso"""
+    return templates.TemplateResponse("pages/terminos.html", {
+        "request": request,
+        "org": request.state.org if hasattr(request.state, 'org') else None,
+    })
