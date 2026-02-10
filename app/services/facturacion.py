@@ -370,8 +370,6 @@ class FacturacionService:
         # Construir payload según especificación facturalo.pro
         payload = {
             "tipo_comprobante": comprobante.tipo,  # '03' boleta, '01' factura
-            "fecha_emision": ahora.strftime("%Y-%m-%d"),
-            "hora_emision": ahora.strftime("%H:%M:%S"),
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
