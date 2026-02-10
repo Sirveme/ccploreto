@@ -638,140 +638,159 @@ const AIFab = {
         const cantCuotas = deuda.cantidad_cuotas || 0;
         const montoDeuda = (deuda.deuda_total || deuda.total || 0);
         const enRevision = deuda.en_revision || 0;
+        const inicial = colegiado.nombre?.charAt(0) || '?';
         
         container.innerHTML = `
             <form id="form-pago-rapido" onsubmit="window.AIFab.enviarPagoRapido(event)">
                 <input type="hidden" name="colegiado_id" value="${colegiado.id || ''}">
                 
-                <!-- Header compacto -->
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--dorado), #b8962e); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 16px; flex-shrink: 0;">
-                        ${colegiado.nombre?.charAt(0) || '?'}
+                <!-- Header con avatar -->
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
+                        ${inicial}
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <p style="color: #fff; font-weight: 600; margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${colegiado.nombre || 'Colegiado'}</p>
-                        <p style="color: #888; font-size: 11px; margin: 2px 0 0 0;">Mat: ${colegiado.matricula || '-'} • DNI: ${colegiado.dni || '-'}</p>
+                        <p style="color: #fff; font-weight: 600; margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${colegiado.nombre || 'Colegiado'}</p>
+                        <p style="color: #64748b; font-size: 11px; margin: 3px 0 0 0;">Mat: ${colegiado.matricula || '-'} • DNI: ${colegiado.dni || '-'}</p>
                     </div>
                     <div style="text-align: right; flex-shrink: 0;">
-                        <p style="color: var(--dorado); font-size: 18px; font-weight: 800; margin: 0;">S/ ${montoDeuda.toFixed(2)}</p>
-                        <p style="color: #888; font-size: 10px; margin: 2px 0 0 0;">${cantCuotas} cuota${cantCuotas !== 1 ? 's' : ''} pend.</p>
+                        <p style="color: #22c55e; font-size: 22px; font-weight: 800; margin: 0;">S/ ${montoDeuda.toFixed(2)}</p>
+                        <p style="color: #64748b; font-size: 10px; margin: 2px 0 0 0;">${cantCuotas} cuota${cantCuotas !== 1 ? 's' : ''} pend.</p>
                     </div>
                 </div>
                 
-                ${enRevision > 0 ? `<p style="color: #f59e0b; font-size: 11px; margin: 0 0 10px 0; text-align: center;">⏳ S/ ${enRevision.toFixed(2)} en revisión</p>` : ''}
+                ${enRevision > 0 ? `<div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; text-align: center;"><span style="color: #f59e0b; font-size: 12px;">⏳ S/ ${enRevision.toFixed(2)} en revisión</span></div>` : ''}
                 
-                <!-- Monto y Método en fila -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <!-- Monto y Operación -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
                     <div>
-                        <label style="display: block; color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Monto (S/)</label>
+                        <label style="display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600;">Monto (S/)</label>
                         <input type="number" name="monto" step="0.01" min="1" required value="${montoDeuda.toFixed(2)}"
-                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: #fff; font-size: 16px; font-weight: 700;">
+                            style="width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 18px; font-weight: 700; outline: none; transition: border-color 0.2s;"
+                            onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='rgba(148,163,184,0.2)'">
                     </div>
                     <div>
-                        <label style="display: block; color: #888; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">Nº Operación</label>
+                        <label style="display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600;">Nº Operación</label>
                         <input type="text" name="numero_operacion" placeholder="123456789"
-                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 10px; color: #fff; font-family: monospace;">
+                            style="width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 12px 14px; color: #fff; font-family: monospace; font-size: 14px; outline: none; transition: border-color 0.2s;"
+                            onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='rgba(148,163,184,0.2)'">
                     </div>
                 </div>
                 
                 <!-- Método de pago -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px;">
-                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid var(--dorado); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
-                        <input type="radio" name="metodo_pago" value="Yape" checked style="display: none;">
-                        <span style="color: #fff; font-size: 11px; font-weight: 600;">💜 Yape</span>
-                    </label>
-                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
-                        <input type="radio" name="metodo_pago" value="Plin" style="display: none;">
-                        <span style="color: #fff; font-size: 11px; font-weight: 600;">💚 Plin</span>
-                    </label>
-                    <label class="metodo-opt" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.05); border: 2px solid rgba(212,175,55,0.2); padding: 8px 4px; border-radius: 8px; cursor: pointer;">
-                        <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
-                        <span style="color: #fff; font-size: 11px; font-weight: 600;">🏦 Transf.</span>
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;">Método de pago</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;" id="metodos-pago">
+                        <label class="metodo-btn active" data-metodo="Yape" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: #7c3aed; padding: 10px 8px; border-radius: 10px; cursor: pointer; transition: all 0.2s; border: 2px solid #7c3aed;">
+                            <input type="radio" name="metodo_pago" value="Yape" checked style="display: none;">
+                            <span style="color: #fff; font-size: 12px; font-weight: 600;">💜 Yape</span>
+                        </label>
+                        <label class="metodo-btn" data-metodo="Plin" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 10px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                            <input type="radio" name="metodo_pago" value="Plin" style="display: none;">
+                            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">💚 Plin</span>
+                        </label>
+                        <label class="metodo-btn" data-metodo="Transferencia" style="display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 10px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent;">
+                            <input type="radio" name="metodo_pago" value="Transferencia" style="display: none;">
+                            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">🏦 Transf.</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Voucher -->
+                <div style="margin-bottom: 14px;">
+                    <label id="voucher-label" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: rgba(15,23,42,0.6); border: 1px dashed rgba(148,163,184,0.3); border-radius: 10px; cursor: pointer; transition: all 0.2s;"
+                        onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(148,163,184,0.3)'">
+                        <input type="file" name="voucher" accept="image/*" style="display: none;" onchange="document.getElementById('voucher-text').textContent = this.files[0]?.name || 'Adjuntar voucher (opcional)'">
+                        <span style="font-size: 18px;">📷</span>
+                        <span id="voucher-text" style="color: #94a3b8; font-size: 12px;">Adjuntar voucher (opcional)</span>
                     </label>
                 </div>
                 
-                <!-- Voucher compacto -->
-                <div style="margin-bottom: 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px; color: #888; font-size: 11px; cursor: pointer;">
-                        <input type="file" name="voucher" accept="image/*" style="width: 0; height: 0; opacity: 0; position: absolute;">
-                        <span style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(212,175,55,0.3); border-radius: 6px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px;">
-                            📷 <span id="voucher-name">Adjuntar voucher (opcional)</span>
-                        </span>
-                    </label>
-                </div>
-                
-                <!-- Opciones: Comprobante y Certificado en paralelo -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                <!-- Comprobante y Certificado -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                     <!-- Comprobante -->
-                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px;">
-                        <p style="color: #888; font-size: 9px; text-transform: uppercase; margin: 0 0 6px 0;">📄 Comprobante</p>
-                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer;">
-                            <input type="radio" name="tipo_comprobante" value="recibo" checked style="accent-color: var(--dorado); width: 14px; height: 14px;">
-                            <span style="color: #ccc; font-size: 11px;">Recibo</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer;">
-                            <input type="radio" name="tipo_comprobante" value="boleta" style="accent-color: var(--dorado); width: 14px; height: 14px;">
-                            <span style="color: #ccc; font-size: 11px;">Boleta</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                            <input type="radio" name="tipo_comprobante" value="factura" style="accent-color: var(--dorado); width: 14px; height: 14px;">
-                            <span style="color: #ccc; font-size: 11px;">Factura</span>
-                        </label>
+                    <div style="background: rgba(15,23,42,0.4); border-radius: 12px; padding: 14px;">
+                        <p style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px 0; font-weight: 600;">📄 Comprobante</p>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="tipo_comprobante" value="recibo" checked style="width: 16px; height: 16px; accent-color: #8b5cf6;">
+                                <span style="color: #e2e8f0; font-size: 12px;">Recibo</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="tipo_comprobante" value="boleta" style="width: 16px; height: 16px; accent-color: #8b5cf6;">
+                                <span style="color: #e2e8f0; font-size: 12px;">Boleta</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="tipo_comprobante" value="factura" style="width: 16px; height: 16px; accent-color: #8b5cf6;">
+                                <span style="color: #e2e8f0; font-size: 12px;">Factura</span>
+                            </label>
+                        </div>
                     </div>
                     
                     <!-- Certificado -->
-                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; justify-content: center;">
-                        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" name="requiere_certificado" value="1" style="accent-color: var(--dorado); width: 16px; height: 16px; margin-top: 2px;">
+                    <div style="background: rgba(15,23,42,0.4); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: center;">
+                        <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" name="requiere_certificado" value="1" style="width: 18px; height: 18px; accent-color: #8b5cf6; margin-top: 2px;">
                             <div>
-                                <span style="color: #ccc; font-size: 11px; font-weight: 600;">📜 Certificado</span>
-                                <p style="color: #666; font-size: 9px; margin: 2px 0 0 0;">Habilidad profesional</p>
+                                <span style="color: #e2e8f0; font-size: 12px; font-weight: 600; display: block;">📜 Certificado</span>
+                                <span style="color: #64748b; font-size: 10px;">Habilidad profesional</span>
                             </div>
                         </label>
                     </div>
                 </div>
                 
-                <!-- Campo RUC (oculto por defecto) -->
-                <div id="campo-ruc" style="display: none; margin-bottom: 12px;">
-                    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                <!-- Campo RUC (oculto) -->
+                <div id="campo-ruc" style="display: none; margin-bottom: 14px;">
+                    <div style="display: grid; grid-template-columns: 130px 1fr; gap: 10px;">
                         <input type="text" name="ruc_factura" placeholder="RUC" maxlength="11" pattern="[0-9]{11}"
-                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 8px; color: #fff; font-family: monospace; font-size: 12px;">
+                            style="background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; padding: 10px 12px; color: #fff; font-family: monospace; font-size: 13px;">
                         <input type="text" name="razon_social" placeholder="Razón Social"
-                            style="background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 8px; color: #fff; font-size: 12px;">
+                            style="background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px;">
                     </div>
                 </div>
                 
                 <!-- Resultado -->
                 <div id="pago-rapido-resultado"></div>
                 
-                <!-- Botón -->
+                <!-- Botón Submit -->
                 <button type="submit" id="btn-pago-rapido" 
-                        style="width: 100%; background: linear-gradient(135deg, var(--dorado), #b8962e); color: #000; border: none; padding: 12px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 5px;">
+                        style="width: 100%; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);"
+                        onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 20px rgba(139, 92, 246, 0.4)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(139, 92, 246, 0.3)'">
                     ✓ REGISTRAR PAGO
                 </button>
             </form>
         `;
         
-        // Event: Mostrar nombre de archivo
-        const fileInput = container.querySelector('input[type="file"]');
-        fileInput?.addEventListener('change', (e) => {
-            const name = e.target.files[0]?.name || 'Adjuntar voucher (opcional)';
-            document.getElementById('voucher-name').textContent = name.length > 25 ? name.substring(0, 22) + '...' : name;
-        });
+        // Colores de métodos de pago
+        const colores = {
+            Yape: { bg: '#7c3aed', border: '#7c3aed' },
+            Plin: { bg: '#06b6d4', border: '#06b6d4' },
+            Transferencia: { bg: '#f59e0b', border: '#f59e0b' }
+        };
         
-        // Event: Toggle RUC field
-        container.querySelectorAll('input[name="tipo_comprobante"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                document.getElementById('campo-ruc').style.display = e.target.value === 'factura' ? 'block' : 'none';
+        // Event: Método de pago
+        container.querySelectorAll('.metodo-btn').forEach(label => {
+            label.addEventListener('click', function() {
+                // Reset todos
+                container.querySelectorAll('.metodo-btn').forEach(l => {
+                    l.style.background = 'rgba(15,23,42,0.6)';
+                    l.style.borderColor = 'transparent';
+                    l.querySelector('span').style.color = '#94a3b8';
+                });
+                // Activar seleccionado
+                const metodo = this.dataset.metodo;
+                const color = colores[metodo];
+                this.style.background = color.bg;
+                this.style.borderColor = color.border;
+                this.querySelector('span').style.color = '#fff';
             });
         });
         
-        // Event: Método de pago visual
-        container.querySelectorAll('.metodo-opt').forEach(label => {
-            label.querySelector('input').addEventListener('change', () => {
-                container.querySelectorAll('.metodo-opt').forEach(l => {
-                    l.style.borderColor = l.querySelector('input').checked ? 'var(--dorado)' : 'rgba(212,175,55,0.2)';
-                });
+        // Event: Toggle RUC
+        container.querySelectorAll('input[name="tipo_comprobante"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.getElementById('campo-ruc').style.display = e.target.value === 'factura' ? 'block' : 'none';
             });
         });
     },
