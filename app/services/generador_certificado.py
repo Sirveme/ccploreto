@@ -42,7 +42,7 @@ class CertificadoHabilidad:
         fecha_vigencia: date,
         fecha_emision: Optional[datetime] = None,
         en_fraccionamiento: bool = False,
-        url_verificacion: str = "https://habilidadccploreto.org.pe/verificacion"
+        url_verificacion: str = None  # ← Cambiar a None
     ):
         self.codigo = codigo_verificacion
         self.nombres = nombres
@@ -52,7 +52,9 @@ class CertificadoHabilidad:
         self.fecha_vigencia = fecha_vigencia
         self.fecha_emision = fecha_emision or datetime.now()
         self.en_fraccionamiento = en_fraccionamiento
-        self.url_verificacion = url_verificacion
+        
+        # URL de verificación - construir aquí
+        self.url_verificacion = url_verificacion or f"https://colegiospro.org.pe/verificar/{codigo_verificacion}"
         
         # Autoridades (podrían venir de BD)
         self.decano_nombre = "CPC. Jorge Luis Santana Sifuentes"
@@ -60,7 +62,7 @@ class CertificadoHabilidad:
     
     def _generar_qr(self) -> io.BytesIO:
         """Genera QR code con la URL de verificación"""
-        url = f"{self.url_verificacion}?codigo={self.codigo}"
+        url = self.url_verificacion  # Ya incluye el código
         
         qr = qrcode.QRCode(
             version=1,
