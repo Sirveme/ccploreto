@@ -190,14 +190,19 @@ class FacturacionService:
         colegiado = self.db.query(Colegiado).filter(
             Colegiado.id == payment.colegiado_id
         ).first()
-        
+
         if colegiado:
+            # Formato: DNI con matrícula
+            num_doc_display = f"{colegiado.dni}  [Cod. Matr. {colegiado.codigo_matricula}]" if colegiado.codigo_matricula else colegiado.dni
+            
             return {
                 "tipo_doc": "1",  # DNI
-                "num_doc": colegiado.dni,
+                "num_doc": colegiado.dni,  # DNI puro para SUNAT
+                "num_doc_display": num_doc_display,  # Para mostrar en PDF
                 "nombre": colegiado.apellidos_nombres,
                 "direccion": colegiado.direccion,
-                "email": colegiado.email
+                "email": colegiado.email,
+                "matricula": colegiado.codigo_matricula
             }
         
         # Fallback
@@ -370,6 +375,7 @@ class FacturacionService:
         # Construir payload según especificación facturalo.pro
         payload = {
             "tipo_comprobante": comprobante.tipo,  # '03' boleta, '01' factura
+            "codigo_matricula": self._obtener_matricula(comprobante.payment_id),
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
@@ -430,6 +436,18 @@ class FacturacionService:
             return {"success": False, "error": f"Error de conexión: {str(e)}"}
         except Exception as e:
             return {"success": False, "error": f"Error inesperado: {str(e)}"}
+    
+    
+    def _obtener_matricula(self, payment_id: int) -> str:
+        """Obtiene la matrícula del colegiado asociado al pago"""
+        from app.models import Payment, Colegiado
+        payment = self.db.query(Payment).filter(Payment.id == payment_id).first()
+        if payment and payment.colegiado_id:
+            colegiado = self.db.query(Colegiado).filter(Colegiado.id == payment.colegiado_id).first()
+            if colegiado:
+                return colegiado.codigo_matricula
+        return None
+    
     
     def obtener_comprobante(self, comprobante_id: int) -> Optional[Comprobante]:
         """Obtiene un comprobante por ID"""
