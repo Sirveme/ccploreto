@@ -547,3 +547,410 @@ async def ultimos_cobros(
         })
 
     return resultado
+
+
+"""
+Endpoints de Sesión de Caja: Apertura, Cierre, Cuadre, Egresos
+AGREGAR al final de app/routers/caja.py
+
+Estos endpoints gestionan el ciclo completo de una sesión de caja.
+"""
+
+# ============================================================
+# SCHEMAS SESIÓN
+# ============================================================
+
+class AbrirCajaRequest(BaseModel):
+    monto_apertura: float = 0
+    centro_costo_id: int = 1
+
+class CerrarCajaRequest(BaseModel):
+    monto_cierre: float
+    observaciones: Optional[str] = None
+
+class EgresoRequest(BaseModel):
+    monto: float
+    concepto: str
+    detalle: Optional[str] = None
+    tipo: str = "gasto"   # gasto, devolucion, retiro_fondo
+
+class SesionCajaResponse(BaseModel):
+    id: int
+    estado: str
+    cajero: str
+    centro_costo: str
+    fecha: str
+    monto_apertura: float
+    total_cobros_efectivo: float = 0
+    total_cobros_digital: float = 0
+    total_egresos: float = 0
+    cantidad_operaciones: int = 0
+    total_esperado: float = 0
+    monto_cierre: Optional[float] = None
+    diferencia: Optional[float] = None
+    hora_apertura: Optional[str] = None
+    hora_cierre: Optional[str] = None
+
+
+# ============================================================
+# ABRIR CAJA
+# ============================================================
+
+@router.post("/abrir-caja")
+async def abrir_caja(
+    datos: AbrirCajaRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Abre una sesión de caja.
+    Solo 1 caja abierta por centro de costo a la vez.
+    """
+    from app.models import SesionCaja, UsuarioAdmin, CentroCosto
+
+    ahora = datetime.now(PERU_TZ)
+
+    # Verificar que no hay caja abierta en ese centro
+    caja_abierta = db.query(SesionCaja).filter(
+        SesionCaja.centro_costo_id == datos.centro_costo_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+
+    if caja_abierta:
+        cajero = db.query(UsuarioAdmin).filter(
+            UsuarioAdmin.id == caja_abierta.usuario_admin_id
+        ).first()
+        raise HTTPException(400, detail={
+            "error": f"Ya hay una caja abierta por {cajero.nombre_completo if cajero else 'otro usuario'}",
+            "sesion_id": caja_abierta.id,
+        })
+
+    # Obtener centro de costo
+    centro = db.query(CentroCosto).filter(
+        CentroCosto.id == datos.centro_costo_id
+    ).first()
+    if not centro:
+        raise HTTPException(404, detail="Centro de costo no encontrado")
+
+    org = db.query(Organization).first()
+
+    # TODO: obtener usuario_admin_id del usuario logueado
+    # Por ahora usamos el primer admin
+    usuario_admin = db.query(UsuarioAdmin).filter(
+        UsuarioAdmin.organization_id == org.id,
+        UsuarioAdmin.activo == True,
+    ).first()
+
+    sesion = SesionCaja(
+        organization_id=org.id,
+        centro_costo_id=datos.centro_costo_id,
+        usuario_admin_id=usuario_admin.id if usuario_admin else 1,
+        fecha=ahora,
+        estado="abierta",
+        monto_apertura=Decimal(str(datos.monto_apertura)),
+        hora_apertura=ahora,
+    )
+
+    db.add(sesion)
+    db.commit()
+    db.refresh(sesion)
+
+    return {
+        "success": True,
+        "mensaje": f"Caja abierta en {centro.nombre} con S/ {datos.monto_apertura:.2f}",
+        "sesion_id": sesion.id,
+    }
+
+
+# ============================================================
+# ESTADO DE CAJA ACTUAL
+# ============================================================
+
+@router.get("/sesion-actual")
+async def sesion_actual(
+    centro_costo_id: int = Query(1),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna la sesión de caja abierta del centro de costo.
+    Si no hay caja abierta, retorna null.
+    """
+    from app.models import SesionCaja, UsuarioAdmin, CentroCosto, EgresoCaja
+
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.centro_costo_id == centro_costo_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+
+    if not sesion:
+        return {"sesion": None, "caja_abierta": False}
+
+    # Calcular totales en tiempo real
+    ahora = datetime.now(PERU_TZ)
+
+    # Cobros del día en esta sesión (pagos desde hora_apertura)
+    pagos = db.query(Payment).filter(
+        Payment.status == "approved",
+        Payment.notes.like("[CAJA]%"),
+        Payment.created_at >= sesion.hora_apertura,
+    ).all()
+
+    total_efectivo = sum(
+        float(p.amount or 0) for p in pagos
+        if p.payment_method in ("efectivo",)
+    )
+    total_digital = sum(
+        float(p.amount or 0) for p in pagos
+        if p.payment_method not in ("efectivo",)
+    )
+    cantidad = len(pagos)
+
+    # Egresos
+    total_egresos = float(
+        db.query(func.coalesce(func.sum(EgresoCaja.monto), 0)).filter(
+            EgresoCaja.sesion_caja_id == sesion.id
+        ).scalar() or 0
+    )
+
+    # Total esperado en caja física = apertura + efectivo - egresos
+    monto_apertura = float(sesion.monto_apertura or 0)
+    total_esperado = monto_apertura + total_efectivo - total_egresos
+
+    # Info del cajero
+    cajero = db.query(UsuarioAdmin).filter(
+        UsuarioAdmin.id == sesion.usuario_admin_id
+    ).first()
+
+    centro = db.query(CentroCosto).filter(
+        CentroCosto.id == sesion.centro_costo_id
+    ).first()
+
+    return {
+        "caja_abierta": True,
+        "sesion": {
+            "id": sesion.id,
+            "estado": sesion.estado,
+            "cajero": cajero.nombre_completo if cajero else "?",
+            "centro_costo": centro.nombre if centro else "?",
+            "fecha": sesion.fecha.strftime("%d/%m/%Y") if sesion.fecha else "",
+            "hora_apertura": sesion.hora_apertura.strftime("%H:%M") if sesion.hora_apertura else "",
+            "monto_apertura": monto_apertura,
+            "total_cobros_efectivo": total_efectivo,
+            "total_cobros_digital": total_digital,
+            "total_egresos": total_egresos,
+            "cantidad_operaciones": cantidad,
+            "total_esperado": total_esperado,
+            "total_general": total_efectivo + total_digital,
+        }
+    }
+
+
+# ============================================================
+# CERRAR / CUADRAR CAJA
+# ============================================================
+
+@router.post("/cerrar-caja/{sesion_id}")
+async def cerrar_caja(
+    sesion_id: int,
+    datos: CerrarCajaRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Cierra una sesión de caja.
+    El cajero declara cuánto dinero tiene físicamente.
+    El sistema calcula la diferencia.
+    """
+    from app.models import SesionCaja, EgresoCaja
+
+    ahora = datetime.now(PERU_TZ)
+
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.id == sesion_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+
+    if not sesion:
+        raise HTTPException(404, detail="Sesión no encontrada o ya cerrada")
+
+    # Calcular totales finales
+    pagos = db.query(Payment).filter(
+        Payment.status == "approved",
+        Payment.notes.like("[CAJA]%"),
+        Payment.created_at >= sesion.hora_apertura,
+    ).all()
+
+    total_efectivo = sum(
+        float(p.amount or 0) for p in pagos
+        if p.payment_method in ("efectivo",)
+    )
+    total_digital = sum(
+        float(p.amount or 0) for p in pagos
+        if p.payment_method not in ("efectivo",)
+    )
+    cantidad = len(pagos)
+
+    total_egresos = float(
+        db.query(func.coalesce(func.sum(EgresoCaja.monto), 0)).filter(
+            EgresoCaja.sesion_caja_id == sesion.id
+        ).scalar() or 0
+    )
+
+    monto_apertura = float(sesion.monto_apertura or 0)
+    total_esperado = monto_apertura + total_efectivo - total_egresos
+    diferencia = datos.monto_cierre - total_esperado
+
+    # Actualizar sesión
+    sesion.estado = "cerrada"
+    sesion.total_cobros_efectivo = Decimal(str(total_efectivo))
+    sesion.total_cobros_digital = Decimal(str(total_digital))
+    sesion.total_egresos = Decimal(str(total_egresos))
+    sesion.cantidad_operaciones = cantidad
+    sesion.total_esperado = Decimal(str(total_esperado))
+    sesion.monto_cierre = Decimal(str(datos.monto_cierre))
+    sesion.diferencia = Decimal(str(diferencia))
+    sesion.hora_cierre = ahora
+    sesion.observaciones_cierre = datos.observaciones
+
+    # Validar diferencia grande
+    alerta = ""
+    if abs(diferencia) > 50:
+        if not datos.observaciones:
+            raise HTTPException(400,
+                detail="Diferencia mayor a S/ 50.00 — se requiere observación obligatoria")
+        alerta = f" ⚠ Diferencia: S/ {diferencia:+.2f}"
+
+    db.commit()
+
+    return {
+        "success": True,
+        "mensaje": f"Caja cerrada.{alerta}",
+        "resumen": {
+            "monto_apertura": monto_apertura,
+            "total_cobros_efectivo": total_efectivo,
+            "total_cobros_digital": total_digital,
+            "total_egresos": total_egresos,
+            "cantidad_operaciones": cantidad,
+            "total_esperado": total_esperado,
+            "monto_cierre": datos.monto_cierre,
+            "diferencia": diferencia,
+        }
+    }
+
+
+# ============================================================
+# REGISTRAR EGRESO
+# ============================================================
+
+@router.post("/egreso")
+async def registrar_egreso(
+    datos: EgresoRequest,
+    centro_costo_id: int = Query(1),
+    db: Session = Depends(get_db),
+):
+    """
+    Registra un egreso de caja (gasto menor, devolución, retiro de fondo).
+    Requiere caja abierta.
+    """
+    from app.models import SesionCaja, EgresoCaja
+
+    # Verificar caja abierta
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.centro_costo_id == centro_costo_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+
+    if not sesion:
+        raise HTTPException(400, detail="No hay caja abierta. Abra la caja primero.")
+
+    if datos.monto <= 0:
+        raise HTTPException(400, detail="Monto debe ser mayor a 0")
+
+    org = db.query(Organization).first()
+
+    egreso = EgresoCaja(
+        sesion_caja_id=sesion.id,
+        organization_id=org.id,
+        monto=Decimal(str(datos.monto)),
+        concepto=datos.concepto,
+        detalle=datos.detalle,
+        tipo=datos.tipo,
+    )
+
+    db.add(egreso)
+    db.commit()
+
+    return {
+        "success": True,
+        "mensaje": f"Egreso registrado: S/ {datos.monto:.2f} — {datos.concepto}",
+        "egreso_id": egreso.id,
+    }
+
+
+# ============================================================
+# HISTORIAL DE EGRESOS DE LA SESIÓN
+# ============================================================
+
+@router.get("/egresos/{sesion_id}")
+async def listar_egresos(
+    sesion_id: int,
+    db: Session = Depends(get_db),
+):
+    """Lista los egresos de una sesión de caja"""
+    from app.models import EgresoCaja
+
+    egresos = db.query(EgresoCaja).filter(
+        EgresoCaja.sesion_caja_id == sesion_id
+    ).order_by(EgresoCaja.created_at.desc()).all()
+
+    return [{
+        "id": e.id,
+        "monto": float(e.monto),
+        "concepto": e.concepto,
+        "detalle": e.detalle,
+        "tipo": e.tipo,
+        "hora": e.created_at.strftime("%H:%M") if e.created_at else "",
+    } for e in egresos]
+
+
+# ============================================================
+# HISTORIAL DE SESIONES (para tesorero/admin)
+# ============================================================
+
+@router.get("/historial-sesiones")
+async def historial_sesiones(
+    centro_costo_id: Optional[int] = None,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Historial de sesiones de caja. Para tesorero/admin."""
+    from app.models import SesionCaja, UsuarioAdmin, CentroCosto
+
+    query = db.query(SesionCaja)
+
+    if centro_costo_id:
+        query = query.filter(SesionCaja.centro_costo_id == centro_costo_id)
+
+    sesiones = query.order_by(SesionCaja.fecha.desc()).limit(limit).all()
+
+    resultado = []
+    for s in sesiones:
+        cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == s.usuario_admin_id).first()
+        centro = db.query(CentroCosto).filter(CentroCosto.id == s.centro_costo_id).first()
+
+        resultado.append({
+            "id": s.id,
+            "fecha": s.fecha.strftime("%d/%m/%Y") if s.fecha else "",
+            "centro_costo": centro.nombre if centro else "?",
+            "cajero": cajero.nombre_completo if cajero else "?",
+            "estado": s.estado,
+            "monto_apertura": float(s.monto_apertura or 0),
+            "total_cobros": float(s.total_cobros_efectivo or 0) + float(s.total_cobros_digital or 0),
+            "total_egresos": float(s.total_egresos or 0),
+            "total_esperado": float(s.total_esperado or 0),
+            "monto_cierre": float(s.monto_cierre) if s.monto_cierre is not None else None,
+            "diferencia": float(s.diferencia) if s.diferencia is not None else None,
+            "cantidad_operaciones": s.cantidad_operaciones or 0,
+            "hora_apertura": s.hora_apertura.strftime("%H:%M") if s.hora_apertura else "",
+            "hora_cierre": s.hora_cierre.strftime("%H:%M") if s.hora_cierre else "",
+        })
+
+    return resultado
