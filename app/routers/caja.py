@@ -115,6 +115,23 @@ class CobroResponse(BaseModel):
 
 
 # ============================================================
+# SCHEMAS EGRESOS (agregar junto a los otros schemas)
+# ============================================================
+
+class EgresoRequest(BaseModel):
+    monto: float
+    concepto: str
+    responsable: str                       # Quién recibe el dinero
+    detalle: Optional[str] = None
+    tipo: str = "gasto"                    # gasto, devolucion, retiro_fondo
+
+class LiquidarEgresoRequest(BaseModel):
+    monto_factura: float                   # Lo que dice la boleta/factura
+    numero_documento: Optional[str] = None # Nro de boleta/factura
+    observaciones: Optional[str] = None
+
+
+# ============================================================
 # ENDPOINTS
 # ============================================================
 
@@ -847,22 +864,28 @@ async def registrar_egreso(
     db: Session = Depends(get_db),
 ):
     """
-    Registra un egreso de caja (gasto menor, devolución, retiro de fondo).
-    Requiere caja abierta.
+    Registra un egreso de caja.
+    Estado inicial: 'pendiente' (el dinero salió de caja).
+    Cuando traigan la factura y el vuelto → se liquida.
     """
     from app.models import SesionCaja, EgresoCaja
 
-    # Verificar caja abierta
     sesion = db.query(SesionCaja).filter(
         SesionCaja.centro_costo_id == centro_costo_id,
         SesionCaja.estado == "abierta",
     ).first()
 
     if not sesion:
-        raise HTTPException(400, detail="No hay caja abierta. Abra la caja primero.")
+        raise HTTPException(400, detail="No hay caja abierta")
 
     if datos.monto <= 0:
         raise HTTPException(400, detail="Monto debe ser mayor a 0")
+
+    if not datos.responsable or not datos.responsable.strip():
+        raise HTTPException(400, detail="Debe indicar el responsable")
+
+    if not datos.concepto or not datos.concepto.strip():
+        raise HTTPException(400, detail="Debe indicar el concepto/motivo")
 
     org = db.query(Organization).first()
 
@@ -870,23 +893,27 @@ async def registrar_egreso(
         sesion_caja_id=sesion.id,
         organization_id=org.id,
         monto=Decimal(str(datos.monto)),
-        concepto=datos.concepto,
+        concepto=datos.concepto.strip(),
         detalle=datos.detalle,
         tipo=datos.tipo,
+        responsable=datos.responsable.strip(),
+        estado="pendiente",
     )
 
     db.add(egreso)
     db.commit()
+    db.refresh(egreso)
 
     return {
         "success": True,
-        "mensaje": f"Egreso registrado: S/ {datos.monto:.2f} — {datos.concepto}",
+        "mensaje": f"Egreso registrado: S/ {datos.monto:.2f} — {datos.concepto} → {datos.responsable}",
         "egreso_id": egreso.id,
     }
 
 
+
 # ============================================================
-# HISTORIAL DE EGRESOS DE LA SESIÓN
+# LISTAR EGRESOS DE LA SESIÓN
 # ============================================================
 
 @router.get("/egresos/{sesion_id}")
@@ -894,7 +921,7 @@ async def listar_egresos(
     sesion_id: int,
     db: Session = Depends(get_db),
 ):
-    """Lista los egresos de una sesión de caja"""
+    """Lista egresos de una sesión con todos los detalles"""
     from app.models import EgresoCaja
 
     egresos = db.query(EgresoCaja).filter(
@@ -904,10 +931,15 @@ async def listar_egresos(
     return [{
         "id": e.id,
         "monto": float(e.monto),
+        "monto_factura": float(e.monto_factura) if e.monto_factura is not None else None,
+        "monto_devuelto": float(e.monto_devuelto or 0),
         "concepto": e.concepto,
         "detalle": e.detalle,
+        "responsable": e.responsable or "",
         "tipo": e.tipo,
-        "hora": e.created_at.strftime("%H:%M") if e.created_at else "",
+        "estado": e.estado or "pendiente",
+        "numero_documento": e.numero_documento,
+        "hora": e.created_at.astimezone(PERU_TZ).strftime("%H:%M") if e.created_at else "",
     } for e in egresos]
 
 
@@ -954,3 +986,121 @@ async def historial_sesiones(
         })
 
     return resultado
+
+
+# ============================================================
+# LIQUIDAR EGRESO (traen factura + vuelto)
+# ============================================================
+
+@router.post("/egreso/{egreso_id}/liquidar")
+async def liquidar_egreso(
+    egreso_id: int,
+    datos: LiquidarEgresoRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Liquida un egreso: se recibió la factura/boleta y el vuelto.
+    
+    Ejemplo: Se entregaron S/ 25 para movilidad.
+    La factura dice S/ 20. Devuelve S/ 5 a caja.
+    
+    monto_entregado = 25 (ya registrado)
+    monto_factura = 20 (lo que realmente costó)
+    monto_devuelto = 5 (vuelto que regresa a caja)
+    """
+    from app.models import EgresoCaja
+
+    ahora = datetime.now(PERU_TZ)
+
+    egreso = db.query(EgresoCaja).filter(
+        EgresoCaja.id == egreso_id,
+        EgresoCaja.estado == "pendiente",
+    ).first()
+
+    if not egreso:
+        raise HTTPException(404, detail="Egreso no encontrado o ya liquidado")
+
+    monto_entregado = float(egreso.monto)
+
+    if datos.monto_factura < 0:
+        raise HTTPException(400, detail="Monto de factura inválido")
+
+    if datos.monto_factura > monto_entregado:
+        raise HTTPException(400, 
+            detail=f"Factura (S/ {datos.monto_factura:.2f}) mayor al monto entregado (S/ {monto_entregado:.2f})")
+
+    monto_devuelto = monto_entregado - datos.monto_factura
+
+    egreso.monto_factura = Decimal(str(datos.monto_factura))
+    egreso.monto_devuelto = Decimal(str(monto_devuelto))
+    egreso.estado = "liquidado"
+    egreso.liquidado_at = ahora
+    egreso.numero_documento = datos.numero_documento
+    if datos.observaciones:
+        egreso.detalle = (egreso.detalle or "") + f"\n[Liquidación] {datos.observaciones}"
+
+    db.commit()
+
+    msg = f"Egreso liquidado. Factura: S/ {datos.monto_factura:.2f}"
+    if monto_devuelto > 0:
+        msg += f" — Vuelto: S/ {monto_devuelto:.2f} regresa a caja"
+
+    return {
+        "success": True,
+        "mensaje": msg,
+        "monto_factura": datos.monto_factura,
+        "monto_devuelto": monto_devuelto,
+    }
+
+
+# ============================================================
+# EGRESOS DE LA SESIÓN ACTUAL (para el panel)
+# ============================================================
+
+@router.get("/egresos-actual")
+async def egresos_sesion_actual(
+    centro_costo_id: int = Query(1),
+    db: Session = Depends(get_db),
+):
+    """Egresos de la sesión de caja actual (abierta)"""
+    from app.models import SesionCaja, EgresoCaja
+
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.centro_costo_id == centro_costo_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+
+    if not sesion:
+        return {"egresos": [], "totales": {"entregado": 0, "facturado": 0, "devuelto": 0, "pendientes": 0}}
+
+    egresos = db.query(EgresoCaja).filter(
+        EgresoCaja.sesion_caja_id == sesion.id
+    ).order_by(EgresoCaja.created_at.desc()).all()
+
+    total_entregado = sum(float(e.monto or 0) for e in egresos)
+    total_facturado = sum(float(e.monto_factura or 0) for e in egresos if e.estado == "liquidado")
+    total_devuelto = sum(float(e.monto_devuelto or 0) for e in egresos if e.estado == "liquidado")
+    pendientes = sum(1 for e in egresos if e.estado == "pendiente")
+
+    return {
+        "sesion_id": sesion.id,
+        "egresos": [{
+            "id": e.id,
+            "monto": float(e.monto),
+            "monto_factura": float(e.monto_factura) if e.monto_factura is not None else None,
+            "monto_devuelto": float(e.monto_devuelto or 0),
+            "concepto": e.concepto,
+            "responsable": e.responsable or "",
+            "tipo": e.tipo,
+            "estado": e.estado or "pendiente",
+            "numero_documento": e.numero_documento,
+            "hora": e.created_at.astimezone(PERU_TZ).strftime("%H:%M") if e.created_at else "",
+        } for e in egresos],
+        "totales": {
+            "entregado": total_entregado,
+            "facturado": total_facturado,
+            "devuelto": total_devuelto,
+            "neto": total_entregado - total_devuelto,  # Lo que realmente salió de caja
+            "pendientes": pendientes,
+        }
+    }
