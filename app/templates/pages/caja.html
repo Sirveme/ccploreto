@@ -272,6 +272,12 @@
                     <span class="label">Ops:</span>
                     <span class="value" id="opsDia">0</span>
                 </div>
+
+                <button class="btn-cerrar-caja-header" id="btnEgreso" 
+                        onclick="mostrarEgreso()" style="display:none;" title="Registrar egreso/gasto">
+                    💸
+                </button>
+
                 <button class="btn-cerrar-caja-header" id="btnCerrarCajaHeader" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
                 <span class="header-time" id="horaActual">--:--</span>
             </div>
@@ -478,12 +484,35 @@
             } catch (e) { toast('Error de conexión', 'error'); }
         }
 
+        function mostrarEgreso() {
+            const monto = prompt('Monto del egreso (S/):');
+            if (!monto) return;
+            const montoNum = parseFloat(monto);
+            if (isNaN(montoNum) || montoNum <= 0) { toast('Monto inválido', 'error'); return; }
+            
+            const concepto = prompt('Concepto (ej: Compra de papel, taxi):');
+            if (!concepto) return;
+
+            fetch(`${API}/egreso?centro_costo_id=1`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ monto: montoNum, concepto: concepto })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) toast(data.mensaje, 'success');
+                else toast(data.detail || 'Error', 'error');
+            })
+            .catch(() => toast('Error de conexión', 'error'));
+        }
+
         function mostrarCajaAbierta() {
             document.getElementById('aperturaOverlay').classList.remove('active');
             document.getElementById('sesionIndicator').style.display = 'flex';
             document.getElementById('sesionInfo').textContent = `${sesionActual.centro_costo} · ${sesionActual.hora_apertura}`;
             document.getElementById('headerTitle').textContent = `Caja — ${sesionActual.centro_costo}`;
             document.getElementById('btnCerrarCajaHeader').style.display = 'block';
+            document.getElementById('btnEgreso').style.display = 'block';
         }
 
         // ── CIERRE ──
