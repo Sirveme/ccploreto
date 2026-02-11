@@ -23,7 +23,8 @@ from app.routers.admin_config_router import router as admin_config_router
 from app.routers.admin_views import router as admin_views_router
 from app.routers import router_certificados
 from app.routers import api_publico
-from app.routers.caja import router as caja_router
+from app.routers.caja import router as caja_router, page_router as caja_page_router
+
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -153,6 +154,7 @@ app.include_router(pagos_colegiado.router)
 app.include_router(router_certificados.router)
 app.include_router(api_publico.router)
 app.include_router(caja_router)
+app.include_router(caja_page_router)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
