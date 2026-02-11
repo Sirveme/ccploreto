@@ -12,8 +12,11 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from decimal import Decimal
 
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, and_
 from pydantic import BaseModel, Field
@@ -25,10 +28,18 @@ from app.models import (
     ConfiguracionFacturacion
 )
 
+templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
 PERU_TZ = timezone(timedelta(hours=-5))
 
+@router.get("/caja")
+async def pagina_caja(request: Request):
+    """Sirve la página de caja"""
+    member_id = request.session.get("member_id")
+    if not member_id:
+        return RedirectResponse(url="/login")
+    return templates.TemplateResponse("pages/caja.html", {"request": request})
 
 # ============================================================
 # SCHEMAS
