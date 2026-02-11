@@ -28,6 +28,10 @@ from app.models import (
     ConfiguracionFacturacion
 )
 
+from app.routers.dashboard import get_current_member
+from app.models import Member
+
+
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
@@ -35,10 +39,7 @@ router = APIRouter(prefix="/api/caja", tags=["Caja"])
 page_router = APIRouter(tags=["Caja"])
 
 @page_router.get("/caja")
-async def pagina_caja(request: Request):
-    member_id = request.session.get("member_id")
-    if not member_id:
-        return RedirectResponse(url="/login")
+async def pagina_caja(request: Request, member: Member = Depends(get_current_member)):
     return templates.TemplateResponse("pages/caja.html", {"request": request})
 
 
