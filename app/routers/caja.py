@@ -31,15 +31,19 @@ from app.models import (
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
-PERU_TZ = timezone(timedelta(hours=-5))
+# Router para la página HTML (sin prefix)
+page_router = APIRouter(tags=["Caja"])
 
-@router.get("/caja")
+@page_router.get("/caja")
 async def pagina_caja(request: Request):
-    """Sirve la página de caja"""
     member_id = request.session.get("member_id")
     if not member_id:
         return RedirectResponse(url="/login")
     return templates.TemplateResponse("pages/caja.html", {"request": request})
+
+
+PERU_TZ = timezone(timedelta(hours=-5))
+
 
 # ============================================================
 # SCHEMAS
