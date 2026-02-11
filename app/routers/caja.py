@@ -732,7 +732,7 @@ async def sesion_actual(
             "cajero": cajero.nombre_completo if cajero else "?",
             "centro_costo": centro.nombre if centro else "?",
             "fecha": sesion.fecha.strftime("%d/%m/%Y") if sesion.fecha else "",
-            "hora_apertura": sesion.hora_apertura.strftime("%H:%M") if sesion.hora_apertura else "",
+            "hora_apertura": sesion.hora_apertura.astimezone(PERU_TZ).strftime("%H:%M") if sesion.hora_apertura else "",
             "monto_apertura": monto_apertura,
             "total_cobros_efectivo": total_efectivo,
             "total_cobros_digital": total_digital,
