@@ -195,15 +195,15 @@ async def obtener_deudas(
     resultado = []
     for d in deudas:
         monto = float(d.amount or 0)
-        pagado = float(getattr(d, 'amount_paid', 0) or 0)
+        saldo = float(d.balance or 0)
         resultado.append(DeudaResponse(
             id=d.id,
             concepto=d.concept or "Cuota",
             periodo=str(d.periodo) if d.periodo else None,
             monto=monto,
-            monto_pagado=pagado,
-            saldo=monto - pagado,
-            fecha_vencimiento=d.due_date.strftime("%d/%m/%Y") if getattr(d, 'due_date', None) else None,
+            monto_pagado=monto - saldo,
+            saldo=saldo,
+            fecha_vencimiento=d.due_date.strftime("%d/%m/%Y") if d.due_date else None,
             estado=d.status,
         ))
 
@@ -337,9 +337,7 @@ async def registrar_cobro(
             if not deuda:
                 raise HTTPException(400, detail=f"Deuda {item.deuda_id} no encontrada o ya pagada")
 
-            monto = float(deuda.amount or 0)
-            pagado = float(getattr(deuda, 'amount_paid', 0) or 0)
-            saldo = monto - pagado
+            saldo = float(deuda.balance or 0)
 
             items_procesados.append({
                 "tipo": "deuda",
@@ -430,11 +428,9 @@ async def registrar_cobro(
         amount=Decimal(str(cobro.total)),
         payment_method=cobro.metodo_pago,
         operation_code=cobro.referencia_pago,
-        notes=descripcion_pago,
-        status="approved",           # Presencial = aprobado inmediatamente
-        payment_date=ahora,
-        validated_at=ahora,
-        source="caja",               # Origen: caja presencial
+        notes=f"[CAJA] {descripcion_pago}",
+        status="approved",
+        reviewed_at=ahora,
     )
 
     # Datos del pagador (para facturas)
@@ -442,8 +438,6 @@ async def registrar_cobro(
         payment.pagador_tipo = "empresa"
         payment.pagador_documento = cobro.cliente_ruc
         payment.pagador_nombre = cobro.cliente_razon_social
-        if hasattr(payment, 'pagador_direccion'):
-            payment.pagador_direccion = cobro.cliente_direccion
 
     db.add(payment)
     db.flush()
@@ -451,9 +445,7 @@ async def registrar_cobro(
     # ── MARCAR DEUDAS COMO PAGADAS ──
     for deuda in deudas_a_pagar:
         deuda.status = "paid"
-        deuda.paid_at = ahora
-        if hasattr(deuda, 'payment_id'):
-            deuda.payment_id = payment.id
+        deuda.balance = 0
 
     # ── GENERAR DEUDAS para conceptos que genera_deuda ──
     for item in items_procesados:
@@ -467,11 +459,9 @@ async def registrar_cobro(
                     colegiado_id=cobro.colegiado_id,
                     concept=concepto.nombre,
                     amount=Decimal(str(item["monto_total"])),
+                    balance=0,
                     status="paid",
-                    paid_at=ahora,
                 )
-                if hasattr(nueva_deuda, 'payment_id'):
-                    nueva_deuda.payment_id = payment.id
                 db.add(nueva_deuda)
 
     db.commit()
@@ -499,8 +489,8 @@ async def resumen_del_dia(
     # Pagos del día
     pagos_dia = db.query(Payment).filter(
         Payment.status == "approved",
-        Payment.payment_date >= inicio_dia,
-        Payment.source == "caja",
+        Payment.created_at >= inicio_dia,
+        Payment.notes.like("[CAJA]%"),
     ).all()
 
     total = sum(float(p.amount or 0) for p in pagos_dia)
@@ -534,9 +524,9 @@ async def ultimos_cobros(
     inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
     pagos = db.query(Payment).filter(
-        Payment.source == "caja",
-        Payment.payment_date >= inicio_dia,
-    ).order_by(Payment.payment_date.desc()).limit(limit).all()
+        Payment.notes.like("[CAJA]%"),
+        Payment.created_at >= inicio_dia,
+    ).order_by(Payment.created_at.desc()).limit(limit).all()
 
     resultado = []
     for p in pagos:
@@ -546,7 +536,7 @@ async def ultimos_cobros(
 
         resultado.append({
             "id": p.id,
-            "hora": p.payment_date.strftime("%H:%M") if p.payment_date else "",
+            "hora": p.created_at.strftime("%H:%M") if p.created_at else "",
             "colegiado": col.apellidos_nombres if col else "Público general",
             "matricula": col.codigo_matricula if col else None,
             "concepto": p.notes or "",
