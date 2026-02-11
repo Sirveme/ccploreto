@@ -561,6 +561,12 @@
         .success-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
         .success-amt { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700; color: var(--green); margin-bottom: 10px; }
         .success-ref { font-size: 12px; color: var(--text-dim); }
+        .success-comprobante { margin-top: 14px; padding: 10px 16px; background: rgba(79,125,243,0.1); border: 1px solid rgba(79,125,243,0.25); border-radius: 8px; display: none; }
+        .success-comprobante.active { display: block; }
+        .success-comp-numero { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; color: var(--accent); margin-bottom: 6px; }
+        .success-comp-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; background: var(--accent); color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+        .success-comp-link:hover { background: #3d6be0; transform: translateY(-1px); }
+        .success-comp-error { font-size: 11px; color: var(--amber); margin-top: 4px; }
 
         /* Toast */
         .toast-box { position: fixed; top: 60px; right: 14px; z-index: 3000; display: flex; flex-direction: column; gap: 5px; }
@@ -794,7 +800,7 @@
 </div>
 
 <div class="success-bg" id="successBg">
-    <div class="success-box"><div class="success-check">✓</div><div class="success-title">¡Cobro registrado!</div><div class="success-amt" id="successAmt">S/ 0</div><div class="success-ref" id="successRef"></div></div>
+    <div class="success-box"><div class="success-check">✓</div><div class="success-title">¡Cobro registrado!</div><div class="success-amt" id="successAmt">S/ 0</div><div class="success-ref" id="successRef"></div><div class="success-comprobante" id="successComp"><div class="success-comp-numero" id="successCompNum"></div><a class="success-comp-link" id="successCompPdf" href="#" target="_blank">📄 Ver Comprobante PDF</a><div class="success-comp-error" id="successCompErr"></div></div></div>
 </div>
 
 <div class="toast-box" id="toastBox"></div>
@@ -968,11 +974,31 @@ async function ejecutarCobro() {
     cerrarModal(); const total=carrito.reduce((s,i)=>s+i.monto,0); const ref=document.getElementById('refInput').value.trim();
     const payload={colegiado_id:colActual?.id||null,items:carrito.map(i=>({tipo:i.tipo,deuda_id:i.deuda_id||null,concepto_id:i.concepto_id||null,descripcion:i.descripcion,cantidad:i.cantidad||1,monto_unitario:i.monto_unitario||i.monto,monto_total:i.monto})),total,metodo_pago:metodo,referencia_pago:ref||null,tipo_comprobante:tipoComp};
     try { const r=await fetch(`${API}/cobrar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json();
-        if(d.success){document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;document.getElementById('successRef').textContent=`${metodo.toUpperCase()} ${ref?'· Op: '+ref:''} · ${colActual?.apellidos_nombres||'Público general'}`;document.getElementById('successBg').classList.add('active');carrito=[];renderCarrito();if(colActual)cargarDeudas(colActual.id);cargarResumen();setTimeout(cerrarSuccess,2500);}
+        if(d.success){document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;document.getElementById('successRef').textContent=`${metodo.toUpperCase()} ${ref?'· Op: '+ref:''} · ${colActual?.apellidos_nombres||'Público general'}`;
+            // Comprobante electrónico
+            const compEl=document.getElementById('successComp');
+            const compNum=document.getElementById('successCompNum');
+            const compPdf=document.getElementById('successCompPdf');
+            const compErr=document.getElementById('successCompErr');
+            compErr.textContent='';
+            if(d.comprobante_emitido && d.numero_comprobante){
+                compNum.textContent='📄 '+d.numero_comprobante;
+                if(d.comprobante_pdf){compPdf.href=d.comprobante_pdf;compPdf.style.display='inline-flex';}
+                else{compPdf.style.display='none';}
+                compEl.classList.add('active');
+            } else {
+                if(d.numero_comprobante){compNum.textContent='⚠️ '+d.numero_comprobante;compEl.classList.add('active');compPdf.style.display='none';}
+                else{compEl.classList.remove('active');}
+                if(!d.comprobante_emitido && d.mensaje){compErr.textContent=d.mensaje;}
+            }
+            document.getElementById('successBg').classList.add('active');carrito=[];renderCarrito();if(colActual)cargarDeudas(colActual.id);cargarResumen();
+            // Si hay PDF, no cerrar automáticamente — el usuario cierra manualmente
+            if(!(d.comprobante_emitido && d.comprobante_pdf)){setTimeout(cerrarSuccess,2500);}
+        }
         else toast(d.detail||'Error','err');
     } catch(e){toast('Error','err');}
 }
-function cerrarSuccess() { document.getElementById('successBg').classList.remove('active'); document.getElementById('searchInput').focus(); }
+function cerrarSuccess() { document.getElementById('successBg').classList.remove('active'); document.getElementById('successComp').classList.remove('active'); document.getElementById('searchInput').focus(); }
 document.getElementById('successBg').addEventListener('click', cerrarSuccess);
 
 // ── EGRESOS ──
