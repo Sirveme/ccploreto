@@ -31,6 +31,8 @@ from app.models import (
 from app.routers.dashboard import get_current_member
 from app.models import Member
 
+from app.services.facturacion import emitir_comprobante_automatico
+
 
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
@@ -111,6 +113,8 @@ class CobroResponse(BaseModel):
     payment_id: Optional[int] = None
     comprobante_id: Optional[int] = None
     numero_comprobante: Optional[str] = None
+    comprobante_pdf: Optional[str] = None
+    comprobante_emitido: bool = False
     total: float = 0
 
 
@@ -484,11 +488,29 @@ async def registrar_cobro(
     db.commit()
 
     # ── RESPUESTA ──
+    # ── EMITIR COMPROBANTE ELECTRÓNICO ──
+    comprobante_info = {}
+    try:
+        resultado = await emitir_comprobante_automatico(db, payment.id)
+        comprobante_info = {
+            "comprobante_emitido": resultado.get("success", False),
+            "comprobante_numero": resultado.get("numero_formato"),
+            "comprobante_pdf": resultado.get("pdf_url"),
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error facturación caja: {e}")
+        comprobante_info = {"comprobante_emitido": False}
+
+    # ── RESPUESTA ──
     return CobroResponse(
         success=True,
         mensaje=f"Cobro registrado: S/ {cobro.total:.2f} - {cobro.metodo_pago}",
         payment_id=payment.id,
         total=cobro.total,
+        comprobante_emitido=comprobante_info.get("comprobante_emitido", False),
+        numero_comprobante=comprobante_info.get("comprobante_numero"),
+        comprobante_pdf=comprobante_info.get("comprobante_pdf"),
     )
 
 
