@@ -849,3 +849,74 @@ class ConceptoCobro(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     organization = relationship("Organization", backref="conceptos_cobro")
+
+
+
+# ============================================================
+# SESIÓN DE CAJA: Apertura, Cierre, Cuadre
+# ============================================================
+
+class SesionCaja(Base):
+    """Sesión de caja: apertura → operaciones → cierre/cuadre"""
+    __tablename__ = "sesiones_caja"
+    __table_args__ = (
+        Index('ix_sesion_caja_centro_estado', 'centro_costo_id', 'estado'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    centro_costo_id = Column(Integer, ForeignKey("centros_costo.id"), nullable=False)
+    usuario_admin_id = Column(Integer, ForeignKey("usuarios_admin.id"), nullable=False)
+
+    fecha = Column(DateTime(timezone=True), nullable=False)
+    estado = Column(String(20), default="abierta")  # abierta, cerrada, cuadrada
+
+    # Apertura
+    monto_apertura = Column(Numeric(12, 2), default=0)
+    hora_apertura = Column(DateTime(timezone=True))
+
+    # Totales calculados al cierre
+    total_cobros_efectivo = Column(Numeric(12, 2), default=0)
+    total_cobros_digital = Column(Numeric(12, 2), default=0)   # Yape, Plin, tarjeta, transferencia
+    total_egresos = Column(Numeric(12, 2), default=0)
+    cantidad_operaciones = Column(Integer, default=0)
+
+    # Cierre
+    total_esperado = Column(Numeric(12, 2), default=0)    # apertura + efectivo - egresos
+    monto_cierre = Column(Numeric(12, 2), nullable=True)  # Lo que declara el cajero
+    diferencia = Column(Numeric(12, 2), nullable=True)     # cierre - esperado
+    hora_cierre = Column(DateTime(timezone=True), nullable=True)
+    observaciones_cierre = Column(Text, nullable=True)
+
+    cerrado_por_id = Column(Integer, ForeignKey("usuarios_admin.id"), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relaciones
+    organization = relationship("Organization")
+    centro_costo = relationship("CentroCosto")
+    cajero = relationship("UsuarioAdmin", foreign_keys=[usuario_admin_id])
+    cerrado_por = relationship("UsuarioAdmin", foreign_keys=[cerrado_por_id])
+    egresos = relationship("EgresoCaja", back_populates="sesion_caja", lazy="dynamic")
+
+
+class EgresoCaja(Base):
+    """Egresos/gastos menores durante una sesión de caja"""
+    __tablename__ = "egresos_caja"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sesion_caja_id = Column(Integer, ForeignKey("sesiones_caja.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+
+    monto = Column(Numeric(12, 2), nullable=False)
+    concepto = Column(String(200), nullable=False)       # "Compra de papel bond"
+    detalle = Column(Text, nullable=True)
+    tipo = Column(String(30), default="gasto")           # gasto, devolucion, retiro_fondo
+
+    autorizado_por_id = Column(Integer, ForeignKey("usuarios_admin.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relaciones
+    sesion_caja = relationship("SesionCaja", back_populates="egresos")
+    autorizado_por = relationship("UsuarioAdmin")
