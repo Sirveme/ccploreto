@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date, Numeric
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date, Numeric, Table, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -665,3 +665,187 @@ class Comprobante(Base):
     # Relaciones
     payment = relationship("Payment", backref="comprobante")
     organization = relationship("Organization")
+
+
+# ============================================================
+# SISTEMA RBAC: Roles, Permisos, Usuarios Administrativos
+# Centros de Costo y Catálogo de Conceptos de Cobro
+# Agregado: 2026-02-10
+# ============================================================
+
+# Tabla intermedia rol <-> permiso (many-to-many)
+rol_permiso = Table(
+    'rol_permiso',
+    Base.metadata,
+    Column('rol_id', Integer, ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True),
+    Column('permiso_id', Integer, ForeignKey('permisos.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
+class Permiso(Base):
+    """Permiso atómico: modulo.accion (ej: caja.cobrar, deudas.crear)"""
+    __tablename__ = "permisos"
+    __table_args__ = (
+        UniqueConstraint('modulo', 'accion', name='uq_modulo_accion'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    modulo = Column(String(50), nullable=False)
+    accion = Column(String(50), nullable=False)
+    descripcion = Column(String(200))
+
+    @property
+    def codigo(self):
+        return f"{self.modulo}.{self.accion}"
+
+
+class Rol(Base):
+    """Rol con permisos asignados. 5 roles base por organización."""
+    __tablename__ = "roles"
+    __table_args__ = (
+        UniqueConstraint('organization_id', 'codigo', name='uq_org_rol_codigo'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    codigo = Column(String(30), nullable=False)
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(Text)
+    nivel = Column(Integer, default=0)          # admin=100, tesorero=80, cajero=50, secretaria=40, colegiado=10
+    es_base = Column(Boolean, default=False)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    permisos = relationship("Permiso", secondary=rol_permiso, backref="roles", lazy="joined")
+    usuarios_admin = relationship("UsuarioAdmin", back_populates="rol", lazy="dynamic")
+
+    def tiene_permiso(self, modulo: str, accion: str) -> bool:
+        return any(p.modulo == modulo and p.accion == accion for p in self.permisos)
+
+
+class CentroCosto(Base):
+    """Punto de venta/cobro: Oficina, Restaurante, Bazar, etc."""
+    __tablename__ = "centros_costo"
+    __table_args__ = (
+        UniqueConstraint('organization_id', 'codigo', name='uq_org_centro_codigo'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    codigo = Column(String(20), nullable=False)
+    nombre = Column(String(100), nullable=False)
+    direccion = Column(String(200))
+    tipo = Column(String(30), default="oficina")
+    serie_boleta = Column(String(4))
+    serie_factura = Column(String(4))
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    organization = relationship("Organization", backref="centros_costo")
+    usuarios_admin = relationship("UsuarioAdmin", back_populates="centro_costo")
+
+
+class UsuarioAdmin(Base):
+    """Usuario administrativo: vincula user -> rol -> centro de costo"""
+    __tablename__ = "usuarios_admin"
+    __table_args__ = (
+        UniqueConstraint('organization_id', 'user_id', name='uq_org_user'),
+        Index('ix_usuario_admin_org_activo', 'organization_id', 'activo'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rol_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    centro_costo_id = Column(Integer, ForeignKey("centros_costo.id"), nullable=True)
+    colegiado_id = Column(Integer, ForeignKey("colegiados.id"), nullable=True)
+
+    nombre_completo = Column(String(200), nullable=False)
+    email = Column(String(150))
+    telefono = Column(String(20))
+    cargo = Column(String(100))
+
+    # Controles de caja
+    monto_maximo_sin_aprobacion = Column(Float, default=0)
+    puede_anular = Column(Boolean, default=False)
+    puede_hacer_descuentos = Column(Boolean, default=False)
+
+    activo = Column(Boolean, default=True)
+    ultimo_acceso = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    rol = relationship("Rol", back_populates="usuarios_admin")
+    centro_costo = relationship("CentroCosto", back_populates="usuarios_admin")
+    organization = relationship("Organization", backref="usuarios_admin")
+
+    def tiene_permiso(self, modulo: str, accion: str) -> bool:
+        if not self.activo or not self.rol:
+            return False
+        return self.rol.tiene_permiso(modulo, accion)
+
+    def es_admin(self) -> bool:
+        return self.rol and self.rol.codigo == "admin"
+
+
+class ConceptoCobro(Base):
+    """Catálogo de conceptos de cobro: cuotas, constancias, alquileres, mercadería, multas, etc."""
+    __tablename__ = "conceptos_cobro"
+    __table_args__ = (
+        UniqueConstraint('organization_id', 'codigo', name='uq_org_codigo_concepto'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+
+    codigo = Column(String(20), nullable=False)
+    nombre = Column(String(150), nullable=False)
+    nombre_corto = Column(String(50))
+    descripcion = Column(Text)
+
+    # Clasificación
+    categoria = Column(String(30), nullable=False, default="otros")
+    # cuotas, constancias, derechos, capacitacion, alquileres, recreacion, mercaderia, multas, eventos, otros
+    periodicidad = Column(String(20), nullable=False, default="unico")
+    # mensual, anual, unico, por_uso, variable
+
+    # Montos
+    monto_base = Column(Float, nullable=False, default=0)
+    monto_minimo = Column(Float, default=0)
+    monto_maximo = Column(Float, default=0)
+    permite_monto_libre = Column(Boolean, default=False)
+
+    # Impuestos
+    afecto_igv = Column(Boolean, default=False)
+    tipo_afectacion_igv = Column(String(2), default="20")  # 10=gravado, 20=exonerado
+
+    # Comprobante
+    genera_comprobante = Column(Boolean, default=True)
+    tipo_comprobante_default = Column(String(2), default="03")
+
+    # Comportamiento
+    requiere_colegiado = Column(Boolean, default=True)
+    aplica_a_publico = Column(Boolean, default=False)
+    genera_deuda = Column(Boolean, default=False)
+    requiere_aprobacion = Column(Boolean, default=False)
+
+    # Cuotas mensuales
+    es_cuota_mensual = Column(Boolean, default=False)
+    dia_vencimiento = Column(Integer, default=0)
+    meses_aplicables = Column(String(50))
+
+    # Stock (mercadería)
+    maneja_stock = Column(Boolean, default=False)
+    stock_actual = Column(Integer, default=0)
+    stock_minimo = Column(Integer, default=0)
+
+    # Estado
+    activo = Column(Boolean, default=True)
+    orden = Column(Integer, default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    organization = relationship("Organization", backref="conceptos_cobro")
