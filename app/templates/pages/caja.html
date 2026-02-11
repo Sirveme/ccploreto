@@ -2,1201 +2,1022 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Caja - CCPL</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f1117;
-            --bg-card: #1a1d27;
-            --bg-card-hover: #222633;
-            --bg-input: #161922;
-            --border: #2a2e3b;
+            --bg: #0c0e14;
+            --bg-card: #151821;
+            --bg-elevated: #1a1e2a;
+            --bg-inset: #10121a;
+            --border: #252a38;
             --border-focus: #4f7df3;
             --text: #e8eaf0;
             --text-dim: #8b8fa3;
-            --text-muted: #5a5e72;
+            --text-muted: #505469;
+
             --accent: #4f7df3;
-            --accent-soft: rgba(79, 125, 243, 0.12);
+            --accent-soft: rgba(79, 125, 243, 0.10);
+            --accent-border: rgba(79, 125, 243, 0.25);
+
             --green: #34d399;
-            --green-soft: rgba(52, 211, 153, 0.12);
+            --green-soft: rgba(52, 211, 153, 0.08);
             --green-dark: #059669;
+            --green-border: rgba(52, 211, 153, 0.25);
+
             --red: #f87171;
-            --red-soft: rgba(248, 113, 113, 0.1);
+            --red-soft: rgba(248, 113, 113, 0.08);
+            --red-border: rgba(248, 113, 113, 0.22);
+
             --amber: #fbbf24;
-            --amber-soft: rgba(251, 191, 36, 0.1);
-            --radius: 10px;
-            --radius-sm: 6px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            --amber-soft: rgba(251, 191, 36, 0.08);
+            --amber-border: rgba(251, 191, 36, 0.22);
+
+            --purple: #a78bfa;
+            --purple-soft: rgba(167, 139, 250, 0.08);
+            --purple-border: rgba(167, 139, 250, 0.22);
+
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+            --shadow: 0 4px 12px rgba(0,0,0,0.35);
+            --shadow-lg: 0 8px 28px rgba(0,0,0,0.5);
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh; height: 100dvh;
+            overflow: hidden;
+        }
 
-        .caja-layout { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: 56px 1fr; height: 100vh; gap: 0; }
+        /* ══════════════════════════════════════════════════
+           LAYOUT
+           ══════════════════════════════════════════════════ */
+        .caja-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            grid-template-rows: 54px 1fr;
+            height: 100vh; height: 100dvh;
+        }
 
-        /* HEADER */
-        .caja-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--bg-card); border-bottom: 1px solid var(--border); }
-        .header-left { display: flex; align-items: center; gap: 16px; }
-        .header-logo { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; color: var(--accent); letter-spacing: -0.5px; }
-        .header-divider { width: 1px; height: 24px; background: var(--border); }
-        .header-title { font-weight: 600; font-size: 14px; color: var(--text-dim); }
-        .header-right { display: flex; align-items: center; gap: 12px; }
-        .header-stat { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--bg); border-radius: 20px; font-size: 13px; }
-        .header-stat .label { color: var(--text-dim); }
-        .header-stat .value { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--green); }
-        .header-time { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 13px; color: var(--text-dim); }
+        /* ══════════════════════════════════════════════════
+           HEADER
+           ══════════════════════════════════════════════════ */
+        .caja-header {
+            grid-column: 1 / -1;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px;
+            background: linear-gradient(180deg, #1a1e28 0%, var(--bg-card) 100%);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+            z-index: 10;
+        }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .header-logo {
+            font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px;
+            color: var(--accent); background: var(--accent-soft);
+            padding: 4px 10px; border-radius: 6px; border: 1px solid var(--accent-border);
+        }
+        .header-title { font-weight: 600; font-size: 12px; color: var(--text-dim); }
+        .header-right { display: flex; align-items: center; gap: 6px; }
+        .header-pill {
+            display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 18px; font-size: 11px;
+        }
+        .header-pill .lbl { color: var(--text-muted); }
+        .header-pill .val { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--green); }
+        .header-time {
+            font-family: 'JetBrains Mono', monospace; font-weight: 500;
+            font-size: 11px; color: var(--text-muted);
+        }
+        .sesion-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--green); flex-shrink: 0;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        .sesion-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .btn-cerrar-caja-header { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 14px; transition: all 0.15s; }
-        .btn-cerrar-caja-header:hover { border-color: var(--red); }
+        .hdr-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            border-radius: 8px; padding: 5px 8px; cursor: pointer;
+            font-size: 13px; transition: all 0.15s; color: var(--text-dim);
+        }
+        .hdr-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--text-dim); }
+        .hdr-btn.danger:hover { border-color: var(--red); }
 
-        /* PANEL LEFT */
-        .panel-left { display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow: hidden; }
+        /* ══════════════════════════════════════════════════
+           PANEL IZQUIERDO
+           ══════════════════════════════════════════════════ */
+        .panel-left {
+            display: flex; flex-direction: column;
+            padding: 12px; gap: 10px; overflow: hidden;
+            background: var(--bg);
+        }
 
-        /* SEARCH */
-        .search-box { position: relative; }
-        .search-input { width: 100%; padding: 14px 16px 14px 44px; background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-        .search-input:focus { border-color: var(--border-focus); }
-        .search-input::placeholder { color: var(--text-muted); }
-        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 18px; }
-        .search-shortcut { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); padding: 3px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
-        .search-results { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); max-height: 320px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow); display: none; }
-        .search-results.active { display: block; }
-        .search-result-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border); }
-        .search-result-item:last-child { border-bottom: none; }
-        .search-result-item:hover { background: var(--bg-card-hover); }
-        .result-info { flex: 1; }
-        .result-name { font-weight: 600; font-size: 14px; }
-        .result-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-        .result-deuda { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
-        .result-deuda.tiene-deuda { color: var(--red); }
-        .result-deuda.sin-deuda { color: var(--green); }
-        .badge-habil { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-habil.habil { background: var(--green-soft); color: var(--green); }
-        .badge-habil.inhabil { background: var(--red-soft); color: var(--red); }
-
-        /* COLEGIADO CARD */
-        .colegiado-card { display: none; align-items: center; gap: 14px; padding: 14px 16px; background: var(--accent-soft); border: 1px solid rgba(79, 125, 243, 0.25); border-radius: var(--radius); }
-        .colegiado-card.active { display: flex; }
-        .colegiado-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: white; flex-shrink: 0; }
-        .colegiado-info { flex: 1; }
-        .colegiado-nombre { font-weight: 600; font-size: 14px; }
-        .colegiado-detalle { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-        .colegiado-clear { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 6px; font-size: 18px; transition: color 0.15s; }
-        .colegiado-clear:hover { color: var(--red); }
-
-        /* TABS */
-        .tabs-container { display: flex; gap: 4px; padding: 3px; background: var(--bg-card); border-radius: var(--radius); }
-        .tab-btn { flex: 1; padding: 8px 12px; background: transparent; border: none; color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 13px; border-radius: 7px; cursor: pointer; transition: all 0.2s; }
-        .tab-btn.active { background: var(--accent); color: white; }
-        .tab-btn .count { display: inline-block; padding: 1px 6px; background: rgba(255,255,255,0.15); border-radius: 8px; font-size: 11px; margin-left: 6px; }
-        .tab-btn:not(.active) .count { background: var(--bg); }
-
-        /* CONTENT SCROLL */
-        .content-scroll { flex: 1; overflow-y: auto; padding-right: 4px; }
-        .content-scroll::-webkit-scrollbar { width: 4px; }
-        .content-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-        /* DEUDAS */
-        .deuda-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
-        .deuda-item:hover { border-color: var(--accent); background: var(--bg-card-hover); }
-        .deuda-item.selected { border-color: var(--green); background: var(--green-soft); }
-        .deuda-check { width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; font-size: 12px; color: transparent; }
-        .deuda-item.selected .deuda-check { border-color: var(--green); background: var(--green); color: white; }
-        .deuda-info { flex: 1; }
-        .deuda-concepto { font-weight: 500; font-size: 13px; }
-        .deuda-periodo { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-        .deuda-monto { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; white-space: nowrap; }
-        .btn-seleccionar-todas { display: block; width: 100%; padding: 8px; background: var(--accent-soft); border: 1px dashed var(--accent); border-radius: var(--radius-sm); color: var(--accent); font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; margin-bottom: 8px; transition: all 0.2s; }
-        .btn-seleccionar-todas:hover { background: var(--accent); color: white; }
-
-        /* CATÁLOGO */
-        .categorias-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-        .cat-chip { padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; color: var(--text-dim); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-        .cat-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .cat-chip:hover:not(.active) { border-color: var(--text-dim); }
-        .concepto-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
-        .concepto-item:hover { border-color: var(--accent); }
-        .concepto-nombre { font-weight: 500; font-size: 13px; }
-        .concepto-cat { font-size: 11px; color: var(--text-dim); }
-        .concepto-precio { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; color: var(--green); }
-
-        /* PANEL RIGHT: CART */
-        .panel-right { display: flex; flex-direction: column; background: var(--bg-card); border-left: 1px solid var(--border); }
-        .cart-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .cart-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-        .cart-badge { background: var(--accent); color: white; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
-        .cart-items { flex: 1; overflow-y: auto; padding: 12px 16px; }
-        .cart-items::-webkit-scrollbar { width: 4px; }
-        .cart-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .cart-empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
-        .cart-empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.3; }
-        .cart-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); animation: fadeSlideIn 0.2s ease; }
-        @keyframes fadeSlideIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-        .cart-item-info { flex: 1; }
-        .cart-item-name { font-size: 13px; font-weight: 500; }
-        .cart-item-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-        .cart-item-monto { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; white-space: nowrap; }
-        .cart-item-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 14px; transition: color 0.15s; }
-        .cart-item-remove:hover { color: var(--red); }
-
-        /* CART FOOTER */
-        .cart-footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--bg); }
-        .cart-total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
-        .cart-total-label { font-weight: 600; font-size: 14px; color: var(--text-dim); }
-        .cart-total-amount { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 28px; color: var(--green); }
-        .cart-total-currency { font-size: 16px; color: var(--text-dim); margin-right: 4px; }
-        .metodos-pago { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; }
-        .metodo-btn { padding: 8px 6px; background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
-        .metodo-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-        .metodo-btn:hover:not(.active) { border-color: var(--text-dim); }
-        .metodo-icon { font-size: 18px; display: block; margin-bottom: 4px; }
-        .ref-input { width: 100%; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; margin-bottom: 12px; display: none; }
-        .ref-input.visible { display: block; }
-        .ref-input:focus { border-color: var(--border-focus); }
-        .tipo-comprobante { display: flex; gap: 6px; margin-bottom: 14px; }
-        .tipo-comp-btn { flex: 1; padding: 8px; background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
-        .tipo-comp-btn.active { border-color: var(--green); color: var(--green); background: var(--green-soft); }
-        .btn-cobrar { width: 100%; padding: 16px; background: var(--green-dark); border: none; border-radius: var(--radius); color: white; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; }
-        .btn-cobrar:hover { background: #047857; transform: translateY(-1px); }
-        .btn-cobrar:active { transform: translateY(0); }
-        .btn-cobrar:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none; }
-        .btn-cobrar .monto-cobrar { font-family: 'JetBrains Mono', monospace; }
-
-        /* EMPTY */
-        .empty-state { text-align: center; padding: 60px 30px; color: var(--text-muted); }
-        .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.2; }
-        .empty-title { font-size: 15px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
-        .empty-desc { font-size: 13px; }
-
-        /* MODALS */
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-overlay.active { display: flex; }
-        .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 420px; max-width: 90vw; animation: modalIn 0.25s ease; }
-        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-        .modal-body { font-size: 14px; color: var(--text-dim); margin-bottom: 24px; }
-        .modal-total { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; color: var(--green); text-align: center; margin: 20px 0; }
-        .modal-detail { padding: 14px; background: var(--bg); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
-        .modal-detail div { display: flex; justify-content: space-between; padding: 4px 0; }
-        .modal-buttons { display: flex; gap: 10px; }
-        .modal-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-        .modal-btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
-        .modal-btn-cancel:hover { border-color: var(--text-dim); }
-        .modal-btn-confirm { background: var(--green-dark); border: none; color: white; }
-        .modal-btn-confirm:hover { background: #047857; }
-
-        /* SUCCESS */
-        .success-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; align-items: center; justify-content: center; }
-        .success-overlay.active { display: flex; }
-        .success-card { text-align: center; padding: 48px; animation: successIn 0.4s ease; }
-        @keyframes successIn { from { opacity: 0; transform: scale(0.8); } 50% { transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
-        .success-check { width: 80px; height: 80px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 40px; color: white; }
-        .success-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-        .success-amount { font-family: 'JetBrains Mono', monospace; font-size: 36px; font-weight: 700; color: var(--green); margin-bottom: 16px; }
-        .success-ref { font-size: 14px; color: var(--text-dim); }
-
-        /* TOAST */
-        .toast-container { position: fixed; top: 68px; right: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 8px; }
-        .toast { padding: 12px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; animation: toastIn 0.3s ease; box-shadow: var(--shadow); }
-        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-        .toast-error { background: #991b1b; color: #fecaca; }
-        .toast-success { background: #065f46; color: #a7f3d0; }
-
-        /* APERTURA OVERLAY */
-        .apertura-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 5000; align-items: center; justify-content: center; }
-        .apertura-overlay.active { display: flex; }
-        .apertura-card { text-align: center; padding: 48px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; width: 400px; max-width: 90vw; animation: modalIn 0.3s ease; }
-        .apertura-icon { font-size: 56px; margin-bottom: 16px; }
-        .apertura-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-        .apertura-desc { font-size: 14px; color: var(--text-dim); margin-bottom: 28px; }
-        .apertura-campo { text-align: left; margin-bottom: 16px; }
-        .apertura-campo label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
-        .apertura-input, .apertura-select { width: 100%; padding: 14px 16px; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; text-align: center; outline: none; }
-        .apertura-select { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; text-align: left; }
-        .apertura-input:focus, .apertura-select:focus { border-color: var(--border-focus); }
-        .btn-abrir-caja { width: 100%; padding: 16px; margin-top: 8px; background: var(--accent); border: none; border-radius: var(--radius); color: white; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-        .btn-abrir-caja:hover { background: #3d6be0; transform: translateY(-1px); }
-
-        /* CIERRE */
-        .cierre-resumen { background: var(--bg); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px; }
-        .cierre-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
-        .cierre-row.total { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; font-weight: 700; font-size: 15px; }
-        .cierre-row .monto { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-        .cierre-campo { margin-bottom: 14px; }
-        .cierre-campo label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
-        .cierre-diferencia { padding: 12px; border-radius: var(--radius-sm); text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px; margin-bottom: 14px; }
-        .cierre-diferencia.sobrante { background: var(--green-soft); color: var(--green); }
-        .cierre-diferencia.faltante { background: var(--red-soft); color: var(--red); }
-        .cierre-diferencia.cuadrado { background: var(--accent-soft); color: var(--accent); }
-
-
-        /* EGRESO FORM */
-        .egreso-form {
+        /* ── Búsqueda ── */
+        .search-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        .egreso-form-title {
-            font-weight: 600;
-            font-size: 13px;
-            color: var(--text-dim);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .egreso-form-row {
-            display: flex;
-            gap: 10px;
-        }
-        .egreso-field {
-            margin-bottom: 10px;
-        }
-        .egreso-field label {
-            display: block;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-        }
-        .egreso-input {
-            width: 100%;
             padding: 10px 12px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 13px;
-            outline: none;
-            transition: border-color 0.15s;
+            box-shadow: var(--shadow-sm);
         }
-        .egreso-input:focus { border-color: var(--border-focus); }
-        .egreso-input.mono {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: 16px;
+        .search-box { position: relative; }
+        .search-input {
+            width: 100%; padding: 11px 12px 11px 38px;
+            background: var(--bg-inset); border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text);
+            font-family: 'DM Sans', sans-serif; font-size: 14px;
+            outline: none; transition: all 0.2s;
         }
-        select.egreso-input {
-            cursor: pointer;
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
         }
-        .btn-registrar-egreso {
-            width: 100%;
-            padding: 12px;
-            background: var(--amber-soft);
-            border: 1.5px solid var(--amber);
-            border-radius: var(--radius-sm);
-            color: var(--amber);
-            font-family: 'DM Sans', sans-serif;
-            font-weight: 700;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-icon {
+            position: absolute; left: 12px; top: 50%;
+            transform: translateY(-50%); color: var(--text-muted); font-size: 15px;
         }
-        .btn-registrar-egreso:hover {
-            background: var(--amber);
-            color: var(--bg);
+        .search-shortcut {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            padding: 2px 6px; background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+            font-size: 9px; color: var(--text-muted);
         }
+        .search-results {
+            position: absolute; top: calc(100% + 4px); left: -12px; right: -12px;
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: var(--radius); max-height: 300px; overflow-y: auto;
+            z-index: 100; box-shadow: var(--shadow-lg); display: none;
+        }
+        .search-results.active { display: block; }
+        .search-result-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; cursor: pointer; transition: background 0.12s;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item:hover { background: rgba(255,255,255,0.05); }
+        .result-info { flex: 1; min-width: 0; }
+        .result-name { font-weight: 600; font-size: 13px; }
+        .result-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+        .result-deuda { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-left: 8px; }
+        .result-deuda.tiene { color: var(--red); }
+        .result-deuda.no-tiene { color: var(--green); }
 
-        /* RESUMEN EGRESOS */
-        .egresos-resumen {
+        .badge {
+            display: inline-block; padding: 1px 6px; border-radius: 8px;
+            font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .badge-ok { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-border); }
+        .badge-no { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); }
+
+        /* ── Colegiado seleccionado ── */
+        .col-card {
+            display: none; align-items: center; gap: 10px;
+            padding: 8px 10px; margin-top: 8px;
+            background: linear-gradient(135deg, var(--accent-soft), rgba(79,125,243,0.03));
+            border: 1px solid var(--accent-border); border-radius: var(--radius-sm);
+        }
+        .col-card.active { display: flex; }
+        .col-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), #3455b0);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 13px; color: white; flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(79,125,243,0.25);
+        }
+        .col-info { flex: 1; min-width: 0; }
+        .col-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-detail { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+        .col-clear {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 4px; font-size: 15px;
+        }
+        .col-clear:hover { color: var(--red); }
+
+        /* ══════════════════════════════════════════════════
+           TABS — cada uno con su color
+           ══════════════════════════════════════════════════ */
+        .tabs-bar {
+            display: flex; gap: 3px; padding: 3px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        }
+        .tab {
+            flex: 1; padding: 8px 6px; background: transparent; border: none;
+            color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+            font-weight: 600; font-size: 12px; border-radius: 9px;
+            cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .tab.active { color: white; }
+        .tab[data-t="deudas"].active { background: linear-gradient(135deg, #dc2626, #b91c1c); box-shadow: 0 2px 8px rgba(220,38,38,0.25); }
+        .tab[data-t="catalogo"].active { background: linear-gradient(135deg, var(--accent), #3455b0); box-shadow: 0 2px 8px rgba(79,125,243,0.25); }
+        .tab[data-t="egresos"].active { background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 2px 8px rgba(217,119,6,0.25); }
+        .tab-count {
+            display: inline-block; padding: 0px 5px; border-radius: 8px;
+            font-size: 10px; margin-left: 3px; background: rgba(255,255,255,0.15);
+        }
+        .tab:not(.active) .tab-count { background: var(--bg); }
+
+        /* ══════════════════════════════════════════════════
+           CONTENT SCROLL
+           ══════════════════════════════════════════════════ */
+        .content-scroll { flex: 1; overflow-y: auto; }
+        .content-scroll::-webkit-scrollbar { width: 3px; }
+        .content-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ══════════════════════════════════════════════════
+           SECTION CARDS (cada sección con borde lateral de color)
+           ══════════════════════════════════════════════════ */
+        .section-box {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            margin-bottom: 12px;
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 8px;
         }
-        .egresos-resumen-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            font-size: 12px;
-            color: var(--text-dim);
+        .section-box.red    { border-left: 3px solid var(--red-border); }
+        .section-box.blue   { border-left: 3px solid var(--accent-border); }
+        .section-box.amber  { border-left: 3px solid var(--amber-border); }
+        .section-box.green  { border-left: 3px solid var(--green-border); }
+        .section-box.purple { border-left: 3px solid var(--purple-border); }
+
+        .sec-title {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.8px; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .sec-title.red { color: var(--red); }
+        .sec-title.blue { color: var(--accent); }
+        .sec-title.amber { color: var(--amber); }
+        .sec-title.green { color: var(--green); }
+
+        /* ── Deudas ── */
+        .deuda-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 10px; background: var(--bg-inset);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            margin-bottom: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .deuda-row:hover { border-color: var(--red-border); }
+        .deuda-row.selected { border-color: var(--green-border); background: var(--green-soft); }
+        .d-check {
+            width: 17px; height: 17px; border: 2px solid var(--border);
+            border-radius: 4px; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0; font-size: 10px; color: transparent;
+        }
+        .deuda-row.selected .d-check { border-color: var(--green); background: var(--green); color: white; }
+        .d-info { flex: 1; min-width: 0; }
+        .d-concepto { font-weight: 500; font-size: 12px; }
+        .d-periodo { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+        .d-monto { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px; white-space: nowrap; }
+        .btn-sel-all {
+            display: block; width: 100%; padding: 7px; margin-bottom: 6px;
+            background: var(--red-soft); border: 1px dashed var(--red-border);
+            border-radius: var(--radius-sm); color: var(--red);
+            font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 11px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-sel-all:hover { background: var(--red); color: white; border-style: solid; }
+
+        /* ── Catálogo ── */
+        .cats-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+        .cat-chip {
+            padding: 4px 10px; background: var(--bg-inset); border: 1px solid var(--border);
+            border-radius: 14px; color: var(--text-dim); font-size: 10px; font-weight: 500;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .cat-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .cat-chip:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+        .concepto-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; background: var(--bg-inset); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); margin-bottom: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .concepto-row:hover { border-color: var(--accent-border); background: var(--accent-soft); }
+        .c-nombre { font-weight: 500; font-size: 12px; }
+        .c-cat { font-size: 10px; color: var(--text-dim); }
+        .c-precio { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; color: var(--green); }
+
+        /* ── Egresos ── */
+        .egr-form-row { display: flex; gap: 8px; }
+        .egr-field { margin-bottom: 8px; }
+        .egr-field label {
+            display: block; font-size: 9px; font-weight: 700; color: var(--text-muted);
+            margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.4px;
+        }
+        .egr-input {
+            width: 100%; padding: 8px 10px; background: var(--bg-inset);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px;
+            outline: none; transition: all 0.15s;
+        }
+        .egr-input:focus { border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-soft); }
+        .egr-input.mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px; }
+        select.egr-input { cursor: pointer; }
+
+        .btn-reg-egr {
+            width: 100%; padding: 10px; margin-top: 2px;
+            background: linear-gradient(135deg, var(--amber-soft), rgba(217,119,6,0.06));
+            border: 1.5px solid var(--amber-border); border-radius: var(--radius-sm);
+            color: var(--amber); font-family: 'DM Sans', sans-serif;
+            font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-reg-egr:hover { background: var(--amber); color: var(--bg); border-color: var(--amber); }
+
+        /* Resumen egresos */
+        .egr-summary {
+            background: var(--bg-inset); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 8px;
+        }
+        .egr-summary-row {
+            display: flex; justify-content: space-between;
+            padding: 2px 0; font-size: 11px; color: var(--text-dim);
         }
         .mono { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
 
-        /* EGRESO ITEMS */
-        .egreso-item {
-            display: flex;
-            flex-direction: column;
-            padding: 12px 14px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            margin-bottom: 6px;
-            transition: all 0.15s;
+        /* Egreso items */
+        .egr-item {
+            padding: 10px; background: var(--bg-inset); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); margin-bottom: 5px;
         }
-        .egreso-item.pendiente {
-            border-left: 3px solid var(--amber);
+        .egr-item.pendiente { border-left: 3px solid var(--amber); }
+        .egr-item.liquidado { border-left: 3px solid var(--green); opacity: 0.85; }
+        .egr-item-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .egr-item-concepto { font-weight: 600; font-size: 12px; flex: 1; }
+        .egr-item-monto { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px; color: var(--red); flex-shrink: 0; }
+        .egr-item-meta {
+            font-size: 10px; color: var(--text-dim);
+            display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;
         }
-        .egreso-item.liquidado {
-            border-left: 3px solid var(--green);
-            opacity: 0.8;
+        .egr-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 6px;
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
         }
-        .egreso-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 6px;
-        }
-        .egreso-item-concepto {
-            font-weight: 600;
-            font-size: 13px;
-        }
-        .egreso-item-monto {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--red);
-        }
-        .egreso-item-meta {
-            font-size: 11px;
-            color: var(--text-dim);
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .egreso-item-meta span { display: flex; align-items: center; gap: 4px; }
-        .egreso-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 8px;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .egreso-badge.pendiente { background: var(--amber-soft); color: var(--amber); }
-        .egreso-badge.liquidado { background: var(--green-soft); color: var(--green); }
-        .egreso-item-actions {
-            margin-top: 8px;
-            display: flex;
-            gap: 8px;
-        }
-        .btn-liquidar {
-            padding: 6px 14px;
-            background: var(--green-soft);
-            border: 1px solid var(--green);
-            border-radius: var(--radius-sm);
-            color: var(--green);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .btn-liquidar:hover { background: var(--green); color: white; }
+        .egr-badge.pendiente { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+        .egr-badge.liquidado { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-border); }
 
-        .egreso-liquidacion {
-            margin-top: 6px;
-            padding: 8px 10px;
-            background: var(--bg);
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            color: var(--text-dim);
+        .btn-liquidar {
+            margin-top: 8px; padding: 6px 14px;
+            background: linear-gradient(135deg, var(--green-soft), rgba(52,211,153,0.04));
+            border: 1px solid var(--green-border); border-radius: var(--radius-sm);
+            color: var(--green); font-family: 'DM Sans', sans-serif;
+            font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;
         }
-        .egreso-liquidacion div { display: flex; justify-content: space-between; padding: 2px 0; }
+        .btn-liquidar:hover { background: var(--green); color: white; border-color: var(--green); }
+
+        .egr-liq-detail {
+            margin-top: 6px; padding: 6px 8px;
+            background: rgba(52,211,153,0.03); border: 1px solid var(--green-border);
+            border-radius: var(--radius-sm); font-size: 10px; color: var(--text-dim);
+        }
+        .egr-liq-detail div { display: flex; justify-content: space-between; padding: 1px 0; }
+
+        /* ══════════════════════════════════════════════════
+           PANEL DERECHO — CARRITO (borde verde)
+           ══════════════════════════════════════════════════ */
+        .panel-right {
+            display: flex; flex-direction: column;
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-inset) 100%);
+            border-left: 1px solid var(--border);
+        }
+        .cart-head {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(52,211,153,0.04), transparent);
+            border-left: 3px solid var(--green-border);
+        }
+        .cart-head-title {
+            font-weight: 700; font-size: 13px; color: var(--green);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .cart-head-badge {
+            background: var(--green-dark); color: white;
+            padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 700;
+        }
+        .cart-body { flex: 1; overflow-y: auto; padding: 8px 14px; }
+        .cart-body::-webkit-scrollbar { width: 3px; }
+        .cart-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .cart-empty { text-align: center; padding: 32px 14px; color: var(--text-muted); font-size: 12px; }
+        .cart-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.2; }
+
+        .cart-item {
+            display: flex; align-items: flex-start; gap: 6px;
+            padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+            animation: slideIn 0.2s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: translateX(0); } }
+        .ci-info { flex: 1; min-width: 0; }
+        .ci-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ci-type { font-size: 9px; color: var(--text-dim); margin-top: 1px; }
+        .ci-amt { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; white-space: nowrap; }
+        .ci-rm {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 2px; font-size: 12px;
+        }
+        .ci-rm:hover { color: var(--red); }
+
+        /* CART FOOTER */
+        .cart-foot {
+            padding: 12px 16px; border-top: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35));
+        }
+        .cart-total-row {
+            display: flex; justify-content: space-between;
+            align-items: baseline; margin-bottom: 10px;
+        }
+        .cart-total-lbl { font-weight: 600; font-size: 12px; color: var(--text-dim); }
+        .cart-total-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700; font-size: 24px; color: var(--green);
+        }
+        .cart-total-cur { font-size: 14px; color: var(--text-dim); margin-right: 2px; }
+
+        .metodos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
+        .m-btn {
+            padding: 6px 3px; background: var(--bg-inset); border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-muted);
+            font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600;
+            cursor: pointer; text-align: center; transition: all 0.15s;
+        }
+        .m-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+        .m-btn:hover:not(.active) { border-color: var(--text-muted); }
+        .m-icon { font-size: 15px; display: block; margin-bottom: 1px; }
+
+        .ref-input {
+            width: 100%; padding: 7px 10px; background: var(--bg-inset);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px;
+            outline: none; margin-bottom: 8px; display: none;
+        }
+        .ref-input.visible { display: block; }
+        .ref-input:focus { border-color: var(--accent); }
+
+        .comp-row { display: flex; gap: 4px; margin-bottom: 8px; }
+        .comp-btn {
+            flex: 1; padding: 6px; background: var(--bg-inset);
+            border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+            font-size: 11px; font-weight: 600; cursor: pointer; text-align: center;
+        }
+        .comp-btn.active { border-color: var(--green-border); color: var(--green); background: var(--green-soft); }
+
+        .btn-cobrar {
+            width: 100%; padding: 13px;
+            background: linear-gradient(135deg, var(--green-dark), #047857);
+            border: none; border-radius: var(--radius);
+            color: white; font-family: 'DM Sans', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 4px 14px rgba(5,150,105,0.3);
+        }
+        .btn-cobrar:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(5,150,105,0.4); }
+        .btn-cobrar:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-cobrar .cobrar-monto { font-family: 'JetBrains Mono', monospace; }
+
+        /* ══════════════════════════════════════════════════
+           EMPTY
+           ══════════════════════════════════════════════════ */
+        .empty { text-align: center; padding: 36px 16px; color: var(--text-muted); }
+        .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.2; }
+        .empty-title { font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 3px; }
+        .empty-desc { font-size: 11px; }
+
+        /* ══════════════════════════════════════════════════
+           MODALS
+           ══════════════════════════════════════════════════ */
+        .modal-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+            z-index: 1000; align-items: center; justify-content: center; padding: 16px;
+        }
+        .modal-bg.active { display: flex; }
+        .modal-box {
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 16px; padding: 24px; width: 400px; max-width: 100%;
+            animation: mIn 0.25s ease; box-shadow: var(--shadow-lg);
+        }
+        @keyframes mIn { from { opacity: 0; transform: scale(0.95) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .modal-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+        .modal-total { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; color: var(--green); text-align: center; margin: 14px 0; }
+        .modal-detail { padding: 10px; background: var(--bg-inset); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-dim); margin-bottom: 14px; }
+        .modal-detail div { display: flex; justify-content: space-between; padding: 3px 0; }
+        .modal-btns { display: flex; gap: 8px; }
+        .mbtn {
+            flex: 1; padding: 10px; border-radius: var(--radius-sm);
+            font-family: 'DM Sans', sans-serif; font-size: 13px;
+            font-weight: 600; cursor: pointer; transition: all 0.15s;
+        }
+        .mbtn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+        .mbtn-cancel:hover { border-color: var(--text-dim); }
+        .mbtn-ok { background: linear-gradient(135deg, var(--green-dark), #047857); border: none; color: white; }
+        .mbtn-ok:hover { opacity: 0.9; }
+
+        /* Modal input */
+        .m-input {
+            width: 100%; padding: 11px; background: var(--bg-inset);
+            border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text); font-family: 'JetBrains Mono', monospace;
+            font-size: 18px; font-weight: 700; text-align: center; outline: none;
+        }
+        .m-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .m-textarea {
+            width: 100%; padding: 8px 10px; background: var(--bg-inset);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px;
+            outline: none; resize: vertical;
+        }
+
+        /* Cierre */
+        .cierre-box { background: var(--bg-inset); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px; }
+        .c-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+        .c-row.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; font-weight: 700; font-size: 14px; }
+        .c-row .cmonto { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+        .c-field { margin-bottom: 10px; }
+        .c-field label { display: block; font-size: 10px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; }
+        .c-diff {
+            padding: 10px; border-radius: var(--radius-sm); text-align: center;
+            font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; margin-bottom: 10px;
+        }
+        .c-diff.ok { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
+        .c-diff.over { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-border); }
+        .c-diff.under { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); }
+
+        /* Success */
+        .success-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; }
+        .success-bg.active { display: flex; }
+        .success-box { text-align: center; padding: 36px; animation: sIn 0.4s ease; }
+        @keyframes sIn { from { opacity: 0; transform: scale(0.8); } 50% { transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
+        .success-check { width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg, var(--green), #047857); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 34px; color: white; box-shadow: 0 6px 20px rgba(52,211,153,0.3); }
+        .success-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .success-amt { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+        .success-ref { font-size: 12px; color: var(--text-dim); }
+
+        /* Toast */
+        .toast-box { position: fixed; top: 60px; right: 14px; z-index: 3000; display: flex; flex-direction: column; gap: 5px; }
+        .toast {
+            padding: 9px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+            animation: tIn 0.3s ease; box-shadow: var(--shadow);
+        }
+        @keyframes tIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        .toast-err { background: #7f1d1d; color: #fecaca; border: 1px solid var(--red-border); }
+        .toast-ok { background: #064e3b; color: #a7f3d0; border: 1px solid var(--green-border); }
+
+        /* Apertura */
+        .apertura-bg { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 5000; align-items: center; justify-content: center; }
+        .apertura-bg.active { display: flex; }
+        .apertura-box {
+            text-align: center; padding: 36px; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 20px; width: 370px; max-width: 92vw;
+            animation: mIn 0.3s ease; box-shadow: var(--shadow-lg);
+        }
+        .ap-icon { font-size: 44px; margin-bottom: 10px; }
+        .ap-title { font-size: 19px; font-weight: 700; margin-bottom: 5px; }
+        .ap-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+        .ap-field { text-align: left; margin-bottom: 12px; }
+        .ap-field label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; }
+        .ap-select {
+            width: 100%; padding: 10px; background: var(--bg-inset); border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text); font-size: 13px; outline: none;
+        }
+        .btn-abrir {
+            width: 100%; padding: 13px; margin-top: 4px;
+            background: linear-gradient(135deg, var(--accent), #3455b0);
+            border: none; border-radius: var(--radius); color: white;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(79,125,243,0.3); transition: all 0.2s;
+        }
+        .btn-abrir:hover { transform: translateY(-1px); }
+
+        /* ══════════════════════════════════════════════════
+           MOBILE FAB + RESPONSIVE
+           ══════════════════════════════════════════════════ */
+        .cart-fab {
+            display: none; position: fixed; bottom: 16px; right: 16px; z-index: 50;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--green-dark), #047857);
+            border: none; color: white; font-size: 22px; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(5,150,105,0.4); transition: all 0.2s;
+            align-items: center; justify-content: center;
+        }
+        .cart-fab .fab-badge {
+            position: absolute; top: -2px; right: -2px;
+            background: var(--red); color: white; font-size: 10px; font-weight: 700;
+            padding: 1px 5px; border-radius: 8px; min-width: 16px; text-align: center;
+        }
+        .cart-close-btn {
+            display: none; position: absolute; top: 10px; right: 10px;
+            background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer;
+        }
+
+        @media (max-width: 900px) {
+            .caja-layout { grid-template-columns: 1fr; }
+            .panel-right {
+                position: fixed; top: 54px; right: 0; bottom: 0;
+                width: 380px; max-width: 88vw; z-index: 40;
+                transform: translateX(100%); transition: transform 0.3s ease;
+                box-shadow: -6px 0 20px rgba(0,0,0,0.5);
+            }
+            .panel-right.open { transform: translateX(0); }
+            .cart-fab { display: flex; }
+            .cart-close-btn { display: block; }
+        }
+
+        @media (max-width: 600px) {
+            .header-pill:not(.sesion-indicator) { display: none; }
+            .header-title { font-size: 11px; }
+            .panel-left { padding: 8px; gap: 6px; }
+            .search-card { padding: 8px; }
+            .search-input { padding: 9px 10px 9px 34px; font-size: 13px; }
+            .search-shortcut { display: none; }
+            .panel-right { width: 100%; max-width: 100%; }
+            .cart-fab { bottom: 12px; right: 12px; width: 52px; height: 52px; }
+        }
     </style>
 </head>
 <body>
-    <!-- APERTURA -->
-    <div class="apertura-overlay" id="aperturaOverlay">
-        <div class="apertura-card">
-            <div class="apertura-icon">🏦</div>
-            <h2 class="apertura-title">Abrir Caja</h2>
-            <p class="apertura-desc">Ingresa el monto del fondo inicial para comenzar</p>
-            <div class="apertura-campo">
-                <label>Centro de costo</label>
-                <select id="aperturaCentro" class="apertura-select"></select>
-            </div>
-            <div class="apertura-campo">
-                <label>Monto de apertura (S/)</label>
-                <input type="number" id="aperturaMontoInput" class="apertura-input" value="0" min="0" step="0.01">
-            </div>
-            <button class="btn-abrir-caja" onclick="ejecutarApertura()">Abrir Caja</button>
-        </div>
+
+<!-- ═══ APERTURA ═══ -->
+<div class="apertura-bg" id="aperturaOverlay">
+    <div class="apertura-box">
+        <div class="ap-icon">🏦</div>
+        <h2 class="ap-title">Abrir Caja</h2>
+        <p class="ap-desc">Ingresa el monto del fondo inicial</p>
+        <div class="ap-field"><label>Centro de costo</label><select id="aperturaCentro" class="ap-select"></select></div>
+        <div class="ap-field"><label>Monto de apertura (S/)</label><input type="number" id="aperturaMontoInput" class="m-input" value="0" min="0" step="0.01"></div>
+        <button class="btn-abrir" onclick="ejecutarApertura()">Abrir Caja</button>
     </div>
+</div>
 
-    <div class="caja-layout">
-        <header class="caja-header">
-            <div class="header-left">
-                <span class="header-logo">CCPL</span>
-                <div class="header-divider"></div>
-                <span class="header-title" id="headerTitle">Caja</span>
+<div class="caja-layout">
+    <!-- ═══ HEADER ═══ -->
+    <header class="caja-header">
+        <div class="header-left">
+            <span class="header-logo">CCPL</span>
+            <span class="header-title" id="headerTitle">Caja</span>
+        </div>
+        <div class="header-right">
+            <div class="header-pill sesion-indicator" id="sesionIndicator" style="display:none;">
+                <span class="sesion-dot"></span>
+                <span class="lbl">Caja:</span>
+                <span class="val" id="sesionInfo">--</span>
             </div>
-            <div class="header-right">
-                <div class="header-stat sesion-indicator" id="sesionIndicator" style="display:none;">
-                    <span class="sesion-dot"></span>
-                    <span class="label">Caja:</span>
-                    <span class="value" id="sesionInfo">--</span>
-                </div>
-                <div class="header-stat">
-                    <span class="label">Hoy:</span>
-                    <span class="value" id="totalDia">S/ 0.00</span>
-                </div>
-                <div class="header-stat">
-                    <span class="label">Ops:</span>
-                    <span class="value" id="opsDia">0</span>
-                </div>
+            <div class="header-pill"><span class="lbl">Hoy:</span><span class="val" id="totalDia">S/ 0</span></div>
+            <div class="header-pill"><span class="lbl">Ops:</span><span class="val" id="opsDia">0</span></div>
+            <button class="hdr-btn" id="btnEgreso" onclick="cambiarTab('egresos')" style="display:none;" title="Egresos">💸</button>
+            <button class="hdr-btn danger" id="btnCerrar" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
+            <span class="header-time" id="horaActual">--:--</span>
+        </div>
+    </header>
 
-                <button class="btn-cerrar-caja-header" id="btnEgreso" 
-                        onclick="mostrarEgreso()" style="display:none;" title="Registrar egreso/gasto">
-                    💸
-                </button>
-
-                <button class="btn-cerrar-caja-header" id="btnCerrarCajaHeader" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
-                <span class="header-time" id="horaActual">--:--</span>
-            </div>
-        </header>
-
-        <!-- PANEL IZQUIERDO -->
-        <div class="panel-left">
+    <!-- ═══ PANEL IZQUIERDO ═══ -->
+    <div class="panel-left">
+        <div class="search-card">
             <div class="search-box">
                 <span class="search-icon">⌕</span>
                 <input type="text" class="search-input" id="searchInput" placeholder="Buscar por DNI, matrícula o nombre..." autocomplete="off">
                 <span class="search-shortcut">F2</span>
                 <div class="search-results" id="searchResults"></div>
             </div>
-
-            <div class="colegiado-card" id="colegiadoCard">
-                <div class="colegiado-avatar" id="colegiadoAvatar">--</div>
-                <div class="colegiado-info">
-                    <div class="colegiado-nombre" id="colegiadoNombre">--</div>
-                    <div class="colegiado-detalle" id="colegiadoDetalle">--</div>
+            <div class="col-card" id="colCard">
+                <div class="col-avatar" id="colAvatar">--</div>
+                <div class="col-info">
+                    <div class="col-name" id="colName">--</div>
+                    <div class="col-detail" id="colDetail">--</div>
                 </div>
-                <span class="badge-habil" id="colegiadoBadge"></span>
-                <button class="colegiado-clear" onclick="limpiarColegiado()" title="Quitar">✕</button>
-            </div>
-
-            <div class="tabs-container">
-                <button class="tab-btn active" onclick="cambiarTab('deudas')" id="tabDeudas">
-                    Deudas <span class="count" id="countDeudas">0</span>
-                </button>
-                <button class="tab-btn" onclick="cambiarTab('catalogo')" id="tabCatalogo">
-                    Catálogo <span class="count" id="countConceptos">0</span>
-                </button>
-                <button class="tab-btn" onclick="cambiarTab('egresos')" id="tabEgresos">
-                    Egresos <span class="count" id="countEgresos">0</span>
-                </button>
-            </div>
-
-            <div class="content-scroll" id="contentScroll">
-                <div id="panelDeudas">
-                    <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Busca un colegiado</div><div class="empty-desc">Ingresa DNI, matrícula o nombre para ver sus deudas</div></div>
-                </div>
-                <div id="panelCatalogo" style="display:none;">
-                    <div class="categorias-grid" id="categoriasGrid"></div>
-                    <div id="conceptosLista"></div>
-                </div>
-
-                <div id="panelEgresos" style="display:none;">
-                    <!-- FORMULARIO NUEVO EGRESO -->
-                    <div class="egreso-form">
-                        <div class="egreso-form-title">Registrar salida de dinero</div>
-                        
-                        <div class="egreso-form-row">
-                            <div class="egreso-field" style="flex:1;">
-                                <label>Monto entregado (S/)</label>
-                                <input type="number" id="egresoMonto" class="egreso-input mono" 
-                                    min="0.01" step="0.01" placeholder="0.00">
-                            </div>
-                            <div class="egreso-field" style="flex:1.2;">
-                                <label>Tipo</label>
-                                <select id="egresoTipo" class="egreso-input">
-                                    <option value="gasto">Gasto / Compra</option>
-                                    <option value="devolucion">Devolución a cliente</option>
-                                    <option value="retiro_fondo">Retiro de fondo</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="egreso-field">
-                            <label>Responsable (quién recibe el dinero)</label>
-                            <input type="text" id="egresoResponsable" class="egreso-input" 
-                                placeholder="Nombre de la persona...">
-                        </div>
-                        
-                        <div class="egreso-field">
-                            <label>Concepto / Motivo</label>
-                            <input type="text" id="egresoConcepto" class="egreso-input" 
-                                placeholder="Ej: Compra de papel bond, movilidad, refrigerios...">
-                        </div>
-                        
-                        <div class="egreso-field">
-                            <label>Detalle adicional (opcional)</label>
-                            <input type="text" id="egresoDetalle" class="egreso-input" 
-                                placeholder="Notas adicionales...">
-                        </div>
-
-                        <button class="btn-registrar-egreso" onclick="registrarEgreso()">
-                            💸 Registrar Egreso
-                        </button>
-                    </div>
-
-                    <!-- RESUMEN EGRESOS -->
-                    <div class="egresos-resumen" id="egresosResumen" style="display:none;">
-                        <div class="egresos-resumen-row">
-                            <span>Total entregado:</span>
-                            <span class="mono" id="egresoTotalEntregado">S/ 0.00</span>
-                        </div>
-                        <div class="egresos-resumen-row">
-                            <span>Facturado:</span>
-                            <span class="mono" style="color:var(--green)" id="egresoTotalFacturado">S/ 0.00</span>
-                        </div>
-                        <div class="egresos-resumen-row">
-                            <span>Devuelto a caja:</span>
-                            <span class="mono" style="color:var(--accent)" id="egresoTotalDevuelto">S/ 0.00</span>
-                        </div>
-                        <div class="egresos-resumen-row pendientes-row" id="egresosPendientesRow" style="display:none;">
-                            <span>⚠ Pendientes de liquidar:</span>
-                            <span class="mono" style="color:var(--amber)" id="egresosPendientes">0</span>
-                        </div>
-                    </div>
-
-                    <!-- LISTA DE EGRESOS -->
-                    <div id="egresosLista"></div>
-                </div>
+                <span class="badge" id="colBadge"></span>
+                <button class="col-clear" onclick="limpiarCol()">✕</button>
             </div>
         </div>
 
-        <!-- PANEL DERECHO: CARRITO -->
-        <div class="panel-right">
-            <div class="cart-header">
-                <div class="cart-title">Cobro actual <span class="cart-badge" id="cartCount">0</span></div>
-            </div>
-            <div class="cart-items" id="cartItems">
-                <div class="cart-empty"><div class="cart-empty-icon">🛒</div>Selecciona deudas o conceptos<br>para agregar al cobro</div>
-            </div>
-            <div class="cart-footer">
-                <div class="cart-total">
-                    <span class="cart-total-label">TOTAL</span>
-                    <span class="cart-total-amount"><span class="cart-total-currency">S/</span><span id="cartTotal">0.00</span></span>
+        <div class="tabs-bar">
+            <button class="tab active" data-t="deudas" onclick="cambiarTab('deudas')" id="tabDeudas">Deudas <span class="tab-count" id="cntDeudas">0</span></button>
+            <button class="tab" data-t="catalogo" onclick="cambiarTab('catalogo')" id="tabCatalogo">Catálogo <span class="tab-count" id="cntConceptos">0</span></button>
+            <button class="tab" data-t="egresos" onclick="cambiarTab('egresos')" id="tabEgresos">Egresos <span class="tab-count" id="cntEgresos">0</span></button>
+        </div>
+
+        <div class="content-scroll">
+            <div id="panelDeudas"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Busca un colegiado</div><div class="empty-desc">DNI, matrícula o nombre</div></div></div>
+            <div id="panelCatalogo" style="display:none;"><div class="section-box blue"><div class="sec-title blue">📦 Conceptos de cobro</div><div class="cats-row" id="catsGrid"></div><div id="concLista"></div></div></div>
+            <div id="panelEgresos" style="display:none;">
+                <div class="section-box amber">
+                    <div class="sec-title amber">💸 Registrar salida de dinero</div>
+                    <div class="egr-form-row">
+                        <div class="egr-field" style="flex:1;"><label>Monto (S/)</label><input type="number" id="eMonto" class="egr-input mono" min="0.01" step="0.01" placeholder="0.00"></div>
+                        <div class="egr-field" style="flex:1.2;"><label>Tipo</label><select id="eTipo" class="egr-input"><option value="gasto">Gasto / Compra</option><option value="devolucion">Devolución a cliente</option><option value="retiro_fondo">Retiro de fondo</option></select></div>
+                    </div>
+                    <div class="egr-field"><label>Responsable</label><input type="text" id="eResp" class="egr-input" placeholder="Quién recibe el dinero..."></div>
+                    <div class="egr-field"><label>Concepto / Motivo</label><input type="text" id="eConc" class="egr-input" placeholder="Compra de papel, movilidad, refrigerios..."></div>
+                    <div class="egr-field"><label>Detalle (opcional)</label><input type="text" id="eDet" class="egr-input" placeholder="Notas adicionales..."></div>
+                    <button class="btn-reg-egr" onclick="registrarEgreso()">💸 Registrar Egreso</button>
                 </div>
-                <div class="metodos-pago">
-                    <button class="metodo-btn active" onclick="setMetodo('efectivo')" data-metodo="efectivo"><span class="metodo-icon">💵</span>Efectivo</button>
-                    <button class="metodo-btn" onclick="setMetodo('yape')" data-metodo="yape"><span class="metodo-icon">📱</span>Yape</button>
-                    <button class="metodo-btn" onclick="setMetodo('plin')" data-metodo="plin"><span class="metodo-icon">📱</span>Plin</button>
-                    <button class="metodo-btn" onclick="setMetodo('tarjeta')" data-metodo="tarjeta"><span class="metodo-icon">💳</span>Tarjeta</button>
-                    <button class="metodo-btn" onclick="setMetodo('transferencia')" data-metodo="transferencia"><span class="metodo-icon">🏦</span>Transfer.</button>
-                    <button class="metodo-btn" onclick="setMetodo('deposito')" data-metodo="deposito"><span class="metodo-icon">🧾</span>Depósito</button>
+                <div class="egr-summary" id="egrSummary" style="display:none;">
+                    <div class="egr-summary-row"><span>Entregado:</span><span class="mono" id="egrTotEnt">S/ 0</span></div>
+                    <div class="egr-summary-row"><span>Facturado:</span><span class="mono" style="color:var(--green)" id="egrTotFact">S/ 0</span></div>
+                    <div class="egr-summary-row"><span>Devuelto a caja:</span><span class="mono" style="color:var(--accent)" id="egrTotDev">S/ 0</span></div>
+                    <div class="egr-summary-row" id="egrPendRow" style="display:none;"><span>⚠ Pendientes:</span><span class="mono" style="color:var(--amber)" id="egrPend">0</span></div>
                 </div>
-                <input type="text" class="ref-input" id="refInput" placeholder="Nro. de operación / voucher">
-                <div class="tipo-comprobante">
-                    <button class="tipo-comp-btn active" onclick="setTipoComp('03')" data-tipo="03">Boleta</button>
-                    <button class="tipo-comp-btn" onclick="setTipoComp('01')" data-tipo="01">Factura</button>
-                </div>
-                <button class="btn-cobrar" id="btnCobrar" disabled onclick="confirmarCobro()">COBRAR <span class="monto-cobrar" id="btnMonto">S/ 0.00</span></button>
+                <div id="egrLista"></div>
             </div>
         </div>
     </div>
 
-
-    <!-- ============================================================
-     PASO 3: MODAL LIQUIDAR EGRESO
-     Agregar junto a los otros modals
-     ============================================================ -->
-    <div class="modal-overlay" id="modalLiquidar">
-        <div class="modal" style="width:440px;">
-            <div class="modal-title">Liquidar Egreso</div>
-            <div class="modal-body" id="liquidarInfo">--</div>
-            
-            <div class="cierre-campo">
-                <label>Monto de la factura/boleta (S/)</label>
-                <input type="number" id="liquidarMontoFactura" class="apertura-input" 
-                    min="0" step="0.01" placeholder="0.00"
-                    oninput="calcularVuelto()">
+    <!-- ═══ CARRITO ═══ -->
+    <div class="panel-right" id="panelRight">
+        <button class="cart-close-btn" id="cartCloseBtn" onclick="toggleCart()">✕</button>
+        <div class="cart-head"><div class="cart-head-title">🧾 Cobro actual <span class="cart-head-badge" id="cartCnt">0</span></div></div>
+        <div class="cart-body" id="cartBody"><div class="cart-empty"><div class="cart-empty-icon">🛒</div>Selecciona deudas o conceptos<br>para agregar al cobro</div></div>
+        <div class="cart-foot">
+            <div class="cart-total-row"><span class="cart-total-lbl">TOTAL</span><span class="cart-total-val"><span class="cart-total-cur">S/</span><span id="cartTot">0.00</span></span></div>
+            <div class="metodos-grid">
+                <button class="m-btn active" onclick="setMetodo('efectivo')" data-m="efectivo"><span class="m-icon">💵</span>Efectivo</button>
+                <button class="m-btn" onclick="setMetodo('yape')" data-m="yape"><span class="m-icon">📱</span>Yape</button>
+                <button class="m-btn" onclick="setMetodo('plin')" data-m="plin"><span class="m-icon">📱</span>Plin</button>
+                <button class="m-btn" onclick="setMetodo('tarjeta')" data-m="tarjeta"><span class="m-icon">💳</span>Tarjeta</button>
+                <button class="m-btn" onclick="setMetodo('transferencia')" data-m="transferencia"><span class="m-icon">🏦</span>Transfer.</button>
+                <button class="m-btn" onclick="setMetodo('deposito')" data-m="deposito"><span class="m-icon">🧾</span>Depósito</button>
             </div>
-
-            <div class="cierre-diferencia" id="liquidarVuelto" style="display:none;"></div>
-
-            <div class="cierre-campo">
-                <label>Nro. factura/boleta (opcional)</label>
-                <input type="text" id="liquidarNroDoc" class="egreso-input" 
-                    placeholder="B001-00001234">
+            <input type="text" class="ref-input" id="refInput" placeholder="Nro. de operación / voucher">
+            <div class="comp-row">
+                <button class="comp-btn active" onclick="setComp('03')" data-c="03">Boleta</button>
+                <button class="comp-btn" onclick="setComp('01')" data-c="01">Factura</button>
             </div>
-
-            <input type="hidden" id="liquidarEgresoId">
-            <input type="hidden" id="liquidarMontoOriginal">
-
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-cancel" onclick="cerrarModalLiquidar()">Cancelar</button>
-                <button class="modal-btn modal-btn-confirm" onclick="ejecutarLiquidacion()">✓ Liquidar</button>
-            </div>
+            <button class="btn-cobrar" id="btnCobrar" disabled onclick="confirmarCobro()">COBRAR <span class="cobrar-monto" id="btnMonto">S/ 0.00</span></button>
         </div>
     </div>
+</div>
 
-    <!-- MODAL CONFIRMAR COBRO -->
-    <div class="modal-overlay" id="modalConfirm">
-        <div class="modal">
-            <div class="modal-title">Confirmar cobro</div>
-            <div class="modal-body">¿Confirmar el siguiente cobro?</div>
-            <div class="modal-total" id="modalTotal">S/ 0.00</div>
-            <div class="modal-detail" id="modalDetail"></div>
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-cancel" onclick="cerrarModal()">Cancelar</button>
-                <button class="modal-btn modal-btn-confirm" onclick="ejecutarCobro()">✓ Confirmar</button>
-            </div>
-        </div>
+<!-- MOBILE FAB -->
+<button class="cart-fab" id="cartFab" onclick="toggleCart()">🛒 <span class="fab-badge" id="fabBadge" style="display:none;">0</span></button>
+
+<!-- ═══ MODALS ═══ -->
+<div class="modal-bg" id="modalConfirm">
+    <div class="modal-box">
+        <div class="modal-title">Confirmar cobro</div>
+        <div class="modal-sub">¿Confirmar el siguiente cobro?</div>
+        <div class="modal-total" id="mTotal">S/ 0.00</div>
+        <div class="modal-detail" id="mDetail"></div>
+        <div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="cerrarModal()">Cancelar</button><button class="mbtn mbtn-ok" onclick="ejecutarCobro()">✓ Confirmar</button></div>
     </div>
+</div>
 
-    <!-- MODAL CIERRE DE CAJA -->
-    <div class="modal-overlay" id="modalCierre">
-        <div class="modal" style="width:480px;">
-            <div class="modal-title">Cierre de Caja</div>
-            <div class="cierre-resumen" id="cierreResumen"></div>
-            <div class="cierre-campo">
-                <label>¿Cuánto dinero hay en caja? (S/)</label>
-                <input type="number" id="cierreMontoInput" class="apertura-input" min="0" step="0.01" placeholder="0.00" oninput="calcularDiferencia()">
-            </div>
-            <div class="cierre-diferencia" id="cierreDiferencia" style="display:none;"></div>
-            <div class="cierre-campo" id="cierreObsContainer" style="display:none;">
-                <label>Observaciones (obligatorio por diferencia &gt; S/ 50)</label>
-                <textarea id="cierreObsInput" class="apertura-input" rows="2" style="font-size:14px;text-align:left;" placeholder="Explicar la diferencia..."></textarea>
-            </div>
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-cancel" onclick="cerrarModalCierre()">Cancelar</button>
-                <button class="modal-btn modal-btn-confirm" onclick="ejecutarCierre()">🔒 Cerrar Caja</button>
-            </div>
-        </div>
+<div class="modal-bg" id="modalCierre">
+    <div class="modal-box" style="width:440px;">
+        <div class="modal-title">🔒 Cierre de Caja</div>
+        <div class="cierre-box" id="cierreResumen"></div>
+        <div class="c-field"><label>¿Cuánto dinero hay en caja? (S/)</label><input type="number" id="cierreMontoInput" class="m-input" min="0" step="0.01" placeholder="0.00" oninput="calcDiff()"></div>
+        <div class="c-diff" id="cierreDiff" style="display:none;"></div>
+        <div class="c-field" id="cierreObsCont" style="display:none;"><label>Observaciones (obligatorio si dif. > S/ 50)</label><textarea id="cierreObsInput" class="m-textarea" rows="2" placeholder="Explicar..."></textarea></div>
+        <div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="cerrarModalCierre()">Cancelar</button><button class="mbtn mbtn-ok" onclick="ejecutarCierre()">🔒 Cerrar</button></div>
     </div>
+</div>
 
-    <!-- SUCCESS -->
-    <div class="success-overlay" id="successOverlay">
-        <div class="success-card">
-            <div class="success-check">✓</div>
-            <div class="success-title">¡Cobro registrado!</div>
-            <div class="success-amount" id="successAmount">S/ 0.00</div>
-            <div class="success-ref" id="successRef"></div>
-        </div>
+<div class="modal-bg" id="modalLiquidar">
+    <div class="modal-box" style="width:400px;">
+        <div class="modal-title">📄 Liquidar Egreso</div>
+        <div class="modal-sub" id="liqInfo">--</div>
+        <div class="c-field"><label>Monto de la factura/boleta (S/)</label><input type="number" id="liqFactura" class="m-input" min="0" step="0.01" placeholder="0.00" oninput="calcVuelto()"></div>
+        <div class="c-diff" id="liqVuelto" style="display:none;"></div>
+        <div class="c-field"><label>Nro. factura/boleta (opcional)</label><input type="text" id="liqNroDoc" class="egr-input" placeholder="B001-00001234"></div>
+        <input type="hidden" id="liqId"><input type="hidden" id="liqOriginal">
+        <div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="cerrarModalLiq()">Cancelar</button><button class="mbtn mbtn-ok" onclick="ejecutarLiq()">✓ Liquidar</button></div>
     </div>
+</div>
 
-    <div class="toast-container" id="toastContainer"></div>
+<div class="success-bg" id="successBg">
+    <div class="success-box"><div class="success-check">✓</div><div class="success-title">¡Cobro registrado!</div><div class="success-amt" id="successAmt">S/ 0</div><div class="success-ref" id="successRef"></div></div>
+</div>
 
-    <script>
-        const API = '/api/caja';
-        let colegiadoActual = null;
-        let deudasDisponibles = [];
-        let conceptosDisponibles = [];
-        let categoriaActiva = null;
-        let carrito = [];
-        let metodoPago = 'efectivo';
-        let tipoComprobante = '03';
-        let tabActual = 'deudas';
-        let sesionActual = null;
-        let totalEsperadoCierre = 0;
+<div class="toast-box" id="toastBox"></div>
 
-        // INIT
-        document.addEventListener('DOMContentLoaded', () => {
-            actualizarReloj();
-            setInterval(actualizarReloj, 30000);
-            verificarSesionCaja();
-            cargarCategorias();
-            cargarConceptos();
-            document.getElementById('searchInput').focus();
+<script>
+const API = '/api/caja';
+let colActual = null, deudasDisp = [], conceptosDisp = [];
+let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03';
+let tabAct = 'deudas', sesion = null, totalEsperado = 0;
 
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'F2') { e.preventDefault(); document.getElementById('searchInput').focus(); document.getElementById('searchInput').select(); }
-                if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
-                if (e.key === 'F9' && carrito.length > 0) { e.preventDefault(); confirmarCobro(); }
-            });
-        });
+document.addEventListener('DOMContentLoaded', () => {
+    actualizarReloj(); setInterval(actualizarReloj, 30000);
+    verificarSesion(); cargarCats(); cargarConceptos();
+    document.getElementById('searchInput').focus();
+    document.addEventListener('keydown', e => {
+        if (e.key === 'F2') { e.preventDefault(); const s = document.getElementById('searchInput'); s.focus(); s.select(); }
+        if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
+        if (e.key === 'F9' && carrito.length) { e.preventDefault(); confirmarCobro(); }
+    });
+});
 
-        function actualizarReloj() {
-            document.getElementById('horaActual').textContent = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-        }
+function actualizarReloj() { document.getElementById('horaActual').textContent = new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' }); }
+async function cargarResumen() { try { const r = await fetch(`${API}/resumen-dia`); const d = await r.json(); document.getElementById('totalDia').textContent = `S/ ${d.total_cobrado.toFixed(2)}`; document.getElementById('opsDia').textContent = d.cantidad_operaciones; } catch(e) {} }
 
-        async function cargarResumenDia() {
-            try {
-                const res = await fetch(`${API}/resumen-dia`);
-                const data = await res.json();
-                document.getElementById('totalDia').textContent = `S/ ${data.total_cobrado.toFixed(2)}`;
-                document.getElementById('opsDia').textContent = data.cantidad_operaciones;
-            } catch (e) {}
-        }
+// ── SESIÓN ──
+async function verificarSesion() {
+    try { const r = await fetch(`${API}/sesion-actual?centro_costo_id=1`); const d = await r.json();
+        if (d.caja_abierta && d.sesion) { sesion = d.sesion; abrirCajaUI(); } else { mostrarApertura(); }
+    } catch(e) {} cargarResumen();
+}
+function mostrarApertura() {
+    document.getElementById('aperturaOverlay').classList.add('active');
+    document.getElementById('aperturaCentro').innerHTML = '<option value="1">Oficina Principal</option><option value="2">Restaurante</option><option value="3">Cafetín</option><option value="4">Hotel</option><option value="5">Bazar / Merchandising</option><option value="6">Centro Recreacional</option>';
+    setTimeout(() => { document.getElementById('aperturaMontoInput').focus(); document.getElementById('aperturaMontoInput').select(); }, 300);
+}
+async function ejecutarApertura() {
+    const m = parseFloat(document.getElementById('aperturaMontoInput').value) || 0;
+    const c = parseInt(document.getElementById('aperturaCentro').value) || 1;
+    try { const r = await fetch(`${API}/abrir-caja`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ monto_apertura:m, centro_costo_id:c }) }); const d = await r.json();
+        if (d.success) { document.getElementById('aperturaOverlay').classList.remove('active'); toast(d.mensaje,'ok'); verificarSesion(); } else toast(d.detail?.error||d.detail||'Error','err');
+    } catch(e) { toast('Error','err'); }
+}
+function abrirCajaUI() {
+    document.getElementById('aperturaOverlay').classList.remove('active');
+    document.getElementById('sesionIndicator').style.display = 'flex';
+    document.getElementById('sesionInfo').textContent = `${sesion.centro_costo} · ${sesion.hora_apertura}`;
+    document.getElementById('headerTitle').textContent = `Caja — ${sesion.centro_costo}`;
+    document.getElementById('btnCerrar').style.display = 'block';
+    document.getElementById('btnEgreso').style.display = 'block';
+}
 
-        // ── SESIÓN DE CAJA ──
-        async function verificarSesionCaja() {
-            try {
-                const res = await fetch(`${API}/sesion-actual?centro_costo_id=1`);
-                const data = await res.json();
-                if (data.caja_abierta && data.sesion) {
-                    sesionActual = data.sesion;
-                    mostrarCajaAbierta();
-                } else {
-                    mostrarPanelApertura();
-                }
-            } catch (e) {
-                console.warn('No se pudo verificar sesión:', e);
-            }
-            cargarResumenDia();
-        }
+// ── CIERRE ──
+function mostrarCierreCaja() {
+    if (!sesion) return;
+    fetch(`${API}/sesion-actual?centro_costo_id=${sesion.centro_costo_id||1}`).then(r=>r.json()).then(d => {
+        if (!d.sesion) return;
+        sesion = d.sesion; totalEsperado = sesion.total_esperado;
+        document.getElementById('cierreResumen').innerHTML = `
+            <div class="c-row"><span>Apertura</span><span class="cmonto">S/ ${sesion.monto_apertura.toFixed(2)}</span></div>
+            <div class="c-row"><span>Cobros efectivo</span><span class="cmonto" style="color:var(--green)">+ S/ ${sesion.total_cobros_efectivo.toFixed(2)}</span></div>
+            <div class="c-row"><span>Cobros digitales</span><span class="cmonto" style="color:var(--accent)">S/ ${sesion.total_cobros_digital.toFixed(2)}</span></div>
+            <div class="c-row"><span>Egresos (neto)</span><span class="cmonto" style="color:var(--red)">- S/ ${sesion.total_egresos.toFixed(2)}</span></div>
+            <div class="c-row"><span>Operaciones</span><span class="cmonto">${sesion.cantidad_operaciones}</span></div>
+            <div class="c-row total"><span>Esperado en caja</span><span class="cmonto" style="color:var(--green)">S/ ${sesion.total_esperado.toFixed(2)}</span></div>`;
+        document.getElementById('cierreMontoInput').value = '';
+        document.getElementById('cierreDiff').style.display = 'none';
+        document.getElementById('cierreObsCont').style.display = 'none';
+        document.getElementById('modalCierre').classList.add('active');
+        document.getElementById('cierreMontoInput').focus();
+    });
+}
+function calcDiff() {
+    const v = parseFloat(document.getElementById('cierreMontoInput').value); const el = document.getElementById('cierreDiff');
+    if (isNaN(v)) { el.style.display='none'; document.getElementById('cierreObsCont').style.display='none'; return; }
+    const d = v - totalEsperado; el.style.display = 'block';
+    if (Math.abs(d)<0.01) { el.className='c-diff ok'; el.textContent='✓ Caja cuadrada'; document.getElementById('cierreObsCont').style.display='none'; }
+    else if (d>0) { el.className='c-diff over'; el.textContent=`Sobrante: + S/ ${d.toFixed(2)}`; document.getElementById('cierreObsCont').style.display=Math.abs(d)>50?'block':'none'; }
+    else { el.className='c-diff under'; el.textContent=`Faltante: - S/ ${Math.abs(d).toFixed(2)}`; document.getElementById('cierreObsCont').style.display=Math.abs(d)>50?'block':'none'; }
+}
+function cerrarModalCierre() { document.getElementById('modalCierre').classList.remove('active'); }
+async function ejecutarCierre() {
+    const m = parseFloat(document.getElementById('cierreMontoInput').value); if (isNaN(m)) { toast('Ingresa monto','err'); return; }
+    const obs = document.getElementById('cierreObsInput').value.trim();
+    if (Math.abs(m-totalEsperado)>50&&!obs) { toast('Dif >S/50: observación obligatoria','err'); return; }
+    try { const r = await fetch(`${API}/cerrar-caja/${sesion.id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ monto_cierre:m, observaciones:obs||null }) }); const d = await r.json();
+        if (d.success) { cerrarModalCierre(); toast(d.mensaje,'ok'); sesion=null; document.getElementById('sesionIndicator').style.display='none'; document.getElementById('btnCerrar').style.display='none'; document.getElementById('btnEgreso').style.display='none'; setTimeout(()=>mostrarApertura(),1500); }
+        else toast(d.detail||'Error','err');
+    } catch(e) { toast('Error','err'); }
+}
 
-        function mostrarPanelApertura() {
-            const overlay = document.getElementById('aperturaOverlay');
-            overlay.classList.add('active');
-            const select = document.getElementById('aperturaCentro');
-            select.innerHTML = `
-                <option value="1">Oficina Principal</option>
-                <option value="2">Restaurante</option>
-                <option value="3">Cafetín</option>
-                <option value="4">Hotel</option>
-                <option value="5">Bazar / Merchandising</option>
-                <option value="6">Centro Recreacional</option>
-            `;
-            setTimeout(() => { document.getElementById('aperturaMontoInput').focus(); document.getElementById('aperturaMontoInput').select(); }, 300);
-        }
+// ── BÚSQUEDA ──
+let sT;
+document.getElementById('searchInput').addEventListener('input', e => { clearTimeout(sT); const q=e.target.value.trim(); if(q.length<2){document.getElementById('searchResults').classList.remove('active');return;} sT=setTimeout(()=>buscar(q),300); });
+document.getElementById('searchInput').addEventListener('focus', e => { if(e.target.value.trim().length>=2) document.getElementById('searchResults').classList.add('active'); });
+document.addEventListener('click', e => { if(!e.target.closest('.search-card')) document.getElementById('searchResults').classList.remove('active'); });
+async function buscar(q) { try { const r=await fetch(`${API}/buscar-colegiado?q=${encodeURIComponent(q)}`); renderRes(await r.json()); } catch(e){toast('Error','err');} }
+function renderRes(arr) {
+    const c=document.getElementById('searchResults');
+    if(!arr.length){c.innerHTML='<div style="padding:12px;color:var(--text-muted);text-align:center;font-size:11px;">Sin resultados</div>';c.classList.add('active');return;}
+    c.innerHTML=arr.map(r=>`<div class="search-result-item" onclick='selCol(${JSON.stringify(r)})'><div class="result-info"><div class="result-name">${r.apellidos_nombres}</div><div class="result-meta">DNI ${r.dni} · Mat. ${r.codigo_matricula||'-'} <span class="badge badge-${r.habilitado?'ok':'no'}">${r.habilitado?'HÁBIL':'INHÁBIL'}</span></div></div><div class="result-deuda ${r.total_deuda>0?'tiene':'no-tiene'}">${r.total_deuda>0?`S/ ${r.total_deuda.toFixed(2)}`:'Al día ✓'}</div></div>`).join('');
+    c.classList.add('active');
+}
+function selCol(col) {
+    colActual=col; document.getElementById('searchResults').classList.remove('active'); document.getElementById('searchInput').value='';
+    document.getElementById('colCard').classList.add('active');
+    document.getElementById('colAvatar').textContent=col.apellidos_nombres.split(' ').slice(0,2).map(n=>n[0]).join('');
+    document.getElementById('colName').textContent=col.apellidos_nombres;
+    document.getElementById('colDetail').textContent=`DNI ${col.dni} · Mat. ${col.codigo_matricula||'-'} · Deuda: S/ ${col.total_deuda.toFixed(2)}`;
+    const b=document.getElementById('colBadge'); b.textContent=col.habilitado?'HÁBIL':'INHÁBIL'; b.className=`badge badge-${col.habilitado?'ok':'no'}`;
+    cargarDeudas(col.id); cambiarTab('deudas');
+}
+function limpiarCol() {
+    colActual=null; deudasDisp=[]; document.getElementById('colCard').classList.remove('active');
+    document.getElementById('panelDeudas').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Busca un colegiado</div><div class="empty-desc">DNI, matrícula o nombre</div></div>';
+    document.getElementById('cntDeudas').textContent='0'; carrito=carrito.filter(i=>i.tipo!=='deuda'); renderCarrito(); document.getElementById('searchInput').focus();
+}
 
-        async function ejecutarApertura() {
-            const monto = parseFloat(document.getElementById('aperturaMontoInput').value) || 0;
-            const centroId = parseInt(document.getElementById('aperturaCentro').value) || 1;
-            try {
-                const res = await fetch(`${API}/abrir-caja`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monto_apertura: monto, centro_costo_id: centroId }) });
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('aperturaOverlay').classList.remove('active');
-                    toast(data.mensaje, 'success');
-                    verificarSesionCaja();
-                } else { toast(data.detail?.error || data.detail || 'Error al abrir caja', 'error'); }
-            } catch (e) { toast('Error de conexión', 'error'); }
-        }
+// ── DEUDAS ──
+async function cargarDeudas(id) { try { const r=await fetch(`${API}/deudas/${id}`); const d=await r.json(); deudasDisp=d.deudas||[]; renderDeudas(); } catch(e){toast('Error','err');} }
+function renderDeudas() {
+    const p=document.getElementById('panelDeudas'); document.getElementById('cntDeudas').textContent=deudasDisp.length;
+    if(!deudasDisp.length){p.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin deudas pendientes</div></div>';return;}
+    const sel=carrito.filter(i=>i.tipo==='deuda').map(i=>i.deuda_id);
+    p.innerHTML=`<div class="section-box red"><div class="sec-title red">📋 Deudas pendientes</div><button class="btn-sel-all" onclick="selTodas()">Seleccionar todas (${deudasDisp.length})</button>${deudasDisp.map(d=>`<div class="deuda-row ${sel.includes(d.id)?'selected':''}" onclick="togDeuda(${d.id})"><div class="d-check">${sel.includes(d.id)?'✓':''}</div><div class="d-info"><div class="d-concepto">${d.concepto}</div><div class="d-periodo">${d.periodo||''} ${d.fecha_vencimiento?'· Vence: '+d.fecha_vencimiento:''}</div></div><div class="d-monto">S/ ${d.saldo.toFixed(2)}</div></div>`).join('')}</div>`;
+}
+function togDeuda(id) { const i=carrito.findIndex(x=>x.tipo==='deuda'&&x.deuda_id===id); if(i>=0) carrito.splice(i,1); else { const d=deudasDisp.find(x=>x.id===id); if(d) carrito.push({tipo:'deuda',deuda_id:d.id,descripcion:`${d.concepto} ${d.periodo||''}`.trim(),monto:d.saldo}); } renderDeudas(); renderCarrito(); }
+function selTodas() { carrito=carrito.filter(i=>i.tipo!=='deuda'); deudasDisp.forEach(d=>carrito.push({tipo:'deuda',deuda_id:d.id,descripcion:`${d.concepto} ${d.periodo||''}`.trim(),monto:d.saldo})); renderDeudas(); renderCarrito(); }
 
-        function mostrarEgreso() {
-            const monto = prompt('Monto del egreso (S/):');
-            if (!monto) return;
-            const montoNum = parseFloat(monto);
-            if (isNaN(montoNum) || montoNum <= 0) { toast('Monto inválido', 'error'); return; }
-            
-            const concepto = prompt('Concepto (ej: Compra de papel, taxi):');
-            if (!concepto) return;
+// ── CATÁLOGO ──
+async function cargarCats() { try { const r=await fetch(`${API}/categorias`); const c=await r.json(); document.getElementById('catsGrid').innerHTML=`<span class="cat-chip active" onclick="filtCat(null,this)">Todos</span>`+c.map(x=>`<span class="cat-chip" onclick="filtCat('${x.codigo}',this)">${x.nombre} (${x.total})</span>`).join(''); } catch(e){} }
+async function cargarConceptos(cat) { try { let u=`${API}/conceptos`; if(cat) u+=`?categoria=${cat}`; const r=await fetch(u); conceptosDisp=await r.json(); document.getElementById('cntConceptos').textContent=conceptosDisp.length; renderConc(); } catch(e){} }
+function filtCat(c,el) { catActiva=c; document.querySelectorAll('.cat-chip').forEach(x=>x.classList.remove('active')); if(el)el.classList.add('active'); cargarConceptos(c); }
+function renderConc() { document.getElementById('concLista').innerHTML=conceptosDisp.map(c=>`<div class="concepto-row" onclick="addConc(${c.id})"><div><div class="c-nombre">${c.nombre_corto||c.nombre}</div><div class="c-cat">${c.categoria}${c.maneja_stock?` · Stock: ${c.stock_actual}`:''}</div></div><div class="c-precio">${c.monto_base>0?`S/ ${c.monto_base.toFixed(2)}`:'Variable'}</div></div>`).join(''); }
+function addConc(id) {
+    const c=conceptosDisp.find(x=>x.id===id); if(!c) return;
+    if(c.requiere_colegiado&&!colActual){toast('Selecciona un colegiado','err');return;}
+    let m=c.monto_base; if(c.permite_monto_libre||m===0){const i=prompt(`Monto para "${c.nombre}":`,m>0?m:'');if(!i)return;m=parseFloat(i);if(isNaN(m)||m<=0){toast('Monto inválido','err');return;}}
+    carrito.push({tipo:'concepto',concepto_id:c.id,descripcion:c.nombre_corto||c.nombre,cantidad:1,monto_unitario:m,monto:m}); renderCarrito(); toast(`${c.nombre_corto||c.nombre} agregado`,'ok');
+}
 
-            fetch(`${API}/egreso?centro_costo_id=1`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ monto: montoNum, concepto: concepto })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) toast(data.mensaje, 'success');
-                else toast(data.detail || 'Error', 'error');
-            })
-            .catch(() => toast('Error de conexión', 'error'));
-        }
+// ── CARRITO ──
+function renderCarrito() {
+    const t=carrito.reduce((s,i)=>s+i.monto,0); document.getElementById('cartCnt').textContent=carrito.length;
+    document.getElementById('cartTot').textContent=t.toFixed(2); document.getElementById('btnMonto').textContent=`S/ ${t.toFixed(2)}`;
+    document.getElementById('btnCobrar').disabled=!carrito.length;
+    const fb=document.getElementById('fabBadge'); if(carrito.length){fb.style.display='block';fb.textContent=carrito.length;}else fb.style.display='none';
+    if(!carrito.length){document.getElementById('cartBody').innerHTML='<div class="cart-empty"><div class="cart-empty-icon">🛒</div>Selecciona deudas o conceptos<br>para agregar al cobro</div>';return;}
+    document.getElementById('cartBody').innerHTML=carrito.map((x,i)=>`<div class="cart-item"><div class="ci-info"><div class="ci-name">${x.descripcion}</div><div class="ci-type">${x.tipo==='deuda'?'Deuda':'Concepto'}</div></div><div class="ci-amt">S/ ${x.monto.toFixed(2)}</div><button class="ci-rm" onclick="rmItem(${i})">✕</button></div>`).join('');
+}
+function rmItem(i) { const x=carrito[i]; carrito.splice(i,1); if(x.tipo==='deuda') renderDeudas(); renderCarrito(); }
+function toggleCart() { document.getElementById('panelRight').classList.toggle('open'); }
 
-        function mostrarCajaAbierta() {
-            document.getElementById('aperturaOverlay').classList.remove('active');
-            document.getElementById('sesionIndicator').style.display = 'flex';
-            document.getElementById('sesionInfo').textContent = `${sesionActual.centro_costo} · ${sesionActual.hora_apertura}`;
-            document.getElementById('headerTitle').textContent = `Caja — ${sesionActual.centro_costo}`;
-            document.getElementById('btnCerrarCajaHeader').style.display = 'block';
-            document.getElementById('btnEgreso').style.display = 'block';
-        }
+// ── PAGO ──
+function setMetodo(m) { metodo=m; document.querySelectorAll('.m-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m)); const r=document.getElementById('refInput'); ['transferencia','deposito','tarjeta'].includes(m)?(r.classList.add('visible'),r.focus()):r.classList.remove('visible'); }
+function setComp(t) { tipoComp=t; document.querySelectorAll('.comp-btn').forEach(b=>b.classList.toggle('active',b.dataset.c===t)); }
+function cambiarTab(t) {
+    tabAct=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+    document.getElementById('panelDeudas').style.display=t==='deudas'?'block':'none';
+    document.getElementById('panelCatalogo').style.display=t==='catalogo'?'block':'none';
+    document.getElementById('panelEgresos').style.display=t==='egresos'?'block':'none';
+    if(t==='egresos') cargarEgresos();
+}
+function confirmarCobro() {
+    if(!carrito.length)return; const t=carrito.reduce((s,i)=>s+i.monto,0);
+    document.getElementById('mTotal').textContent=`S/ ${t.toFixed(2)}`;
+    document.getElementById('mDetail').innerHTML=`<div><span>Colegiado:</span><span>${colActual?colActual.apellidos_nombres:'Público general'}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodo}</span></div><div><span>Comprobante:</span><span>${tipoComp==='01'?'Factura':'Boleta'}</span></div>`;
+    document.getElementById('modalConfirm').classList.add('active');
+}
+function cerrarModal() { document.getElementById('modalConfirm').classList.remove('active'); }
+async function ejecutarCobro() {
+    cerrarModal(); const total=carrito.reduce((s,i)=>s+i.monto,0); const ref=document.getElementById('refInput').value.trim();
+    const payload={colegiado_id:colActual?.id||null,items:carrito.map(i=>({tipo:i.tipo,deuda_id:i.deuda_id||null,concepto_id:i.concepto_id||null,descripcion:i.descripcion,cantidad:i.cantidad||1,monto_unitario:i.monto_unitario||i.monto,monto_total:i.monto})),total,metodo_pago:metodo,referencia_pago:ref||null,tipo_comprobante:tipoComp};
+    try { const r=await fetch(`${API}/cobrar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json();
+        if(d.success){document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;document.getElementById('successRef').textContent=`${metodo.toUpperCase()} ${ref?'· Op: '+ref:''} · ${colActual?.apellidos_nombres||'Público general'}`;document.getElementById('successBg').classList.add('active');carrito=[];renderCarrito();if(colActual)cargarDeudas(colActual.id);cargarResumen();setTimeout(cerrarSuccess,2500);}
+        else toast(d.detail||'Error','err');
+    } catch(e){toast('Error','err');}
+}
+function cerrarSuccess() { document.getElementById('successBg').classList.remove('active'); document.getElementById('searchInput').focus(); }
+document.getElementById('successBg').addEventListener('click', cerrarSuccess);
 
-        // ── CIERRE ──
-        function mostrarCierreCaja() {
-            if (!sesionActual) return;
-            fetch(`${API}/sesion-actual?centro_costo_id=${sesionActual.centro_costo_id || 1}`)
-                .then(r => r.json()).then(data => {
-                    if (data.sesion) {
-                        sesionActual = data.sesion;
-                        totalEsperadoCierre = sesionActual.total_esperado;
-                        document.getElementById('cierreResumen').innerHTML = `
-                            <div class="cierre-row"><span>Apertura</span><span class="monto">S/ ${sesionActual.monto_apertura.toFixed(2)}</span></div>
-                            <div class="cierre-row"><span>Cobros efectivo</span><span class="monto" style="color:var(--green)">+ S/ ${sesionActual.total_cobros_efectivo.toFixed(2)}</span></div>
-                            <div class="cierre-row"><span>Cobros digitales</span><span class="monto" style="color:var(--accent)">S/ ${sesionActual.total_cobros_digital.toFixed(2)}</span></div>
-                            <div class="cierre-row"><span>Egresos</span><span class="monto" style="color:var(--red)">- S/ ${sesionActual.total_egresos.toFixed(2)}</span></div>
-                            <div class="cierre-row"><span>Operaciones</span><span class="monto">${sesionActual.cantidad_operaciones}</span></div>
-                            <div class="cierre-row total"><span>Esperado en caja</span><span class="monto" style="color:var(--green)">S/ ${sesionActual.total_esperado.toFixed(2)}</span></div>
-                        `;
-                        document.getElementById('cierreMontoInput').value = '';
-                        document.getElementById('cierreDiferencia').style.display = 'none';
-                        document.getElementById('cierreObsContainer').style.display = 'none';
-                        document.getElementById('modalCierre').classList.add('active');
-                        document.getElementById('cierreMontoInput').focus();
-                    }
-                });
-        }
+// ── EGRESOS ──
+async function cargarEgresos() { try { const r=await fetch(`${API}/egresos-actual?centro_costo_id=1`); renderEgr(await r.json()); } catch(e){} }
+function renderEgr(data) {
+    const {egresos,totales}=data; document.getElementById('cntEgresos').textContent=egresos.length;
+    const s=document.getElementById('egrSummary');
+    if(egresos.length){s.style.display='block';document.getElementById('egrTotEnt').textContent=`S/ ${totales.entregado.toFixed(2)}`;document.getElementById('egrTotFact').textContent=`S/ ${totales.facturado.toFixed(2)}`;document.getElementById('egrTotDev').textContent=`S/ ${totales.devuelto.toFixed(2)}`;const pr=document.getElementById('egrPendRow');if(totales.pendientes>0){pr.style.display='flex';document.getElementById('egrPend').textContent=totales.pendientes;}else pr.style.display='none';}else s.style.display='none';
+    const tl={gasto:'🛒 Gasto',devolucion:'↩️ Devolución',retiro_fondo:'🏦 Retiro'};
+    const l=document.getElementById('egrLista');
+    if(!egresos.length){l.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:11px;">Sin egresos en esta sesión</div>';return;}
+    l.innerHTML=egresos.map(e=>`<div class="egr-item ${e.estado}"><div class="egr-item-top"><div class="egr-item-concepto">${e.concepto}</div><div class="egr-item-monto">- S/ ${e.monto.toFixed(2)}</div></div><div class="egr-item-meta"><span>👤 ${e.responsable}</span><span>🕐 ${e.hora}</span><span>${tl[e.tipo]||e.tipo}</span><span class="egr-badge ${e.estado}">${e.estado==='pendiente'?'⏳ Pendiente':'✓ Liquidado'}</span></div>${e.estado==='liquidado'?`<div class="egr-liq-detail"><div><span>Factura${e.numero_documento?' ('+e.numero_documento+')':''}:</span><span class="mono">S/ ${(e.monto_factura??0).toFixed(2)}</span></div>${e.monto_devuelto>0?`<div><span>Vuelto a caja:</span><span class="mono" style="color:var(--green)">+ S/ ${e.monto_devuelto.toFixed(2)}</span></div>`:''}</div>`:`<button class="btn-liquidar" onclick="abrirLiq(${e.id},${e.monto},'${e.concepto.replace(/'/g,"\\'")}','${e.responsable.replace(/'/g,"\\'")}')">📄 Liquidar (trajo factura)</button>`}</div>`).join('');
+}
+async function registrarEgreso() {
+    const m=parseFloat(document.getElementById('eMonto').value),resp=document.getElementById('eResp').value.trim(),conc=document.getElementById('eConc').value.trim(),det=document.getElementById('eDet').value.trim(),tipo=document.getElementById('eTipo').value;
+    if(!m||m<=0){toast('Ingresa monto','err');return;}if(!resp){toast('Ingresa responsable','err');return;}if(!conc){toast('Ingresa concepto','err');return;}
+    try{const r=await fetch(`${API}/egreso?centro_costo_id=1`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto:m,responsable:resp,concepto:conc,detalle:det||null,tipo})});const d=await r.json();
+        if(d.success){toast(d.mensaje,'ok');['eMonto','eResp','eConc','eDet'].forEach(x=>document.getElementById(x).value='');document.getElementById('eTipo').value='gasto';cargarEgresos();}else toast(d.detail||'Error','err');
+    }catch(e){toast('Error','err');}
+}
 
-        function calcularDiferencia() {
-            const declarado = parseFloat(document.getElementById('cierreMontoInput').value) || 0;
-            const dif = declarado - totalEsperadoCierre;
-            const el = document.getElementById('cierreDiferencia');
-            if (document.getElementById('cierreMontoInput').value === '') { el.style.display = 'none'; document.getElementById('cierreObsContainer').style.display = 'none'; return; }
-            el.style.display = 'block';
-            if (Math.abs(dif) < 0.01) { el.className = 'cierre-diferencia cuadrado'; el.textContent = '✓ Caja cuadrada'; document.getElementById('cierreObsContainer').style.display = 'none'; }
-            else if (dif > 0) { el.className = 'cierre-diferencia sobrante'; el.textContent = `Sobrante: + S/ ${dif.toFixed(2)}`; document.getElementById('cierreObsContainer').style.display = Math.abs(dif) > 50 ? 'block' : 'none'; }
-            else { el.className = 'cierre-diferencia faltante'; el.textContent = `Faltante: - S/ ${Math.abs(dif).toFixed(2)}`; document.getElementById('cierreObsContainer').style.display = Math.abs(dif) > 50 ? 'block' : 'none'; }
-        }
+// ── LIQUIDAR ──
+function abrirLiq(id,monto,concepto,responsable) {
+    document.getElementById('liqId').value=id; document.getElementById('liqOriginal').value=monto;
+    document.getElementById('liqInfo').innerHTML=`<strong>${concepto}</strong><br>Responsable: ${responsable}<br>Entregado: <strong>S/ ${monto.toFixed(2)}</strong>`;
+    document.getElementById('liqFactura').value=''; document.getElementById('liqNroDoc').value=''; document.getElementById('liqVuelto').style.display='none';
+    document.getElementById('modalLiquidar').classList.add('active'); document.getElementById('liqFactura').focus();
+}
+function calcVuelto() {
+    const o=parseFloat(document.getElementById('liqOriginal').value)||0, f=parseFloat(document.getElementById('liqFactura').value), el=document.getElementById('liqVuelto');
+    if(isNaN(f)){el.style.display='none';return;} const v=o-f; el.style.display='block';
+    if(v>0){el.className='c-diff over';el.textContent=`Vuelto a caja: + S/ ${v.toFixed(2)}`;}
+    else if(v===0){el.className='c-diff ok';el.textContent='✓ Monto exacto';}
+    else{el.className='c-diff under';el.textContent='⚠ Factura mayor al entregado';}
+}
+function cerrarModalLiq() { document.getElementById('modalLiquidar').classList.remove('active'); }
+async function ejecutarLiq() {
+    const id=document.getElementById('liqId').value, mf=parseFloat(document.getElementById('liqFactura').value), nd=document.getElementById('liqNroDoc').value.trim();
+    if(isNaN(mf)||mf<0){toast('Ingresa monto factura','err');return;}
+    try{const r=await fetch(`${API}/egreso/${id}/liquidar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto_factura:mf,numero_documento:nd||null})});const d=await r.json();
+        if(d.success){cerrarModalLiq();toast(d.mensaje,'ok');cargarEgresos();}else toast(d.detail||'Error','err');
+    }catch(e){toast('Error','err');}
+}
 
-        function cerrarModalCierre() { document.getElementById('modalCierre').classList.remove('active'); }
-
-        async function ejecutarCierre() {
-            const monto = parseFloat(document.getElementById('cierreMontoInput').value);
-            if (isNaN(monto)) { toast('Ingresa el monto', 'error'); return; }
-            const obs = document.getElementById('cierreObsInput').value.trim();
-            if (Math.abs(monto - totalEsperadoCierre) > 50 && !obs) { toast('Diferencia > S/ 50 — observación obligatoria', 'error'); return; }
-            try {
-                const res = await fetch(`${API}/cerrar-caja/${sesionActual.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monto_cierre: monto, observaciones: obs || null }) });
-                const data = await res.json();
-                if (data.success) { cerrarModalCierre(); toast(data.mensaje, 'success'); sesionActual = null; document.getElementById('sesionIndicator').style.display = 'none'; document.getElementById('btnCerrarCajaHeader').style.display = 'none'; setTimeout(() => mostrarPanelApertura(), 1500); }
-                else { toast(data.detail || 'Error', 'error'); }
-            } catch (e) { toast('Error de conexión', 'error'); }
-        }
-
-        // ── BÚSQUEDA ──
-        let searchTimeout;
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            const q = e.target.value.trim();
-            if (q.length < 2) { document.getElementById('searchResults').classList.remove('active'); return; }
-            searchTimeout = setTimeout(() => buscarColegiado(q), 300);
-        });
-        document.getElementById('searchInput').addEventListener('focus', (e) => { if (e.target.value.trim().length >= 2) document.getElementById('searchResults').classList.add('active'); });
-        document.addEventListener('click', (e) => { if (!e.target.closest('.search-box')) document.getElementById('searchResults').classList.remove('active'); });
-
-        async function buscarColegiado(q) {
-            try {
-                const res = await fetch(`${API}/buscar-colegiado?q=${encodeURIComponent(q)}`);
-                const data = await res.json();
-                mostrarResultados(data);
-            } catch (e) { toast('Error buscando', 'error'); }
-        }
-
-        function mostrarResultados(resultados) {
-            const c = document.getElementById('searchResults');
-            if (!resultados.length) { c.innerHTML = '<div style="padding:16px;color:var(--text-muted);text-align:center;font-size:13px;">Sin resultados</div>'; c.classList.add('active'); return; }
-            c.innerHTML = resultados.map(r => `
-                <div class="search-result-item" onclick='seleccionarColegiado(${JSON.stringify(r)})'>
-                    <div class="result-info">
-                        <div class="result-name">${r.apellidos_nombres}</div>
-                        <div class="result-meta">DNI ${r.dni} · Mat. ${r.codigo_matricula || '-'} <span class="badge-habil ${r.habilitado ? 'habil' : 'inhabil'}">${r.habilitado ? 'HÁBIL' : 'INHÁBIL'}</span></div>
-                    </div>
-                    <div class="result-deuda ${r.total_deuda > 0 ? 'tiene-deuda' : 'sin-deuda'}">${r.total_deuda > 0 ? `S/ ${r.total_deuda.toFixed(2)}` : 'Al día ✓'}</div>
-                </div>`).join('');
-            c.classList.add('active');
-        }
-
-        function seleccionarColegiado(col) {
-            colegiadoActual = col;
-            document.getElementById('searchResults').classList.remove('active');
-            document.getElementById('searchInput').value = '';
-            const card = document.getElementById('colegiadoCard'); card.classList.add('active');
-            document.getElementById('colegiadoAvatar').textContent = col.apellidos_nombres.split(' ').slice(0, 2).map(n => n[0]).join('');
-            document.getElementById('colegiadoNombre').textContent = col.apellidos_nombres;
-            document.getElementById('colegiadoDetalle').textContent = `DNI ${col.dni} · Mat. ${col.codigo_matricula || '-'} · Deuda: S/ ${col.total_deuda.toFixed(2)}`;
-            const badge = document.getElementById('colegiadoBadge'); badge.textContent = col.habilitado ? 'HÁBIL' : 'INHÁBIL'; badge.className = `badge-habil ${col.habilitado ? 'habil' : 'inhabil'}`;
-            cargarDeudas(col.id);
-            cambiarTab('deudas');
-        }
-
-        function limpiarColegiado() {
-            colegiadoActual = null; deudasDisponibles = [];
-            document.getElementById('colegiadoCard').classList.remove('active');
-            document.getElementById('panelDeudas').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Busca un colegiado</div><div class="empty-desc">Ingresa DNI, matrícula o nombre</div></div>';
-            document.getElementById('countDeudas').textContent = '0';
-            carrito = carrito.filter(i => i.tipo !== 'deuda');
-            renderCarrito();
-            document.getElementById('searchInput').focus();
-        }
-
-        // ── DEUDAS ──
-        async function cargarDeudas(id) {
-            try { const res = await fetch(`${API}/deudas/${id}`); const data = await res.json(); deudasDisponibles = data.deudas || []; renderDeudas(); } catch (e) { toast('Error cargando deudas', 'error'); }
-        }
-
-        function renderDeudas() {
-            const panel = document.getElementById('panelDeudas');
-            document.getElementById('countDeudas').textContent = deudasDisponibles.length;
-            if (!deudasDisponibles.length) { panel.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Sin deudas pendientes</div></div>'; return; }
-            const sel = carrito.filter(i => i.tipo === 'deuda').map(i => i.deuda_id);
-            panel.innerHTML = `<button class="btn-seleccionar-todas" onclick="seleccionarTodas()">Seleccionar todas (${deudasDisponibles.length})</button>` +
-                deudasDisponibles.map(d => `<div class="deuda-item ${sel.includes(d.id) ? 'selected' : ''}" onclick="toggleDeuda(${d.id})"><div class="deuda-check">${sel.includes(d.id) ? '✓' : ''}</div><div class="deuda-info"><div class="deuda-concepto">${d.concepto}</div><div class="deuda-periodo">${d.periodo || ''} ${d.fecha_vencimiento ? '· Vence: ' + d.fecha_vencimiento : ''}</div></div><div class="deuda-monto">S/ ${d.saldo.toFixed(2)}</div></div>`).join('');
-        }
-
-        function toggleDeuda(id) {
-            const idx = carrito.findIndex(i => i.tipo === 'deuda' && i.deuda_id === id);
-            if (idx >= 0) carrito.splice(idx, 1);
-            else { const d = deudasDisponibles.find(x => x.id === id); if (d) carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo }); }
-            renderDeudas(); renderCarrito();
-        }
-
-        function seleccionarTodas() {
-            carrito = carrito.filter(i => i.tipo !== 'deuda');
-            for (const d of deudasDisponibles) carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo });
-            renderDeudas(); renderCarrito();
-        }
-
-        // ── CATÁLOGO ──
-        async function cargarCategorias() {
-            try { const res = await fetch(`${API}/categorias`); const cats = await res.json(); document.getElementById('categoriasGrid').innerHTML = `<span class="cat-chip active" onclick="filtrarCategoria(null, this)">Todos</span>` + cats.map(c => `<span class="cat-chip" onclick="filtrarCategoria('${c.codigo}', this)">${c.nombre} (${c.total})</span>`).join(''); } catch (e) {}
-        }
-
-        async function cargarConceptos(cat = null) {
-            try { let url = `${API}/conceptos`; if (cat) url += `?categoria=${cat}`; const res = await fetch(url); conceptosDisponibles = await res.json(); document.getElementById('countConceptos').textContent = conceptosDisponibles.length; renderConceptos(); } catch (e) {}
-        }
-
-        function filtrarCategoria(cat, el) { categoriaActiva = cat; document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); cargarConceptos(cat); }
-
-        function renderConceptos() {
-            document.getElementById('conceptosLista').innerHTML = conceptosDisponibles.map(c => `<div class="concepto-item" onclick="agregarConcepto(${c.id})"><div><div class="concepto-nombre">${c.nombre_corto || c.nombre}</div><div class="concepto-cat">${c.categoria}${c.maneja_stock ? ` · Stock: ${c.stock_actual}` : ''}</div></div><div class="concepto-precio">${c.monto_base > 0 ? `S/ ${c.monto_base.toFixed(2)}` : 'Variable'}</div></div>`).join('');
-        }
-
-        function agregarConcepto(id) {
-            const c = conceptosDisponibles.find(x => x.id === id); if (!c) return;
-            if (c.requiere_colegiado && !colegiadoActual) { toast('Selecciona un colegiado primero', 'error'); return; }
-            let monto = c.monto_base;
-            if (c.permite_monto_libre || monto === 0) { const input = prompt(`Monto para "${c.nombre}":`, monto > 0 ? monto : ''); if (!input) return; monto = parseFloat(input); if (isNaN(monto) || monto <= 0) { toast('Monto inválido', 'error'); return; } }
-            carrito.push({ tipo: 'concepto', concepto_id: c.id, descripcion: c.nombre_corto || c.nombre, cantidad: 1, monto_unitario: monto, monto: monto });
-            renderCarrito(); toast(`${c.nombre_corto || c.nombre} agregado`, 'success');
-        }
-
-        // ── CARRITO ──
-        function renderCarrito() {
-            const total = carrito.reduce((s, i) => s + i.monto, 0);
-            document.getElementById('cartCount').textContent = carrito.length;
-            document.getElementById('cartTotal').textContent = total.toFixed(2);
-            document.getElementById('btnMonto').textContent = `S/ ${total.toFixed(2)}`;
-            document.getElementById('btnCobrar').disabled = carrito.length === 0;
-            if (!carrito.length) { document.getElementById('cartItems').innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div>Selecciona deudas o conceptos<br>para agregar al cobro</div>'; return; }
-            document.getElementById('cartItems').innerHTML = carrito.map((item, idx) => `<div class="cart-item"><div class="cart-item-info"><div class="cart-item-name">${item.descripcion}</div><div class="cart-item-detail">${item.tipo === 'deuda' ? 'Deuda' : 'Concepto'}</div></div><div class="cart-item-monto">S/ ${item.monto.toFixed(2)}</div><button class="cart-item-remove" onclick="quitarItem(${idx})">✕</button></div>`).join('');
-        }
-
-        function quitarItem(idx) { const item = carrito[idx]; carrito.splice(idx, 1); if (item.tipo === 'deuda') renderDeudas(); renderCarrito(); }
-
-        // ── PAGO ──
-        function setMetodo(m) { metodoPago = m; document.querySelectorAll('.metodo-btn').forEach(b => b.classList.toggle('active', b.dataset.metodo === m)); const ref = document.getElementById('refInput'); ['transferencia', 'deposito', 'tarjeta'].includes(m) ? (ref.classList.add('visible'), ref.focus()) : ref.classList.remove('visible'); }
-        function setTipoComp(t) { tipoComprobante = t; document.querySelectorAll('.tipo-comp-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === t)); }
-        function cambiarTab(tab) { tabActual = tab; document.getElementById('tabDeudas').classList.toggle('active', tab === 'deudas'); document.getElementById('tabCatalogo').classList.toggle('active', tab === 'catalogo'); document.getElementById('panelDeudas').style.display = tab === 'deudas' ? 'block' : 'none'; document.getElementById('panelCatalogo').style.display = tab === 'catalogo' ? 'block' : 'none'; }
-
-        function confirmarCobro() {
-            if (!carrito.length) return;
-            const total = carrito.reduce((s, i) => s + i.monto, 0);
-            document.getElementById('modalTotal').textContent = `S/ ${total.toFixed(2)}`;
-            document.getElementById('modalDetail').innerHTML = `<div><span>Colegiado:</span><span>${colegiadoActual ? colegiadoActual.apellidos_nombres : 'Público general'}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodoPago}</span></div><div><span>Comprobante:</span><span>${tipoComprobante === '01' ? 'Factura' : 'Boleta'}</span></div>`;
-            document.getElementById('modalConfirm').classList.add('active');
-        }
-
-        function cerrarModal() { document.getElementById('modalConfirm').classList.remove('active'); }
-
-        async function ejecutarCobro() {
-            cerrarModal();
-            const total = carrito.reduce((s, i) => s + i.monto, 0);
-            const ref = document.getElementById('refInput').value.trim();
-            const payload = { colegiado_id: colegiadoActual?.id || null, items: carrito.map(i => ({ tipo: i.tipo, deuda_id: i.deuda_id || null, concepto_id: i.concepto_id || null, descripcion: i.descripcion, cantidad: i.cantidad || 1, monto_unitario: i.monto_unitario || i.monto, monto_total: i.monto })), total, metodo_pago: metodoPago, referencia_pago: ref || null, tipo_comprobante: tipoComprobante };
-            try {
-                const res = await fetch(`${API}/cobrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('successAmount').textContent = `S/ ${total.toFixed(2)}`;
-                    document.getElementById('successRef').textContent = `${metodoPago.toUpperCase()} ${ref ? '· Op: ' + ref : ''} · ${colegiadoActual?.apellidos_nombres || 'Público general'}`;
-                    document.getElementById('successOverlay').classList.add('active');
-                    carrito = []; renderCarrito(); if (colegiadoActual) cargarDeudas(colegiadoActual.id); cargarResumenDia();
-                    setTimeout(cerrarSuccess, 2500);
-                } else { toast(data.detail || 'Error en el cobro', 'error'); }
-            } catch (e) { toast('Error de conexión', 'error'); }
-        }
-
-        function cerrarSuccess() { document.getElementById('successOverlay').classList.remove('active'); document.getElementById('searchInput').focus(); }
-        document.getElementById('successOverlay').addEventListener('click', cerrarSuccess);
-
-        function toast(msg, type = 'success') { const el = document.createElement('div'); el.className = `toast toast-${type}`; el.textContent = msg; document.getElementById('toastContainer').appendChild(el); setTimeout(() => el.remove(), 3000); }
-
-
-        // ── EGRESOS ──
-
-        function cambiarTab(tab) {
-            tabActual = tab;
-            document.getElementById('tabDeudas').classList.toggle('active', tab === 'deudas');
-            document.getElementById('tabCatalogo').classList.toggle('active', tab === 'catalogo');
-            document.getElementById('tabEgresos').classList.toggle('active', tab === 'egresos');
-            document.getElementById('panelDeudas').style.display = tab === 'deudas' ? 'block' : 'none';
-            document.getElementById('panelCatalogo').style.display = tab === 'catalogo' ? 'block' : 'none';
-            document.getElementById('panelEgresos').style.display = tab === 'egresos' ? 'block' : 'none';
-            if (tab === 'egresos') cargarEgresos();
-        }
-
-        async function cargarEgresos() {
-            try {
-                const res = await fetch(`${API}/egresos-actual?centro_costo_id=1`);
-                const data = await res.json();
-                renderEgresos(data);
-            } catch (e) {
-                console.error('Error cargando egresos:', e);
-            }
-        }
-
-        function renderEgresos(data) {
-            const { egresos, totales } = data;
-            document.getElementById('countEgresos').textContent = egresos.length;
-
-            // Resumen
-            const resumen = document.getElementById('egresosResumen');
-            if (egresos.length > 0) {
-                resumen.style.display = 'block';
-                document.getElementById('egresoTotalEntregado').textContent = `S/ ${totales.entregado.toFixed(2)}`;
-                document.getElementById('egresoTotalFacturado').textContent = `S/ ${totales.facturado.toFixed(2)}`;
-                document.getElementById('egresoTotalDevuelto').textContent = `S/ ${totales.devuelto.toFixed(2)}`;
-                const pendRow = document.getElementById('egresosPendientesRow');
-                if (totales.pendientes > 0) {
-                    pendRow.style.display = 'flex';
-                    document.getElementById('egresosPendientes').textContent = totales.pendientes;
-                } else {
-                    pendRow.style.display = 'none';
-                }
-            } else {
-                resumen.style.display = 'none';
-            }
-
-            // Lista
-            const lista = document.getElementById('egresosLista');
-            if (!egresos.length) {
-                lista.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">Sin egresos registrados en esta sesión</div>';
-                return;
-            }
-
-            lista.innerHTML = egresos.map(e => `
-                <div class="egreso-item ${e.estado}">
-                    <div class="egreso-item-header">
-                        <div>
-                            <div class="egreso-item-concepto">${e.concepto}</div>
-                        </div>
-                        <div class="egreso-item-monto">- S/ ${e.monto.toFixed(2)}</div>
-                    </div>
-                    <div class="egreso-item-meta">
-                        <span>👤 ${e.responsable}</span>
-                        <span>🕐 ${e.hora}</span>
-                        <span>${tipoLabel(e.tipo)}</span>
-                        <span class="egreso-badge ${e.estado}">${e.estado === 'pendiente' ? '⏳ Pendiente' : '✓ Liquidado'}</span>
-                    </div>
-                    ${e.estado === 'liquidado' ? `
-                        <div class="egreso-liquidacion">
-                            <div><span>Factura${e.numero_documento ? ` (${e.numero_documento})` : ''}:</span><span class="mono">S/ ${(e.monto_factura ?? 0).toFixed(2)}</span></div>
-                            ${e.monto_devuelto > 0 ? `<div><span>Vuelto a caja:</span><span class="mono" style="color:var(--green)">+ S/ ${e.monto_devuelto.toFixed(2)}</span></div>` : ''}
-                        </div>
-                    ` : `
-                        <div class="egreso-item-actions">
-                            <button class="btn-liquidar" onclick="abrirLiquidar(${e.id}, ${e.monto}, '${e.concepto}', '${e.responsable}')">
-                                📄 Liquidar (trajo factura)
-                            </button>
-                        </div>
-                    `}
-                </div>
-            `).join('');
-        }
-
-        function tipoLabel(tipo) {
-            const labels = { gasto: '🛒 Gasto', devolucion: '↩️ Devolución', retiro_fondo: '🏦 Retiro' };
-            return labels[tipo] || tipo;
-        }
-
-        async function registrarEgreso() {
-            const monto = parseFloat(document.getElementById('egresoMonto').value);
-            const responsable = document.getElementById('egresoResponsable').value.trim();
-            const concepto = document.getElementById('egresoConcepto').value.trim();
-            const detalle = document.getElementById('egresoDetalle').value.trim();
-            const tipo = document.getElementById('egresoTipo').value;
-
-            if (!monto || monto <= 0) { toast('Ingresa el monto', 'error'); return; }
-            if (!responsable) { toast('Ingresa el responsable', 'error'); return; }
-            if (!concepto) { toast('Ingresa el concepto/motivo', 'error'); return; }
-
-            try {
-                const res = await fetch(`${API}/egreso?centro_costo_id=1`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ monto, responsable, concepto, detalle: detalle || null, tipo }),
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    toast(data.mensaje, 'success');
-                    // Limpiar form
-                    document.getElementById('egresoMonto').value = '';
-                    document.getElementById('egresoResponsable').value = '';
-                    document.getElementById('egresoConcepto').value = '';
-                    document.getElementById('egresoDetalle').value = '';
-                    document.getElementById('egresoTipo').value = 'gasto';
-                    cargarEgresos();
-                } else {
-                    toast(data.detail || 'Error', 'error');
-                }
-            } catch (e) { toast('Error de conexión', 'error'); }
-        }
-
-        // ── LIQUIDAR ──
-
-        function abrirLiquidar(id, monto, concepto, responsable) {
-            document.getElementById('liquidarEgresoId').value = id;
-            document.getElementById('liquidarMontoOriginal').value = monto;
-            document.getElementById('liquidarInfo').innerHTML = 
-                `<strong>${concepto}</strong><br>Responsable: ${responsable}<br>Entregado: <strong>S/ ${monto.toFixed(2)}</strong>`;
-            document.getElementById('liquidarMontoFactura').value = '';
-            document.getElementById('liquidarNroDoc').value = '';
-            document.getElementById('liquidarVuelto').style.display = 'none';
-            document.getElementById('modalLiquidar').classList.add('active');
-            document.getElementById('liquidarMontoFactura').focus();
-        }
-
-        function calcularVuelto() {
-            const original = parseFloat(document.getElementById('liquidarMontoOriginal').value) || 0;
-            const factura = parseFloat(document.getElementById('liquidarMontoFactura').value) || 0;
-            const el = document.getElementById('liquidarVuelto');
-
-            if (document.getElementById('liquidarMontoFactura').value === '') {
-                el.style.display = 'none';
-                return;
-            }
-
-            const vuelto = original - factura;
-            el.style.display = 'block';
-
-            if (vuelto > 0) {
-                el.className = 'cierre-diferencia sobrante';
-                el.textContent = `Vuelto a caja: + S/ ${vuelto.toFixed(2)}`;
-            } else if (vuelto === 0) {
-                el.className = 'cierre-diferencia cuadrado';
-                el.textContent = '✓ Monto exacto, sin vuelto';
-            } else {
-                el.className = 'cierre-diferencia faltante';
-                el.textContent = `⚠ Factura mayor al monto entregado`;
-            }
-        }
-
-        function cerrarModalLiquidar() {
-            document.getElementById('modalLiquidar').classList.remove('active');
-        }
-
-        async function ejecutarLiquidacion() {
-            const id = document.getElementById('liquidarEgresoId').value;
-            const montoFactura = parseFloat(document.getElementById('liquidarMontoFactura').value);
-            const nroDoc = document.getElementById('liquidarNroDoc').value.trim();
-
-            if (isNaN(montoFactura) || montoFactura < 0) {
-                toast('Ingresa el monto de la factura', 'error');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API}/egreso/${id}/liquidar`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        monto_factura: montoFactura,
-                        numero_documento: nroDoc || null,
-                    }),
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    cerrarModalLiquidar();
-                    toast(data.mensaje, 'success');
-                    cargarEgresos();
-                } else {
-                    toast(data.detail || 'Error', 'error');
-                }
-            } catch (e) { toast('Error de conexión', 'error'); }
-        }
-    </script>
+function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(()=>el.remove(),3000);}
+</script>
 </body>
 </html>
