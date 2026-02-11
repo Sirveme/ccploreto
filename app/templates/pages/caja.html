@@ -230,6 +230,174 @@
         .cierre-diferencia.sobrante { background: var(--green-soft); color: var(--green); }
         .cierre-diferencia.faltante { background: var(--red-soft); color: var(--red); }
         .cierre-diferencia.cuadrado { background: var(--accent-soft); color: var(--accent); }
+
+
+        /* EGRESO FORM */
+        .egreso-form {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .egreso-form-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .egreso-form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .egreso-field {
+            margin-bottom: 10px;
+        }
+        .egreso-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .egreso-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .egreso-input:focus { border-color: var(--border-focus); }
+        .egreso-input.mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        select.egreso-input {
+            cursor: pointer;
+        }
+        .btn-registrar-egreso {
+            width: 100%;
+            padding: 12px;
+            background: var(--amber-soft);
+            border: 1.5px solid var(--amber);
+            border-radius: var(--radius-sm);
+            color: var(--amber);
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-registrar-egreso:hover {
+            background: var(--amber);
+            color: var(--bg);
+        }
+
+        /* RESUMEN EGRESOS */
+        .egresos-resumen {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            margin-bottom: 12px;
+        }
+        .egresos-resumen-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+        /* EGRESO ITEMS */
+        .egreso-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            transition: all 0.15s;
+        }
+        .egreso-item.pendiente {
+            border-left: 3px solid var(--amber);
+        }
+        .egreso-item.liquidado {
+            border-left: 3px solid var(--green);
+            opacity: 0.8;
+        }
+        .egreso-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+        .egreso-item-concepto {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .egreso-item-monto {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--red);
+        }
+        .egreso-item-meta {
+            font-size: 11px;
+            color: var(--text-dim);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .egreso-item-meta span { display: flex; align-items: center; gap: 4px; }
+        .egreso-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .egreso-badge.pendiente { background: var(--amber-soft); color: var(--amber); }
+        .egreso-badge.liquidado { background: var(--green-soft); color: var(--green); }
+        .egreso-item-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-liquidar {
+            padding: 6px 14px;
+            background: var(--green-soft);
+            border: 1px solid var(--green);
+            border-radius: var(--radius-sm);
+            color: var(--green);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-liquidar:hover { background: var(--green); color: white; }
+
+        .egreso-liquidacion {
+            margin-top: 6px;
+            padding: 8px 10px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .egreso-liquidacion div { display: flex; justify-content: space-between; padding: 2px 0; }
     </style>
 </head>
 <body>
@@ -303,8 +471,15 @@
             </div>
 
             <div class="tabs-container">
-                <button class="tab-btn active" onclick="cambiarTab('deudas')" id="tabDeudas">Deudas <span class="count" id="countDeudas">0</span></button>
-                <button class="tab-btn" onclick="cambiarTab('catalogo')" id="tabCatalogo">Catálogo <span class="count" id="countConceptos">0</span></button>
+                <button class="tab-btn active" onclick="cambiarTab('deudas')" id="tabDeudas">
+                    Deudas <span class="count" id="countDeudas">0</span>
+                </button>
+                <button class="tab-btn" onclick="cambiarTab('catalogo')" id="tabCatalogo">
+                    Catálogo <span class="count" id="countConceptos">0</span>
+                </button>
+                <button class="tab-btn" onclick="cambiarTab('egresos')" id="tabEgresos">
+                    Egresos <span class="count" id="countEgresos">0</span>
+                </button>
             </div>
 
             <div class="content-scroll" id="contentScroll">
@@ -314,6 +489,74 @@
                 <div id="panelCatalogo" style="display:none;">
                     <div class="categorias-grid" id="categoriasGrid"></div>
                     <div id="conceptosLista"></div>
+                </div>
+
+                <div id="panelEgresos" style="display:none;">
+                    <!-- FORMULARIO NUEVO EGRESO -->
+                    <div class="egreso-form">
+                        <div class="egreso-form-title">Registrar salida de dinero</div>
+                        
+                        <div class="egreso-form-row">
+                            <div class="egreso-field" style="flex:1;">
+                                <label>Monto entregado (S/)</label>
+                                <input type="number" id="egresoMonto" class="egreso-input mono" 
+                                    min="0.01" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="egreso-field" style="flex:1.2;">
+                                <label>Tipo</label>
+                                <select id="egresoTipo" class="egreso-input">
+                                    <option value="gasto">Gasto / Compra</option>
+                                    <option value="devolucion">Devolución a cliente</option>
+                                    <option value="retiro_fondo">Retiro de fondo</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="egreso-field">
+                            <label>Responsable (quién recibe el dinero)</label>
+                            <input type="text" id="egresoResponsable" class="egreso-input" 
+                                placeholder="Nombre de la persona...">
+                        </div>
+                        
+                        <div class="egreso-field">
+                            <label>Concepto / Motivo</label>
+                            <input type="text" id="egresoConcepto" class="egreso-input" 
+                                placeholder="Ej: Compra de papel bond, movilidad, refrigerios...">
+                        </div>
+                        
+                        <div class="egreso-field">
+                            <label>Detalle adicional (opcional)</label>
+                            <input type="text" id="egresoDetalle" class="egreso-input" 
+                                placeholder="Notas adicionales...">
+                        </div>
+
+                        <button class="btn-registrar-egreso" onclick="registrarEgreso()">
+                            💸 Registrar Egreso
+                        </button>
+                    </div>
+
+                    <!-- RESUMEN EGRESOS -->
+                    <div class="egresos-resumen" id="egresosResumen" style="display:none;">
+                        <div class="egresos-resumen-row">
+                            <span>Total entregado:</span>
+                            <span class="mono" id="egresoTotalEntregado">S/ 0.00</span>
+                        </div>
+                        <div class="egresos-resumen-row">
+                            <span>Facturado:</span>
+                            <span class="mono" style="color:var(--green)" id="egresoTotalFacturado">S/ 0.00</span>
+                        </div>
+                        <div class="egresos-resumen-row">
+                            <span>Devuelto a caja:</span>
+                            <span class="mono" style="color:var(--accent)" id="egresoTotalDevuelto">S/ 0.00</span>
+                        </div>
+                        <div class="egresos-resumen-row pendientes-row" id="egresosPendientesRow" style="display:none;">
+                            <span>⚠ Pendientes de liquidar:</span>
+                            <span class="mono" style="color:var(--amber)" id="egresosPendientes">0</span>
+                        </div>
+                    </div>
+
+                    <!-- LISTA DE EGRESOS -->
+                    <div id="egresosLista"></div>
                 </div>
             </div>
         </div>
@@ -345,6 +588,41 @@
                     <button class="tipo-comp-btn" onclick="setTipoComp('01')" data-tipo="01">Factura</button>
                 </div>
                 <button class="btn-cobrar" id="btnCobrar" disabled onclick="confirmarCobro()">COBRAR <span class="monto-cobrar" id="btnMonto">S/ 0.00</span></button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================
+     PASO 3: MODAL LIQUIDAR EGRESO
+     Agregar junto a los otros modals
+     ============================================================ -->
+    <div class="modal-overlay" id="modalLiquidar">
+        <div class="modal" style="width:440px;">
+            <div class="modal-title">Liquidar Egreso</div>
+            <div class="modal-body" id="liquidarInfo">--</div>
+            
+            <div class="cierre-campo">
+                <label>Monto de la factura/boleta (S/)</label>
+                <input type="number" id="liquidarMontoFactura" class="apertura-input" 
+                    min="0" step="0.01" placeholder="0.00"
+                    oninput="calcularVuelto()">
+            </div>
+
+            <div class="cierre-diferencia" id="liquidarVuelto" style="display:none;"></div>
+
+            <div class="cierre-campo">
+                <label>Nro. factura/boleta (opcional)</label>
+                <input type="text" id="liquidarNroDoc" class="egreso-input" 
+                    placeholder="B001-00001234">
+            </div>
+
+            <input type="hidden" id="liquidarEgresoId">
+            <input type="hidden" id="liquidarMontoOriginal">
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="cerrarModalLiquidar()">Cancelar</button>
+                <button class="modal-btn modal-btn-confirm" onclick="ejecutarLiquidacion()">✓ Liquidar</button>
             </div>
         </div>
     </div>
@@ -723,6 +1001,202 @@
         document.getElementById('successOverlay').addEventListener('click', cerrarSuccess);
 
         function toast(msg, type = 'success') { const el = document.createElement('div'); el.className = `toast toast-${type}`; el.textContent = msg; document.getElementById('toastContainer').appendChild(el); setTimeout(() => el.remove(), 3000); }
+
+
+        // ── EGRESOS ──
+
+        function cambiarTab(tab) {
+            tabActual = tab;
+            document.getElementById('tabDeudas').classList.toggle('active', tab === 'deudas');
+            document.getElementById('tabCatalogo').classList.toggle('active', tab === 'catalogo');
+            document.getElementById('tabEgresos').classList.toggle('active', tab === 'egresos');
+            document.getElementById('panelDeudas').style.display = tab === 'deudas' ? 'block' : 'none';
+            document.getElementById('panelCatalogo').style.display = tab === 'catalogo' ? 'block' : 'none';
+            document.getElementById('panelEgresos').style.display = tab === 'egresos' ? 'block' : 'none';
+            if (tab === 'egresos') cargarEgresos();
+        }
+
+        async function cargarEgresos() {
+            try {
+                const res = await fetch(`${API}/egresos-actual?centro_costo_id=1`);
+                const data = await res.json();
+                renderEgresos(data);
+            } catch (e) {
+                console.error('Error cargando egresos:', e);
+            }
+        }
+
+        function renderEgresos(data) {
+            const { egresos, totales } = data;
+            document.getElementById('countEgresos').textContent = egresos.length;
+
+            // Resumen
+            const resumen = document.getElementById('egresosResumen');
+            if (egresos.length > 0) {
+                resumen.style.display = 'block';
+                document.getElementById('egresoTotalEntregado').textContent = `S/ ${totales.entregado.toFixed(2)}`;
+                document.getElementById('egresoTotalFacturado').textContent = `S/ ${totales.facturado.toFixed(2)}`;
+                document.getElementById('egresoTotalDevuelto').textContent = `S/ ${totales.devuelto.toFixed(2)}`;
+                const pendRow = document.getElementById('egresosPendientesRow');
+                if (totales.pendientes > 0) {
+                    pendRow.style.display = 'flex';
+                    document.getElementById('egresosPendientes').textContent = totales.pendientes;
+                } else {
+                    pendRow.style.display = 'none';
+                }
+            } else {
+                resumen.style.display = 'none';
+            }
+
+            // Lista
+            const lista = document.getElementById('egresosLista');
+            if (!egresos.length) {
+                lista.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">Sin egresos registrados en esta sesión</div>';
+                return;
+            }
+
+            lista.innerHTML = egresos.map(e => `
+                <div class="egreso-item ${e.estado}">
+                    <div class="egreso-item-header">
+                        <div>
+                            <div class="egreso-item-concepto">${e.concepto}</div>
+                        </div>
+                        <div class="egreso-item-monto">- S/ ${e.monto.toFixed(2)}</div>
+                    </div>
+                    <div class="egreso-item-meta">
+                        <span>👤 ${e.responsable}</span>
+                        <span>🕐 ${e.hora}</span>
+                        <span>${tipoLabel(e.tipo)}</span>
+                        <span class="egreso-badge ${e.estado}">${e.estado === 'pendiente' ? '⏳ Pendiente' : '✓ Liquidado'}</span>
+                    </div>
+                    ${e.estado === 'liquidado' ? `
+                        <div class="egreso-liquidacion">
+                            <div><span>Factura${e.numero_documento ? ` (${e.numero_documento})` : ''}:</span><span class="mono">S/ ${(e.monto_factura ?? 0).toFixed(2)}</span></div>
+                            ${e.monto_devuelto > 0 ? `<div><span>Vuelto a caja:</span><span class="mono" style="color:var(--green)">+ S/ ${e.monto_devuelto.toFixed(2)}</span></div>` : ''}
+                        </div>
+                    ` : `
+                        <div class="egreso-item-actions">
+                            <button class="btn-liquidar" onclick="abrirLiquidar(${e.id}, ${e.monto}, '${e.concepto}', '${e.responsable}')">
+                                📄 Liquidar (trajo factura)
+                            </button>
+                        </div>
+                    `}
+                </div>
+            `).join('');
+        }
+
+        function tipoLabel(tipo) {
+            const labels = { gasto: '🛒 Gasto', devolucion: '↩️ Devolución', retiro_fondo: '🏦 Retiro' };
+            return labels[tipo] || tipo;
+        }
+
+        async function registrarEgreso() {
+            const monto = parseFloat(document.getElementById('egresoMonto').value);
+            const responsable = document.getElementById('egresoResponsable').value.trim();
+            const concepto = document.getElementById('egresoConcepto').value.trim();
+            const detalle = document.getElementById('egresoDetalle').value.trim();
+            const tipo = document.getElementById('egresoTipo').value;
+
+            if (!monto || monto <= 0) { toast('Ingresa el monto', 'error'); return; }
+            if (!responsable) { toast('Ingresa el responsable', 'error'); return; }
+            if (!concepto) { toast('Ingresa el concepto/motivo', 'error'); return; }
+
+            try {
+                const res = await fetch(`${API}/egreso?centro_costo_id=1`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ monto, responsable, concepto, detalle: detalle || null, tipo }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    toast(data.mensaje, 'success');
+                    // Limpiar form
+                    document.getElementById('egresoMonto').value = '';
+                    document.getElementById('egresoResponsable').value = '';
+                    document.getElementById('egresoConcepto').value = '';
+                    document.getElementById('egresoDetalle').value = '';
+                    document.getElementById('egresoTipo').value = 'gasto';
+                    cargarEgresos();
+                } else {
+                    toast(data.detail || 'Error', 'error');
+                }
+            } catch (e) { toast('Error de conexión', 'error'); }
+        }
+
+        // ── LIQUIDAR ──
+
+        function abrirLiquidar(id, monto, concepto, responsable) {
+            document.getElementById('liquidarEgresoId').value = id;
+            document.getElementById('liquidarMontoOriginal').value = monto;
+            document.getElementById('liquidarInfo').innerHTML = 
+                `<strong>${concepto}</strong><br>Responsable: ${responsable}<br>Entregado: <strong>S/ ${monto.toFixed(2)}</strong>`;
+            document.getElementById('liquidarMontoFactura').value = '';
+            document.getElementById('liquidarNroDoc').value = '';
+            document.getElementById('liquidarVuelto').style.display = 'none';
+            document.getElementById('modalLiquidar').classList.add('active');
+            document.getElementById('liquidarMontoFactura').focus();
+        }
+
+        function calcularVuelto() {
+            const original = parseFloat(document.getElementById('liquidarMontoOriginal').value) || 0;
+            const factura = parseFloat(document.getElementById('liquidarMontoFactura').value) || 0;
+            const el = document.getElementById('liquidarVuelto');
+
+            if (document.getElementById('liquidarMontoFactura').value === '') {
+                el.style.display = 'none';
+                return;
+            }
+
+            const vuelto = original - factura;
+            el.style.display = 'block';
+
+            if (vuelto > 0) {
+                el.className = 'cierre-diferencia sobrante';
+                el.textContent = `Vuelto a caja: + S/ ${vuelto.toFixed(2)}`;
+            } else if (vuelto === 0) {
+                el.className = 'cierre-diferencia cuadrado';
+                el.textContent = '✓ Monto exacto, sin vuelto';
+            } else {
+                el.className = 'cierre-diferencia faltante';
+                el.textContent = `⚠ Factura mayor al monto entregado`;
+            }
+        }
+
+        function cerrarModalLiquidar() {
+            document.getElementById('modalLiquidar').classList.remove('active');
+        }
+
+        async function ejecutarLiquidacion() {
+            const id = document.getElementById('liquidarEgresoId').value;
+            const montoFactura = parseFloat(document.getElementById('liquidarMontoFactura').value);
+            const nroDoc = document.getElementById('liquidarNroDoc').value.trim();
+
+            if (isNaN(montoFactura) || montoFactura < 0) {
+                toast('Ingresa el monto de la factura', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/egreso/${id}/liquidar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        monto_factura: montoFactura,
+                        numero_documento: nroDoc || null,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    cerrarModalLiquidar();
+                    toast(data.mensaje, 'success');
+                    cargarEgresos();
+                } else {
+                    toast(data.detail || 'Error', 'error');
+                }
+            } catch (e) { toast('Error de conexión', 'error'); }
+        }
     </script>
 </body>
 </html>
