@@ -902,17 +902,26 @@ class SesionCaja(Base):
 
 
 class EgresoCaja(Base):
-    """Egresos/gastos menores durante una sesión de caja"""
+    """Egresos/gastos durante una sesión de caja con liquidación"""
     __tablename__ = "egresos_caja"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     sesion_caja_id = Column(Integer, ForeignKey("sesiones_caja.id"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
 
-    monto = Column(Numeric(12, 2), nullable=False)
-    concepto = Column(String(200), nullable=False)       # "Compra de papel bond"
-    detalle = Column(Text, nullable=True)
-    tipo = Column(String(30), default="gasto")           # gasto, devolucion, retiro_fondo
+    # Registro inicial: entrega de dinero
+    monto = Column(Numeric(12, 2), nullable=False)       # Lo que se entregó
+    concepto = Column(String(200), nullable=False)        # Motivo / sustento
+    detalle = Column(Text, nullable=True)                 # Notas adicionales
+    tipo = Column(String(30), default="gasto")            # gasto, devolucion, retiro_fondo
+    responsable = Column(String(150), nullable=True)      # Quién recibe el dinero
+
+    # Liquidación: cuando traen la factura y el vuelto
+    monto_factura = Column(Numeric(12, 2), nullable=True)    # Lo que dice la factura
+    monto_devuelto = Column(Numeric(12, 2), default=0)       # Vuelto regresado a caja
+    estado = Column(String(20), default="pendiente")         # pendiente, liquidado
+    liquidado_at = Column(DateTime(timezone=True), nullable=True)
+    numero_documento = Column(String(50), nullable=True)     # Nro de boleta/factura
 
     autorizado_por_id = Column(Integer, ForeignKey("usuarios_admin.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
