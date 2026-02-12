@@ -1135,7 +1135,7 @@ function cambiarTab(t) {
     document.getElementById('panelEgresos').style.display=t==='egresos'?'block':'none';
     document.getElementById('panelHistorial').style.display=t==='historial'?'block':'none';
     if(t==='egresos') cargarEgresos();
-    if(t==='historial') { if(!document.getElementById('histFecha').value) document.getElementById('histFecha').value=new Date().toISOString().split('T')[0]; cargarHistorial(); }
+    if(t==='historial') { if(!document.getElementById('histFecha').value) { const ah=new Date(); ah.setMinutes(ah.getMinutes()-ah.getTimezoneOffset()-300); document.getElementById('histFecha').value=ah.toISOString().split('T')[0]; } cargarHistorial(); }
 }
 function confirmarCobro() {
     if(!carrito.length)return; const t=carrito.reduce((s,i)=>s+i.monto,0);
@@ -1338,6 +1338,7 @@ async function ejecutarAnulacion() {
         montoAnular = parseFloat(document.getElementById('anularMonto').value) || 0;
         if(montoAnular <= 0) { toast('Ingresa el monto a devolver','err'); return; }
         if(montoAnular > totalOriginal) { toast(`El monto no puede superar S/ ${totalOriginal.toFixed(2)}`,'err'); return; }
+        if(Math.abs(montoAnular - totalOriginal) < 0.01) { motivo = '06'; motivoTexto = 'Devolución total'; }
     }
 
     if(!confirm(`¿Confirmas la ${motivo==='07'?'DEVOLUCIÓN PARCIAL de S/ '+montoAnular.toFixed(2):'ANULACIÓN'}?\nMotivo: ${motivoTexto}`)) return;
