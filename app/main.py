@@ -25,6 +25,7 @@ from app.routers import router_certificados
 from app.routers import api_publico
 from app.routers.caja import router as caja_router, page_router as caja_page_router
 
+from app.routers.reportes import router as reportes_router
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -155,6 +156,7 @@ app.include_router(router_certificados.router)
 app.include_router(api_publico.router)
 app.include_router(caja_router)
 app.include_router(caja_page_router)
+app.include_router(reportes_router)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
@@ -262,3 +264,9 @@ async def terminos_condiciones(request: Request):
         "request": request,
         "org": getattr(request.state, 'org', None),
     })
+
+
+# Ruta del template
+@app.get("/admin/reportes")
+async def admin_reportes(request: Request):
+    return templates.TemplateResponse("pages/reportes.html", {"request": request})
