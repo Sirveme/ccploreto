@@ -597,6 +597,9 @@
         .hist-empty { text-align: center; padding: 30px; color: var(--text-muted); font-size: 13px; }
         .hist-anular { padding: 4px 10px; background: var(--red-soft); border: 1px solid rgba(248,113,113,0.3); border-radius: 4px; color: var(--red); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
         .hist-anular:hover { background: var(--red); color: white; }
+        .hist-item.anulado { opacity: 0.5; border-color: var(--red); }
+        .hist-item.anulado .hist-monto { color: var(--red); text-decoration: line-through; }
+        .hist-badge-anulado { font-size: 9px; padding: 1px 6px; border-radius: 8px; background: var(--red); color: white; font-weight: 700; text-transform: uppercase; }
 
         /* LOGOUT / CAMBIAR CAJA */
         .hdr-menu { position: relative; }
@@ -732,7 +735,7 @@
             <div class="hdr-menu">
                 <button class="hdr-btn" onclick="toggleMenu()" title="Opciones">☰</button>
                 <div class="hdr-menu-drop" id="headerMenu">
-                    <button class="hdr-menu-item" onclick="cambiarCaja()">🔄 Cambiar de caja</button>
+                    <button class="hdr-menu-item" onclick="notificarDesdeCaja()">🔄 Notificar</button>
                     <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
                 </div>
@@ -875,6 +878,27 @@
     </div>
 </div>
 
+<div class="modal-bg" id="modalAnular">
+    <div class="modal-box" style="width:420px;">
+        <div class="modal-title" style="color:var(--red);">⚠️ Anular cobro</div>
+        <div class="modal-sub" id="anularInfo">--</div>
+        <div class="c-field"><label>Motivo de anulación</label>
+            <select id="anularMotivo" class="ap-select">
+                <option value="01">Anulación de la operación</option>
+                <option value="02">Corrección por error en comprobante</option>
+                <option value="06">Devolución total</option>
+                <option value="07">Devolución parcial</option>
+            </select>
+        </div>
+        <div class="c-field"><label>Observaciones (opcional)</label><input type="text" id="anularObs" class="egr-input" placeholder="Detalle adicional..."></div>
+        <input type="hidden" id="anularPayId">
+        <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:10px;margin:10px 0;font-size:12px;color:var(--red);">
+            ⚠ Esta acción emitirá una Nota de Crédito ante SUNAT y revertirá las deudas del colegiado. No se puede deshacer.
+        </div>
+        <div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="cerrarModalAnular()">Cancelar</button><button class="mbtn mbtn-ok" style="background:var(--red);" onclick="ejecutarAnulacion()">🗑 Anular</button></div>
+    </div>
+</div>
+
 <div class="success-bg" id="successBg">
     <div class="success-box"><div class="success-check">✓</div><div class="success-title">¡Cobro registrado!</div><div class="success-amt" id="successAmt">S/ 0</div><div class="success-ref" id="successRef"></div><div class="success-comprobante" id="successComp"><div class="success-comp-numero" id="successCompNum"></div><a class="success-comp-link" id="successCompPdf" href="#" target="_blank">📄 Ver Comprobante PDF</a><div class="success-comp-error" id="successCompErr"></div></div></div>
 </div>
@@ -963,7 +987,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('geoBlock').classList.remove('active'); iniciarApp(); // verificarGeo(); 👈👀👁‍🗨
     document.addEventListener('keydown', e => {
         if (e.key === 'F2') { e.preventDefault(); const s = document.getElementById('searchInput'); s.focus(); s.select(); }
-        if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
+        if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarModalAnular(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
         if (e.key === 'F9' && carrito.length) { e.preventDefault(); confirmarCobro(); }
     });
 });
@@ -1212,11 +1236,13 @@ function renderHistorial(data) {
 
     // Summary
     if(ops.length) {
-        const totalEfect = ops.filter(o=>o.metodo_pago==='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
-        const totalDigit = ops.filter(o=>o.metodo_pago!=='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
-        const totalGen = ops.reduce((s,o)=>s+(o.amount||o.total||0),0);
+        const activos = ops.filter(o=>o.status!=='anulado'&&o.status!=='refunded');
+        const anulados = ops.length - activos.length;
+        const totalEfect = activos.filter(o=>o.metodo_pago==='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
+        const totalDigit = activos.filter(o=>o.metodo_pago!=='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
+        const totalGen = activos.reduce((s,o)=>s+(o.amount||o.total||0),0);
         summ.innerHTML = `
-            <div class="hist-stat"><div class="hist-stat-val">${ops.length}</div><div class="hist-stat-lbl">Operaciones</div></div>
+            <div class="hist-stat"><div class="hist-stat-val">${activos.length}${anulados?` <span style="font-size:11px;color:var(--red)">(-${anulados})</span>`:''}</div><div class="hist-stat-lbl">Operaciones</div></div>
             <div class="hist-stat"><div class="hist-stat-val">S/ ${totalGen.toFixed(2)}</div><div class="hist-stat-lbl">Total cobrado</div></div>
             <div class="hist-stat"><div class="hist-stat-val">S/ ${totalEfect.toFixed(2)}</div><div class="hist-stat-lbl">Efectivo</div></div>
             <div class="hist-stat"><div class="hist-stat-val">S/ ${totalDigit.toFixed(2)}</div><div class="hist-stat-lbl">Digital</div></div>`;
@@ -1229,14 +1255,17 @@ function renderHistorial(data) {
         const monto = o.amount || o.total || 0;
         const desc = o.notes || o.descripcion || 'Cobro';
         const compNum = o.numero_comprobante || o.comprobante_numero || '';
-        return `<div class="hist-item" title="${desc}">
+        const esAnulado = o.status === 'anulado' || o.status === 'refunded';
+        return `<div class="hist-item${esAnulado?' anulado':''}" title="${desc}">
             <span class="hist-hora">${hora}</span>
             <div style="flex:1;overflow:hidden;">
                 <div class="hist-desc">${desc.replace('[CAJA] ','')}</div>
                 ${compNum ? `<div class="hist-comp">📄 ${compNum}</div>` : ''}
+                ${esAnulado ? '<span class="hist-badge-anulado">anulado</span>' : ''}
             </div>
             <span class="hist-metodo">${o.metodo_pago || o.payment_method || ''}</span>
             <span class="hist-monto">S/ ${monto.toFixed(2)}</span>
+            ${!esAnulado ? `<button class="hist-anular" onclick="mostrarAnular(${o.id},'${desc.replace(/'/g,"\\'")}',${monto})">Anular</button>` : ''}
         </div>`;
     }).join('');
 }
@@ -1254,6 +1283,7 @@ function cerrarMenuFuera(e) {
     if(!e.target.closest('.hdr-menu')) m.classList.remove('active');
 }
 
+// Cambiar por notificarDesdeCaja()
 function cambiarCaja() {
     document.getElementById('headerMenu').classList.remove('active');
     if(sesion) {
@@ -1274,6 +1304,42 @@ function cerrarSesionUsuario() {
         return;
     }
     window.location.href = '/logout';
+}
+
+// ── ANULACIÓN ──
+function mostrarAnular(payId, desc, monto) {
+    document.getElementById('anularPayId').value = payId;
+    document.getElementById('anularInfo').innerHTML = `<strong>S/ ${monto.toFixed(2)}</strong> — ${desc.replace('[CAJA] ','')}`;
+    document.getElementById('anularMotivo').value = '01';
+    document.getElementById('anularObs').value = '';
+    document.getElementById('modalAnular').classList.add('active');
+}
+function cerrarModalAnular() { document.getElementById('modalAnular').classList.remove('active'); }
+
+async function ejecutarAnulacion() {
+    const payId = document.getElementById('anularPayId').value;
+    const motivo = document.getElementById('anularMotivo').value;
+    const obs = document.getElementById('anularObs').value.trim();
+    const motivoTexto = document.getElementById('anularMotivo').selectedOptions[0].text;
+
+    if(!confirm(`¿Confirmas la ANULACIÓN?\nMotivo: ${motivoTexto}`)) return;
+
+    try {
+        const r = await fetch(`${API}/anular-cobro`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, observaciones: obs })
+        });
+        const d = await r.json();
+        if(d.success) {
+            cerrarModalAnular();
+            toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito}` : ''), 'ok');
+            cargarHistorial();
+            cargarResumen();
+        } else {
+            toast(d.detail || d.error || 'Error al anular', 'err');
+        }
+    } catch(e) { toast('Error de conexión', 'err'); }
 }
 
 function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(()=>el.remove(),3000);}
