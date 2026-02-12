@@ -1126,3 +1126,49 @@ async def egresos_sesion_actual(
             "pendientes": pendientes,
         }
     }
+
+
+# // ============================================================
+# // CONSULTAS RÁPIDAS PARA EL PANEL DE CAJA (sin paginar)
+# // ============================================================
+@router.get("/historial-cobros")
+async def historial_cobros(
+    fecha: str,  # YYYY-MM-DD
+    metodo_pago: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Historial de cobros de caja por fecha, con filtro opcional por método de pago."""
+    from datetime import datetime, timedelta
+    try:
+        dia = datetime.strptime(fecha, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+
+    dia_inicio = dia.replace(hour=0, minute=0, second=0)
+    dia_fin = dia_inicio + timedelta(days=1)
+
+    query = db.query(Payment).filter(
+        Payment.status == "approved",
+        Payment.reviewed_at >= dia_inicio,
+        Payment.reviewed_at < dia_fin,
+        Payment.notes.ilike("%[CAJA]%"),
+    )
+
+    if metodo_pago:
+        query = query.filter(Payment.payment_method == metodo_pago)
+
+    cobros = query.order_by(Payment.reviewed_at.desc()).limit(200).all()
+
+    return {
+        "operaciones": [
+            {
+                "id": p.id,
+                "amount": float(p.amount or 0),
+                "metodo_pago": p.payment_method,
+                "notes": p.notes,
+                "reviewed_at": p.reviewed_at.isoformat() if p.reviewed_at else None,
+                "numero_comprobante": None,  # TODO: join con comprobantes_electronicos
+            }
+            for p in cobros
+        ]
+    }
