@@ -365,6 +365,8 @@ def create_session_response(user, member):
         target_url = "/admin"
     elif member.role in ["staff", "security"]: 
         target_url = "/centinela"
+    elif member.role in ["cajero", "tesorero"]:
+        target_url = "/caja"
 
     response = Response(status_code=200)
     response.headers["HX-Redirect"] = target_url

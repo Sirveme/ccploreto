@@ -527,7 +527,7 @@ async def resumen_del_dia(
 
     # Pagos del día
     pagos_dia = db.query(Payment).filter(
-        Payment.status == "approved",
+        Payment.status.in_(["approved", "anulado"]),
         Payment.created_at >= inicio_dia,
         Payment.notes.like("[CAJA]%"),
     ).all()
@@ -1168,6 +1168,7 @@ async def historial_cobros(
                 "metodo_pago": p.payment_method,
                 "notes": p.notes,
                 "reviewed_at": p.reviewed_at.isoformat() if p.reviewed_at else None,
+                "status": p.status,
                 "numero_comprobante": None,  # TODO: join con comprobantes_electronicos
             }
             for p in cobros
