@@ -568,6 +568,16 @@
         .success-comp-link:hover { background: #3d6be0; transform: translateY(-1px); }
         .success-comp-error { font-size: 11px; color: var(--amber); margin-top: 4px; }
 
+        /* GEO BLOCK */
+        .geo-block { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 40px; }
+        .geo-block.active { display: flex; }
+        .geo-icon { font-size: 64px; margin-bottom: 16px; }
+        .geo-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .geo-desc { font-size: 14px; color: var(--text-dim); max-width: 400px; line-height: 1.5; margin-bottom: 20px; }
+        .geo-coords { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); padding: 8px 14px; background: var(--bg-card); border-radius: 6px; }
+        .geo-retry { margin-top: 16px; padding: 10px 24px; background: var(--accent); border: none; border-radius: 8px; color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .geo-checking { font-size: 14px; color: var(--text-dim); }
+
         /* Toast */
         .toast-box { position: fixed; top: 60px; right: 14px; z-index: 3000; display: flex; flex-direction: column; gap: 5px; }
         .toast {
@@ -653,6 +663,14 @@
 <body>
 
 <!-- ═══ APERTURA ═══ -->
+<div class="geo-block active" id="geoBlock">
+    <div class="geo-icon">📍</div>
+    <div class="geo-title" id="geoTitle">Verificando ubicación...</div>
+    <div class="geo-desc" id="geoDesc">El sistema de caja solo funciona desde las instalaciones del CCPL.</div>
+    <div class="geo-coords" id="geoCoords" style="display:none;"></div>
+    <button class="geo-retry" id="geoRetry" style="display:none;" onclick="verificarGeo()">🔄 Reintentar</button>
+</div>
+
 <div class="apertura-bg" id="aperturaOverlay">
     <div class="apertura-box">
         <div class="ap-icon">🏦</div>
@@ -811,10 +829,80 @@ let colActual = null, deudasDisp = [], conceptosDisp = [];
 let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03';
 let tabAct = 'deudas', sesion = null, totalEsperado = 0;
 
-document.addEventListener('DOMContentLoaded', () => {
+// ── GEOLOCALIZACIÓN ──
+const SEDES_CCPL = [
+    { nombre: 'Oficina Principal', lat: -3.7486127, lng: -73.2529467, radio: 100 },
+    { nombre: 'Centro Recreacional', lat: -3.793031, lng: -73.299236, radio: 100 },
+];
+
+function distanciaMetros(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function verificarGeo() {
+    const el = document.getElementById('geoBlock');
+    const titulo = document.getElementById('geoTitle');
+    const desc = document.getElementById('geoDesc');
+    const coords = document.getElementById('geoCoords');
+    const retry = document.getElementById('geoRetry');
+    titulo.textContent = 'Verificando ubicación...'; desc.textContent = 'Obteniendo tu posición GPS...';
+    retry.style.display = 'none'; coords.style.display = 'none';
+
+    if (!navigator.geolocation) {
+        titulo.textContent = '🚫 GPS no disponible';
+        desc.textContent = 'Tu navegador no soporta geolocalización. Usa Chrome o Firefox actualizado.';
+        retry.style.display = 'inline-block'; return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
+            let sedeOk = null, distMin = Infinity;
+            for (const s of SEDES_CCPL) {
+                const d = distanciaMetros(lat, lng, s.lat, s.lng);
+                if (d < distMin) distMin = d;
+                if (d <= s.radio) { sedeOk = s; break; }
+            }
+            if (sedeOk) {
+                el.classList.remove('active');
+                iniciarApp();
+            } else {
+                titulo.textContent = '🚫 Fuera del área permitida';
+                desc.textContent = `Estás a ${Math.round(distMin)}m de la sede más cercana. El sistema de caja solo funciona dentro de las instalaciones del CCPL (radio: 100m).`;
+                coords.textContent = `Tu posición: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                coords.style.display = 'block';
+                retry.style.display = 'inline-block';
+            }
+        },
+        (err) => {
+            if (err.code === 1) {
+                titulo.textContent = '📍 Permiso denegado';
+                desc.textContent = 'Debes permitir el acceso a tu ubicación para usar la caja. Haz clic en el ícono de candado 🔒 en la barra de direcciones y activa la ubicación.';
+            } else if (err.code === 2) {
+                titulo.textContent = '📍 Ubicación no disponible';
+                desc.textContent = 'No se pudo obtener tu ubicación. Verifica que el GPS esté activado.';
+            } else {
+                titulo.textContent = '📍 Tiempo de espera agotado';
+                desc.textContent = 'La obtención de ubicación tardó demasiado. Intenta de nuevo.';
+            }
+            retry.style.display = 'inline-block';
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+}
+
+function iniciarApp() {
     actualizarReloj(); setInterval(actualizarReloj, 30000);
     verificarSesion(); cargarCats(); cargarConceptos();
     document.getElementById('searchInput').focus();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    verificarGeo();
     document.addEventListener('keydown', e => {
         if (e.key === 'F2') { e.preventDefault(); const s = document.getElementById('searchInput'); s.focus(); s.select(); }
         if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
