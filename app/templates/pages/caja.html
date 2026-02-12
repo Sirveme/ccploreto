@@ -578,6 +578,35 @@
         .geo-retry { margin-top: 16px; padding: 10px 24px; background: var(--accent); border: none; border-radius: 8px; color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
         .geo-checking { font-size: 14px; color: var(--text-dim); }
 
+        /* HISTORIAL */
+        .hist-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .hist-filters input, .hist-filters select { padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; }
+        .hist-filters input:focus, .hist-filters select:focus { border-color: var(--border-focus); }
+        .hist-btn { padding: 8px 14px; background: var(--accent); border: none; border-radius: 6px; color: white; font-weight: 600; font-size: 12px; cursor: pointer; }
+        .hist-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 5px; font-size: 13px; cursor: pointer; transition: border-color 0.15s; }
+        .hist-item:hover { border-color: var(--accent); }
+        .hist-hora { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); width: 42px; flex-shrink: 0; }
+        .hist-desc { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hist-metodo { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--bg); color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
+        .hist-monto { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px; color: var(--green); white-space: nowrap; }
+        .hist-comp { font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+        .hist-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 8px; margin-bottom: 14px; }
+        .hist-stat { padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
+        .hist-stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; color: var(--green); }
+        .hist-stat-lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+        .hist-empty { text-align: center; padding: 30px; color: var(--text-muted); font-size: 13px; }
+        .hist-anular { padding: 4px 10px; background: var(--red-soft); border: 1px solid rgba(248,113,113,0.3); border-radius: 4px; color: var(--red); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .hist-anular:hover { background: var(--red); color: white; }
+
+        /* LOGOUT / CAMBIAR CAJA */
+        .hdr-menu { position: relative; }
+        .hdr-menu-drop { display: none; position: absolute; right: 0; top: 100%; margin-top: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 200; overflow: hidden; }
+        .hdr-menu-drop.active { display: block; }
+        .hdr-menu-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-dim); cursor: pointer; transition: background 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
+        .hdr-menu-item:hover { background: var(--bg-card-hover); color: var(--text); }
+        .hdr-menu-item.danger { color: var(--red); }
+        .hdr-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
         /* Toast */
         .toast-box { position: fixed; top: 60px; right: 14px; z-index: 3000; display: flex; flex-direction: column; gap: 5px; }
         .toast {
@@ -700,6 +729,14 @@
             <button class="hdr-btn" id="btnEgreso" onclick="cambiarTab('egresos')" style="display:none;" title="Egresos">💸</button>
             <button class="hdr-btn danger" id="btnCerrar" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
             <span class="header-time" id="horaActual">--:--</span>
+            <div class="hdr-menu">
+                <button class="hdr-btn" onclick="toggleMenu()" title="Opciones">☰</button>
+                <div class="hdr-menu-drop" id="headerMenu">
+                    <button class="hdr-menu-item" onclick="cambiarCaja()">🔄 Cambiar de caja</button>
+                    <div class="hdr-menu-sep"></div>
+                    <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -727,6 +764,7 @@
             <button class="tab active" data-t="deudas" onclick="cambiarTab('deudas')" id="tabDeudas">Deudas <span class="tab-count" id="cntDeudas">0</span></button>
             <button class="tab" data-t="catalogo" onclick="cambiarTab('catalogo')" id="tabCatalogo">Catálogo <span class="tab-count" id="cntConceptos">0</span></button>
             <button class="tab" data-t="egresos" onclick="cambiarTab('egresos')" id="tabEgresos">Egresos <span class="tab-count" id="cntEgresos">0</span></button>
+            <button class="tab" data-t="historial" onclick="cambiarTab('historial')" id="tabHistorial">Historial</button>
         </div>
 
         <div class="content-scroll">
@@ -751,6 +789,26 @@
                     <div class="egr-summary-row" id="egrPendRow" style="display:none;"><span>⚠ Pendientes:</span><span class="mono" style="color:var(--amber)" id="egrPend">0</span></div>
                 </div>
                 <div id="egrLista"></div>
+            </div>
+            <div id="panelHistorial" style="display:none;">
+                <div class="section-box green">
+                    <div class="sec-title green">📊 Historial de operaciones</div>
+                    <div class="hist-filters">
+                        <input type="date" id="histFecha" style="flex:1;">
+                        <select id="histTipo" style="width:100px;">
+                            <option value="">Todos</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="yape">Yape</option>
+                            <option value="plin">Plin</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="transferencia">Transfer.</option>
+                            <option value="deposito">Depósito</option>
+                        </select>
+                        <button class="hist-btn" onclick="cargarHistorial()">Buscar</button>
+                    </div>
+                    <div class="hist-summary" id="histSummary"></div>
+                    <div id="histLista"><div class="hist-empty">Selecciona una fecha y presiona Buscar</div></div>
+                </div>
             </div>
         </div>
     </div>
@@ -902,7 +960,7 @@ function iniciarApp() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    verificarGeo();
+    document.getElementById('geoBlock').classList.remove('active'); iniciarApp(); // verificarGeo(); 👈👀👁‍🗨
     document.addEventListener('keydown', e => {
         if (e.key === 'F2') { e.preventDefault(); const s = document.getElementById('searchInput'); s.focus(); s.select(); }
         if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
@@ -1049,7 +1107,9 @@ function cambiarTab(t) {
     document.getElementById('panelDeudas').style.display=t==='deudas'?'block':'none';
     document.getElementById('panelCatalogo').style.display=t==='catalogo'?'block':'none';
     document.getElementById('panelEgresos').style.display=t==='egresos'?'block':'none';
+    document.getElementById('panelHistorial').style.display=t==='historial'?'block':'none';
     if(t==='egresos') cargarEgresos();
+    if(t==='historial') { if(!document.getElementById('histFecha').value) document.getElementById('histFecha').value=new Date().toISOString().split('T')[0]; cargarHistorial(); }
 }
 function confirmarCobro() {
     if(!carrito.length)return; const t=carrito.reduce((s,i)=>s+i.monto,0);
@@ -1129,6 +1189,91 @@ async function ejecutarLiq() {
     try{const r=await fetch(`${API}/egreso/${id}/liquidar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto_factura:mf,numero_documento:nd||null})});const d=await r.json();
         if(d.success){cerrarModalLiq();toast(d.mensaje,'ok');cargarEgresos();}else toast(d.detail||'Error','err');
     }catch(e){toast('Error','err');}
+}
+
+// ── HISTORIAL ──
+async function cargarHistorial() {
+    const fecha = document.getElementById('histFecha').value;
+    const tipo = document.getElementById('histTipo').value;
+    if(!fecha) return;
+    try {
+        let url = `${API}/historial-cobros?fecha=${fecha}`;
+        if(tipo) url += `&metodo_pago=${tipo}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        renderHistorial(d);
+    } catch(e) { document.getElementById('histLista').innerHTML = '<div class="hist-empty">Error cargando historial</div>'; }
+}
+
+function renderHistorial(data) {
+    const ops = data.operaciones || data.cobros || data || [];
+    const lista = document.getElementById('histLista');
+    const summ = document.getElementById('histSummary');
+
+    // Summary
+    if(ops.length) {
+        const totalEfect = ops.filter(o=>o.metodo_pago==='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
+        const totalDigit = ops.filter(o=>o.metodo_pago!=='efectivo').reduce((s,o)=>s+(o.amount||o.total||0),0);
+        const totalGen = ops.reduce((s,o)=>s+(o.amount||o.total||0),0);
+        summ.innerHTML = `
+            <div class="hist-stat"><div class="hist-stat-val">${ops.length}</div><div class="hist-stat-lbl">Operaciones</div></div>
+            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalGen.toFixed(2)}</div><div class="hist-stat-lbl">Total cobrado</div></div>
+            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalEfect.toFixed(2)}</div><div class="hist-stat-lbl">Efectivo</div></div>
+            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalDigit.toFixed(2)}</div><div class="hist-stat-lbl">Digital</div></div>`;
+    } else { summ.innerHTML = ''; }
+
+    if(!ops.length) { lista.innerHTML = '<div class="hist-empty">Sin operaciones en esta fecha</div>'; return; }
+
+    lista.innerHTML = ops.map(o => {
+        const hora = o.reviewed_at ? new Date(o.reviewed_at).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}) : (o.hora||'--:--');
+        const monto = o.amount || o.total || 0;
+        const desc = o.notes || o.descripcion || 'Cobro';
+        const compNum = o.numero_comprobante || o.comprobante_numero || '';
+        return `<div class="hist-item" title="${desc}">
+            <span class="hist-hora">${hora}</span>
+            <div style="flex:1;overflow:hidden;">
+                <div class="hist-desc">${desc.replace('[CAJA] ','')}</div>
+                ${compNum ? `<div class="hist-comp">📄 ${compNum}</div>` : ''}
+            </div>
+            <span class="hist-metodo">${o.metodo_pago || o.payment_method || ''}</span>
+            <span class="hist-monto">S/ ${monto.toFixed(2)}</span>
+        </div>`;
+    }).join('');
+}
+
+// ── MENÚ / LOGOUT / CAMBIAR CAJA ──
+function toggleMenu() {
+    const m = document.getElementById('headerMenu');
+    m.classList.toggle('active');
+    if(m.classList.contains('active')) {
+        setTimeout(()=> document.addEventListener('click', cerrarMenuFuera, {once:true}), 10);
+    }
+}
+function cerrarMenuFuera(e) {
+    const m = document.getElementById('headerMenu');
+    if(!e.target.closest('.hdr-menu')) m.classList.remove('active');
+}
+
+function cambiarCaja() {
+    document.getElementById('headerMenu').classList.remove('active');
+    if(sesion) {
+        if(!confirm('Tienes una caja abierta. ¿Deseas cerrarla primero o solo cambiar?')) return;
+    }
+    sesion = null;
+    document.getElementById('sesionIndicator').style.display = 'none';
+    document.getElementById('btnCerrar').style.display = 'none';
+    document.getElementById('btnEgreso').style.display = 'none';
+    mostrarApertura();
+}
+
+function cerrarSesionUsuario() {
+    document.getElementById('headerMenu').classList.remove('active');
+    if(sesion) {
+        if(!confirm('Tienes una caja abierta. Debes cerrarla antes de salir.\n¿Ir al cierre de caja?')) return;
+        mostrarCierreCaja();
+        return;
+    }
+    window.location.href = '/logout';
 }
 
 function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(()=>el.remove(),3000);}
