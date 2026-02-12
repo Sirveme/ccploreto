@@ -1163,6 +1163,7 @@ async def historial_cobros(
         "operaciones": [
             {
                 "id": p.id,
+                "status": p.status,
                 "amount": float(p.amount or 0),
                 "metodo_pago": p.payment_method,
                 "notes": p.notes,
@@ -1172,3 +1173,76 @@ async def historial_cobros(
             for p in cobros
         ]
     }
+
+
+# ============================================================
+# ENDPOINTS PARA ANULAR COMPBROBANTES PAGO   
+# ============================================================
+@router.post("/anular-cobro")
+async def anular_cobro(
+    data: dict,
+    db: Session = Depends(get_db),
+):
+    """
+    Anula un cobro: marca payment como anulado, revierte deudas,
+    y emite Nota de Crédito si hay comprobante electrónico.
+    """
+    payment_id = data.get("payment_id")
+    motivo_codigo = data.get("motivo_codigo", "01")
+    motivo_texto = data.get("motivo_texto", "Anulación de la operación")
+    observaciones = data.get("observaciones", "")
+
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(404, detail="Pago no encontrado")
+    if payment.status == "anulado":
+        raise HTTPException(400, detail="Este cobro ya fue anulado")
+
+    # ── Revertir deudas vinculadas ──
+    deudas_revertidas = 0
+    if payment.colegiado_id:
+        # Buscar deudas que se pagaron con este payment (por fecha/monto)
+        from sqlalchemy import and_
+        deudas = db.query(Debt).filter(
+            Debt.colegiado_id == payment.colegiado_id,
+            Debt.status == "paid",
+        ).all()
+
+        # Revertir deudas que coincidan con items del pago
+        notas = payment.notes or ""
+        for deuda in deudas:
+            if deuda.concept and deuda.concept in notas:
+                deuda.status = "pending"
+                deuda.balance = deuda.amount
+                deudas_revertidas += 1
+
+    # ── Marcar payment como anulado ──
+    payment.status = "anulado"
+    payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_texto}. {observaciones}".strip()
+
+    # ── Emitir Nota de Crédito (si hay comprobante) ──
+    nota_credito_num = None
+    try:
+        from app.services.facturacion import FacturacionService
+        service = FacturacionService(db, payment.organization_id)
+        # Buscar comprobante del payment
+        comprobante = service.obtener_comprobante_por_payment(payment_id)
+        if comprobante:
+            resultado_nc = await service.emitir_nota_credito(
+                comprobante_id=comprobante["id"],
+                motivo=motivo_texto,
+            )
+            if resultado_nc.get("success"):
+                nota_credito_num = resultado_nc.get("numero_formato")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error NC anulación: {e}")
+
+    db.commit()
+
+    return {
+        "success": True,
+        "mensaje": f"Cobro anulado. {deudas_revertidas} deuda(s) revertida(s).",
+        "nota_credito": nota_credito_num,
+    }
+
