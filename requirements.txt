@@ -45,6 +45,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 multidict==6.7.0
 openai==2.14.0
+openpyxl==3.1.5
 orjson==3.11.5
 passlib==1.7.4
 propcache==0.4.1
@@ -90,6 +91,7 @@ watchfiles==1.1.1
 webauthn==2.7.0
 websockets==15.0.1
 yarl==1.22.0
+
 
 
 
