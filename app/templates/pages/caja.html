@@ -735,7 +735,7 @@
             <div class="hdr-menu">
                 <button class="hdr-btn" onclick="toggleMenu()" title="Opciones">☰</button>
                 <div class="hdr-menu-drop" id="headerMenu">
-                    <button class="hdr-menu-item" onclick="notificarDesdeCaja()">🔄 Notificar</button>
+                    <button class="hdr-menu-item" onclick="notificarDesdeCaja()">🔔 Notificar</button>
                     <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
                 </div>
@@ -808,6 +808,7 @@
                             <option value="deposito">Depósito</option>
                         </select>
                         <button class="hist-btn" onclick="cargarHistorial()">Buscar</button>
+                        <button class="hist-btn" style="background:var(--green);" onclick="exportarDia()">📥 Excel</button>
                     </div>
                     <div class="hist-summary" id="histSummary"></div>
                     <div id="histLista"><div class="hist-empty">Selecciona una fecha y presiona Buscar</div></div>
@@ -883,15 +884,16 @@
         <div class="modal-title" style="color:var(--red);">⚠️ Anular cobro</div>
         <div class="modal-sub" id="anularInfo">--</div>
         <div class="c-field"><label>Motivo de anulación</label>
-            <select id="anularMotivo" class="ap-select">
+            <select id="anularMotivo" class="ap-select" onchange="toggleMontoParcial()">
                 <option value="01">Anulación de la operación</option>
                 <option value="02">Corrección por error en comprobante</option>
                 <option value="06">Devolución total</option>
                 <option value="07">Devolución parcial</option>
             </select>
         </div>
+        <div class="c-field" id="anularMontoCont" style="display:none;"><label>Monto a devolver (S/)</label><input type="number" id="anularMonto" class="m-input" min="0.01" step="0.01" placeholder="0.00"></div>
         <div class="c-field"><label>Observaciones (opcional)</label><input type="text" id="anularObs" class="egr-input" placeholder="Detalle adicional..."></div>
-        <input type="hidden" id="anularPayId">
+        <input type="hidden" id="anularPayId"><input type="hidden" id="anularTotal">
         <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:10px;margin:10px 0;font-size:12px;color:var(--red);">
             ⚠ Esta acción emitirá una Nota de Crédito ante SUNAT y revertirá las deudas del colegiado. No se puede deshacer.
         </div>
@@ -1283,17 +1285,9 @@ function cerrarMenuFuera(e) {
     if(!e.target.closest('.hdr-menu')) m.classList.remove('active');
 }
 
-// Cambiar por notificarDesdeCaja()
-function cambiarCaja() {
+function notificarDesdeCaja() {
     document.getElementById('headerMenu').classList.remove('active');
-    if(sesion) {
-        if(!confirm('Tienes una caja abierta. ¿Deseas cerrarla primero o solo cambiar?')) return;
-    }
-    sesion = null;
-    document.getElementById('sesionIndicator').style.display = 'none';
-    document.getElementById('btnCerrar').style.display = 'none';
-    document.getElementById('btnEgreso').style.display = 'none';
-    mostrarApertura();
+    toast('Notificaciones: próximamente','ok');
 }
 
 function cerrarSesionUsuario() {
@@ -1306,29 +1300,53 @@ function cerrarSesionUsuario() {
     window.location.href = '/logout';
 }
 
+// ── EXPORTAR ──
+function exportarDia() {
+    const fecha = document.getElementById('histFecha').value;
+    if(!fecha) { toast('Selecciona una fecha','err'); return; }
+    window.open(`/api/reportes/exportar-dia?fecha=${fecha}`, '_blank');
+}
+
 // ── ANULACIÓN ──
 function mostrarAnular(payId, desc, monto) {
     document.getElementById('anularPayId').value = payId;
+    document.getElementById('anularTotal').value = monto;
     document.getElementById('anularInfo').innerHTML = `<strong>S/ ${monto.toFixed(2)}</strong> — ${desc.replace('[CAJA] ','')}`;
     document.getElementById('anularMotivo').value = '01';
     document.getElementById('anularObs').value = '';
+    document.getElementById('anularMonto').value = '';
+    document.getElementById('anularMontoCont').style.display = 'none';
     document.getElementById('modalAnular').classList.add('active');
 }
 function cerrarModalAnular() { document.getElementById('modalAnular').classList.remove('active'); }
+
+function toggleMontoParcial() {
+    const esParcial = document.getElementById('anularMotivo').value === '07';
+    document.getElementById('anularMontoCont').style.display = esParcial ? 'block' : 'none';
+    if(esParcial) document.getElementById('anularMonto').focus();
+}
 
 async function ejecutarAnulacion() {
     const payId = document.getElementById('anularPayId').value;
     const motivo = document.getElementById('anularMotivo').value;
     const obs = document.getElementById('anularObs').value.trim();
     const motivoTexto = document.getElementById('anularMotivo').selectedOptions[0].text;
+    const totalOriginal = parseFloat(document.getElementById('anularTotal').value) || 0;
 
-    if(!confirm(`¿Confirmas la ANULACIÓN?\nMotivo: ${motivoTexto}`)) return;
+    let montoAnular = totalOriginal;
+    if(motivo === '07') {
+        montoAnular = parseFloat(document.getElementById('anularMonto').value) || 0;
+        if(montoAnular <= 0) { toast('Ingresa el monto a devolver','err'); return; }
+        if(montoAnular > totalOriginal) { toast(`El monto no puede superar S/ ${totalOriginal.toFixed(2)}`,'err'); return; }
+    }
+
+    if(!confirm(`¿Confirmas la ${motivo==='07'?'DEVOLUCIÓN PARCIAL de S/ '+montoAnular.toFixed(2):'ANULACIÓN'}?\nMotivo: ${motivoTexto}`)) return;
 
     try {
         const r = await fetch(`${API}/anular-cobro`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, observaciones: obs })
+            body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, monto: montoAnular, observaciones: obs })
         });
         const d = await r.json();
         if(d.success) {

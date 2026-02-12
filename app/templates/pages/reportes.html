@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% block title %}Reportes — CCPL{% endblock %}
+{% block content %}
+<style>
+:root { --bg: #0d1117; --bg-card: #161b22; --border: #30363d; --text: #e6edf3; --text-dim: #8b949e; --accent: #4f7df3; --green: #34d399; --red: #f87171; --amber: #fbbf24; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+.rep-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.rep-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.rep-title { font-size: 22px; font-weight: 700; }
+.rep-back { text-decoration: none; color: var(--text-dim); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.rep-back:hover { color: var(--text); }
+
+.rep-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg-card); border-radius: 8px; padding: 4px; border: 1px solid var(--border); }
+.rep-tab { padding: 10px 20px; border: none; background: none; color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.rep-tab.active { background: var(--accent); color: white; }
+.rep-tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.05); }
+
+.rep-filters { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+.rep-filters select, .rep-filters input { padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; }
+.rep-filters select:focus, .rep-filters input:focus { border-color: var(--accent); }
+.rep-btn { padding: 10px 20px; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.rep-btn-primary { background: var(--accent); color: white; }
+.rep-btn-primary:hover { background: #3d6be0; }
+.rep-btn-green { background: var(--green); color: #0d1117; }
+.rep-btn-green:hover { background: #2ec48a; }
+
+.rep-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 12px; margin-bottom: 24px; }
+.rep-stat { padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
+.rep-stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 24px; }
+.rep-stat-lbl { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+.rep-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
+table.rep-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rep-table th { background: rgba(79,125,243,0.1); color: var(--accent); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 10px 8px; text-align: left; white-space: nowrap; position: sticky; top: 0; }
+.rep-table td { padding: 8px; border-top: 1px solid var(--border); white-space: nowrap; }
+.rep-table tr:hover td { background: rgba(255,255,255,0.02); }
+.rep-table .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.rep-table .right { text-align: right; }
+.rep-table .anulado { opacity: 0.4; text-decoration: line-through; }
+.rep-empty { text-align: center; padding: 40px; color: var(--text-dim); font-size: 14px; }
+.rep-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 12px; color: var(--text-dim); }
+
+@media (max-width: 768px) {
+    .rep-container { padding: 12px; }
+    .rep-summary { grid-template-columns: repeat(2,1fr); }
+    .rep-table { font-size: 11px; }
+}
+</style>
+
+<div class="rep-container">
+    <div class="rep-header">
+        <div>
+            <a href="/admin" class="rep-back">← Panel admin</a>
+            <div class="rep-title">📊 Reportes</div>
+        </div>
+    </div>
+
+    <div class="rep-tabs">
+        <button class="rep-tab active" onclick="cambiarReporte('ventas')">Registro de Ventas</button>
+        <button class="rep-tab" onclick="cambiarReporte('caja')">Reporte de Caja</button>
+        <button class="rep-tab" onclick="cambiarReporte('mensual')">Resumen Mensual</button>
+    </div>
+
+    <!-- ═══ REGISTRO DE VENTAS ═══ -->
+    <div id="panelVentas">
+        <div class="rep-filters">
+            <select id="rvMes">
+                <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+            <select id="rvAnio"></select>
+            <select id="rvCentro">
+                <option value="">Todos los centros</option>
+                <option value="1">Oficina Principal</option>
+                <option value="2">Restaurante</option>
+                <option value="6">Centro Recreacional</option>
+            </select>
+            <button class="rep-btn rep-btn-primary" onclick="cargarRegistroVentas()">Generar</button>
+            <button class="rep-btn rep-btn-green" onclick="exportarRegistroVentas()">📥 Exportar Excel</button>
+        </div>
+
+        <div class="rep-summary" id="rvSummary"></div>
+
+        <div class="rep-table-wrap" style="max-height:60vh; overflow-y:auto;">
+            <table class="rep-table">
+                <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Serie</th>
+                        <th>Número</th>
+                        <th>Tipo Doc.</th>
+                        <th>Nro. Doc.</th>
+                        <th>Cliente</th>
+                        <th class="right">Base Imp.</th>
+                        <th class="right">Exonerado</th>
+                        <th class="right">IGV</th>
+                        <th class="right">Total</th>
+                        <th>Estado</th>
+                        <th>Método</th>
+                        <th>Ref. NC</th>
+                    </tr>
+                </thead>
+                <tbody id="rvBody">
+                    <tr><td colspan="15" class="rep-empty">Selecciona mes/año y presiona Generar</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="rep-footer">
+            <span id="rvCount">0 registros</span>
+            <span>Formato 14.1 — Registro de Ventas e Ingresos</span>
+        </div>
+    </div>
+
+    <!-- ═══ REPORTE DE CAJA ═══ -->
+    <div id="panelCaja" style="display:none;">
+        <div class="rep-filters">
+            <input type="date" id="rcFecha">
+            <select id="rcCentro">
+                <option value="">Todos</option>
+                <option value="1">Oficina Principal</option>
+                <option value="2">Restaurante</option>
+                <option value="6">Centro Recreacional</option>
+            </select>
+            <button class="rep-btn rep-btn-primary" onclick="cargarReporteCaja()">Generar</button>
+            <button class="rep-btn rep-btn-green" onclick="exportarReporteCaja()">📥 Excel</button>
+        </div>
+        <div class="rep-summary" id="rcSummary"></div>
+        <div class="rep-table-wrap" style="max-height:60vh; overflow-y:auto;">
+            <table class="rep-table">
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Cajero</th>
+                        <th>Colegiado</th>
+                        <th>Concepto</th>
+                        <th>Método</th>
+                        <th>Comprobante</th>
+                        <th class="right">Monto</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="rcBody">
+                    <tr><td colspan="8" class="rep-empty">Selecciona fecha y presiona Generar</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══ RESUMEN MENSUAL ═══ -->
+    <div id="panelMensual" style="display:none;">
+        <div class="rep-filters">
+            <select id="rmMes">
+                <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+            <select id="rmAnio"></select>
+            <button class="rep-btn rep-btn-primary" onclick="cargarResumenMensual()">Generar</button>
+        </div>
+        <div class="rep-summary" id="rmSummary"></div>
+        <div class="rep-table-wrap">
+            <table class="rep-table">
+                <thead>
+                    <tr>
+                        <th>Día</th>
+                        <th class="right">Efectivo</th>
+                        <th class="right">Yape/Plin</th>
+                        <th class="right">Tarjeta</th>
+                        <th class="right">Transfer.</th>
+                        <th class="right">Total</th>
+                        <th class="right">Egresos</th>
+                        <th class="right">Neto</th>
+                        <th>Operaciones</th>
+                    </tr>
+                </thead>
+                <tbody id="rmBody">
+                    <tr><td colspan="9" class="rep-empty">Selecciona mes/año y presiona Generar</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '/api/reportes';
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+    const ahora = new Date();
+    const mes = String(ahora.getMonth()+1).padStart(2,'0');
+    const anio = ahora.getFullYear();
+
+    // Populate year selects
+    ['rvAnio','rmAnio'].forEach(id => {
+        const sel = document.getElementById(id);
+        for(let y=anio; y>=anio-3; y--) sel.innerHTML += `<option value="${y}">${y}</option>`;
+    });
+
+    document.getElementById('rvMes').value = mes;
+    document.getElementById('rmMes').value = mes;
+
+    // Set date for caja report
+    const peruNow = new Date(ahora.getTime() - 5*60*60*1000);
+    document.getElementById('rcFecha').value = peruNow.toISOString().split('T')[0];
+});
+
+// ── TABS ──
+function cambiarReporte(tipo) {
+    document.querySelectorAll('.rep-tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(tipo==='ventas'?'ventas':tipo==='caja'?'caja':'mensual')));
+    document.getElementById('panelVentas').style.display = tipo==='ventas'?'block':'none';
+    document.getElementById('panelCaja').style.display = tipo==='caja'?'block':'none';
+    document.getElementById('panelMensual').style.display = tipo==='mensual'?'block':'none';
+}
+
+// ── REGISTRO DE VENTAS ──
+async function cargarRegistroVentas() {
+    const mes = document.getElementById('rvMes').value;
+    const anio = document.getElementById('rvAnio').value;
+    const centro = document.getElementById('rvCentro').value;
+    try {
+        let url = `${API}/registro-ventas?mes=${mes}&anio=${anio}`;
+        if(centro) url += `&centro_costo_id=${centro}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        renderRegistroVentas(d);
+    } catch(e) { document.getElementById('rvBody').innerHTML = '<tr><td colspan="15" class="rep-empty">Error cargando datos</td></tr>'; }
+}
+
+function renderRegistroVentas(data) {
+    const items = data.registros || [];
+    const body = document.getElementById('rvBody');
+    const summ = document.getElementById('rvSummary');
+
+    if(items.length) {
+        const totBI = items.filter(i=>i.estado!=='anulado').reduce((s,i)=>s+(i.base_imponible||0),0);
+        const totExo = items.filter(i=>i.estado!=='anulado').reduce((s,i)=>s+(i.exonerado||0),0);
+        const totIGV = items.filter(i=>i.estado!=='anulado').reduce((s,i)=>s+(i.igv||0),0);
+        const totTotal = items.filter(i=>i.estado!=='anulado').reduce((s,i)=>s+(i.total||0),0);
+        const boletas = items.filter(i=>i.tipo_comprobante==='03'&&i.estado!=='anulado').length;
+        const facturas = items.filter(i=>i.tipo_comprobante==='01'&&i.estado!=='anulado').length;
+        const nc = items.filter(i=>i.tipo_comprobante==='07').length;
+        summ.innerHTML = `
+            <div class="rep-stat"><div class="rep-stat-val" style="color:var(--green)">S/ ${totTotal.toFixed(2)}</div><div class="rep-stat-lbl">Total ventas</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">${boletas}</div><div class="rep-stat-lbl">Boletas</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">${facturas}</div><div class="rep-stat-lbl">Facturas</div></div>
+            <div class="rep-stat"><div class="rep-stat-val" style="color:${nc?'var(--red)':'var(--text-dim)'}">${nc}</div><div class="rep-stat-lbl">Notas de crédito</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${totExo.toFixed(2)}</div><div class="rep-stat-lbl">Exonerado</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${totIGV.toFixed(2)}</div><div class="rep-stat-lbl">IGV</div></div>`;
+    } else { summ.innerHTML = ''; }
+
+    if(!items.length) { body.innerHTML = '<tr><td colspan="15" class="rep-empty">Sin registros para este período</td></tr>'; document.getElementById('rvCount').textContent = '0 registros'; return; }
+
+    const tipoDoc = {'1':'DNI','6':'RUC','0':'-','4':'CE','7':'PP'};
+    const tipoComp = {'01':'FAC','03':'BOL','07':'NC','08':'ND'};
+
+    body.innerHTML = items.map((r,i) => {
+        const cls = r.estado==='anulado'?'anulado':'';
+        return `<tr>
+            <td class="${cls}">${i+1}</td>
+            <td class="${cls} mono">${r.fecha_emision||''}</td>
+            <td class="${cls}">${tipoComp[r.tipo_comprobante]||r.tipo_comprobante}</td>
+            <td class="${cls} mono">${r.serie||''}</td>
+            <td class="${cls} mono">${r.numero||''}</td>
+            <td class="${cls}">${tipoDoc[r.cliente_tipo_doc]||r.cliente_tipo_doc||''}</td>
+            <td class="${cls} mono">${r.cliente_num_doc||''}</td>
+            <td class="${cls}">${(r.cliente_nombre||'').substring(0,30)}</td>
+            <td class="${cls} mono right">${(r.base_imponible||0).toFixed(2)}</td>
+            <td class="${cls} mono right">${(r.exonerado||0).toFixed(2)}</td>
+            <td class="${cls} mono right">${(r.igv||0).toFixed(2)}</td>
+            <td class="${cls} mono right" style="font-weight:700;">${(r.total||0).toFixed(2)}</td>
+            <td>${r.estado==='anulado'?'<span style="color:var(--red);font-size:10px;font-weight:700;">ANULADO</span>':(r.estado==='aceptado'?'<span style="color:var(--green);font-size:10px;">✓</span>':'<span style="font-size:10px;">'+r.estado+'</span>')}</td>
+            <td class="${cls}" style="font-size:10px;">${r.metodo_pago||''}</td>
+            <td class="${cls} mono" style="font-size:10px;">${r.ref_nota_credito||''}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('rvCount').textContent = `${items.length} registros`;
+}
+
+function exportarRegistroVentas() {
+    const mes = document.getElementById('rvMes').value;
+    const anio = document.getElementById('rvAnio').value;
+    const centro = document.getElementById('rvCentro').value;
+    let url = `${API}/registro-ventas/excel?mes=${mes}&anio=${anio}`;
+    if(centro) url += `&centro_costo_id=${centro}`;
+    window.open(url, '_blank');
+}
+
+// ── REPORTE DE CAJA ──
+async function cargarReporteCaja() {
+    const fecha = document.getElementById('rcFecha').value;
+    const centro = document.getElementById('rcCentro').value;
+    if(!fecha) return;
+    try {
+        let url = `${API}/reporte-caja?fecha=${fecha}`;
+        if(centro) url += `&centro_costo_id=${centro}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        renderReporteCaja(d);
+    } catch(e) { document.getElementById('rcBody').innerHTML = '<tr><td colspan="8" class="rep-empty">Error cargando datos</td></tr>'; }
+}
+
+function renderReporteCaja(data) {
+    const ops = data.operaciones || [];
+    const body = document.getElementById('rcBody');
+    const summ = document.getElementById('rcSummary');
+
+    if(ops.length) {
+        const activos = ops.filter(o=>o.status!=='anulado');
+        const total = activos.reduce((s,o)=>s+(o.monto||0),0);
+        const efectivo = activos.filter(o=>o.metodo_pago==='efectivo').reduce((s,o)=>s+(o.monto||0),0);
+        const digital = total - efectivo;
+        summ.innerHTML = `
+            <div class="rep-stat"><div class="rep-stat-val">${activos.length}</div><div class="rep-stat-lbl">Operaciones</div></div>
+            <div class="rep-stat"><div class="rep-stat-val" style="color:var(--green)">S/ ${total.toFixed(2)}</div><div class="rep-stat-lbl">Total</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${efectivo.toFixed(2)}</div><div class="rep-stat-lbl">Efectivo</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${digital.toFixed(2)}</div><div class="rep-stat-lbl">Digital</div></div>`;
+    } else { summ.innerHTML = ''; }
+
+    if(!ops.length) { body.innerHTML = '<tr><td colspan="8" class="rep-empty">Sin operaciones</td></tr>'; return; }
+
+    body.innerHTML = ops.map(o => {
+        const cls = o.status==='anulado'?'anulado':'';
+        return `<tr>
+            <td class="${cls} mono">${o.hora||''}</td>
+            <td class="${cls}">${o.cajero||''}</td>
+            <td class="${cls}">${(o.colegiado||'').substring(0,25)}</td>
+            <td class="${cls}">${(o.concepto||'').substring(0,35)}</td>
+            <td class="${cls}" style="font-size:11px;">${o.metodo_pago||''}</td>
+            <td class="${cls} mono" style="font-size:10px;">${o.comprobante||''}</td>
+            <td class="${cls} mono right" style="font-weight:700;">${(o.monto||0).toFixed(2)}</td>
+            <td>${o.status==='anulado'?'<span style="color:var(--red);font-size:10px;">ANULADO</span>':'<span style="color:var(--green);font-size:10px;">✓</span>'}</td>
+        </tr>`;
+    }).join('');
+}
+
+function exportarReporteCaja() {
+    const fecha = document.getElementById('rcFecha').value;
+    if(!fecha) return;
+    const centro = document.getElementById('rcCentro').value;
+    let url = `${API}/reporte-caja/excel?fecha=${fecha}`;
+    if(centro) url += `&centro_costo_id=${centro}`;
+    window.open(url, '_blank');
+}
+
+// ── RESUMEN MENSUAL ──
+async function cargarResumenMensual() {
+    const mes = document.getElementById('rmMes').value;
+    const anio = document.getElementById('rmAnio').value;
+    try {
+        const r = await fetch(`${API}/resumen-mensual?mes=${mes}&anio=${anio}`);
+        const d = await r.json();
+        renderResumenMensual(d);
+    } catch(e) { document.getElementById('rmBody').innerHTML = '<tr><td colspan="9" class="rep-empty">Error cargando datos</td></tr>'; }
+}
+
+function renderResumenMensual(data) {
+    const dias = data.dias || [];
+    const body = document.getElementById('rmBody');
+    const summ = document.getElementById('rmSummary');
+
+    if(dias.length) {
+        const totEf = dias.reduce((s,d)=>s+(d.efectivo||0),0);
+        const totDig = dias.reduce((s,d)=>s+(d.yape_plin||0)+(d.tarjeta||0)+(d.transferencia||0),0);
+        const totEgr = dias.reduce((s,d)=>s+(d.egresos||0),0);
+        const totGen = dias.reduce((s,d)=>s+(d.total||0),0);
+        summ.innerHTML = `
+            <div class="rep-stat"><div class="rep-stat-val" style="color:var(--green)">S/ ${totGen.toFixed(2)}</div><div class="rep-stat-lbl">Total ingresos</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${totEf.toFixed(2)}</div><div class="rep-stat-lbl">Efectivo</div></div>
+            <div class="rep-stat"><div class="rep-stat-val">S/ ${totDig.toFixed(2)}</div><div class="rep-stat-lbl">Digital</div></div>
+            <div class="rep-stat"><div class="rep-stat-val" style="color:var(--red)">S/ ${totEgr.toFixed(2)}</div><div class="rep-stat-lbl">Egresos</div></div>`;
+    } else { summ.innerHTML = ''; }
+
+    if(!dias.length) { body.innerHTML = '<tr><td colspan="9" class="rep-empty">Sin datos</td></tr>'; return; }
+
+    body.innerHTML = dias.map(d => `<tr>
+        <td class="mono">${d.dia}</td>
+        <td class="mono right">${(d.efectivo||0).toFixed(2)}</td>
+        <td class="mono right">${(d.yape_plin||0).toFixed(2)}</td>
+        <td class="mono right">${(d.tarjeta||0).toFixed(2)}</td>
+        <td class="mono right">${(d.transferencia||0).toFixed(2)}</td>
+        <td class="mono right" style="font-weight:700;color:var(--green);">${(d.total||0).toFixed(2)}</td>
+        <td class="mono right" style="color:var(--red);">${(d.egresos||0).toFixed(2)}</td>
+        <td class="mono right" style="font-weight:700;">${((d.total||0)-(d.egresos||0)).toFixed(2)}</td>
+        <td class="mono" style="text-align:center;">${d.operaciones||0}</td>
+    </tr>`).join('') + `<tr style="background:rgba(79,125,243,0.08);font-weight:700;">
+        <td>TOTAL</td>
+        <td class="mono right">${dias.reduce((s,d)=>s+(d.efectivo||0),0).toFixed(2)}</td>
+        <td class="mono right">${dias.reduce((s,d)=>s+(d.yape_plin||0),0).toFixed(2)}</td>
+        <td class="mono right">${dias.reduce((s,d)=>s+(d.tarjeta||0),0).toFixed(2)}</td>
+        <td class="mono right">${dias.reduce((s,d)=>s+(d.transferencia||0),0).toFixed(2)}</td>
+        <td class="mono right" style="color:var(--green);">${dias.reduce((s,d)=>s+(d.total||0),0).toFixed(2)}</td>
+        <td class="mono right" style="color:var(--red);">${dias.reduce((s,d)=>s+(d.egresos||0),0).toFixed(2)}</td>
+        <td class="mono right">${dias.reduce((s,d)=>s+(d.total||0)-(d.egresos||0),0).toFixed(2)}</td>
+        <td class="mono" style="text-align:center;">${dias.reduce((s,d)=>s+(d.operaciones||0),0)}</td>
+    </tr>`;
+}
+</script>
+{% endblock %}
