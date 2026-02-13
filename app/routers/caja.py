@@ -109,6 +109,7 @@ class RegistrarCobroRequest(BaseModel):
     cliente_ruc: Optional[str] = None
     cliente_razon_social: Optional[str] = None
     cliente_direccion: Optional[str] = None
+    forma_pago: str = "contado"
 
 
 class CobroResponse(BaseModel):
@@ -473,6 +474,7 @@ async def registrar_cobro(
                 tipo=tipo,
                 forzar_datos_cliente=forzar_cliente,
                 sede_id="1",
+                forma_pago=cobro.forma_pago,
             )
             logger.info(f"FACTURALO RESULTADO: {resultado}")
 
@@ -1328,3 +1330,16 @@ async def listar_comps(
         "pdf_url": c.pdf_url,
         "fecha": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "",
     } for c in comps]
+
+
+@router.get("/consulta-ruc/{ruc}")
+async def consulta_ruc(ruc: str):
+    """Proxy a facturalo.pro o API SUNAT para consultar RUC"""
+    # Puedes usar la API de facturalo o apis.net.pe
+    import httpx
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}")
+        if r.status_code == 200:
+            d = r.json()
+            return {"razon_social": d.get("nombre"), "direccion": d.get("direccion")}
+    return {"razon_social": None}
