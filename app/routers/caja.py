@@ -502,6 +502,89 @@ async def registrar_cobro(
     )
 
 
+# ════════════════════════════════════════════════════════════
+# AGREGAR ESTE ENDPOINT EN caja.py (después del endpoint /cobrar)
+# ════════════════════════════════════════════════════════════
+
+@router.get("/comprobante/{payment_id}")
+async def obtener_comprobante_pago(
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Consulta el comprobante de un pago.
+    Si pdf_url no existe localmente, consulta facturalo.pro y actualiza.
+    Usado por caja.html para polling del PDF (Celery lo genera async).
+    """
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(404, detail="Pago no encontrado")
+
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == payment_id,
+        Comprobante.tipo.in_(["01", "03"]),
+    ).order_by(Comprobante.created_at.desc()).first()
+
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+
+    # Si no tenemos PDF, consultar facturalo.pro por el estado actualizado
+    if not comp.pdf_url and comp.facturalo_id:
+        try:
+            config = db.query(ConfiguracionFacturacion).filter(
+                ConfiguracionFacturacion.organization_id == payment.organization_id,
+                ConfiguracionFacturacion.activo == True,
+            ).first()
+
+            if config and config.facturalo_token:
+                import httpx
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    r = await client.get(
+                        f"{config.facturalo_url}/comprobantes/{comp.facturalo_id}",
+                        headers={
+                            "X-API-Key": config.facturalo_token,
+                            "X-API-Secret": config.facturalo_secret,
+                        },
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        comp_data = data.get("comprobante", data)
+                        archivos = data.get("archivos", {})
+
+                        # Actualizar campos locales con datos de facturalo
+                        if archivos.get("pdf_url"):
+                            comp.pdf_url = archivos["pdf_url"]
+                        elif comp_data.get("pdf_url"):
+                            comp.pdf_url = comp_data["pdf_url"]
+
+                        if archivos.get("xml_url"):
+                            comp.xml_url = archivos["xml_url"]
+
+                        if comp_data.get("hash_cpe") and not comp.sunat_hash:
+                            comp.sunat_hash = comp_data["hash_cpe"]
+
+                        if comp_data.get("estado") == "aceptado" and comp.status == "pending":
+                            comp.status = "accepted"
+                            comp.sunat_response_description = comp_data.get("mensaje_sunat")
+                            comp.sunat_response_code = str(comp_data.get("codigo_sunat", "0"))
+
+                        db.commit()
+        except Exception as e:
+            logger.warning(f"Error consultando facturalo.pro para comprobante {comp.id}: {e}")
+
+    return {
+        "payment_id": payment_id,
+        "comprobante_id": comp.id,
+        "tipo": comp.tipo,
+        "numero_formato": f"{comp.serie}-{str(comp.numero).zfill(8)}",
+        "status": comp.status,
+        "pdf_url": comp.pdf_url,
+        "xml_url": comp.xml_url,
+        "sunat_hash": comp.sunat_hash,
+        "sunat_response": comp.sunat_response_description,
+    }
+
+
 # ============================================================
 # RESUMEN Y ÚLTIMOS COBROS
 # ============================================================
