@@ -1,6 +1,6 @@
 """
 Módulo: Caja - Cobros Presenciales
-app/routes/caja.py
+app/routers/caja.py
 
 Pantalla de caja para el personal del CCPL.
 Flujo: Buscar colegiado → Ver deudas → Cobrar → Emitir comprobante
@@ -11,14 +11,14 @@ Requiere rol: cajero, tesorero o admin
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from decimal import Decimal
+import logging
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func, and_
+from sqlalchemy import or_, func, and_, text
 from pydantic import BaseModel, Field
 
 from app.database import get_db
@@ -31,7 +31,9 @@ from app.models import (
 from app.routers.dashboard import get_current_member
 from app.models import Member
 
-from app.services.facturacion import emitir_comprobante_automatico
+from app.services.facturacion import FacturacionService
+
+logger = logging.getLogger(__name__)
 
 
 templates = Jinja2Templates(directory="app/templates")
@@ -83,9 +85,9 @@ class DeudaResponse(BaseModel):
 
 class ItemCobro(BaseModel):
     """Item individual a cobrar"""
-    tipo: str = "deuda"                    # "deuda" o "concepto"
-    deuda_id: Optional[int] = None         # Si tipo=deuda
-    concepto_id: Optional[int] = None      # Si tipo=concepto
+    tipo: str = "deuda"
+    deuda_id: Optional[int] = None
+    concepto_id: Optional[int] = None
     descripcion: str = ""
     cantidad: int = 1
     monto_unitario: float = 0
@@ -94,14 +96,13 @@ class ItemCobro(BaseModel):
 
 class RegistrarCobroRequest(BaseModel):
     """Request para registrar un cobro"""
-    colegiado_id: Optional[int] = None     # Opcional para ventas al público
+    colegiado_id: Optional[int] = None
     items: List[ItemCobro]
     total: float
-    metodo_pago: str = "efectivo"          # efectivo, tarjeta, transferencia, yape, plin
-    referencia_pago: Optional[str] = None  # Nro operación, nro voucher
+    metodo_pago: str = "efectivo"
+    referencia_pago: Optional[str] = None
     observaciones: Optional[str] = None
-    tipo_comprobante: str = "03"           # 03=boleta, 01=factura
-    # Solo si factura (tipo=01)
+    tipo_comprobante: str = "03"
     cliente_ruc: Optional[str] = None
     cliente_razon_social: Optional[str] = None
     cliente_direccion: Optional[str] = None
@@ -111,27 +112,28 @@ class CobroResponse(BaseModel):
     success: bool
     mensaje: str
     payment_id: Optional[int] = None
-    comprobante_id: Optional[int] = None
-    numero_comprobante: Optional[str] = None
-    comprobante_pdf: Optional[str] = None
-    comprobante_emitido: bool = False
     total: float = 0
+    comprobante_emitido: Optional[bool] = None
+    comprobante_numero: Optional[str] = None
+    comprobante_pdf: Optional[str] = None
+    comprobante_estado: Optional[str] = None
+    comprobante_mensaje: Optional[str] = None
 
 
 # ============================================================
-# SCHEMAS EGRESOS (agregar junto a los otros schemas)
+# SCHEMAS EGRESOS
 # ============================================================
 
 class EgresoRequest(BaseModel):
     monto: float
     concepto: str
-    responsable: str                       # Quién recibe el dinero
+    responsable: str
     detalle: Optional[str] = None
-    tipo: str = "gasto"                    # gasto, devolucion, retiro_fondo
+    tipo: str = "gasto"
 
 class LiquidarEgresoRequest(BaseModel):
-    monto_factura: float                   # Lo que dice la boleta/factura
-    numero_documento: Optional[str] = None # Nro de boleta/factura
+    monto_factura: float
+    numero_documento: Optional[str] = None
     observaciones: Optional[str] = None
 
 
@@ -151,13 +153,10 @@ async def buscar_colegiado(
     q = q.strip()
     query = db.query(Colegiado)
 
-    # Buscar por DNI exacto
     if q.isdigit() and len(q) >= 7:
         query = query.filter(Colegiado.dni == q)
-    # Buscar por código de matrícula (formato: 10-XXXX)
     elif "-" in q:
         query = query.filter(Colegiado.codigo_matricula == q)
-    # Buscar por nombre (parcial)
     else:
         query = query.filter(
             or_(
@@ -171,7 +170,6 @@ async def buscar_colegiado(
 
     resultados = []
     for col in colegiados:
-        # Contar deudas pendientes
         deudas_info = db.query(
             func.count(Debt.id).label("cantidad"),
             func.coalesce(func.sum(Debt.amount), 0).label("total"),
@@ -200,10 +198,7 @@ async def obtener_deudas(
     colegiado_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Obtiene las deudas pendientes de un colegiado.
-    Ordenadas por periodo (más antiguas primero).
-    """
+    """Obtiene las deudas pendientes de un colegiado."""
     colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
     if not colegiado:
         raise HTTPException(404, detail="Colegiado no encontrado")
@@ -247,17 +242,11 @@ async def listar_conceptos(
     solo_publico: bool = False,
     db: Session = Depends(get_db),
 ):
-    """
-    Lista conceptos de cobro disponibles para la caja.
-    Filtrable por categoría.
-    """
-    query = db.query(ConceptoCobro).filter(
-        ConceptoCobro.activo == True,
-    )
+    """Lista conceptos de cobro disponibles para la caja."""
+    query = db.query(ConceptoCobro).filter(ConceptoCobro.activo == True)
 
     if categoria:
         query = query.filter(ConceptoCobro.categoria == categoria)
-
     if solo_publico:
         query = query.filter(ConceptoCobro.aplica_a_publico == True)
 
@@ -286,23 +275,13 @@ async def listar_categorias(db: Session = Depends(get_db)):
         func.count(ConceptoCobro.id).label("total")
     ).filter(
         ConceptoCobro.activo == True
-    ).group_by(
-        ConceptoCobro.categoria
-    ).order_by(
-        ConceptoCobro.categoria
-    ).all()
+    ).group_by(ConceptoCobro.categoria).order_by(ConceptoCobro.categoria).all()
 
     NOMBRES = {
-        "cuotas": "Cuotas",
-        "constancias": "Constancias",
-        "derechos": "Derechos",
-        "capacitacion": "Capacitación",
-        "alquileres": "Alquileres",
-        "recreacion": "Recreación",
-        "mercaderia": "Mercadería",
-        "multas": "Multas",
-        "eventos": "Eventos",
-        "otros": "Otros",
+        "cuotas": "Cuotas", "constancias": "Constancias", "derechos": "Derechos",
+        "capacitacion": "Capacitación", "alquileres": "Alquileres",
+        "recreacion": "Recreación", "mercaderia": "Mercadería",
+        "multas": "Multas", "eventos": "Eventos", "otros": "Otros",
     }
 
     return [{
@@ -312,6 +291,10 @@ async def listar_categorias(db: Session = Depends(get_db)):
     } for cat, total in categorias]
 
 
+# ============================================================
+# COBRAR — Endpoint principal
+# ============================================================
+
 @router.post("/cobrar", response_model=CobroResponse)
 async def registrar_cobro(
     cobro: RegistrarCobroRequest,
@@ -319,22 +302,15 @@ async def registrar_cobro(
 ):
     """
     Registra un cobro presencial.
-
-    Flujo:
-    1. Valida items (deudas existentes o conceptos del catálogo)
-    2. Crea registro de Payment
-    3. Marca deudas como pagadas
-    4. Actualiza stock si hay mercadería
-    5. Retorna datos para emisión de comprobante
+    1. Valida items  2. Crea Payment  3. Marca deudas pagadas
+    4. Actualiza stock  5. Emite comprobante vía facturalo.pro
     """
     ahora = datetime.now(PERU_TZ)
 
-    # Obtener organización (primera activa - en SaaS vendrá del usuario)
     org = db.query(Organization).first()
     if not org:
         raise HTTPException(500, detail="Sin organización configurada")
 
-    # Validar colegiado si se requiere
     colegiado = None
     if cobro.colegiado_id:
         colegiado = db.query(Colegiado).filter(
@@ -343,14 +319,13 @@ async def registrar_cobro(
         if not colegiado:
             raise HTTPException(404, detail="Colegiado no encontrado")
 
-    # Validar y procesar items
+    # ── Validar y procesar items ──
     total_calculado = 0
     items_procesados = []
     deudas_a_pagar = []
 
     for item in cobro.items:
         if item.tipo == "deuda" and item.deuda_id:
-            # Verificar deuda
             deuda = db.query(Debt).filter(
                 Debt.id == item.deuda_id,
                 Debt.status.in_(["pending", "partial"]),
@@ -359,7 +334,6 @@ async def registrar_cobro(
                 raise HTTPException(400, detail=f"Deuda {item.deuda_id} no encontrada o ya pagada")
 
             saldo = float(deuda.balance or 0)
-
             items_procesados.append({
                 "tipo": "deuda",
                 "deuda_id": deuda.id,
@@ -370,7 +344,6 @@ async def registrar_cobro(
             total_calculado += saldo
 
         elif item.tipo == "concepto" and item.concepto_id:
-            # Verificar concepto
             concepto = db.query(ConceptoCobro).filter(
                 ConceptoCobro.id == item.concepto_id,
                 ConceptoCobro.activo == True,
@@ -378,7 +351,6 @@ async def registrar_cobro(
             if not concepto:
                 raise HTTPException(400, detail=f"Concepto {item.concepto_id} no encontrado")
 
-            # Validar monto
             if concepto.permite_monto_libre:
                 monto = item.monto_unitario if item.monto_unitario > 0 else concepto.monto_base
             else:
@@ -387,7 +359,6 @@ async def registrar_cobro(
             if monto <= 0:
                 raise HTTPException(400, detail=f"Monto inválido para {concepto.nombre}")
 
-            # Validar stock
             if concepto.maneja_stock:
                 if concepto.stock_actual < item.cantidad:
                     raise HTTPException(400,
@@ -406,12 +377,10 @@ async def registrar_cobro(
             })
             total_calculado += monto_total
 
-            # Descontar stock
             if concepto.maneja_stock:
                 concepto.stock_actual -= item.cantidad
 
         else:
-            # Item libre (descripción + monto)
             if item.monto_total <= 0:
                 raise HTTPException(400, detail="Item sin monto")
             items_procesados.append({
@@ -425,23 +394,15 @@ async def registrar_cobro(
     if not items_procesados:
         raise HTTPException(400, detail="No hay items para cobrar")
 
-    # Verificar total
     if abs(total_calculado - cobro.total) > 0.02:
         raise HTTPException(400,
             detail=f"Total no coincide: calculado={total_calculado:.2f}, enviado={cobro.total:.2f}")
 
     # ── CREAR PAYMENT ──
-    # Construir descripción
     descripciones = [i["descripcion"] for i in items_procesados]
     descripcion_pago = "; ".join(descripciones[:5])
     if len(descripciones) > 5:
         descripcion_pago += f" (+{len(descripciones) - 5} más)"
-
-    # Construir descripción con datos del colegiado para el comprobante
-    descripcion_comprobante = descripcion_pago.upper()
-    if colegiado:
-        descripcion_comprobante += f"\n{colegiado.apellidos_nombres or ''}"
-        descripcion_comprobante += f"\nDNI [{colegiado.dni or ''}] Cód. Matr. [{colegiado.codigo_matricula or ''}]"
 
     payment = Payment(
         organization_id=org.id,
@@ -454,7 +415,6 @@ async def registrar_cobro(
         reviewed_at=ahora,
     )
 
-    # Datos del pagador (para facturas)
     if cobro.tipo_comprobante == "01" and cobro.cliente_ruc:
         payment.pagador_tipo = "empresa"
         payment.pagador_documento = cobro.cliente_ruc
@@ -487,45 +447,70 @@ async def registrar_cobro(
 
     db.commit()
 
-    # ── RESPUESTA ──
-    # ── EMITIR COMPROBANTE ELECTRÓNICO ──
+    # ═══ EMITIR COMPROBANTE ELECTRÓNICO ═══
     comprobante_info = {}
     try:
-        resultado = await emitir_comprobante_automatico(db, payment.id)
-        comprobante_info = {
-            "comprobante_emitido": resultado.get("success", False),
-            "comprobante_numero": resultado.get("numero_formato"),
-            "comprobante_pdf": resultado.get("pdf_url"),
-        }
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error facturación caja: {e}")
-        comprobante_info = {"comprobante_emitido": False}
+        service = FacturacionService(db, org.id)
 
-    # ── RESPUESTA ──
+        if service.esta_configurado():
+            tipo = cobro.tipo_comprobante or "03"
+
+            forzar_cliente = None
+            if tipo == "01" and cobro.cliente_ruc:
+                forzar_cliente = {
+                    "tipo_doc": "6",
+                    "num_doc": cobro.cliente_ruc,
+                    "nombre": cobro.cliente_razon_social or "",
+                    "direccion": cobro.cliente_direccion or "",
+                    "email": "",
+                }
+
+            resultado = await service.emitir_comprobante_por_pago(
+                payment_id=payment.id,
+                tipo=tipo,
+                forzar_datos_cliente=forzar_cliente,
+                sede_id="1",
+            )
+
+            comprobante_info = {
+                "comprobante_emitido": resultado.get("success", False),
+                "comprobante_numero": resultado.get("numero_formato"),
+                "comprobante_pdf": resultado.get("pdf_url"),
+                "comprobante_estado": "aceptado" if resultado.get("success") else "error",
+                "comprobante_mensaje": resultado.get("error"),
+            }
+        else:
+            comprobante_info = {
+                "comprobante_emitido": False,
+                "comprobante_mensaje": "Facturación no configurada",
+            }
+
+    except Exception as e:
+        logger.error(f"Error facturación: {e}", exc_info=True)
+        comprobante_info = {
+            "comprobante_emitido": False,
+            "comprobante_mensaje": f"Error: {str(e)[:100]}",
+        }
+
     return CobroResponse(
         success=True,
         mensaje=f"Cobro registrado: S/ {cobro.total:.2f} - {cobro.metodo_pago}",
         payment_id=payment.id,
         total=cobro.total,
-        comprobante_emitido=comprobante_info.get("comprobante_emitido", False),
-        numero_comprobante=comprobante_info.get("comprobante_numero"),
-        comprobante_pdf=comprobante_info.get("comprobante_pdf"),
+        **comprobante_info,
     )
 
 
+# ============================================================
+# RESUMEN Y ÚLTIMOS COBROS
+# ============================================================
+
 @router.get("/resumen-dia")
-async def resumen_del_dia(
-    db: Session = Depends(get_db),
-):
-    """
-    Resumen de cobros del día para la pantalla de caja.
-    Total cobrado, cantidad de operaciones, por método de pago.
-    """
+async def resumen_del_dia(db: Session = Depends(get_db)):
+    """Resumen de cobros del día para la pantalla de caja."""
     ahora = datetime.now(PERU_TZ)
     inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Pagos del día
     pagos_dia = db.query(Payment).filter(
         Payment.status.in_(["approved", "anulado"]),
         Payment.created_at >= inicio_dia,
@@ -535,7 +520,6 @@ async def resumen_del_dia(
     total = sum(float(p.amount or 0) for p in pagos_dia)
     cantidad = len(pagos_dia)
 
-    # Por método
     por_metodo = {}
     for p in pagos_dia:
         metodo = p.payment_method or "efectivo"
@@ -588,15 +572,8 @@ async def ultimos_cobros(
     return resultado
 
 
-"""
-Endpoints de Sesión de Caja: Apertura, Cierre, Cuadre, Egresos
-AGREGAR al final de app/routers/caja.py
-
-Estos endpoints gestionan el ciclo completo de una sesión de caja.
-"""
-
 # ============================================================
-# SCHEMAS SESIÓN
+# SESIÓN DE CAJA
 # ============================================================
 
 class AbrirCajaRequest(BaseModel):
@@ -607,48 +584,17 @@ class CerrarCajaRequest(BaseModel):
     monto_cierre: float
     observaciones: Optional[str] = None
 
-class EgresoRequest(BaseModel):
-    monto: float
-    concepto: str
-    detalle: Optional[str] = None
-    tipo: str = "gasto"   # gasto, devolucion, retiro_fondo
-
-class SesionCajaResponse(BaseModel):
-    id: int
-    estado: str
-    cajero: str
-    centro_costo: str
-    fecha: str
-    monto_apertura: float
-    total_cobros_efectivo: float = 0
-    total_cobros_digital: float = 0
-    total_egresos: float = 0
-    cantidad_operaciones: int = 0
-    total_esperado: float = 0
-    monto_cierre: Optional[float] = None
-    diferencia: Optional[float] = None
-    hora_apertura: Optional[str] = None
-    hora_cierre: Optional[str] = None
-
-
-# ============================================================
-# ABRIR CAJA
-# ============================================================
 
 @router.post("/abrir-caja")
 async def abrir_caja(
     datos: AbrirCajaRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Abre una sesión de caja.
-    Solo 1 caja abierta por centro de costo a la vez.
-    """
-    from app.models import SesionCaja, UsuarioAdmin, CentroCosto
+    """Abre una sesión de caja. Solo 1 por centro de costo."""
+    from app.models import SesionCaja
 
     ahora = datetime.now(PERU_TZ)
 
-    # Verificar que no hay caja abierta en ese centro
     caja_abierta = db.query(SesionCaja).filter(
         SesionCaja.centro_costo_id == datos.centro_costo_id,
         SesionCaja.estado == "abierta",
@@ -663,17 +609,12 @@ async def abrir_caja(
             "sesion_id": caja_abierta.id,
         })
 
-    # Obtener centro de costo
-    centro = db.query(CentroCosto).filter(
-        CentroCosto.id == datos.centro_costo_id
-    ).first()
+    centro = db.query(CentroCosto).filter(CentroCosto.id == datos.centro_costo_id).first()
     if not centro:
         raise HTTPException(404, detail="Centro de costo no encontrado")
 
     org = db.query(Organization).first()
 
-    # TODO: obtener usuario_admin_id del usuario logueado
-    # Por ahora usamos el primer admin
     usuario_admin = db.query(UsuarioAdmin).filter(
         UsuarioAdmin.organization_id == org.id,
         UsuarioAdmin.activo == True,
@@ -700,20 +641,13 @@ async def abrir_caja(
     }
 
 
-# ============================================================
-# ESTADO DE CAJA ACTUAL
-# ============================================================
-
 @router.get("/sesion-actual")
 async def sesion_actual(
     centro_costo_id: int = Query(1),
     db: Session = Depends(get_db),
 ):
-    """
-    Retorna la sesión de caja abierta del centro de costo.
-    Si no hay caja abierta, retorna null.
-    """
-    from app.models import SesionCaja, UsuarioAdmin, CentroCosto, EgresoCaja
+    """Retorna la sesión de caja abierta del centro de costo."""
+    from app.models import SesionCaja, EgresoCaja
 
     sesion = db.query(SesionCaja).filter(
         SesionCaja.centro_costo_id == centro_costo_id,
@@ -723,45 +657,27 @@ async def sesion_actual(
     if not sesion:
         return {"sesion": None, "caja_abierta": False}
 
-    # Calcular totales en tiempo real
-    ahora = datetime.now(PERU_TZ)
-
-    # Cobros del día en esta sesión (pagos desde hora_apertura)
     pagos = db.query(Payment).filter(
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
     ).all()
 
-    total_efectivo = sum(
-        float(p.amount or 0) for p in pagos
-        if p.payment_method in ("efectivo",)
-    )
-    total_digital = sum(
-        float(p.amount or 0) for p in pagos
-        if p.payment_method not in ("efectivo",)
-    )
+    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
+    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
     cantidad = len(pagos)
 
-    # Egresos
     total_egresos = float(
         db.query(func.coalesce(func.sum(EgresoCaja.monto), 0)).filter(
             EgresoCaja.sesion_caja_id == sesion.id
         ).scalar() or 0
     )
 
-    # Total esperado en caja física = apertura + efectivo - egresos
     monto_apertura = float(sesion.monto_apertura or 0)
     total_esperado = monto_apertura + total_efectivo - total_egresos
 
-    # Info del cajero
-    cajero = db.query(UsuarioAdmin).filter(
-        UsuarioAdmin.id == sesion.usuario_admin_id
-    ).first()
-
-    centro = db.query(CentroCosto).filter(
-        CentroCosto.id == sesion.centro_costo_id
-    ).first()
+    cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == sesion.usuario_admin_id).first()
+    centro = db.query(CentroCosto).filter(CentroCosto.id == sesion.centro_costo_id).first()
 
     return {
         "caja_abierta": True,
@@ -783,21 +699,13 @@ async def sesion_actual(
     }
 
 
-# ============================================================
-# CERRAR / CUADRAR CAJA
-# ============================================================
-
 @router.post("/cerrar-caja/{sesion_id}")
 async def cerrar_caja(
     sesion_id: int,
     datos: CerrarCajaRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Cierra una sesión de caja.
-    El cajero declara cuánto dinero tiene físicamente.
-    El sistema calcula la diferencia.
-    """
+    """Cierra una sesión de caja. El cajero declara cuánto tiene."""
     from app.models import SesionCaja, EgresoCaja
 
     ahora = datetime.now(PERU_TZ)
@@ -810,21 +718,14 @@ async def cerrar_caja(
     if not sesion:
         raise HTTPException(404, detail="Sesión no encontrada o ya cerrada")
 
-    # Calcular totales finales
     pagos = db.query(Payment).filter(
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
     ).all()
 
-    total_efectivo = sum(
-        float(p.amount or 0) for p in pagos
-        if p.payment_method in ("efectivo",)
-    )
-    total_digital = sum(
-        float(p.amount or 0) for p in pagos
-        if p.payment_method not in ("efectivo",)
-    )
+    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
+    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
     cantidad = len(pagos)
 
     total_egresos = float(
@@ -837,7 +738,6 @@ async def cerrar_caja(
     total_esperado = monto_apertura + total_efectivo - total_egresos
     diferencia = datos.monto_cierre - total_esperado
 
-    # Actualizar sesión
     sesion.estado = "cerrada"
     sesion.total_cobros_efectivo = Decimal(str(total_efectivo))
     sesion.total_cobros_digital = Decimal(str(total_digital))
@@ -849,7 +749,6 @@ async def cerrar_caja(
     sesion.hora_cierre = ahora
     sesion.observaciones_cierre = datos.observaciones
 
-    # Validar diferencia grande
     alerta = ""
     if abs(diferencia) > 50:
         if not datos.observaciones:
@@ -876,7 +775,7 @@ async def cerrar_caja(
 
 
 # ============================================================
-# REGISTRAR EGRESO
+# EGRESOS
 # ============================================================
 
 @router.post("/egreso")
@@ -885,11 +784,7 @@ async def registrar_egreso(
     centro_costo_id: int = Query(1),
     db: Session = Depends(get_db),
 ):
-    """
-    Registra un egreso de caja.
-    Estado inicial: 'pendiente' (el dinero salió de caja).
-    Cuando traigan la factura y el vuelto → se liquida.
-    """
+    """Registra un egreso de caja. Estado inicial: pendiente."""
     from app.models import SesionCaja, EgresoCaja
 
     sesion = db.query(SesionCaja).filter(
@@ -899,13 +794,10 @@ async def registrar_egreso(
 
     if not sesion:
         raise HTTPException(400, detail="No hay caja abierta")
-
     if datos.monto <= 0:
         raise HTTPException(400, detail="Monto debe ser mayor a 0")
-
     if not datos.responsable or not datos.responsable.strip():
         raise HTTPException(400, detail="Debe indicar el responsable")
-
     if not datos.concepto or not datos.concepto.strip():
         raise HTTPException(400, detail="Debe indicar el concepto/motivo")
 
@@ -933,17 +825,9 @@ async def registrar_egreso(
     }
 
 
-
-# ============================================================
-# LISTAR EGRESOS DE LA SESIÓN
-# ============================================================
-
 @router.get("/egresos/{sesion_id}")
-async def listar_egresos(
-    sesion_id: int,
-    db: Session = Depends(get_db),
-):
-    """Lista egresos de una sesión con todos los detalles"""
+async def listar_egresos(sesion_id: int, db: Session = Depends(get_db)):
+    """Lista egresos de una sesión"""
     from app.models import EgresoCaja
 
     egresos = db.query(EgresoCaja).filter(
@@ -965,21 +849,16 @@ async def listar_egresos(
     } for e in egresos]
 
 
-# ============================================================
-# HISTORIAL DE SESIONES (para tesorero/admin)
-# ============================================================
-
 @router.get("/historial-sesiones")
 async def historial_sesiones(
     centro_costo_id: Optional[int] = None,
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Historial de sesiones de caja. Para tesorero/admin."""
-    from app.models import SesionCaja, UsuarioAdmin, CentroCosto
+    """Historial de sesiones de caja."""
+    from app.models import SesionCaja
 
     query = db.query(SesionCaja)
-
     if centro_costo_id:
         query = query.filter(SesionCaja.centro_costo_id == centro_costo_id)
 
@@ -1010,26 +889,13 @@ async def historial_sesiones(
     return resultado
 
 
-# ============================================================
-# LIQUIDAR EGRESO (traen factura + vuelto)
-# ============================================================
-
 @router.post("/egreso/{egreso_id}/liquidar")
 async def liquidar_egreso(
     egreso_id: int,
     datos: LiquidarEgresoRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Liquida un egreso: se recibió la factura/boleta y el vuelto.
-    
-    Ejemplo: Se entregaron S/ 25 para movilidad.
-    La factura dice S/ 20. Devuelve S/ 5 a caja.
-    
-    monto_entregado = 25 (ya registrado)
-    monto_factura = 20 (lo que realmente costó)
-    monto_devuelto = 5 (vuelto que regresa a caja)
-    """
+    """Liquida un egreso: factura recibida + vuelto."""
     from app.models import EgresoCaja
 
     ahora = datetime.now(PERU_TZ)
@@ -1046,9 +912,8 @@ async def liquidar_egreso(
 
     if datos.monto_factura < 0:
         raise HTTPException(400, detail="Monto de factura inválido")
-
     if datos.monto_factura > monto_entregado:
-        raise HTTPException(400, 
+        raise HTTPException(400,
             detail=f"Factura (S/ {datos.monto_factura:.2f}) mayor al monto entregado (S/ {monto_entregado:.2f})")
 
     monto_devuelto = monto_entregado - datos.monto_factura
@@ -1074,10 +939,6 @@ async def liquidar_egreso(
         "monto_devuelto": monto_devuelto,
     }
 
-
-# ============================================================
-# EGRESOS DE LA SESIÓN ACTUAL (para el panel)
-# ============================================================
 
 @router.get("/egresos-actual")
 async def egresos_sesion_actual(
@@ -1122,23 +983,23 @@ async def egresos_sesion_actual(
             "entregado": total_entregado,
             "facturado": total_facturado,
             "devuelto": total_devuelto,
-            "neto": total_entregado - total_devuelto,  # Lo que realmente salió de caja
+            "neto": total_entregado - total_devuelto,
             "pendientes": pendientes,
         }
     }
 
 
-# // ============================================================
-# // CONSULTAS RÁPIDAS PARA EL PANEL DE CAJA (sin paginar)
-# // ============================================================
+# ============================================================
+# COMPROBANTES Y ANULACIÓN
+# ============================================================
+
 @router.get("/historial-cobros")
 async def historial_cobros(
-    fecha: str,  # YYYY-MM-DD
+    fecha: str,
     metodo_pago: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Historial de cobros de caja por fecha, con filtro opcional por método de pago."""
-    from datetime import datetime, timedelta
+    """Historial de cobros de caja por fecha."""
     try:
         dia = datetime.strptime(fecha, "%Y-%m-%d")
     except ValueError:
@@ -1148,7 +1009,7 @@ async def historial_cobros(
     dia_fin = dia_inicio + timedelta(days=1)
 
     query = db.query(Payment).filter(
-        Payment.status == "approved",
+        Payment.status.in_(["approved", "anulado"]),
         Payment.reviewed_at >= dia_inicio,
         Payment.reviewed_at < dia_fin,
         Payment.notes.ilike("%[CAJA]%"),
@@ -1159,37 +1020,40 @@ async def historial_cobros(
 
     cobros = query.order_by(Payment.reviewed_at.desc()).limit(200).all()
 
-    return {
-        "operaciones": [
-            {
-                "id": p.id,
-                "status": p.status,
-                "amount": float(p.amount or 0),
-                "metodo_pago": p.payment_method,
-                "notes": p.notes,
-                "reviewed_at": p.reviewed_at.isoformat() if p.reviewed_at else None,
-                "status": p.status,
-                "numero_comprobante": None,  # TODO: join con comprobantes_electronicos
-            }
-            for p in cobros
-        ]
-    }
+    operaciones = []
+    for p in cobros:
+        numero_comprobante = None
+        try:
+            comp = db.query(Comprobante).filter(
+                Comprobante.payment_id == p.id,
+                Comprobante.tipo.in_(["01", "03"]),
+            ).order_by(Comprobante.created_at.desc()).first()
+            if comp:
+                numero_comprobante = f"{comp.serie}-{str(comp.numero).zfill(8)}"
+        except Exception:
+            pass
+
+        operaciones.append({
+            "id": p.id,
+            "amount": float(p.amount or 0),
+            "metodo_pago": p.payment_method,
+            "notes": p.notes,
+            "reviewed_at": p.reviewed_at.isoformat() if p.reviewed_at else None,
+            "numero_comprobante": numero_comprobante,
+            "status": p.status,
+        })
+
+    return {"operaciones": operaciones}
 
 
-# ============================================================
-# ENDPOINTS PARA ANULAR COMPBROBANTES PAGO   
-# ============================================================
 @router.post("/anular-cobro")
 async def anular_cobro(
-    data: dict,
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    """
-    Anula un cobro: marca payment como anulado, revierte deudas,
-    y emite Nota de Crédito si hay comprobante electrónico.
-    """
+    """Anula un cobro: marca payment como anulado, revierte deudas."""
+    data = await request.json()
     payment_id = data.get("payment_id")
-    motivo_codigo = data.get("motivo_codigo", "01")
     motivo_texto = data.get("motivo_texto", "Anulación de la operación")
     observaciones = data.get("observaciones", "")
 
@@ -1199,51 +1063,113 @@ async def anular_cobro(
     if payment.status == "anulado":
         raise HTTPException(400, detail="Este cobro ya fue anulado")
 
-    # ── Revertir deudas vinculadas ──
+    # ── Revertir deudas ──
     deudas_revertidas = 0
     if payment.colegiado_id:
-        # Buscar deudas que se pagaron con este payment (por fecha/monto)
-        from sqlalchemy import and_
+        notas = payment.notes or ""
         deudas = db.query(Debt).filter(
             Debt.colegiado_id == payment.colegiado_id,
             Debt.status == "paid",
         ).all()
 
-        # Revertir deudas que coincidan con items del pago
-        notas = payment.notes or ""
         for deuda in deudas:
             if deuda.concept and deuda.concept in notas:
                 deuda.status = "pending"
                 deuda.balance = deuda.amount
                 deudas_revertidas += 1
 
-    # ── Marcar payment como anulado ──
-    payment.status = "anulado"
-    payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_texto}. {observaciones}".strip()
-
-    # ── Emitir Nota de Crédito (si hay comprobante) ──
-    nota_credito_num = None
+    # ── Revertir stock ──
     try:
-        from app.services.facturacion import FacturacionService
-        service = FacturacionService(db, payment.organization_id)
-        # Buscar comprobante del payment
-        comprobante = service.obtener_comprobante_por_payment(payment_id)
-        if comprobante:
-            resultado_nc = await service.emitir_nota_credito(
-                comprobante_id=comprobante["id"],
-                motivo=motivo_texto,
-            )
-            if resultado_nc.get("success"):
-                nota_credito_num = resultado_nc.get("numero_formato")
+        for item_note in (payment.notes or "").split(";"):
+            item_note = item_note.strip()
+            if not item_note:
+                continue
+            concepto = db.query(ConceptoCobro).filter(
+                ConceptoCobro.nombre.ilike(f"%{item_note[:30]}%"),
+                ConceptoCobro.maneja_stock == True,
+            ).first()
+            if concepto:
+                concepto.stock_actual += 1
+    except Exception:
+        pass
+
+    # ── Marcar anulado ──
+    motivo_full = motivo_texto
+    if observaciones:
+        motivo_full += f". {observaciones}"
+
+    payment.status = "anulado"
+    payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
+
+    # ── Anular comprobante si existe ──
+    nota_credito_info = None
+    try:
+        comp = db.query(Comprobante).filter(
+            Comprobante.payment_id == payment_id,
+            Comprobante.status == "accepted",
+        ).first()
+        if comp:
+            comp.status = "anulado"
+            comp.observaciones = (comp.observaciones or "") + f"\n[ANULADO] {motivo_full}"
+            nota_credito_info = f"Comprobante {comp.serie}-{str(comp.numero).zfill(8)} anulado"
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error NC anulación: {e}")
+        logger.error(f"Error anulación comprobante: {e}", exc_info=True)
 
     db.commit()
 
     return {
         "success": True,
         "mensaje": f"Cobro anulado. {deudas_revertidas} deuda(s) revertida(s).",
-        "nota_credito": nota_credito_num,
+        "nota_credito": nota_credito_info,
     }
 
+
+@router.get("/comprobante/{payment_id}")
+async def ver_comprobante(payment_id: int, db: Session = Depends(get_db)):
+    """Consultar comprobante de un pago"""
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == payment_id,
+    ).order_by(Comprobante.created_at.desc()).first()
+
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+
+    return {
+        "id": comp.id,
+        "tipo": comp.tipo,
+        "serie": comp.serie,
+        "numero": comp.numero,
+        "numero_formato": f"{comp.serie}-{str(comp.numero).zfill(8)}",
+        "cliente": comp.cliente_nombre,
+        "total": float(comp.total),
+        "estado": comp.status,
+        "pdf_url": comp.pdf_url,
+        "fecha": comp.created_at.strftime("%d/%m/%Y %H:%M") if comp.created_at else "",
+    }
+
+
+@router.get("/comprobantes")
+async def listar_comps(
+    db: Session = Depends(get_db),
+    tipo: str = None,
+    estado: str = None,
+    limit: int = 50,
+):
+    """Listar comprobantes"""
+    org = db.query(Organization).first()
+    if not org:
+        return []
+
+    service = FacturacionService(db, org.id)
+    comps = service.listar_comprobantes(limit=limit, tipo=tipo, status=estado)
+
+    return [{
+        "id": c.id,
+        "tipo": c.tipo,
+        "numero": f"{c.serie}-{str(c.numero).zfill(8)}",
+        "cliente": c.cliente_nombre,
+        "total": float(c.total),
+        "estado": c.status,
+        "pdf_url": c.pdf_url,
+        "fecha": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "",
+    } for c in comps]
