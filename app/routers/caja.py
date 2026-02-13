@@ -471,6 +471,7 @@ async def registrar_cobro(
                 forzar_datos_cliente=forzar_cliente,
                 sede_id="1",
             )
+            logger.info(f"FACTURALO RESULTADO: {resultado}")
 
             comprobante_info = {
                 "comprobante_emitido": resultado.get("success", False),
