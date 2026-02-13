@@ -4,7 +4,8 @@ app/services/facturacion.py
 
 Integración con facturalo.pro para emisión de comprobantes
 
-v5 - Cambios:
+v6 - Cambios:
+- FIX: Agregar fecha_emision y hora_emision al payload de facturalo.pro
 - Resolución de series por sede (FACTURALO_SERIES env var)
 - Soporte para múltiples sedes/puntos de emisión
 - Serie se resuelve por sede_id + tipo_comprobante
@@ -35,6 +36,9 @@ from app.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Timezone Perú (UTC-5)
+TZ_PERU = timezone(timedelta(hours=-5))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -509,9 +513,15 @@ class FacturacionService:
                                    habil_hasta=None, url_consulta=None) -> Dict:
         """Envía el comprobante a facturalo.pro con campos extra para el PDF"""
 
+        # Fecha y hora de emisión en timezone Perú (UTC-5)
+        ahora_peru = datetime.now(TZ_PERU)
+
         payload = {
             "tipo_comprobante": comprobante.tipo,
             "serie": comprobante.serie,
+            "fecha_emision": ahora_peru.strftime("%Y-%m-%d"),
+            "hora_emision": ahora_peru.strftime("%H:%M:%S"),
+            "moneda": "PEN",
             "codigo_matricula": codigo_matricula,
             "estado_colegiado": estado_colegiado,
             "habil_hasta": habil_hasta,
@@ -567,9 +577,12 @@ class FacturacionService:
                         "numero_formato": comp_data.get("numero_formato")
                     }
                 else:
+                    error_msg = data.get("mensaje", data.get("error", "Error desconocido"))
+                    logger.error(f"facturalo.pro rechazó comprobante: {response.status_code} - {error_msg}")
+                    logger.error(f"Payload enviado: fecha={ahora_peru.strftime('%Y-%m-%d')}, hora={ahora_peru.strftime('%H:%M:%S')}, tipo={comprobante.tipo}, serie={comprobante.serie}")
                     return {
                         "success": False,
-                        "error": data.get("mensaje", data.get("error", "Error desconocido")),
+                        "error": error_msg,
                         "response": data
                     }
 
