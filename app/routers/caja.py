@@ -28,6 +28,9 @@ from app.models import (
     ConfiguracionFacturacion
 )
 
+from starlette.responses import StreamingResponse
+import httpx
+
 from app.routers.dashboard import get_current_member
 from app.models import Member
 
@@ -506,6 +509,16 @@ async def registrar_cobro(
 # AGREGAR ESTE ENDPOINT EN caja.py (después del endpoint /cobrar)
 # ════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════
+# AGREGAR ESTOS 2 ENDPOINTS EN caja.py
+# (después del endpoint /cobrar)
+#
+# Imports necesarios al inicio de caja.py:
+#   from starlette.responses import StreamingResponse
+#   import httpx
+# ════════════════════════════════════════════════════════════
+
+
 @router.get("/comprobante/{payment_id}")
 async def obtener_comprobante_pago(
     payment_id: int,
@@ -514,7 +527,7 @@ async def obtener_comprobante_pago(
     """
     Consulta el comprobante de un pago.
     Si pdf_url no existe localmente, consulta facturalo.pro y actualiza.
-    Usado por caja.html para polling del PDF (Celery lo genera async).
+    Retorna proxy URL (no la URL directa de facturalo.pro).
     """
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
@@ -528,8 +541,8 @@ async def obtener_comprobante_pago(
     if not comp:
         raise HTTPException(404, detail="Comprobante no encontrado")
 
-    # Si no tenemos PDF, consultar facturalo.pro por el estado actualizado
-    if not comp.pdf_url and comp.facturalo_id:
+    # Si no tenemos datos de SUNAT, consultar facturalo.pro
+    if (not comp.pdf_url or comp.status == "pending") and comp.facturalo_id:
         try:
             config = db.query(ConfiguracionFacturacion).filter(
                 ConfiguracionFacturacion.organization_id == payment.organization_id,
@@ -537,7 +550,6 @@ async def obtener_comprobante_pago(
             ).first()
 
             if config and config.facturalo_token:
-                import httpx
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     r = await client.get(
                         f"{config.facturalo_url}/comprobantes/{comp.facturalo_id}",
@@ -551,18 +563,12 @@ async def obtener_comprobante_pago(
                         comp_data = data.get("comprobante", data)
                         archivos = data.get("archivos", {})
 
-                        # Actualizar campos locales con datos de facturalo
-                        if archivos.get("pdf_url"):
-                            comp.pdf_url = archivos["pdf_url"]
-                        elif comp_data.get("pdf_url"):
-                            comp.pdf_url = comp_data["pdf_url"]
-
+                        if archivos.get("pdf_url") or comp_data.get("pdf_url"):
+                            comp.pdf_url = archivos.get("pdf_url") or comp_data.get("pdf_url")
                         if archivos.get("xml_url"):
                             comp.xml_url = archivos["xml_url"]
-
                         if comp_data.get("hash_cpe") and not comp.sunat_hash:
                             comp.sunat_hash = comp_data["hash_cpe"]
-
                         if comp_data.get("estado") == "aceptado" and comp.status == "pending":
                             comp.status = "accepted"
                             comp.sunat_response_description = comp_data.get("mensaje_sunat")
@@ -570,7 +576,10 @@ async def obtener_comprobante_pago(
 
                         db.commit()
         except Exception as e:
-            logger.warning(f"Error consultando facturalo.pro para comprobante {comp.id}: {e}")
+            logger.warning(f"Error consultando facturalo.pro: {e}")
+
+    # Retornar proxy URL en lugar de la URL directa de facturalo.pro
+    proxy_pdf = f"/api/caja/comprobante/{payment_id}/pdf" if (comp.pdf_url or comp.facturalo_id) else None
 
     return {
         "payment_id": payment_id,
@@ -578,11 +587,73 @@ async def obtener_comprobante_pago(
         "tipo": comp.tipo,
         "numero_formato": f"{comp.serie}-{str(comp.numero).zfill(8)}",
         "status": comp.status,
-        "pdf_url": comp.pdf_url,
-        "xml_url": comp.xml_url,
+        "pdf_url": proxy_pdf,
         "sunat_hash": comp.sunat_hash,
         "sunat_response": comp.sunat_response_description,
     }
+
+
+@router.get("/comprobante/{payment_id}/pdf")
+async def descargar_pdf_comprobante(
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Proxy: descarga el PDF desde facturalo.pro con autenticación
+    y lo retransmite al navegador del usuario.
+    """
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(404, detail="Pago no encontrado")
+
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == payment_id,
+        Comprobante.tipo.in_(["01", "03"]),
+    ).order_by(Comprobante.created_at.desc()).first()
+
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+
+    if not comp.facturalo_id:
+        raise HTTPException(404, detail="Comprobante sin ID en facturalo.pro")
+
+    config = db.query(ConfiguracionFacturacion).filter(
+        ConfiguracionFacturacion.organization_id == payment.organization_id,
+        ConfiguracionFacturacion.activo == True,
+    ).first()
+
+    if not config or not config.facturalo_token:
+        raise HTTPException(500, detail="Facturación no configurada")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{config.facturalo_url}/comprobantes/{comp.facturalo_id}/pdf",
+                headers={
+                    "X-API-Key": config.facturalo_token,
+                    "X-API-Secret": config.facturalo_secret,
+                },
+            )
+
+            if r.status_code != 200:
+                raise HTTPException(502, detail=f"Error obteniendo PDF: {r.status_code}")
+
+            content_type = r.headers.get("content-type", "application/pdf")
+            numero_fmt = f"{comp.serie}-{str(comp.numero).zfill(8)}"
+
+            return StreamingResponse(
+                iter([r.content]),
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f'inline; filename="{numero_fmt}.pdf"',
+                },
+            )
+
+    except httpx.TimeoutException:
+        raise HTTPException(504, detail="Timeout obteniendo PDF")
+    except httpx.RequestError as e:
+        raise HTTPException(502, detail=f"Error de conexión: {str(e)}")
+
 
 
 # ============================================================
