@@ -146,6 +146,7 @@ class FacturacionService:
         tipo: str = "03",
         forzar_datos_cliente: Dict = None,
         sede_id: str = "1",
+        forma_pago: str = "contado",
     ) -> Dict[str, Any]:
         """
         Emite un comprobante electrónico a partir de un pago aprobado.
@@ -242,7 +243,8 @@ class FacturacionService:
             codigo_matricula=matricula,
             estado_colegiado=estado_colegiado,
             habil_hasta=habil_hasta,
-            url_consulta=url_consulta
+            url_consulta=url_consulta,
+            forma_pago=forma_pago,
         )
 
         if resultado["success"]:
@@ -510,7 +512,8 @@ class FacturacionService:
 
     async def _enviar_a_facturalo(self, comprobante: Comprobante,
                                    codigo_matricula=None, estado_colegiado=None,
-                                   habil_hasta=None, url_consulta=None) -> Dict:
+                                   habil_hasta=None, url_consulta=None,
+                                   forma_pago="contado") -> Dict:
         """Envía el comprobante a facturalo.pro con campos extra para el PDF"""
 
         # Fecha y hora de emisión en timezone Perú (UTC-5)
@@ -522,6 +525,7 @@ class FacturacionService:
             "fecha_emision": ahora_peru.strftime("%Y-%m-%d"),
             "hora_emision": ahora_peru.strftime("%H:%M:%S"),
             "moneda": "PEN",
+            "forma_pago": forma_pago.capitalize(),
             "codigo_matricula": codigo_matricula,
             "estado_colegiado": estado_colegiado,
             "habil_hasta": habil_hasta,
@@ -647,4 +651,4 @@ async def emitir_comprobante_automatico(db: Session, payment_id: int) -> Dict:
 
     tipo = "01" if payment.pagador_tipo == "empresa" else "03"
     service = FacturacionService(db, payment.organization_id)
-    return await service.emitir_comprobante_por_pago(payment_id, tipo)
+    return await service.emitir_comprobante_por_pago(payment_id, tipo, forma_pago="contado")
