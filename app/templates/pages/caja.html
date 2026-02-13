@@ -477,6 +477,25 @@
         }
         .comp-btn.active { border-color: var(--green-border); color: var(--green); background: var(--green-soft); }
 
+        /* Datos Factura (visible solo cuando tipoComp=01) */
+        .factura-fields { display: none; padding: 8px 0 4px; }
+        .factura-fields.active { display: block; }
+        .factura-fields .ff-row { margin-bottom: 6px; }
+        .factura-fields .ff-label { font-size: 10px; font-weight: 600; color: var(--text-dim); margin-bottom: 2px; }
+        .factura-fields .ff-input { width: 100%; padding: 7px 10px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; }
+        .factura-fields .ff-input:focus { border-color: var(--accent); }
+        .factura-fields .ff-input.error { border-color: var(--red); }
+        .ff-ruc-row { display: flex; gap: 4px; }
+        .ff-ruc-row .ff-input { flex: 1; }
+        .ff-ruc-btn { padding: 7px 10px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: white; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .ff-ruc-btn:hover { background: #3d6be0; }
+        .ff-ruc-btn:disabled { background: var(--border); color: var(--text-muted); cursor: wait; }
+
+        /* Forma de pago */
+        .pago-row { display: flex; gap: 4px; margin-bottom: 8px; }
+        .pago-btn { flex: 1; padding: 5px; background: var(--bg-inset); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; cursor: pointer; text-align: center; }
+        .pago-btn.active { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
+
         .btn-cobrar {
             width: 100%; padding: 13px;
             background: linear-gradient(135deg, var(--green-dark), #047857);
@@ -856,6 +875,21 @@
                 <button class="comp-btn active" onclick="setComp('03')" data-c="03">Boleta</button>
                 <button class="comp-btn" onclick="setComp('01')" data-c="01">Factura</button>
             </div>
+            <div class="factura-fields" id="facturaFields">
+                <div class="ff-row">
+                    <div class="ff-label">RUC</div>
+                    <div class="ff-ruc-row">
+                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="this.value=this.value.replace(/\D/g,'')">
+                        <button class="ff-ruc-btn" id="ffBuscarRuc" onclick="buscarRuc()">🔍 Buscar</button>
+                    </div>
+                </div>
+                <div class="ff-row"><div class="ff-label">Razón Social</div><input type="text" class="ff-input" id="ffRazonSocial" placeholder="Nombre o Razón Social"></div>
+                <div class="ff-row"><div class="ff-label">Dirección Fiscal</div><input type="text" class="ff-input" id="ffDireccion" placeholder="Dirección (opcional)"></div>
+            </div>
+            <div class="pago-row">
+                <button class="pago-btn active" onclick="setFormaPago('contado')" data-fp="contado">💵 Contado</button>
+                <button class="pago-btn" onclick="setFormaPago('credito')" data-fp="credito">📅 Crédito</button>
+            </div>
             <button class="btn-cobrar" id="btnCobrar" disabled onclick="confirmarCobro()">COBRAR <span class="cobrar-monto" id="btnMonto">S/ 0.00</span></button>
         </div>
     </div>
@@ -905,7 +939,10 @@
         <div class="c-field"><label>Motivo de anulación</label>
             <select id="anularMotivo" class="ap-select" onchange="toggleMontoParcial()">
                 <option value="01">Anulación de la operación</option>
-                <option value="02">Corrección por error en comprobante</option>
+                <option value="02">Anulación por error en RUC</option>
+                <option value="03">Corrección por error en descripción</option>
+                <option value="04">Descuento global</option>
+                <option value="05">Descuento por ítem</option>
                 <option value="06">Devolución total</option>
                 <option value="07">Devolución parcial</option>
             </select>
@@ -944,7 +981,7 @@
 <script>
 const API = '/api/caja';
 let colActual = null, deudasDisp = [], conceptosDisp = [];
-let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03';
+let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03', formaPago = 'contado';
 let tabAct = 'deudas', sesion = null, totalEsperado = 0;
 let pdfPollTimer = null, lastPaymentId = null, lastCompNumero = null, lastCompPdfUrl = null;
 
@@ -1199,7 +1236,41 @@ function setMetodo(m) {
     }
 }
 
-function setComp(t) { tipoComp=t; document.querySelectorAll('.comp-btn').forEach(b=>b.classList.toggle('active',b.dataset.c===t)); }
+function setComp(t) {
+    tipoComp = t;
+    document.querySelectorAll('.comp-btn').forEach(b => b.classList.toggle('active', b.dataset.c === t));
+    const ff = document.getElementById('facturaFields');
+    if (t === '01') {
+        ff.classList.add('active');
+        document.getElementById('ffRuc').focus();
+    } else {
+        ff.classList.remove('active');
+    }
+}
+function setFormaPago(fp) {
+    formaPago = fp;
+    document.querySelectorAll('.pago-btn').forEach(b => b.classList.toggle('active', b.dataset.fp === fp));
+}
+async function buscarRuc() {
+    const ruc = document.getElementById('ffRuc').value.trim();
+    if (ruc.length !== 11) { toast('RUC debe tener 11 dígitos', 'err'); return; }
+    const btn = document.getElementById('ffBuscarRuc');
+    btn.disabled = true; btn.textContent = '⏳';
+    try {
+        const r = await fetch(`${API}/consulta-ruc/${ruc}`);
+        if (r.ok) {
+            const d = await r.json();
+            if (d.razon_social) {
+                document.getElementById('ffRazonSocial').value = d.razon_social;
+                document.getElementById('ffDireccion').value = d.direccion || '';
+                toast('RUC encontrado', 'ok');
+            } else {
+                toast('RUC no encontrado', 'err');
+            }
+        } else { toast('Error consultando RUC', 'err'); }
+    } catch(e) { toast('Error de conexión', 'err'); }
+    btn.disabled = false; btn.textContent = '🔍 Buscar';
+}
 function cambiarTab(t) {
     tabAct=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
     document.getElementById('panelDeudas').style.display=t==='deudas'?'block':'none';
@@ -1226,16 +1297,45 @@ function confirmarCobro() {
         }
     }
 
+    // ── Validar datos de Factura ──
+    if (tipoComp === '01') {
+        const ruc = document.getElementById('ffRuc').value.trim();
+        const razon = document.getElementById('ffRazonSocial').value.trim();
+        if (!ruc || ruc.length !== 11) {
+            document.getElementById('ffRuc').classList.add('error');
+            document.getElementById('ffRuc').focus();
+            toast('Ingresa un RUC válido (11 dígitos)', 'err');
+            return;
+        }
+        document.getElementById('ffRuc').classList.remove('error');
+        if (!razon) {
+            document.getElementById('ffRazonSocial').classList.add('error');
+            document.getElementById('ffRazonSocial').focus();
+            toast('Ingresa la Razón Social', 'err');
+            return;
+        }
+        document.getElementById('ffRazonSocial').classList.remove('error');
+    }
+
     const t=carrito.reduce((s,i)=>s+i.monto,0);
     const ref = document.getElementById('refInput').value.trim();
+    const fpLabel = formaPago === 'credito' ? '📅 Crédito' : '💵 Contado';
+    let clienteLabel = colActual ? colActual.apellidos_nombres : 'Público general';
+    if (tipoComp === '01') { clienteLabel = document.getElementById('ffRazonSocial').value.trim() + ' (RUC: ' + document.getElementById('ffRuc').value.trim() + ')'; }
     document.getElementById('mTotal').textContent=`S/ ${t.toFixed(2)}`;
-    document.getElementById('mDetail').innerHTML=`<div><span>Colegiado:</span><span>${colActual?colActual.apellidos_nombres:'Público general'}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div><div><span>Comprobante:</span><span>${tipoComp==='01'?'Factura':'Boleta'}</span></div>`;
+    document.getElementById('mDetail').innerHTML=`<div><span>Cliente:</span><span>${clienteLabel}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div><div><span>Comprobante:</span><span>${tipoComp==='01'?'Factura':'Boleta'} · ${fpLabel}</span></div>`;
     document.getElementById('modalConfirm').classList.add('active');
 }
 function cerrarModal() { document.getElementById('modalConfirm').classList.remove('active'); }
 async function ejecutarCobro() {
     cerrarModal(); const total=carrito.reduce((s,i)=>s+i.monto,0); const ref=document.getElementById('refInput').value.trim();
-    const payload={colegiado_id:colActual?.id||null,items:carrito.map(i=>({tipo:i.tipo,deuda_id:i.deuda_id||null,concepto_id:i.concepto_id||null,descripcion:i.descripcion,cantidad:i.cantidad||1,monto_unitario:i.monto_unitario||i.monto,monto_total:i.monto})),total,metodo_pago:metodo,referencia_pago:ref||null,tipo_comprobante:tipoComp};
+    const payload={colegiado_id:colActual?.id||null,items:carrito.map(i=>({tipo:i.tipo,deuda_id:i.deuda_id||null,concepto_id:i.concepto_id||null,descripcion:i.descripcion,cantidad:i.cantidad||1,monto_unitario:i.monto_unitario||i.monto,monto_total:i.monto})),total,metodo_pago:metodo,referencia_pago:ref||null,tipo_comprobante:tipoComp,forma_pago:formaPago};
+    // Agregar datos de factura si aplica
+    if (tipoComp === '01') {
+        payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
+        payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
+        payload.cliente_direccion = document.getElementById('ffDireccion').value.trim();
+    }
     try { const r=await fetch(`${API}/cobrar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json();
         if(d.success){
             document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;
@@ -1291,6 +1391,13 @@ async function ejecutarCobro() {
             document.getElementById('refInput').value = '';
             document.getElementById('refInput').classList.remove('error');
             document.getElementById('refHint').classList.remove('visible');
+
+            // Limpiar campos factura y resetear
+            document.getElementById('ffRuc').value = '';
+            document.getElementById('ffRazonSocial').value = '';
+            document.getElementById('ffDireccion').value = '';
+            setComp('03'); // Volver a Boleta por defecto
+            setFormaPago('contado'); // Volver a Contado por defecto
 
             // Si no hay comprobante, auto-cerrar después de 2.5s
             if (!d.comprobante_numero) { setTimeout(cerrarSuccess, 2500); }
@@ -1521,9 +1628,10 @@ function mostrarAnular(payId, desc, monto) {
 function cerrarModalAnular() { document.getElementById('modalAnular').classList.remove('active'); }
 
 function toggleMontoParcial() {
-    const esParcial = document.getElementById('anularMotivo').value === '07';
-    document.getElementById('anularMontoCont').style.display = esParcial ? 'block' : 'none';
-    if(esParcial) document.getElementById('anularMonto').focus();
+    const m = document.getElementById('anularMotivo').value;
+    const necesitaMonto = ['04', '05', '07'].includes(m);
+    document.getElementById('anularMontoCont').style.display = necesitaMonto ? 'block' : 'none';
+    if (necesitaMonto) document.getElementById('anularMonto').focus();
 }
 
 async function ejecutarAnulacion() {
@@ -1534,14 +1642,16 @@ async function ejecutarAnulacion() {
     const totalOriginal = parseFloat(document.getElementById('anularTotal').value) || 0;
 
     let montoAnular = totalOriginal;
-    if(motivo === '07') {
+    const motivosParciales = ['04', '05', '07'];
+    if(motivosParciales.includes(motivo)) {
         montoAnular = parseFloat(document.getElementById('anularMonto').value) || 0;
-        if(montoAnular <= 0) { toast('Ingresa el monto a devolver','err'); return; }
+        if(montoAnular <= 0) { toast('Ingresa el monto','err'); return; }
         if(montoAnular > totalOriginal) { toast(`El monto no puede superar S/ ${totalOriginal.toFixed(2)}`,'err'); return; }
-        if(Math.abs(montoAnular - totalOriginal) < 0.01) { motivo = '06'; motivoTexto = 'Devolución total'; }
+        if(motivo === '07' && Math.abs(montoAnular - totalOriginal) < 0.01) { motivo = '06'; motivoTexto = 'Devolución total'; }
     }
 
-    if(!confirm(`¿Confirmas la ${motivo==='07'?'DEVOLUCIÓN PARCIAL de S/ '+montoAnular.toFixed(2):'ANULACIÓN'}?\nMotivo: ${motivoTexto}`)) return;
+    const esParcial = motivosParciales.includes(motivo);
+    if(!confirm(`¿Confirmas la ${esParcial?'operación por S/ '+montoAnular.toFixed(2):'ANULACIÓN'}?\nMotivo: ${motivoTexto}`)) return;
 
     try {
         const r = await fetch(`${API}/anular-cobro`, {
