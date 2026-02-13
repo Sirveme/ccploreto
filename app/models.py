@@ -929,3 +929,70 @@ class EgresoCaja(Base):
     # Relaciones
     sesion_caja = relationship("SesionCaja", back_populates="egresos")
     autorizado_por = relationship("UsuarioAdmin")
+
+
+
+class ComprobanteElectronico(Base):
+    __tablename__ = "comprobantes_electronicos"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, nullable=False, default=1)
+
+    # Referencia al pago
+    payment_id = Column(Integer, ForeignKey("payments.id"))
+
+    # Tipo y numeración
+    tipo_comprobante = Column(String(2), nullable=False)      # 01=Factura, 03=Boleta, 07=NC, 08=ND
+    serie = Column(String(4), nullable=False)                  # B001, F001, BC01, FC01
+    numero = Column(Integer)                                   # Correlativo
+    numero_formato = Column(String(15))                        # B001-00000001
+
+    # Cliente
+    cliente_tipo_doc = Column(String(2))                       # 0=Sin doc, 1=DNI, 6=RUC
+    cliente_numero_doc = Column(String(15))
+    cliente_razon_social = Column(String(200))
+    cliente_direccion = Column(String(300))
+    cliente_email = Column(String(150))
+
+    # Detalle
+    items = Column(JSON, default=[])                           # [{descripcion, cantidad, monto...}]
+    subtotal = Column(Numeric(12, 2), default=0)
+    igv = Column(Numeric(12, 2), default=0)
+    total = Column(Numeric(12, 2), nullable=False, default=0)
+    moneda = Column(String(3), default="PEN")
+
+    # Estado: pendiente → aceptado | rechazado | anulado | error
+    estado = Column(String(30), default="pendiente")
+    hash_cpe = Column(String(100))
+    codigo_sunat = Column(String(10))
+    mensaje_sunat = Column(Text)
+
+    # facturalo.pro
+    facturalo_id = Column(String(50))                          # UUID en facturalo.pro
+    pdf_url = Column(Text)
+    xml_url = Column(Text)
+    cdr_url = Column(Text)
+
+    # Referencia cruzada
+    referencia_externa = Column(String(50))                    # PAY-{id}
+    observaciones = Column(Text)
+    metodo_pago = Column(String(30))
+
+    # Para Notas de Crédito/Débito
+    doc_referencia_tipo = Column(String(2))
+    doc_referencia_serie = Column(String(4))
+    doc_referencia_numero = Column(Integer)
+    doc_referencia_formato = Column(String(15))
+    motivo_nota = Column(String(200))
+
+    # Auditoría
+    emitido_por = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    anulado_at = Column(DateTime(timezone=True))
+
+    # Relación
+    payment = relationship("Payment", backref="comprobantes")
+
+    def __repr__(self):
+        return f"<Comprobante {self.numero_formato} [{self.estado}]>"
