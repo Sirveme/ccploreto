@@ -573,6 +573,18 @@
         .success-comp-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; background: var(--accent); color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }
         .success-comp-link:hover { background: #3d6be0; transform: translateY(-1px); }
         .success-comp-error { font-size: 11px; color: var(--amber); margin-top: 4px; }
+        .success-comp-loading { font-size: 12px; color: var(--text-dim); margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .success-comp-loading .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success-actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+        .success-action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-decoration: none; border: none; font-family: 'DM Sans', sans-serif; }
+        .success-action-btn.primary { background: var(--accent); color: white; }
+        .success-action-btn.primary:hover { background: #3d6be0; }
+        .success-action-btn.secondary { background: rgba(255,255,255,0.06); color: var(--text-dim); border: 1px solid var(--border); }
+        .success-action-btn.secondary:hover { border-color: var(--text-dim); color: var(--text); }
+        .success-close-hint { font-size: 10px; color: var(--text-muted); margin-top: 12px; }
+        .hist-pdf { padding: 4px 10px; background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 4px; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none; }
+        .hist-pdf:hover { background: var(--accent); color: white; }
 
         /* GEO BLOCK */
         .geo-block { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 40px; }
@@ -909,7 +921,22 @@
 </div>
 
 <div class="success-bg" id="successBg">
-    <div class="success-box"><div class="success-check">✓</div><div class="success-title">¡Cobro registrado!</div><div class="success-amt" id="successAmt">S/ 0</div><div class="success-ref" id="successRef"></div><div class="success-comprobante" id="successComp"><div class="success-comp-numero" id="successCompNum"></div><a class="success-comp-link" id="successCompPdf" href="#" target="_blank">📄 Ver Comprobante PDF</a><div class="success-comp-error" id="successCompErr"></div></div></div>
+    <div class="success-box">
+        <div class="success-check">✓</div>
+        <div class="success-title">¡Cobro registrado!</div>
+        <div class="success-amt" id="successAmt">S/ 0</div>
+        <div class="success-ref" id="successRef"></div>
+        <div class="success-comprobante" id="successComp">
+            <div class="success-comp-numero" id="successCompNum"></div>
+            <div class="success-comp-loading" id="successCompLoading"><span class="spin"></span> Generando comprobante...</div>
+            <div class="success-actions" id="successActions" style="display:none;">
+                <a class="success-action-btn primary" id="successCompPdf" href="#" target="_blank">📄 Ver PDF</a>
+                <button class="success-action-btn secondary" id="successShareBtn" onclick="compartirComprobante()">📤 Compartir</button>
+            </div>
+            <div class="success-comp-error" id="successCompErr"></div>
+        </div>
+        <div class="success-close-hint" id="successCloseHint">Toca en cualquier lugar para cerrar</div>
+    </div>
 </div>
 
 <div class="toast-box" id="toastBox"></div>
@@ -919,6 +946,7 @@ const API = '/api/caja';
 let colActual = null, deudasDisp = [], conceptosDisp = [];
 let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03';
 let tabAct = 'deudas', sesion = null, totalEsperado = 0;
+let pdfPollTimer = null, lastPaymentId = null, lastCompNumero = null, lastCompPdfUrl = null;
 
 // Métodos que requieren N° de operación obligatorio
 const METODOS_REQ_REF = ['yape', 'plin', 'transferencia', 'tarjeta'];
@@ -1209,36 +1237,150 @@ async function ejecutarCobro() {
     cerrarModal(); const total=carrito.reduce((s,i)=>s+i.monto,0); const ref=document.getElementById('refInput').value.trim();
     const payload={colegiado_id:colActual?.id||null,items:carrito.map(i=>({tipo:i.tipo,deuda_id:i.deuda_id||null,concepto_id:i.concepto_id||null,descripcion:i.descripcion,cantidad:i.cantidad||1,monto_unitario:i.monto_unitario||i.monto,monto_total:i.monto})),total,metodo_pago:metodo,referencia_pago:ref||null,tipo_comprobante:tipoComp};
     try { const r=await fetch(`${API}/cobrar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json();
-        if(d.success){document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;document.getElementById('successRef').textContent=`${metodo.toUpperCase()} ${ref?'· Op: '+ref:''} · ${colActual?.apellidos_nombres||'Público general'}`;
+        if(d.success){
+            document.getElementById('successAmt').textContent=`S/ ${total.toFixed(2)}`;
+            document.getElementById('successRef').textContent=`${metodo.toUpperCase()} ${ref?'· Op: '+ref:''} · ${colActual?.apellidos_nombres||'Público general'}`;
+
             // Comprobante electrónico
-            const compEl=document.getElementById('successComp');
-            const compNum=document.getElementById('successCompNum');
-            const compPdf=document.getElementById('successCompPdf');
-            const compErr=document.getElementById('successCompErr');
-            compErr.textContent='';
-            if(d.comprobante_emitido && d.numero_comprobante){
-                compNum.textContent='📄 '+d.numero_comprobante;
-                if(d.comprobante_pdf){compPdf.href=d.comprobante_pdf;compPdf.style.display='inline-flex';}
-                else{compPdf.style.display='none';}
+            const compEl = document.getElementById('successComp');
+            const compNum = document.getElementById('successCompNum');
+            const compLoading = document.getElementById('successCompLoading');
+            const compActions = document.getElementById('successActions');
+            const compPdf = document.getElementById('successCompPdf');
+            const compErr = document.getElementById('successCompErr');
+            compErr.textContent = '';
+            lastCompPdfUrl = null;
+
+            // Guardar payment_id para polling
+            lastPaymentId = d.payment_id || null;
+
+            if (d.comprobante_numero) {
+                lastCompNumero = d.comprobante_numero;
+                compNum.textContent = '📄 ' + d.comprobante_numero;
                 compEl.classList.add('active');
+
+                if (d.comprobante_pdf) {
+                    // PDF ya disponible (raro, pero posible)
+                    lastCompPdfUrl = d.comprobante_pdf;
+                    compPdf.href = d.comprobante_pdf;
+                    compLoading.style.display = 'none';
+                    compActions.style.display = 'flex';
+                } else {
+                    // PDF aún no disponible — iniciar polling
+                    compLoading.style.display = 'flex';
+                    compActions.style.display = 'none';
+                    if (lastPaymentId) startPdfPolling(lastPaymentId);
+                }
             } else {
-                if(d.numero_comprobante){compNum.textContent='⚠️ '+d.numero_comprobante;compEl.classList.add('active');compPdf.style.display='none';}
-                else{compEl.classList.remove('active');}
-                if(!d.comprobante_emitido && d.mensaje){compErr.textContent=d.mensaje;}
+                compEl.classList.remove('active');
+                if (!d.comprobante_emitido && d.comprobante_mensaje) {
+                    compErr.textContent = d.comprobante_mensaje;
+                    compEl.classList.add('active');
+                    compLoading.style.display = 'none';
+                    compActions.style.display = 'none';
+                }
             }
-            document.getElementById('successBg').classList.add('active');carrito=[];renderCarrito();if(colActual)cargarDeudas(colActual.id);cargarResumen();
-            // Limpiar ref input después de cobro exitoso
+
+            document.getElementById('successBg').classList.add('active');
+            carrito = []; renderCarrito();
+            if (colActual) cargarDeudas(colActual.id);
+            cargarResumen();
+
+            // Limpiar ref input
             document.getElementById('refInput').value = '';
             document.getElementById('refInput').classList.remove('error');
             document.getElementById('refHint').classList.remove('visible');
-            // Si hay PDF, no cerrar automáticamente — el usuario cierra manualmente
-            if(!(d.comprobante_emitido && d.comprobante_pdf)){setTimeout(cerrarSuccess,2500);}
+
+            // Si no hay comprobante, auto-cerrar después de 2.5s
+            if (!d.comprobante_numero) { setTimeout(cerrarSuccess, 2500); }
         }
         else toast(d.detail||'Error','err');
     } catch(e){toast('Error','err');}
 }
-function cerrarSuccess() { document.getElementById('successBg').classList.remove('active'); document.getElementById('successComp').classList.remove('active'); document.getElementById('searchInput').focus(); }
-document.getElementById('successBg').addEventListener('click', cerrarSuccess);
+function cerrarSuccess() {
+    stopPdfPolling();
+    document.getElementById('successBg').classList.remove('active');
+    document.getElementById('successComp').classList.remove('active');
+    document.getElementById('successActions').style.display = 'none';
+    document.getElementById('successCompLoading').style.display = 'none';
+    document.getElementById('searchInput').focus();
+}
+document.getElementById('successBg').addEventListener('click', e => {
+    // No cerrar si se hizo clic en un botón de acción
+    if (e.target.closest('.success-action-btn')) return;
+    cerrarSuccess();
+});
+
+// ── POLLING PDF ──
+function startPdfPolling(paymentId) {
+    stopPdfPolling();
+    let intentos = 0;
+    const maxIntentos = 15; // 15 x 2s = 30 segundos máximo
+    pdfPollTimer = setInterval(async () => {
+        intentos++;
+        try {
+            const r = await fetch(`${API}/comprobante/${paymentId}`);
+            if (r.ok) {
+                const d = await r.json();
+                if (d.pdf_url) {
+                    lastCompPdfUrl = d.pdf_url;
+                    document.getElementById('successCompPdf').href = d.pdf_url;
+                    document.getElementById('successCompLoading').style.display = 'none';
+                    document.getElementById('successActions').style.display = 'flex';
+                    stopPdfPolling();
+                    return;
+                }
+            }
+        } catch(e) {}
+        if (intentos >= maxIntentos) {
+            stopPdfPolling();
+            document.getElementById('successCompLoading').innerHTML = '⚠ PDF en proceso. Revisa en Historial.';
+        }
+    }, 2000);
+}
+function stopPdfPolling() { if (pdfPollTimer) { clearInterval(pdfPollTimer); pdfPollTimer = null; } }
+
+// ── COMPARTIR COMPROBANTE ──
+async function compartirComprobante() {
+    const numero = lastCompNumero || 'Comprobante';
+    const pdfUrl = lastCompPdfUrl;
+    const texto = `${numero} — CCPL\nTotal: ${document.getElementById('successAmt').textContent}\n${pdfUrl || ''}`;
+
+    // Intentar Web Share API (móvil)
+    if (navigator.share && pdfUrl) {
+        try {
+            await navigator.share({ title: numero, text: texto, url: pdfUrl });
+            return;
+        } catch(e) { /* usuario canceló o no soportado */ }
+    }
+
+    // Fallback: copiar al clipboard
+    try {
+        await navigator.clipboard.writeText(pdfUrl || texto);
+        toast('Link copiado al portapapeles', 'ok');
+    } catch(e) {
+        // Último fallback
+        const ta = document.createElement('textarea');
+        ta.value = pdfUrl || texto;
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        toast('Link copiado', 'ok');
+    }
+}
+
+// ── VER COMPROBANTE DESDE HISTORIAL ──
+async function verComprobante(paymentId) {
+    try {
+        const r = await fetch(`${API}/comprobante/${paymentId}`);
+        if (!r.ok) { toast('Comprobante no encontrado', 'err'); return; }
+        const d = await r.json();
+        if (d.pdf_url) {
+            window.open(d.pdf_url, '_blank');
+        } else {
+            toast('PDF aún en proceso, intenta en unos segundos', 'err');
+        }
+    } catch(e) { toast('Error obteniendo comprobante', 'err'); }
+}
 
 // ── EGRESOS ──
 async function cargarEgresos() { try { const r=await fetch(`${API}/egresos-actual?centro_costo_id=1`); renderEgr(await r.json()); } catch(e){} }
@@ -1332,6 +1474,7 @@ function renderHistorial(data) {
             </div>
             <span class="hist-metodo">${o.metodo_pago || o.payment_method || ''}</span>
             <span class="hist-monto">S/ ${monto.toFixed(2)}</span>
+            ${compNum && !esAnulado ? `<button class="hist-pdf" onclick="verComprobante(${o.id})" title="Ver comprobante PDF">📄</button>` : ''}
             ${!esAnulado ? `<button class="hist-anular" onclick="mostrarAnular(${o.id},'${desc.replace(/'/g,"\\'")}',${monto})">Anular</button>` : ''}
         </div>`;
     }).join('');
