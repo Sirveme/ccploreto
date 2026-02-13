@@ -1259,17 +1259,18 @@ async function ejecutarCobro() {
                 compNum.textContent = '📄 ' + d.comprobante_numero;
                 compEl.classList.add('active');
 
-                if (d.comprobante_pdf) {
-                    // PDF ya disponible (raro, pero posible)
-                    lastCompPdfUrl = d.comprobante_pdf;
-                    compPdf.href = d.comprobante_pdf;
+                if (d.comprobante_pdf && lastPaymentId) {
+                    // PDF reportado disponible — usar proxy URL
+                    const proxyUrl = `${API}/comprobante/${lastPaymentId}/pdf`;
+                    lastCompPdfUrl = proxyUrl;
+                    compPdf.href = proxyUrl;
                     compLoading.style.display = 'none';
                     compActions.style.display = 'flex';
-                } else {
+                } else if (lastPaymentId) {
                     // PDF aún no disponible — iniciar polling
                     compLoading.style.display = 'flex';
                     compActions.style.display = 'none';
-                    if (lastPaymentId) startPdfPolling(lastPaymentId);
+                    startPdfPolling(lastPaymentId);
                 }
             } else {
                 compEl.classList.remove('active');
@@ -1370,16 +1371,7 @@ async function compartirComprobante() {
 
 // ── VER COMPROBANTE DESDE HISTORIAL ──
 async function verComprobante(paymentId) {
-    try {
-        const r = await fetch(`${API}/comprobante/${paymentId}`);
-        if (!r.ok) { toast('Comprobante no encontrado', 'err'); return; }
-        const d = await r.json();
-        if (d.pdf_url) {
-            window.open(d.pdf_url, '_blank');
-        } else {
-            toast('PDF aún en proceso, intenta en unos segundos', 'err');
-        }
-    } catch(e) { toast('Error obteniendo comprobante', 'err'); }
+    window.open(`${API}/comprobante/${paymentId}/pdf`, '_blank');
 }
 
 // ── EGRESOS ──
