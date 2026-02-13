@@ -461,6 +461,12 @@
         }
         .ref-input.visible { display: block; }
         .ref-input:focus { border-color: var(--accent); }
+        .ref-input.error { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft); }
+        .ref-required-hint {
+            display: none; font-size: 10px; color: var(--red);
+            margin: -6px 0 8px 2px;
+        }
+        .ref-required-hint.visible { display: block; }
 
         .comp-row { display: flex; gap: 4px; margin-bottom: 8px; }
         .comp-btn {
@@ -833,6 +839,7 @@
                 <button class="m-btn" onclick="setMetodo('deposito')" data-m="deposito"><span class="m-icon">🧾</span>Depósito</button>
             </div>
             <input type="text" class="ref-input" id="refInput" placeholder="Nro. de operación / voucher">
+            <div class="ref-required-hint" id="refHint">⚠ N° de operación obligatorio</div>
             <div class="comp-row">
                 <button class="comp-btn active" onclick="setComp('03')" data-c="03">Boleta</button>
                 <button class="comp-btn" onclick="setComp('01')" data-c="01">Factura</button>
@@ -913,6 +920,18 @@ let colActual = null, deudasDisp = [], conceptosDisp = [];
 let catActiva = null, carrito = [], metodo = 'efectivo', tipoComp = '03';
 let tabAct = 'deudas', sesion = null, totalEsperado = 0;
 
+// Métodos que requieren N° de operación obligatorio
+const METODOS_REQ_REF = ['yape', 'plin', 'transferencia', 'tarjeta'];
+
+// Placeholders por método de pago
+const REF_PLACEHOLDERS = {
+    yape: 'Nro. operación Yape (obligatorio)',
+    plin: 'Nro. operación Plin (obligatorio)',
+    transferencia: 'Nro. operación / CCI (obligatorio)',
+    tarjeta: 'Nro. voucher / últimos 4 dígitos (obligatorio)',
+    deposito: 'Nro. de operación / voucher'
+};
+
 // ── GEOLOCALIZACIÓN ──
 const SEDES_CCPL = [
     { nombre: 'Oficina Principal', lat: -3.7486127, lng: -73.2529467, radio: 100 },
@@ -991,6 +1010,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'F2') { e.preventDefault(); const s = document.getElementById('searchInput'); s.focus(); s.select(); }
         if (e.key === 'Escape') { cerrarModal(); cerrarModalCierre(); cerrarModalLiq(); cerrarModalAnular(); cerrarSuccess(); document.getElementById('searchResults').classList.remove('active'); }
         if (e.key === 'F9' && carrito.length) { e.preventDefault(); confirmarCobro(); }
+    });
+    // Limpiar error del ref input al escribir
+    document.getElementById('refInput').addEventListener('input', () => {
+        document.getElementById('refInput').classList.remove('error');
+        document.getElementById('refHint').classList.remove('visible');
     });
 });
 
@@ -1126,7 +1150,27 @@ function rmItem(i) { const x=carrito[i]; carrito.splice(i,1); if(x.tipo==='deuda
 function toggleCart() { document.getElementById('panelRight').classList.toggle('open'); }
 
 // ── PAGO ──
-function setMetodo(m) { metodo=m; document.querySelectorAll('.m-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m)); const r=document.getElementById('refInput'); ['transferencia','deposito','tarjeta'].includes(m)?(r.classList.add('visible'),r.focus()):r.classList.remove('visible'); }
+function requiereReferencia(m) { return METODOS_REQ_REF.includes(m); }
+
+function setMetodo(m) {
+    metodo = m;
+    document.querySelectorAll('.m-btn').forEach(b => b.classList.toggle('active', b.dataset.m === m));
+    const r = document.getElementById('refInput');
+    const hint = document.getElementById('refHint');
+    // Limpiar estado de error al cambiar método
+    r.classList.remove('error');
+    hint.classList.remove('visible');
+
+    if (m !== 'efectivo') {
+        r.classList.add('visible');
+        r.placeholder = REF_PLACEHOLDERS[m] || 'Nro. de operación / voucher';
+        r.focus();
+    } else {
+        r.classList.remove('visible');
+        r.value = '';
+    }
+}
+
 function setComp(t) { tipoComp=t; document.querySelectorAll('.comp-btn').forEach(b=>b.classList.toggle('active',b.dataset.c===t)); }
 function cambiarTab(t) {
     tabAct=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
@@ -1138,9 +1182,26 @@ function cambiarTab(t) {
     if(t==='historial') { if(!document.getElementById('histFecha').value) { const ah=new Date(); ah.setMinutes(ah.getMinutes()-ah.getTimezoneOffset()-300); document.getElementById('histFecha').value=ah.toISOString().split('T')[0]; } cargarHistorial(); }
 }
 function confirmarCobro() {
-    if(!carrito.length)return; const t=carrito.reduce((s,i)=>s+i.monto,0);
+    if(!carrito.length) return;
+
+    // ── Validar N° operación obligatorio ──
+    if (requiereReferencia(metodo)) {
+        const ref = document.getElementById('refInput').value.trim();
+        if (!ref) {
+            const refEl = document.getElementById('refInput');
+            const hintEl = document.getElementById('refHint');
+            refEl.classList.add('error');
+            hintEl.classList.add('visible');
+            refEl.focus();
+            toast(`Ingresa el N° de operación para ${metodo.charAt(0).toUpperCase() + metodo.slice(1)}`, 'err');
+            return;
+        }
+    }
+
+    const t=carrito.reduce((s,i)=>s+i.monto,0);
+    const ref = document.getElementById('refInput').value.trim();
     document.getElementById('mTotal').textContent=`S/ ${t.toFixed(2)}`;
-    document.getElementById('mDetail').innerHTML=`<div><span>Colegiado:</span><span>${colActual?colActual.apellidos_nombres:'Público general'}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodo}</span></div><div><span>Comprobante:</span><span>${tipoComp==='01'?'Factura':'Boleta'}</span></div>`;
+    document.getElementById('mDetail').innerHTML=`<div><span>Colegiado:</span><span>${colActual?colActual.apellidos_nombres:'Público general'}</span></div><div><span>Items:</span><span>${carrito.length}</span></div><div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div><div><span>Comprobante:</span><span>${tipoComp==='01'?'Factura':'Boleta'}</span></div>`;
     document.getElementById('modalConfirm').classList.add('active');
 }
 function cerrarModal() { document.getElementById('modalConfirm').classList.remove('active'); }
@@ -1166,6 +1227,10 @@ async function ejecutarCobro() {
                 if(!d.comprobante_emitido && d.mensaje){compErr.textContent=d.mensaje;}
             }
             document.getElementById('successBg').classList.add('active');carrito=[];renderCarrito();if(colActual)cargarDeudas(colActual.id);cargarResumen();
+            // Limpiar ref input después de cobro exitoso
+            document.getElementById('refInput').value = '';
+            document.getElementById('refInput').classList.remove('error');
+            document.getElementById('refHint').classList.remove('visible');
             // Si hay PDF, no cerrar automáticamente — el usuario cierra manualmente
             if(!(d.comprobante_emitido && d.comprobante_pdf)){setTimeout(cerrarSuccess,2500);}
         }
@@ -1328,9 +1393,9 @@ function toggleMontoParcial() {
 
 async function ejecutarAnulacion() {
     const payId = document.getElementById('anularPayId').value;
-    const motivo = document.getElementById('anularMotivo').value;
+    let motivo = document.getElementById('anularMotivo').value;
     const obs = document.getElementById('anularObs').value.trim();
-    const motivoTexto = document.getElementById('anularMotivo').selectedOptions[0].text;
+    let motivoTexto = document.getElementById('anularMotivo').selectedOptions[0].text;
     const totalOriginal = parseFloat(document.getElementById('anularTotal').value) || 0;
 
     let montoAnular = totalOriginal;
