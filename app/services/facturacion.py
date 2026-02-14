@@ -619,6 +619,7 @@ class FacturacionService:
         self.db.flush()
 
         # ── Payload para facturalo.pro ──
+        logger.error(f"NC DEBUG original: tipo={original.tipo}, serie={original.serie}, numero={original.numero}, numero_type={type(original.numero)}")
         payload = {
             "tipo_comprobante": "07",
             "serie": serie_nc,
