@@ -1032,6 +1032,8 @@ class FacturacionService:
         }
 
         logger.error(f"NC PAYLOAD KEYS: {list(payload.keys())}")
+        import json as _json
+        logger.error(f"NC PAYLOAD JSON: {_json.dumps(payload, default=str)}")
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
