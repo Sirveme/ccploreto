@@ -336,13 +336,13 @@ class FacturacionService:
             }
 
         # ── Monto de la NC ──
-        monto_nc = monto if monto is not None else original.total
-        if monto_nc > original.total:
+        monto_nc = float(monto) if monto is not None else float(original.total)
+        if monto_nc > float(original.total):
             return {"success": False, "error": f"Monto NC (S/ {monto_nc}) supera el total original (S/ {original.total})"}
         if monto_nc <= 0:
             return {"success": False, "error": "El monto debe ser mayor a 0"}
 
-        es_parcial = abs(monto_nc - original.total) > 0.01
+        es_parcial = abs(monto_nc - float(original.total)) > 0.01
 
         # ── Serie NC ──
         serie_nc = obtener_serie("07", sede_id=sede_id, tipo_original=original.tipo, config=self.config)
