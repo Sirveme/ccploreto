@@ -1031,6 +1031,8 @@ class FacturacionService:
             "referencia_externa": f"PAGO-{comprobante.payment_id}"
         }
 
+        logger.error(f"NC PAYLOAD KEYS: {list(payload.keys())}")
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
