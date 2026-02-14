@@ -1326,30 +1326,40 @@ async def anular_cobro(
         except Exception:
             pass
 
-    # ── Marcar anulado ──
-    motivo_full = motivo_texto
-    if observaciones:
-        motivo_full += f". {observaciones}"
-    if nota_credito_info and "Error" not in str(nota_credito_info):
-        motivo_full += f" [NC: {nota_credito_info}]"
+    # ── Marcar anulado (solo si NC fue exitosa o no había comprobante) ──
+    nc_exitosa = nota_credito_info and "Error" not in str(nota_credito_info)
+    sin_comprobante = comp is None
 
-    if es_parcial:
-        # Parcial: no anular el pago completo, solo registrar la NC
-        payment.notes = (payment.notes or "") + f"\n[NC PARCIAL S/{monto_anular:.2f}] {motivo_full}"
+    if nc_exitosa or sin_comprobante:
+        motivo_full = motivo_texto
+        if observaciones:
+            motivo_full += f". {observaciones}"
+        if nc_exitosa:
+            motivo_full += f" [NC: {nota_credito_info}]"
+
+        if es_parcial:
+            payment.notes = (payment.notes or "") + f"\n[NC PARCIAL S/{monto_anular:.2f}] {motivo_full}"
+        else:
+            payment.status = "anulado"
+            payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
+
+        db.commit()
+
+        return {
+            "success": True,
+            "mensaje": f"{'Anulación parcial' if es_parcial else 'Cobro anulado'}. {deudas_revertidas} deuda(s) revertida(s).",
+            "nota_credito": nota_credito_info,
+            "nc_pdf_url": nc_pdf_url,
+            "monto_anulado": monto_anular,
+            "es_parcial": es_parcial,
+        }
     else:
-        payment.status = "anulado"
-        payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
-
-    db.commit()
-
-    return {
-        "success": True,
-        "mensaje": f"{'Anulación parcial' if es_parcial else 'Cobro anulado'}. {deudas_revertidas} deuda(s) revertida(s).",
-        "nota_credito": nota_credito_info,
-        "nc_pdf_url": nc_pdf_url,
-        "monto_anulado": monto_anular,
-        "es_parcial": es_parcial,
-    }
+        # NC falló — NO tocar el pago, devolver error
+        db.rollback()
+        return {
+            "success": False,
+            "detail": f"No se pudo emitir la Nota de Crédito: {nota_credito_info}",
+        }
 
 
 @router.get("/comprobante/{payment_id}")
