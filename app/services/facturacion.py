@@ -430,6 +430,8 @@ class FacturacionService:
             "referencia_externa": f"NC-PAGO-{original.payment_id}",
         }
 
+        print(f"🚀 NC PAYLOAD ref: tipo={payload.get('documento_ref_tipo')}, serie={payload.get('documento_ref_serie')}, num={payload.get('documento_ref_numero')}, motivo={payload.get('motivo_nota')}")
+
         # ── Enviar a facturalo.pro ──
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
