@@ -279,6 +279,484 @@ class FacturacionService:
             "error": resultado.get("error")
         }
 
+    
+    
+    async def emitir_nota_credito(
+        self,
+        comprobante_original_id: int,
+        motivo_codigo: str = "01",
+        motivo_texto: str = "Anulación de la operación",
+        monto: float = None,
+        sede_id: str = "1",
+    ) -> Dict[str, Any]:
+        """
+        Emite una Nota de Crédito (tipo 07) referenciando un comprobante existente.
+
+        Args:
+            comprobante_original_id: ID del comprobante a anular/corregir
+            motivo_codigo: '01'-'07' según catálogo SUNAT 09
+            motivo_texto: Descripción del motivo
+            monto: Monto de la NC. None = total del original. Parcial si < total.
+            sede_id: Sede para resolver serie
+
+        Catálogo SUNAT 09 - Códigos de NC:
+            01 = Anulación de la operación
+            02 = Anulación por error en RUC
+            03 = Corrección por error en descripción
+            04 = Descuento global
+            05 = Descuento por ítem
+            06 = Devolución total
+            07 = Devolución parcial
+        """
+        if not self.esta_configurado():
+            return {"success": False, "error": "Facturación no configurada"}
+
+        # ── Obtener comprobante original ──
+        original = self.db.query(Comprobante).filter(
+            Comprobante.id == comprobante_original_id,
+            Comprobante.organization_id == self.org_id,
+        ).first()
+
+        if not original:
+            return {"success": False, "error": "Comprobante original no encontrado"}
+
+        if original.status not in ("accepted", "anulado"):
+            return {"success": False, "error": f"Comprobante en estado '{original.status}', no se puede emitir NC"}
+
+        # Verificar que no exista NC previa aceptada para este comprobante
+        nc_existente = self.db.query(Comprobante).filter(
+            Comprobante.comprobante_ref_id == original.id,
+            Comprobante.tipo == "07",
+            Comprobante.status == "accepted",
+        ).first()
+        if nc_existente:
+            return {
+                "success": False,
+                "error": f"Ya existe NC {nc_existente.serie}-{str(nc_existente.numero).zfill(8)} para este comprobante",
+            }
+
+        # ── Monto de la NC ──
+        monto_nc = monto if monto is not None else original.total
+        if monto_nc > original.total:
+            return {"success": False, "error": f"Monto NC (S/ {monto_nc}) supera el total original (S/ {original.total})"}
+        if monto_nc <= 0:
+            return {"success": False, "error": "El monto debe ser mayor a 0"}
+
+        es_parcial = abs(monto_nc - original.total) > 0.01
+
+        # ── Serie NC ──
+        serie_nc = obtener_serie("07", sede_id=sede_id, tipo_original=original.tipo, config=self.config)
+
+        # ── Número correlativo ──
+        from sqlalchemy import func as sa_func
+        ultimo = self.db.query(sa_func.max(Comprobante.numero)).filter(
+            Comprobante.organization_id == self.org_id,
+            Comprobante.tipo == "07",
+            Comprobante.serie == serie_nc,
+        ).scalar()
+        numero_nc = (ultimo or 0) + 1
+
+        # ── Items de la NC ──
+        items_nc = self._construir_items_nc(original, monto_nc, es_parcial)
+
+        # ── Calcular IGV ──
+        tipo_afectacion = self.config.tipo_afectacion_igv or "20"
+        if tipo_afectacion == "10":
+            subtotal_nc = round(monto_nc / 1.18, 2)
+            igv_nc = round(monto_nc - subtotal_nc, 2)
+        else:
+            subtotal_nc = monto_nc
+            igv_nc = 0
+
+        # ── Fecha/hora Perú ──
+        ahora_peru = datetime.now(TZ_PERU)
+
+        # ── Crear comprobante NC en BD local (ccploreto) ──
+        nc = Comprobante(
+            organization_id=self.org_id,
+            payment_id=original.payment_id,
+            comprobante_ref_id=original.id,
+            tipo="07",
+            serie=serie_nc,
+            numero=numero_nc,
+            subtotal=subtotal_nc,
+            igv=igv_nc,
+            total=monto_nc,
+            cliente_tipo_doc=original.cliente_tipo_doc,
+            cliente_num_doc=original.cliente_num_doc,
+            cliente_nombre=original.cliente_nombre,
+            cliente_direccion=original.cliente_direccion,
+            cliente_email=original.cliente_email,
+            items=items_nc,
+            status="pending",
+            observaciones=f"NC por: {motivo_texto}",
+        )
+        self.db.add(nc)
+        self.db.flush()
+
+        # ══════════════════════════════════════════════════════
+        # PAYLOAD — Campos planos, como espera facturalo.pro
+        # ══════════════════════════════════════════════════════
+        payload = {
+            "tipo_comprobante": "07",
+            "serie": serie_nc,
+            "fecha_emision": ahora_peru.strftime("%Y-%m-%d"),
+            "hora_emision": ahora_peru.strftime("%H:%M:%S"),
+            "moneda": "PEN",
+            "forma_pago": "Contado",
+            # ── Referencia al documento original ──
+            "documento_ref_tipo": original.tipo,         # "03" o "01"
+            "documento_ref_serie": original.serie,        # "B001" o "F001"
+            "documento_ref_numero": original.numero,      # entero: 6
+            # ── Motivo ──
+            "motivo_nota": motivo_codigo,
+            # ── Cliente ──
+            "cliente": {
+                "tipo_documento": original.cliente_tipo_doc,
+                "numero_documento": original.cliente_num_doc,
+                "razon_social": original.cliente_nombre,
+                "direccion": original.cliente_direccion,
+                "email": original.cliente_email,
+            },
+            # ── Items ──
+            "items": [{
+                "descripcion": item.get("descripcion", "Nota de crédito"),
+                "cantidad": item.get("cantidad", 1),
+                "unidad_medida": "ZZ",
+                "precio_unitario": item.get("precio_unitario"),
+                "tipo_afectacion_igv": tipo_afectacion,
+            } for item in items_nc],
+            "enviar_email": bool(original.cliente_email),
+            "referencia_externa": f"NC-PAGO-{original.payment_id}",
+        }
+
+        # ── Enviar a facturalo.pro ──
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.config.facturalo_url}/comprobantes",
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": self.config.facturalo_token,
+                        "X-API-Secret": self.config.facturalo_secret,
+                    },
+                )
+
+                data = response.json()
+
+                if response.status_code in [200, 201] and data.get("exito"):
+                    comp_data = data.get("comprobante", {})
+                    archivos = data.get("archivos", {})
+
+                    nc.status = "accepted"
+                    nc.facturalo_id = comp_data.get("id")
+                    nc.facturalo_response = data
+                    nc.sunat_response_code = comp_data.get("codigo_sunat", "0")
+                    nc.sunat_response_description = comp_data.get("mensaje_sunat")
+                    nc.sunat_hash = comp_data.get("hash_cpe")
+                    nc.pdf_url = archivos.get("pdf_url")
+                    nc.xml_url = archivos.get("xml_url")
+                    nc.cdr_url = archivos.get("cdr_url")
+
+                    self.db.commit()
+
+                    numero_fmt = f"{serie_nc}-{str(numero_nc).zfill(8)}"
+                    logger.info(f"NC emitida: {numero_fmt} por S/ {monto_nc} | Ref: {original.serie}-{str(original.numero).zfill(8)}")
+
+                    return {
+                        "success": True,
+                        "comprobante_id": nc.id,
+                        "serie": serie_nc,
+                        "numero": numero_nc,
+                        "numero_formato": numero_fmt,
+                        "monto": monto_nc,
+                        "pdf_url": nc.pdf_url,
+                    }
+                else:
+                    error_msg = data.get("mensaje", data.get("error", "Error desconocido"))
+                    nc.status = "rejected"
+                    nc.facturalo_response = data
+                    nc.observaciones = f"RECHAZADA: {error_msg}"
+                    self.db.commit()
+
+                    logger.error(f"NC rechazada por facturalo.pro: {error_msg}")
+                    return {"success": False, "error": error_msg, "response": data}
+
+        except httpx.TimeoutException:
+            nc.status = "error"
+            nc.observaciones = "Timeout conectando a facturalo.pro"
+            self.db.commit()
+            return {"success": False, "error": "Timeout conectando a facturalo.pro"}
+        except httpx.RequestError as e:
+            nc.status = "error"
+            nc.observaciones = f"Error de conexión: {str(e)}"
+            self.db.commit()
+            return {"success": False, "error": f"Error de conexión: {str(e)}"}
+        except Exception as e:
+            nc.status = "error"
+            nc.observaciones = f"Error inesperado: {str(e)}"
+            self.db.commit()
+            logger.error(f"Error inesperado emitiendo NC: {e}", exc_info=True)
+            return {"success": False, "error": f"Error inesperado: {str(e)}"}
+    
+    
+    async def emitir_nota_credito(
+        self,
+        comprobante_original_id: int,
+        motivo_codigo: str = "01",
+        motivo_texto: str = "Anulación de la operación",
+        monto: float = None,
+        sede_id: str = "1",
+    ) -> Dict[str, Any]:
+        """
+        Emite una Nota de Crédito (tipo 07) referenciando un comprobante existente.
+
+        Args:
+            comprobante_original_id: ID del comprobante a anular/corregir
+            motivo_codigo: '01'-'07' según catálogo SUNAT 09
+            motivo_texto: Descripción del motivo
+            monto: Monto de la NC. None = total del original. Parcial si < total.
+            sede_id: Sede para resolver serie
+
+        Catálogo SUNAT 09 - Códigos de NC:
+            01 = Anulación de la operación
+            02 = Anulación por error en RUC
+            03 = Corrección por error en descripción
+            04 = Descuento global
+            05 = Descuento por ítem
+            06 = Devolución total
+            07 = Devolución parcial
+        """
+        if not self.esta_configurado():
+            return {"success": False, "error": "Facturación no configurada"}
+
+        # ── Obtener comprobante original ──
+        original = self.db.query(Comprobante).filter(
+            Comprobante.id == comprobante_original_id,
+            Comprobante.organization_id == self.org_id,
+        ).first()
+
+        if not original:
+            return {"success": False, "error": "Comprobante original no encontrado"}
+
+        if original.status not in ("accepted", "anulado"):
+            return {"success": False, "error": f"Comprobante en estado '{original.status}', no se puede emitir NC"}
+
+        # Verificar que no exista NC previa para este comprobante
+        nc_existente = self.db.query(Comprobante).filter(
+            Comprobante.comprobante_ref_id == original.id,
+            Comprobante.tipo == "07",
+            Comprobante.status == "accepted",
+        ).first()
+        if nc_existente:
+            return {
+                "success": False,
+                "error": f"Ya existe NC {nc_existente.serie}-{str(nc_existente.numero).zfill(8)} para este comprobante",
+            }
+
+        # ── Monto de la NC ──
+        monto_nc = monto if monto is not None else original.total
+        if monto_nc > original.total:
+            return {"success": False, "error": f"Monto NC (S/ {monto_nc}) supera el total original (S/ {original.total})"}
+        if monto_nc <= 0:
+            return {"success": False, "error": "El monto debe ser mayor a 0"}
+
+        es_parcial = abs(monto_nc - original.total) > 0.01
+
+        # ── Serie NC ──
+        # BC01 para NC de boleta, FC01 para NC de factura
+        serie_nc = obtener_serie("07", sede_id=sede_id, tipo_original=original.tipo, config=self.config)
+
+        # ── Número correlativo ──
+        # Consultar el último número de NC para esta serie
+        from sqlalchemy import func
+        ultimo = self.db.query(func.max(Comprobante.numero)).filter(
+            Comprobante.organization_id == self.org_id,
+            Comprobante.tipo == "07",
+            Comprobante.serie == serie_nc,
+        ).scalar()
+        numero_nc = (ultimo or 0) + 1
+
+        # ── Items de la NC ──
+        items_nc = self._construir_items_nc(original, monto_nc, es_parcial)
+
+        # ── Calcular IGV ──
+        tipo_afectacion = self.config.tipo_afectacion_igv or "20"
+        if tipo_afectacion == "10":
+            # Gravado: monto incluye IGV, hay que separar
+            subtotal_nc = round(monto_nc / 1.18, 2)
+            igv_nc = round(monto_nc - subtotal_nc, 2)
+        else:
+            # Exonerado/Inafecto
+            subtotal_nc = monto_nc
+            igv_nc = 0
+
+        # ── Fecha/hora Perú ──
+        ahora_peru = datetime.now(TZ_PERU)
+
+        # ── Crear comprobante NC en BD ──
+        nc = Comprobante(
+            organization_id=self.org_id,
+            payment_id=original.payment_id,
+            comprobante_ref_id=original.id,
+            tipo="07",
+            serie=serie_nc,
+            numero=numero_nc,
+            subtotal=subtotal_nc,
+            igv=igv_nc,
+            total=monto_nc,
+            cliente_tipo_doc=original.cliente_tipo_doc,
+            cliente_num_doc=original.cliente_num_doc,
+            cliente_nombre=original.cliente_nombre,
+            cliente_direccion=original.cliente_direccion,
+            cliente_email=original.cliente_email,
+            items=items_nc,
+            status="pending",
+            observaciones=f"NC por: {motivo_texto}",
+        )
+        self.db.add(nc)
+        self.db.flush()
+
+        # ── Payload para facturalo.pro ──
+        payload = {
+            "tipo_comprobante": "07",
+            "serie": serie_nc,
+            "fecha_emision": ahora_peru.strftime("%Y-%m-%d"),
+            "hora_emision": ahora_peru.strftime("%H:%M:%S"),
+            "moneda": "PEN",
+            "forma_pago": "Contado",
+            # ── Referencia al documento original ──
+            "documento_referencia": {
+                "tipo_documento": original.tipo,     # "03" boleta / "01" factura
+                "serie": original.serie,
+                "numero": original.numero,
+                "fecha_emision": original.created_at.strftime("%Y-%m-%d") if original.created_at else ahora_peru.strftime("%Y-%m-%d"),
+            },
+            # ── Motivo ──
+            "motivo": {
+                "codigo": motivo_codigo,
+                "descripcion": motivo_texto,
+            },
+            # ── Cliente (mismo del original) ──
+            "cliente": {
+                "tipo_documento": original.cliente_tipo_doc,
+                "numero_documento": original.cliente_num_doc,
+                "razon_social": original.cliente_nombre,
+                "direccion": original.cliente_direccion,
+                "email": original.cliente_email,
+            },
+            # ── Items ──
+            "items": [{
+                "descripcion": item.get("descripcion", "Nota de crédito"),
+                "cantidad": item.get("cantidad", 1),
+                "unidad_medida": "ZZ",
+                "precio_unitario": item.get("precio_unitario"),
+                "tipo_afectacion_igv": tipo_afectacion,
+            } for item in items_nc],
+            "enviar_email": bool(original.cliente_email),
+            "referencia_externa": f"NC-PAGO-{original.payment_id}",
+        }
+
+        # ── Enviar a facturalo.pro ──
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.config.facturalo_url}/comprobantes",
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": self.config.facturalo_token,
+                        "X-API-Secret": self.config.facturalo_secret,
+                    },
+                )
+
+                data = response.json()
+
+                if response.status_code in [200, 201] and data.get("exito"):
+                    comp_data = data.get("comprobante", {})
+                    archivos = data.get("archivos", {})
+
+                    nc.status = "accepted"
+                    nc.facturalo_id = comp_data.get("id")
+                    nc.facturalo_response = data
+                    nc.sunat_response_code = comp_data.get("codigo_sunat", "0")
+                    nc.sunat_response_description = comp_data.get("mensaje_sunat")
+                    nc.sunat_hash = comp_data.get("hash_cpe")
+                    nc.pdf_url = archivos.get("pdf_url")
+                    nc.xml_url = archivos.get("xml_url")
+                    nc.cdr_url = archivos.get("cdr_url")
+
+                    self.db.commit()
+
+                    numero_fmt = f"{serie_nc}-{str(numero_nc).zfill(8)}"
+                    logger.info(f"NC emitida: {numero_fmt} por S/ {monto_nc} | Ref: {original.serie}-{str(original.numero).zfill(8)}")
+
+                    return {
+                        "success": True,
+                        "comprobante_id": nc.id,
+                        "serie": serie_nc,
+                        "numero": numero_nc,
+                        "numero_formato": numero_fmt,
+                        "monto": monto_nc,
+                        "pdf_url": nc.pdf_url,
+                    }
+                else:
+                    error_msg = data.get("mensaje", data.get("error", "Error desconocido"))
+                    nc.status = "rejected"
+                    nc.facturalo_response = data
+                    nc.observaciones = f"RECHAZADA: {error_msg}"
+                    self.db.commit()
+
+                    logger.error(f"NC rechazada por facturalo.pro: {error_msg}")
+                    return {"success": False, "error": error_msg, "response": data}
+
+        except httpx.TimeoutException:
+            nc.status = "error"
+            nc.observaciones = "Timeout conectando a facturalo.pro"
+            self.db.commit()
+            return {"success": False, "error": "Timeout conectando a facturalo.pro"}
+        except httpx.RequestError as e:
+            nc.status = "error"
+            nc.observaciones = f"Error de conexión: {str(e)}"
+            self.db.commit()
+            return {"success": False, "error": f"Error de conexión: {str(e)}"}
+        except Exception as e:
+            nc.status = "error"
+            nc.observaciones = f"Error inesperado: {str(e)}"
+            self.db.commit()
+            logger.error(f"Error inesperado emitiendo NC: {e}", exc_info=True)
+            return {"success": False, "error": f"Error inesperado: {str(e)}"}
+
+    def _construir_items_nc(self, original: Comprobante, monto_nc: float, es_parcial: bool) -> list:
+        """
+        Items para la Nota de Crédito.
+        Total: mismos items del original.
+        Parcial: un solo item con el monto parcial.
+        """
+        if not es_parcial and original.items:
+            return original.items
+
+        descripcion = "NOTA DE CRÉDITO"
+        if original.items and len(original.items) > 0:
+            desc_original = original.items[0].get("descripcion", "")
+            if desc_original:
+                primera_linea = desc_original.split("\n")[0]
+                descripcion = f"NC: {primera_linea}"
+
+        return [{
+            "codigo": "SRV001",
+            "descripcion": descripcion,
+            "unidad": "ZZ",
+            "cantidad": 1,
+            "precio_unitario": monto_nc,
+            "valor_venta": monto_nc,
+            "tipo_afectacion_igv": self.config.tipo_afectacion_igv or "20",
+            "igv": 0 if (self.config.tipo_afectacion_igv or "20") != "10" else round(monto_nc - (monto_nc / 1.18), 2),
+        }]
+
+
+    
     # ───────────────────────────────────────────────────────
     # DATOS DEL CLIENTE
     # ───────────────────────────────────────────────────────
