@@ -1203,81 +1203,152 @@ async def historial_cobros(
     return {"operaciones": operaciones}
 
 
+# ══════════════════════════════════════════════════════════
+# REEMPLAZAR en caja.py — el endpoint anular_cobro completo
+# ══════════════════════════════════════════════════════════
+
 @router.post("/anular-cobro")
 async def anular_cobro(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Anula un cobro: marca payment como anulado, revierte deudas."""
+    """
+    Anula un cobro:
+    1. Emite Nota de Crédito ante SUNAT (si hay comprobante)
+    2. Marca payment como anulado
+    3. Revierte deudas a pendiente
+    4. Revierte stock si aplica
+    """
     data = await request.json()
     payment_id = data.get("payment_id")
+    motivo_codigo = data.get("motivo_codigo", "01")
     motivo_texto = data.get("motivo_texto", "Anulación de la operación")
+    monto = data.get("monto")  # None = total, float = parcial
     observaciones = data.get("observaciones", "")
 
+    # ── Validaciones ──
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(404, detail="Pago no encontrado")
     if payment.status == "anulado":
         raise HTTPException(400, detail="Este cobro ya fue anulado")
 
+    monto_anular = float(monto) if monto is not None else float(payment.amount)
+    es_parcial = abs(monto_anular - float(payment.amount)) > 0.01
+
+    # ── Emitir Nota de Crédito si hay comprobante ──
+    nota_credito_info = None
+    nc_pdf_url = None
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == payment_id,
+        Comprobante.status == "accepted",
+        Comprobante.tipo.in_(["01", "03"]),  # Solo boletas/facturas, no NC sobre NC
+    ).first()
+
+    if comp:
+        try:
+            facturacion = FacturacionService(db, payment.organization_id)
+
+            if facturacion.esta_configurado():
+                resultado_nc = await facturacion.emitir_nota_credito(
+                    comprobante_original_id=comp.id,
+                    motivo_codigo=motivo_codigo,
+                    motivo_texto=motivo_texto,
+                    monto=monto_anular,
+                )
+
+                if resultado_nc["success"]:
+                    nota_credito_info = resultado_nc["numero_formato"]
+                    nc_pdf_url = resultado_nc.get("pdf_url")
+                    logger.info(f"NC emitida: {nota_credito_info} para pago #{payment_id}")
+                else:
+                    # NC falló pero continuamos con la anulación local
+                    logger.error(f"NC falló para pago #{payment_id}: {resultado_nc.get('error')}")
+                    nota_credito_info = f"Error NC: {resultado_nc.get('error', 'desconocido')}"
+            else:
+                nota_credito_info = "Facturación no configurada, comprobante anulado solo localmente"
+
+            # Marcar comprobante original como anulado
+            comp.status = "anulado"
+            comp.observaciones = (comp.observaciones or "") + f"\n[ANULADO] {motivo_texto}"
+
+        except Exception as e:
+            logger.error(f"Error emitiendo NC para pago #{payment_id}: {e}", exc_info=True)
+            nota_credito_info = f"Error NC: {str(e)}"
+
     # ── Revertir deudas ──
     deudas_revertidas = 0
     if payment.colegiado_id:
-        notas = payment.notes or ""
-        deudas = db.query(Debt).filter(
-            Debt.colegiado_id == payment.colegiado_id,
-            Debt.status == "paid",
-        ).all()
+        if es_parcial:
+            # Parcial: revertir solo las deudas que correspondan al monto
+            notas = payment.notes or ""
+            deudas = db.query(Debt).filter(
+                Debt.colegiado_id == payment.colegiado_id,
+                Debt.status == "paid",
+            ).order_by(Debt.periodo.desc()).all()
 
-        for deuda in deudas:
-            if deuda.concept and deuda.concept in notas:
-                deuda.status = "pending"
-                deuda.balance = deuda.amount
-                deudas_revertidas += 1
+            monto_pendiente = monto_anular
+            for deuda in deudas:
+                if monto_pendiente <= 0:
+                    break
+                if deuda.concept and deuda.concept in notas:
+                    deuda.status = "pending"
+                    deuda.balance = deuda.amount
+                    monto_pendiente -= float(deuda.amount)
+                    deudas_revertidas += 1
+        else:
+            # Total: revertir todas las deudas del pago
+            notas = payment.notes or ""
+            deudas = db.query(Debt).filter(
+                Debt.colegiado_id == payment.colegiado_id,
+                Debt.status == "paid",
+            ).all()
+
+            for deuda in deudas:
+                if deuda.concept and deuda.concept in notas:
+                    deuda.status = "pending"
+                    deuda.balance = deuda.amount
+                    deudas_revertidas += 1
 
     # ── Revertir stock ──
-    try:
-        for item_note in (payment.notes or "").split(";"):
-            item_note = item_note.strip()
-            if not item_note:
-                continue
-            concepto = db.query(ConceptoCobro).filter(
-                ConceptoCobro.nombre.ilike(f"%{item_note[:30]}%"),
-                ConceptoCobro.maneja_stock == True,
-            ).first()
-            if concepto:
-                concepto.stock_actual += 1
-    except Exception:
-        pass
+    if not es_parcial:
+        try:
+            for item_note in (payment.notes or "").split(";"):
+                item_note = item_note.strip()
+                if not item_note:
+                    continue
+                concepto = db.query(ConceptoCobro).filter(
+                    ConceptoCobro.nombre.ilike(f"%{item_note[:30]}%"),
+                    ConceptoCobro.maneja_stock == True,
+                ).first()
+                if concepto:
+                    concepto.stock_actual += 1
+        except Exception:
+            pass
 
     # ── Marcar anulado ──
     motivo_full = motivo_texto
     if observaciones:
         motivo_full += f". {observaciones}"
+    if nota_credito_info and "Error" not in str(nota_credito_info):
+        motivo_full += f" [NC: {nota_credito_info}]"
 
-    payment.status = "anulado"
-    payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
-
-    # ── Anular comprobante si existe ──
-    nota_credito_info = None
-    try:
-        comp = db.query(Comprobante).filter(
-            Comprobante.payment_id == payment_id,
-            Comprobante.status == "accepted",
-        ).first()
-        if comp:
-            comp.status = "anulado"
-            comp.observaciones = (comp.observaciones or "") + f"\n[ANULADO] {motivo_full}"
-            nota_credito_info = f"Comprobante {comp.serie}-{str(comp.numero).zfill(8)} anulado"
-    except Exception as e:
-        logger.error(f"Error anulación comprobante: {e}", exc_info=True)
+    if es_parcial:
+        # Parcial: no anular el pago completo, solo registrar la NC
+        payment.notes = (payment.notes or "") + f"\n[NC PARCIAL S/{monto_anular:.2f}] {motivo_full}"
+    else:
+        payment.status = "anulado"
+        payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
 
     db.commit()
 
     return {
         "success": True,
-        "mensaje": f"Cobro anulado. {deudas_revertidas} deuda(s) revertida(s).",
+        "mensaje": f"{'Anulación parcial' if es_parcial else 'Cobro anulado'}. {deudas_revertidas} deuda(s) revertida(s).",
         "nota_credito": nota_credito_info,
+        "nc_pdf_url": nc_pdf_url,
+        "monto_anulado": monto_anular,
+        "es_parcial": es_parcial,
     }
 
 
