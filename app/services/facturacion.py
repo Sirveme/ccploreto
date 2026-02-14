@@ -673,6 +673,7 @@ class FacturacionService:
 
                 data = response.json()
 
+                logger.error(f"NC RESPONSE [{response.status_code}]: {response.text}")    
                 if response.status_code in [200, 201] and data.get("exito"):
                     comp_data = data.get("comprobante", {})
                     archivos = data.get("archivos", {})
