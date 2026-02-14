@@ -1564,17 +1564,43 @@ function renderHistorial(data) {
         const desc = o.notes || o.descripcion || 'Cobro';
         const compNum = o.numero_comprobante || o.comprobante_numero || '';
         const esAnulado = o.status === 'anulado' || o.status === 'refunded';
-        return `<div class="hist-item${esAnulado?' anulado':''}" title="${desc}">
+
+        // ── Detectar NC parcial en notas ──
+        const ncParcialMatch = desc.match(/\[NC PARCIAL S\/([\d.]+)\]/);
+        const ncNumMatch = desc.match(/\[NC:\s*([^\]]+)\]/);
+        const tieneNC = ncParcialMatch || ncNumMatch || esAnulado;
+        const ncMonto = ncParcialMatch ? ncParcialMatch[1] : null;
+        const ncNumero = ncNumMatch ? ncNumMatch[1].trim() : null;
+
+        // ── Descripción limpia (sin tags internos) ──
+        const descLimpia = desc.replace('[CAJA] ','').replace(/\[NC PARCIAL S\/[\d.]+\][^\[]*/g,'').replace(/\[NC:[^\]]+\]/g,'').replace(/\[ANULADO\][^\[]*/g,'').trim();
+
+        // ── Badge NC parcial ──
+        let ncBadge = '';
+        if(ncParcialMatch && !esAnulado) {
+            ncBadge = `<span style="display:inline-block;background:rgba(251,191,36,0.15);color:#fbbf24;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">NC parcial S/ ${ncMonto}</span>`;
+        }
+        if(ncNumero) {
+            ncBadge += `<span style="display:inline-block;background:rgba(99,102,241,0.12);color:#818cf8;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;">📄 ${ncNumero}</span>`;
+        }
+
+        // ── Tooltip detallado ──
+        let tooltip = descLimpia;
+        if(ncMonto) tooltip += ` | NC Parcial: S/ ${ncMonto}`;
+        if(ncNumero) tooltip += ` | ${ncNumero}`;
+        if(esAnulado) tooltip += ' | ANULADO';
+
+        return `<div class="hist-item${esAnulado?' anulado':''}" title="${tooltip}">
             <span class="hist-hora">${hora}</span>
             <div style="flex:1;overflow:hidden;">
-                <div class="hist-desc">${desc.replace('[CAJA] ','')}</div>
+                <div class="hist-desc">${descLimpia}${ncBadge}</div>
                 ${compNum ? `<div class="hist-comp">📄 ${compNum}</div>` : ''}
                 ${esAnulado ? '<span class="hist-badge-anulado">anulado</span>' : ''}
             </div>
             <span class="hist-metodo">${o.metodo_pago || o.payment_method || ''}</span>
-            <span class="hist-monto">S/ ${monto.toFixed(2)}</span>
+            <span class="hist-monto${esAnulado?' hist-monto-tachado':''}">S/ ${monto.toFixed(2)}</span>
             ${compNum && !esAnulado ? `<button class="hist-pdf" onclick="verComprobante(${o.id})" title="Ver comprobante PDF">📄</button>` : ''}
-            ${!esAnulado ? `<button class="hist-anular" onclick="mostrarAnular(${o.id},'${desc.replace(/'/g,"\\'")}',${monto})">Anular</button>` : ''}
+            ${!esAnulado ? `<button class="hist-anular" onclick="mostrarAnular(${o.id},'${descLimpia.replace(/'/g,"\\'")}',${monto})" title="${tieneNC && !esAnulado ? 'Ya tiene NC parcial' : 'Anular cobro'}">Anular</button>` : ''}
         </div>`;
     }).join('');
 }
@@ -1662,7 +1688,7 @@ async function ejecutarAnulacion() {
         const d = await r.json();
         if(d.success) {
             cerrarModalAnular();
-            toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito}` : ''), 'ok');
+            toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito} (en proceso SUNAT)` : ''), 'ok');
             cargarHistorial();
             cargarResumen();
         } else {
