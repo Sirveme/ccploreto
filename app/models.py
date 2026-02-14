@@ -661,6 +661,7 @@ class Comprobante(Base):
     observaciones = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    comprobante_ref_id = Column(Integer, ForeignKey("comprobantes.id"), nullable=True)
 
     # Relaciones
     payment = relationship("Payment", backref="comprobante")
