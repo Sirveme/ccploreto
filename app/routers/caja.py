@@ -20,6 +20,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, and_, text
 from pydantic import BaseModel, Field
 
+import io
+from fastapi.responses import StreamingResponse
+#from app.services.pdf_cierre_caja import generar_pdf_cierre
+
 from app.database import get_db
 from app.models import (
     Colegiado, Debt, Payment, Comprobante, ConceptoCobro,
@@ -950,6 +954,137 @@ async def cerrar_caja(
         }
     }
 
+
+@router.get("/cierre-caja/{sesion_id}/pdf")
+async def pdf_cierre_caja(sesion_id: int, db: Session = Depends(get_db)):
+    """Genera y descarga el PDF de cierre de caja."""
+    from app.models import SesionCaja, EgresoCaja, Organization, CentroCosto, UsuarioAdmin
+    from app.services.pdf_cierre_caja import generar_pdf_cierre
+
+    sesion = db.query(SesionCaja).filter(SesionCaja.id == sesion_id).first()
+    if not sesion:
+        raise HTTPException(404, detail="Sesión no encontrada")
+
+    if sesion.estado == "abierta":
+        raise HTTPException(400, detail="La sesión aún está abierta. Cierre la caja primero.")
+
+    # Datos de contexto
+    org = db.query(Organization).filter(Organization.id == sesion.organization_id).first()
+    org_nombre = org.razon_social if org else "Organización"
+
+    centro = db.query(CentroCosto).filter(CentroCosto.id == sesion.centro_costo_id).first()
+    sede_nombre = centro.nombre if centro else "Sede Principal"
+
+    cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == sesion.usuario_admin_id).first()
+    cajero_nombre = cajero.nombre if cajero else "Cajero"
+
+    # Pagos de la sesión (fix timezone: usar hora_apertura y hora_cierre)
+    pagos = db.query(Payment).filter(
+        Payment.status.in_(["approved", "anulado"]),
+        Payment.notes.like("[CAJA]%"),
+        Payment.created_at >= sesion.hora_apertura,
+    ).order_by(Payment.created_at.asc()).all()
+
+    # Si la sesión está cerrada, filtrar hasta hora de cierre
+    if sesion.hora_cierre:
+        pagos = [p for p in pagos if p.created_at <= sesion.hora_cierre]
+
+    # Egresos
+    egresos = db.query(EgresoCaja).filter(
+        EgresoCaja.sesion_caja_id == sesion.id
+    ).order_by(EgresoCaja.created_at.asc()).all()
+
+    # Comprobantes emitidos para estos pagos
+    payment_ids = [p.id for p in pagos]
+    comprobantes = []
+    if payment_ids:
+        comprobantes = db.query(Comprobante).filter(
+            Comprobante.payment_id.in_(payment_ids),
+        ).order_by(Comprobante.created_at.asc()).all()
+
+    # Generar PDF
+    pdf_bytes = generar_pdf_cierre(
+        sesion=sesion,
+        org_nombre=org_nombre,
+        sede_nombre=sede_nombre,
+        cajero_nombre=cajero_nombre,
+        pagos=pagos,
+        egresos=egresos,
+        comprobantes=comprobantes,
+    )
+
+    # Nombre del archivo
+    fecha_str = "sin-fecha"
+    if sesion.hora_apertura:
+        from datetime import timezone as tz, timedelta as td
+        TZ_PERU = tz(td(hours=-5))
+        h = sesion.hora_apertura
+        if h.tzinfo is None:
+            h = h.replace(tzinfo=tz.utc)
+        fecha_str = h.astimezone(TZ_PERU).strftime("%Y%m%d")
+
+    filename = f"cierre_caja_{sesion.id}_{fecha_str}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
+# ══════════════════════════════════════════════════════════
+# ENDPOINT PARA LISTAR SESIONES CERRADAS (para historial)
+# ══════════════════════════════════════════════════════════
+
+@router.get("/sesiones-caja")
+async def listar_sesiones(
+    estado: Optional[str] = "cerrada",
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Lista sesiones de caja para acceder a reportes de cierre."""
+    from app.models import SesionCaja, UsuarioAdmin, CentroCosto
+
+    query = db.query(SesionCaja).filter(SesionCaja.organization_id == 1)
+
+    if estado:
+        query = query.filter(SesionCaja.estado == estado)
+
+    sesiones = query.order_by(SesionCaja.fecha.desc()).limit(limit).all()
+
+    resultado = []
+    for s in sesiones:
+        cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == s.usuario_admin_id).first()
+        centro = db.query(CentroCosto).filter(CentroCosto.id == s.centro_costo_id).first()
+
+        from datetime import timezone as tz, timedelta as td
+        TZ_PERU = tz(td(hours=-5))
+
+        def _fmt(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz.utc)
+            return dt.astimezone(TZ_PERU).strftime("%d/%m/%Y %H:%M")
+
+        resultado.append({
+            "id": s.id,
+            "fecha": _fmt(s.fecha),
+            "estado": s.estado,
+            "cajero": cajero.nombre if cajero else "-",
+            "sede": centro.nombre if centro else "-",
+            "hora_apertura": _fmt(s.hora_apertura),
+            "hora_cierre": _fmt(s.hora_cierre),
+            "total_cobros": float((s.total_cobros_efectivo or 0) + (s.total_cobros_digital or 0)),
+            "total_egresos": float(s.total_egresos or 0),
+            "diferencia": float(s.diferencia or 0),
+            "cantidad_operaciones": s.cantidad_operaciones or 0,
+        })
+
+    return {"sesiones": resultado}
 
 # ============================================================
 # EGRESOS
