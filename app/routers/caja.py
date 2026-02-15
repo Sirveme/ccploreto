@@ -970,7 +970,7 @@ async def pdf_cierre_caja(sesion_id: int, db: Session = Depends(get_db)):
 
     # Datos de contexto
     org = db.query(Organization).filter(Organization.id == sesion.organization_id).first()
-    org_nombre = org.razon_social if org else "Organización"
+    org_nombre = org.name if org else "Organización"
 
     centro = db.query(CentroCosto).filter(CentroCosto.id == sesion.centro_costo_id).first()
     sede_nombre = centro.nombre if centro else "Sede Principal"
