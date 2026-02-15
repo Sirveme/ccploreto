@@ -871,41 +871,31 @@
                 PASO 2: Panel completo (agregar después del panel de historial)
                 ═══════════════════════════════════════ -->
 
-            <div id="panelComprobantes" class="tab-panel" style="display:none;">
+            <div class="tab-content" id="tc-comprobantes" style="display:none;">
                 <div class="panel-box">
                     <div class="panel-title">📄 COMPROBANTES EMITIDOS</div>
-
-                    <!-- Buscador -->
                     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                        <input type="text" id="compBuscar" class="m-input" placeholder="Buscar por DNI, RUC, nombre o serie..." 
-                            style="flex:1;min-width:200px;" onkeydown="if(event.key==='Enter')buscarComprobantes()">
-                        <select id="compTipo" class="ap-select" style="width:120px;">
+                        <input type="text" id="compBuscar" class="m-input" placeholder="DNI, RUC, nombre, serie..." style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter')buscarComprobantes()">
+                        <select id="compTipo" class="ap-select" style="width:110px;">
                             <option value="">Todos</option>
                             <option value="03">Boletas</option>
                             <option value="01">Facturas</option>
                             <option value="07">NC</option>
-                            <option value="08">ND</option>
                         </select>
-                        <select id="compEstado" class="ap-select" style="width:120px;">
+                        <select id="compEstado" class="ap-select" style="width:110px;">
                             <option value="">Todo estado</option>
                             <option value="accepted">Aceptado</option>
                             <option value="pending">Pendiente</option>
                             <option value="rejected">Rechazado</option>
                             <option value="anulado">Anulado</option>
                         </select>
-                        <button class="action-btn btn-primary" onclick="buscarComprobantes()">🔍 Buscar</button>
+                        <button class="action-btn btn-primary" onclick="buscarComprobantes()">🔍</button>
                     </div>
-
-                    <!-- Resumen rápido -->
-                    <div id="compSummary" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;"></div>
-
-                    <!-- Lista -->
+                    <div id="compSummary" style="font-size:12px;color:var(--text-sec);margin-bottom:8px;"></div>
                     <div id="compLista" style="max-height:500px;overflow-y:auto;">
                         <div class="hist-empty">Busca comprobantes por DNI, nombre o número</div>
                     </div>
-
-                    <!-- Paginación -->
-                    <div id="compPaginacion" style="display:flex;justify-content:center;gap:8px;margin-top:10px;"></div>
+                    <div id="compPaginacion" style="display:flex;justify-content:center;gap:6px;margin-top:10px;"></div>
                 </div>
             </div>
 
@@ -1337,6 +1327,11 @@ function cambiarTab(t) {
     document.getElementById('panelHistorial').style.display=t==='historial'?'block':'none';
     if(t==='egresos') cargarEgresos();
     if(t==='historial') { if(!document.getElementById('histFecha').value) { const ah=new Date(); ah.setMinutes(ah.getMinutes()-ah.getTimezoneOffset()-300); document.getElementById('histFecha').value=ah.toISOString().split('T')[0]; } cargarHistorial(); }
+
+    if (tab === 'comprobantes' && !document.getElementById('compLista').querySelector('.comp-row')) {
+        buscarComprobantes();
+    }
+
 }
 function confirmarCobro() {
     if(!carrito.length) return;
