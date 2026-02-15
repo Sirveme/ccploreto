@@ -158,19 +158,21 @@
         .act-btn-red:hover { border-color:var(--red); color:var(--red); }
 
         /* ── Paginación ── */
-        .pag-row { display:flex; justify-content:center; gap:6px; padding:14px; }
         .pag-btn {
-            background:rgba(255,255,255,0.05);
-            border:1px solid var(--border);
-            color:var(--text-sec);
-            padding:6px 12px;
-            border-radius:4px;
-            cursor:pointer;
-            font-size:12px;
-            transition:all 0.15s;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-sec);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            min-width: 36px;
+            text-align: center;
+            transition: all 0.15s;
+            margin: 0 2px;
         }
-        .pag-btn:hover { background:rgba(255,255,255,0.1); }
-        .pag-active { background:var(--accent)!important; color:#fff!important; border-color:var(--accent)!important; }
+        .pag-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .pag-active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
 
         /* ── Empty ── */
         .empty-state { text-align:center; padding:60px 20px; color:var(--text-sec); }
