@@ -1,8 +1,15 @@
 """
-Servicio: Emisión automática de certificados
-=============================================
+Servicio: Emisión automática de constancias de habilidad
+=========================================================
 Función reutilizable desde pagos o admin.
 NO hace commit - el llamador controla la transacción.
+
+Seguridad (ISO 27001):
+- Código de verificación público: CERT-2026-00123 (correlativo)
+- Código de seguridad privado: A3K2-M7NP-X9QR (se imprime en la constancia)
+- Verificación: público + privado deben coincidir
+- Esto impide falsificación: aunque alguien adivine el correlativo,
+  no puede generar el código de seguridad aleatorio.
 """
 
 from sqlalchemy.orm import Session
@@ -12,6 +19,8 @@ from dateutil.relativedelta import relativedelta
 import secrets
 
 def generar_codigo_seguridad() -> str:
+    """Genera código alfanumérico de 12 caracteres (3 grupos de 4).
+    Excluye caracteres ambiguos: 0/O, 1/I/L."""
     caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
     grupos = []
     for _ in range(3):
@@ -21,8 +30,17 @@ def generar_codigo_seguridad() -> str:
 
 
 def calcular_vigencia(fecha_pago: date, en_fraccionamiento: bool = False) -> date:
+    """
+    Calcula fecha de vigencia de la constancia.
+    
+    - Normal (sin fraccionamiento): 3 meses desde la fecha de pago,
+      hasta el último día del mes resultante.
+    - Con fraccionamiento: 1 mes desde la fecha de pago,
+      hasta el último día del mes resultante.
+    """
     meses = 1 if en_fraccionamiento else 3
     fecha_fin = fecha_pago + relativedelta(months=meses)
+    # Último día del mes
     primer_dia_sig = fecha_fin.replace(day=1) + relativedelta(months=1)
     ultimo_dia = primer_dia_sig - timedelta(days=1)
     return ultimo_dia
@@ -63,26 +81,32 @@ def emitir_certificado_automatico(
     emitido_por: int = None
 ) -> dict:
     """
-    Emite certificado automáticamente después de pago aprobado.
+    Emite constancia de habilidad después de pago aprobado.
     NO hace commit - el llamador controla la transacción.
+    
+    Vigencia:
+    - Sin fraccionamiento: 3 meses
+    - Con fraccionamiento activo: 1 mes
     """
     
-    # 1. Datos del colegiado
+    # 1. Datos del colegiado (incluir campos de fraccionamiento)
     colegiado = db.execute(
         text("""
-            SELECT id, apellidos_nombres, codigo_matricula, condicion
+            SELECT id, apellidos_nombres, codigo_matricula, condicion,
+                   COALESCE(tiene_fraccionamiento, false) as tiene_fraccionamiento,
+                   habilidad_vence
             FROM colegiados WHERE id = :cid
         """),
         {"cid": colegiado_id}
     ).fetchone()
     
     if not colegiado:
-        print(f"⚠️ Certificado: colegiado {colegiado_id} no encontrado")
+        print(f"⚠️ Constancia: colegiado {colegiado_id} no encontrado")
         return {"emitido": False, "error": "Colegiado no encontrado"}
     
     # 2. Solo emitir si está hábil
     if colegiado.condicion not in ('habil', 'vitalicio'):
-        print(f"⚠️ Certificado: colegiado {colegiado_id} no hábil ({colegiado.condicion})")
+        print(f"⚠️ Constancia: colegiado {colegiado_id} no hábil ({colegiado.condicion})")
         return {"emitido": False, "error": f"No hábil: {colegiado.condicion}"}
     
     # 3. Datos del pago
@@ -103,12 +127,22 @@ def emitir_certificado_automatico(
     ).fetchone()[0]
     codigo_seguridad = generar_codigo_seguridad()
     
-    # 6. Calcular vigencia
+    # 6. Calcular vigencia según fraccionamiento
     fecha_pago = pago.created_at.date() if hasattr(pago.created_at, 'date') else pago.created_at
-    fecha_vigencia = calcular_vigencia(fecha_pago)
+    en_fraccionamiento = bool(colegiado.tiene_fraccionamiento)
+    
+    if en_fraccionamiento and colegiado.habilidad_vence:
+        # Si tiene habilidad temporal, la constancia vence cuando vence la habilidad
+        fecha_vigencia = colegiado.habilidad_vence.date() if hasattr(
+            colegiado.habilidad_vence, 'date'
+        ) else colegiado.habilidad_vence
+    else:
+        # Normal: 3 meses. Fraccionamiento sin habilidad_vence: 1 mes.
+        fecha_vigencia = calcular_vigencia(fecha_pago, en_fraccionamiento)
+    
     fecha_emision = datetime.now()
     
-    # 7. Insertar certificado
+    # 7. Insertar constancia
     db.execute(
         text("""
             INSERT INTO certificados_emitidos (
@@ -121,7 +155,7 @@ def emitir_certificado_automatico(
                 :codigo, :seguridad, :colegiado_id,
                 :nombres, :apellidos, :matricula,
                 :fecha_emision, :fecha_vigencia,
-                FALSE, :payment_id,
+                :en_fraccionamiento, :payment_id,
                 :emitido_por, :ip, 'vigente'
             )
         """),
@@ -134,18 +168,27 @@ def emitir_certificado_automatico(
             "matricula": colegiado.codigo_matricula,
             "fecha_emision": fecha_emision,
             "fecha_vigencia": fecha_vigencia,
+            "en_fraccionamiento": en_fraccionamiento,
             "payment_id": payment_id,
             "emitido_por": str(emitido_por) if emitido_por else "sistema",
             "ip": ip_origen
         }
     )
     
-    print(f"✅ Certificado emitido: {codigo_correlativo} → {colegiado.apellidos_nombres}")
+    vigencia_meses = "1 mes" if en_fraccionamiento else "3 meses"
+    print(
+        f"✅ Constancia emitida: {codigo_correlativo} → {colegiado.apellidos_nombres} "
+        f"(vigencia: {vigencia_meses}, hasta {fecha_vigencia})"
+    )
     
     return {
         "emitido": True,
         "codigo": codigo_correlativo,
         "codigo_seguridad": codigo_seguridad,
         "vigencia_hasta": fecha_vigencia.isoformat(),
-        "nombre": colegiado.apellidos_nombres
+        "vigencia_meses": vigencia_meses,
+        "en_fraccionamiento": en_fraccionamiento,
+        "nombre": colegiado.apellidos_nombres,
+        # URL de verificación pública (con ambos códigos)
+        "url_verificacion": f"/verificar/{codigo_correlativo}?s={codigo_seguridad}",
     }

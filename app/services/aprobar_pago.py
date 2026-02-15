@@ -42,7 +42,7 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
     # ── Aprobar ──
     pago.status = "approved"
     pago.reviewed_at = datetime.now(timezone.utc)
-    pago.reviewed_by = aprobado_por  # Campo opcional, agregar si no existe
+    pago.reviewed_by = aprobado_por
 
     # ── Imputar a deudas (FIFO por fecha de vencimiento) ──
     deudas = db.query(Debt).filter(
@@ -64,22 +64,53 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
             deuda.status = "partial"
             monto_restante = 0
 
-    # ── Verificar si quedó al día → cambiar condición a hábil ──
+    # ── Verificar habilidad ──
     deudas_pendientes = db.query(Debt).filter(
         Debt.colegiado_id == pago.colegiado_id,
         Debt.status.in_(["pending", "partial"])
     ).count()
 
+    # ¿Tiene cuotas de fraccionamiento pendientes?
+    tiene_fracc = db.query(Debt).filter(
+        Debt.colegiado_id == pago.colegiado_id,
+        Debt.debt_type == "fraccionamiento",
+        Debt.status.in_(["pending", "partial"]),
+    ).count() > 0
+
     cambio_habilidad = False
+    habilidad_temporal = False
+    habilidad_vence = None
+
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.id == pago.colegiado_id
+    ).first()
+
     if deudas_pendientes == 0:
-        colegiado = db.query(Colegiado).filter(
-            Colegiado.id == pago.colegiado_id
-        ).first()
-        if colegiado and colegiado.condicion == "inhabil":
+        # Sin deudas → hábil permanente
+        if colegiado and colegiado.condicion != "habil":
             colegiado.condicion = "habil"
             colegiado.fecha_actualizacion_condicion = datetime.now(timezone.utc)
+            colegiado.tiene_fraccionamiento = False
+            colegiado.habilidad_vence = None
             cambio_habilidad = True
-            logger.info(f"Colegiado {pago.colegiado_id} → HÁBIL (pago #{payment_id} por {aprobado_por})")
+            logger.info(f"Colegiado {pago.colegiado_id} → HÁBIL permanente (pago #{payment_id})")
+
+    elif tiene_fracc:
+        # Tiene fraccionamiento → hábil temporal hasta próxima cuota + gracia
+        from app.services.politicas_financieras import (
+            habilitar_por_fraccionamiento,
+            proxima_cuota_fraccionamiento,
+        )
+        proxima = proxima_cuota_fraccionamiento(db, pago.colegiado_id)
+        if proxima and colegiado:
+            habilitar_por_fraccionamiento(db, pago.colegiado_id, proxima)
+            cambio_habilidad = True
+            habilidad_temporal = True
+            habilidad_vence = proxima.strftime("%d/%m/%Y")
+            logger.info(
+                f"Colegiado {pago.colegiado_id} → HÁBIL temporal hasta {proxima} "
+                f"(pago #{payment_id})"
+            )
 
     # Flush antes de emitir certificado
     db.flush()
@@ -105,6 +136,8 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
         "aprobado_por": aprobado_por,
         "saldo_a_favor": float(monto_restante) if monto_restante > 0 else 0,
         "cambio_habilidad": cambio_habilidad,
+        "habilidad_temporal": habilidad_temporal,
+        "habilidad_vence": habilidad_vence,
     }
 
     if certificado_info and certificado_info.get("emitido"):
