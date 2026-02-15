@@ -1,0 +1,1003 @@
+{% extends "base_admin.html" %}
+{% block title %}Finanzas{% endblock %}
+
+{% block head_extra %}
+<style>
+:root {
+    --fin-bg: #0c0f1a;
+    --fin-surface: #141824;
+    --fin-surface2: #1a1f30;
+    --fin-border: rgba(148,163,184,0.08);
+    --fin-text: #e2e8f0;
+    --fin-text2: #94a3b8;
+    --fin-text3: #64748b;
+    --fin-accent: #6366f1;
+    --fin-green: #22c55e;
+    --fin-red: #ef4444;
+    --fin-yellow: #f59e0b;
+    --fin-cyan: #06b6d4;
+}
+
+/* ═══ LAYOUT ═══ */
+.fin-wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px 80px; }
+
+.fin-header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 0 16px; border-bottom: 1px solid var(--fin-border);
+    margin-bottom: 20px; position: relative;
+}
+.fin-header h1 {
+    font-size: 20px; font-weight: 700; color: var(--fin-text);
+    display: flex; align-items: center; gap: 10px; flex: 1;
+}
+.fin-header h1 i { color: var(--fin-accent); font-size: 24px; }
+.fin-live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--fin-green);
+    animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.fin-header-actions { display: flex; gap: 8px; align-items: center; }
+.fin-notif-btn {
+    position: relative; background: var(--fin-surface2); border: 1px solid var(--fin-border);
+    color: var(--fin-text2); width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-size: 18px; transition: all .2s;
+}
+.fin-notif-btn:hover { background: var(--fin-surface); border-color: var(--fin-accent); color: var(--fin-text); }
+.fin-notif-badge {
+    position: absolute; top: -4px; right: -4px; background: var(--fin-red);
+    color: #fff; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px;
+    border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px;
+}
+.fin-notif-badge:empty { display: none; }
+
+/* ═══ TABS ═══ */
+.fin-tabs {
+    display: flex; gap: 2px; background: var(--fin-surface);
+    border-radius: 12px; padding: 4px; margin-bottom: 20px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.fin-tab {
+    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px;
+    background: transparent; border: none; color: var(--fin-text3);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    white-space: nowrap; position: relative;
+}
+.fin-tab i { font-size: 16px; }
+.fin-tab:hover { color: var(--fin-text2); background: rgba(255,255,255,.03); }
+.fin-tab.active { color: var(--fin-text); background: var(--fin-accent); }
+.fin-tab-badge {
+    background: var(--fin-red); color: #fff; font-size: 9px; font-weight: 700;
+    min-width: 16px; height: 16px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; padding: 0 4px;
+}
+.fin-tab-badge:empty { display: none; }
+
+.fin-panel { display: none; }
+.fin-panel.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ═══ CARDS ═══ */
+.fin-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.fin-kpi {
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-radius: 12px; padding: 16px; position: relative; overflow: hidden;
+}
+.fin-kpi-label { font-size: 11px; color: var(--fin-text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.fin-kpi-value { font-size: 24px; font-weight: 800; color: var(--fin-text); font-variant-numeric: tabular-nums; }
+.fin-kpi-sub { font-size: 11px; color: var(--fin-text3); margin-top: 4px; }
+.fin-kpi-icon {
+    position: absolute; top: 12px; right: 12px; width: 32px; height: 32px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+}
+.fin-kpi.green .fin-kpi-value { color: var(--fin-green); }
+.fin-kpi.green .fin-kpi-icon { background: rgba(34,197,94,.1); color: var(--fin-green); }
+.fin-kpi.red .fin-kpi-value { color: var(--fin-red); }
+.fin-kpi.red .fin-kpi-icon { background: rgba(239,68,68,.1); color: var(--fin-red); }
+.fin-kpi.yellow .fin-kpi-value { color: var(--fin-yellow); }
+.fin-kpi.yellow .fin-kpi-icon { background: rgba(245,158,11,.1); color: var(--fin-yellow); }
+.fin-kpi.accent .fin-kpi-value { color: var(--fin-accent); }
+.fin-kpi.accent .fin-kpi-icon { background: rgba(99,102,241,.1); color: var(--fin-accent); }
+
+/* ═══ SECTION CARDS ═══ */
+.fin-section {
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-radius: 12px; margin-bottom: 16px; overflow: hidden;
+}
+.fin-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--fin-border);
+}
+.fin-section-title { font-size: 13px; font-weight: 700; color: var(--fin-text); display: flex; align-items: center; gap: 8px; }
+.fin-section-title i { color: var(--fin-accent); }
+.fin-section-body { padding: 16px; }
+.fin-section-actions { display: flex; gap: 6px; }
+
+/* ═══ CAJAS ═══ */
+.fin-caja-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.fin-caja-card {
+    background: var(--fin-surface2); border: 1px solid var(--fin-border);
+    border-radius: 10px; padding: 16px; transition: border-color .2s;
+}
+.fin-caja-card:hover { border-color: rgba(99,102,241,.3); }
+.fin-caja-card.abierta { border-left: 3px solid var(--fin-green); }
+.fin-caja-card.cerrada { border-left: 3px solid var(--fin-text3); opacity: .7; }
+.fin-caja-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.fin-caja-nombre { font-size: 14px; font-weight: 700; color: var(--fin-text); }
+.fin-caja-estado { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+.fin-caja-estado.abierta { background: rgba(34,197,94,.1); color: var(--fin-green); }
+.fin-caja-estado.cerrada { background: rgba(100,116,139,.1); color: var(--fin-text3); }
+.fin-caja-cajera { font-size: 12px; color: var(--fin-text2); margin-bottom: 10px; }
+.fin-caja-montos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fin-caja-monto { text-align: center; }
+.fin-caja-monto-label { font-size: 10px; color: var(--fin-text3); text-transform: uppercase; }
+.fin-caja-monto-value { font-size: 16px; font-weight: 700; color: var(--fin-text); margin-top: 2px; }
+.fin-caja-apertura { font-size: 11px; color: var(--fin-text3); margin-top: 10px; display: flex; align-items: center; gap: 4px; }
+
+/* ═══ AUTORIZACIONES ═══ */
+.fin-auth-list { display: flex; flex-direction: column; gap: 10px; }
+.fin-auth-item {
+    background: var(--fin-surface2); border: 1px solid var(--fin-border);
+    border-radius: 10px; padding: 14px 16px; transition: all .2s;
+}
+.fin-auth-item:hover { border-color: rgba(99,102,241,.2); }
+.fin-auth-item.urgente { border-left: 3px solid var(--fin-red); }
+.fin-auth-item.normal { border-left: 3px solid var(--fin-yellow); }
+.fin-auth-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.fin-auth-tipo {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 4px; letter-spacing: .5px;
+}
+.fin-auth-tipo.anulacion { background: rgba(239,68,68,.1); color: var(--fin-red); }
+.fin-auth-tipo.gasto { background: rgba(245,158,11,.1); color: var(--fin-yellow); }
+.fin-auth-tipo.adelanto { background: rgba(6,182,212,.1); color: var(--fin-cyan); }
+.fin-auth-tipo.devolucion { background: rgba(139,92,246,.1); color: #a78bfa; }
+.fin-auth-tipo.fraccionamiento { background: rgba(99,102,241,.1); color: var(--fin-accent); }
+.fin-auth-monto { font-size: 18px; font-weight: 800; color: var(--fin-text); }
+.fin-auth-desc { font-size: 13px; color: var(--fin-text2); margin-bottom: 4px; }
+.fin-auth-meta { font-size: 11px; color: var(--fin-text3); display: flex; gap: 12px; flex-wrap: wrap; }
+.fin-auth-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ═══ BUTTONS ═══ */
+.fin-btn {
+    padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer; transition: all .15s; display: flex;
+    align-items: center; gap: 6px;
+}
+.fin-btn.primary { background: var(--fin-accent); color: #fff; }
+.fin-btn.primary:hover { filter: brightness(1.1); }
+.fin-btn.success { background: var(--fin-green); color: #fff; }
+.fin-btn.success:hover { filter: brightness(1.1); }
+.fin-btn.danger { background: rgba(239,68,68,.15); color: var(--fin-red); }
+.fin-btn.danger:hover { background: rgba(239,68,68,.25); }
+.fin-btn.ghost { background: transparent; color: var(--fin-text2); border: 1px solid var(--fin-border); }
+.fin-btn.ghost:hover { background: rgba(255,255,255,.03); color: var(--fin-text); }
+.fin-btn.sm { padding: 6px 12px; font-size: 11px; }
+
+/* ═══ TIMELINE ═══ */
+.fin-timeline { position: relative; padding-left: 24px; }
+.fin-timeline::before {
+    content: ''; position: absolute; left: 7px; top: 4px; bottom: 4px;
+    width: 2px; background: var(--fin-border);
+}
+.fin-timeline-item { position: relative; padding: 0 0 16px; }
+.fin-timeline-dot {
+    position: absolute; left: -21px; top: 4px; width: 12px; height: 12px;
+    border-radius: 50%; border: 2px solid var(--fin-surface);
+}
+.fin-timeline-dot.green { background: var(--fin-green); }
+.fin-timeline-dot.red { background: var(--fin-red); }
+.fin-timeline-dot.yellow { background: var(--fin-yellow); }
+.fin-timeline-dot.accent { background: var(--fin-accent); }
+.fin-timeline-dot.gray { background: var(--fin-text3); }
+.fin-timeline-text { font-size: 13px; color: var(--fin-text2); line-height: 1.5; }
+.fin-timeline-text strong { color: var(--fin-text); }
+.fin-timeline-time { font-size: 11px; color: var(--fin-text3); margin-top: 2px; }
+
+/* ═══ RESERVAS ═══ */
+.fin-reserva-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: var(--fin-surface2); border-radius: 8px; margin-bottom: 8px;
+}
+.fin-reserva-icon {
+    width: 36px; height: 36px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-size: 16px;
+    background: rgba(245,158,11,.1); color: var(--fin-yellow); flex-shrink: 0;
+}
+.fin-reserva-info { flex: 1; }
+.fin-reserva-concepto { font-size: 13px; font-weight: 600; color: var(--fin-text); }
+.fin-reserva-fecha { font-size: 11px; color: var(--fin-text3); }
+.fin-reserva-monto { font-size: 15px; font-weight: 700; color: var(--fin-yellow); }
+
+/* ═══ ISO BADGE ═══ */
+.fin-iso-badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
+    color: var(--fin-text3); background: rgba(99,102,241,.06);
+    border: 1px solid rgba(99,102,241,.1); padding: 3px 8px; border-radius: 6px;
+}
+
+/* ═══ EMPTY STATE ═══ */
+.fin-empty { text-align: center; padding: 40px 20px; color: var(--fin-text3); }
+.fin-empty i { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
+.fin-empty p { font-size: 13px; }
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 640px) {
+    .fin-kpi-grid { grid-template-columns: 1fr 1fr; }
+    .fin-caja-grid { grid-template-columns: 1fr; }
+    .fin-tab span { display: none; }
+    .fin-tab { padding: 10px 8px; }
+}
+
+/* ═══ TOAST NOTIFICATION (WebSocket) ═══ */
+.fin-ws-toast {
+    position: fixed; top: 16px; right: 16px; z-index: 9999;
+    background: var(--fin-surface); border: 1px solid var(--fin-accent);
+    border-radius: 12px; padding: 14px 16px; min-width: 300px; max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4); transform: translateX(120%);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.fin-ws-toast.show { transform: translateX(0); }
+.fin-ws-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.fin-ws-toast-title { font-size: 13px; font-weight: 700; color: var(--fin-text); flex: 1; }
+.fin-ws-toast-close { background: none; border: none; color: var(--fin-text3); cursor: pointer; font-size: 16px; }
+.fin-ws-toast-body { font-size: 12px; color: var(--fin-text2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fin-wrap">
+
+    <!-- HEADER -->
+    <div class="fin-header">
+        <h1>
+            <i class="ph ph-chart-line-up"></i>
+            Finanzas
+            <div class="fin-live-dot" title="Conectado en tiempo real"></div>
+        </h1>
+        <div class="fin-header-actions">
+            <span class="fin-iso-badge"><i class="ph ph-shield-check"></i> ISO 37001</span>
+            <button class="fin-notif-btn" onclick="Finanzas.toggleNotificaciones()" title="Notificaciones">
+                <i class="ph ph-bell"></i>
+                <span class="fin-notif-badge" id="fin-notif-count"></span>
+            </button>
+            <button class="fin-notif-btn" onclick="Finanzas.sincronizarEmail()" title="Sincronizar emails bancarios">
+                <i class="ph ph-envelope-simple"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="fin-tabs">
+        <button class="fin-tab active" onclick="Finanzas.tab('resumen')">
+            <i class="ph ph-chart-pie-slice"></i> <span>Resumen</span>
+        </button>
+        <button class="fin-tab" onclick="Finanzas.tab('cajas')">
+            <i class="ph ph-cash-register"></i> <span>Cajas</span>
+        </button>
+        <button class="fin-tab" onclick="Finanzas.tab('conciliacion')">
+            <i class="ph ph-bank"></i> <span>Conciliación</span>
+        </button>
+        <button class="fin-tab" onclick="Finanzas.tab('autorizaciones')">
+            <i class="ph ph-stamp"></i> <span>Autorizar</span>
+            <span class="fin-tab-badge" id="badge-autorizaciones"></span>
+        </button>
+        <button class="fin-tab" onclick="Finanzas.tab('presupuesto')">
+            <i class="ph ph-vault"></i> <span>Reservas</span>
+        </button>
+        <button class="fin-tab" onclick="Finanzas.tab('reportes')">
+            <i class="ph ph-file-text"></i> <span>Reportes</span>
+        </button>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: RESUMEN                       -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel active" id="panel-resumen">
+
+        <!-- KPIs -->
+        <div class="fin-kpi-grid">
+            <div class="fin-kpi green">
+                <div class="fin-kpi-label">Ingresos hoy</div>
+                <div class="fin-kpi-value" id="kpi-ingresos-hoy">S/ 0</div>
+                <div class="fin-kpi-sub" id="kpi-ingresos-sub">0 operaciones</div>
+                <div class="fin-kpi-icon"><i class="ph ph-arrow-up"></i></div>
+            </div>
+            <div class="fin-kpi red">
+                <div class="fin-kpi-label">Egresos hoy</div>
+                <div class="fin-kpi-value" id="kpi-egresos-hoy">S/ 0</div>
+                <div class="fin-kpi-sub" id="kpi-egresos-sub">0 gastos</div>
+                <div class="fin-kpi-icon"><i class="ph ph-arrow-down"></i></div>
+            </div>
+            <div class="fin-kpi accent">
+                <div class="fin-kpi-label">Saldo neto</div>
+                <div class="fin-kpi-value" id="kpi-saldo">S/ 0</div>
+                <div class="fin-kpi-sub">Efectivo + digital</div>
+                <div class="fin-kpi-icon"><i class="ph ph-scales"></i></div>
+            </div>
+            <div class="fin-kpi yellow">
+                <div class="fin-kpi-label">Pendientes</div>
+                <div class="fin-kpi-value" id="kpi-pendientes">0</div>
+                <div class="fin-kpi-sub">Autorizaciones</div>
+                <div class="fin-kpi-icon"><i class="ph ph-stamp"></i></div>
+            </div>
+        </div>
+
+        <!-- Cajas abiertas -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-cash-register"></i> Cajas Abiertas</div>
+                <button class="fin-btn ghost sm" onclick="Finanzas.tab('cajas')">Ver todas</button>
+            </div>
+            <div class="fin-section-body">
+                <div class="fin-caja-grid" id="resumen-cajas">
+                    <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando cajas...</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-clock-counter-clockwise"></i> Últimos Movimientos</div>
+            </div>
+            <div class="fin-section-body">
+                <div class="fin-timeline" id="resumen-timeline">
+                    <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando...</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recaudación del mes -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-chart-bar"></i> Recaudación del Mes</div>
+                <div class="fin-section-actions">
+                    <button class="fin-btn ghost sm" onclick="Finanzas.tab('reportes')">Detalle</button>
+                </div>
+            </div>
+            <div class="fin-section-body">
+                <div class="fin-kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Efectivo</div>
+                        <div style="font-size:18px;font-weight:700;color:var(--fin-green);margin-top:4px;" id="mes-efectivo">S/ 0</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Yape</div>
+                        <div style="font-size:18px;font-weight:700;color:#a855f7;margin-top:4px;" id="mes-yape">S/ 0</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Plin</div>
+                        <div style="font-size:18px;font-weight:700;color:var(--fin-cyan);margin-top:4px;" id="mes-plin">S/ 0</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Transf.</div>
+                        <div style="font-size:18px;font-weight:700;color:var(--fin-yellow);margin-top:4px;" id="mes-transferencia">S/ 0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: CAJAS                         -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel" id="panel-cajas">
+        <div class="fin-caja-grid" id="cajas-grid">
+            <div class="fin-empty"><i class="ph ph-cash-register"></i><p>Cargando cajas...</p></div>
+        </div>
+
+        <div class="fin-section" style="margin-top:16px;">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-file-text"></i> Historial de Cierres</div>
+                <div class="fin-section-actions">
+                    <select id="cierre-filtro-dias" class="fin-btn ghost sm" onchange="Finanzas.cargarCierres()">
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30">Últimos 30 días</option>
+                        <option value="90">Últimos 3 meses</option>
+                    </select>
+                </div>
+            </div>
+            <div class="fin-section-body" id="cierres-lista">
+                <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando cierres...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: CONCILIACIÓN                  -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel" id="panel-conciliacion">
+        <!-- KPIs Conciliación -->
+        <div class="fin-kpi-grid">
+            <div class="fin-kpi green">
+                <div class="fin-kpi-label">Verificados</div>
+                <div class="fin-kpi-value" id="conc-verificados">0</div>
+                <div class="fin-kpi-icon"><i class="ph ph-check-circle"></i></div>
+            </div>
+            <div class="fin-kpi yellow">
+                <div class="fin-kpi-label">Sin match</div>
+                <div class="fin-kpi-value" id="conc-sin-match">0</div>
+                <div class="fin-kpi-icon"><i class="ph ph-question"></i></div>
+            </div>
+            <div class="fin-kpi red">
+                <div class="fin-kpi-label">Sin verificar</div>
+                <div class="fin-kpi-value" id="conc-sin-verificar">0</div>
+                <div class="fin-kpi-icon"><i class="ph ph-warning"></i></div>
+            </div>
+            <div class="fin-kpi accent">
+                <div class="fin-kpi-label">Tasa verif.</div>
+                <div class="fin-kpi-value" id="conc-tasa">0%</div>
+                <div class="fin-kpi-icon"><i class="ph ph-percent"></i></div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <button class="fin-btn primary" onclick="Finanzas.sincronizarEmail()">
+                <i class="ph ph-envelope-simple"></i> Sincronizar emails
+            </button>
+            <button class="fin-btn ghost" onclick="Finanzas.emailStatus()">
+                <i class="ph ph-plugs-connected"></i> Estado conexión
+            </button>
+        </div>
+
+        <!-- Notificaciones bancarias -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-envelope"></i> Notificaciones Bancarias</div>
+                <div class="fin-section-actions">
+                    <select id="conc-filtro-estado" class="fin-btn ghost sm" onchange="Finanzas.cargarNotificaciones()">
+                        <option value="">Todos</option>
+                        <option value="conciliado">Verificados</option>
+                        <option value="sin_match">Sin match</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="ignorado">Ignorados</option>
+                    </select>
+                </div>
+            </div>
+            <div class="fin-section-body" id="conc-notificaciones">
+                <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando...</p></div>
+            </div>
+        </div>
+
+        <!-- Pagos sin verificar -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-warning-circle"></i> Pagos Digitales sin Verificar</div>
+            </div>
+            <div class="fin-section-body" id="conc-sin-verificar-lista">
+                <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: AUTORIZACIONES                -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel" id="panel-autorizaciones">
+
+        <!-- Pendientes -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title">
+                    <i class="ph ph-stamp"></i> Pendientes de Autorización
+                    <span class="fin-tab-badge" id="badge-auth-pendientes"></span>
+                </div>
+            </div>
+            <div class="fin-section-body">
+                <div class="fin-auth-list" id="auth-pendientes">
+                    <div class="fin-empty"><i class="ph ph-check-circle"></i><p>Sin autorizaciones pendientes</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración de umbrales -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-gear"></i> Reglas de Autorización</div>
+                <span class="fin-iso-badge"><i class="ph ph-shield-check"></i> Control ISO 37001</span>
+            </div>
+            <div class="fin-section-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div>
+                        <label style="font-size:11px;color:var(--fin-text3);display:block;margin-bottom:4px;">
+                            Umbral anulación (S/)
+                        </label>
+                        <input type="number" id="cfg-umbral-anulacion" value="100"
+                               style="background:var(--fin-surface2);border:1px solid var(--fin-border);border-radius:8px;padding:8px 12px;color:var(--fin-text);width:100%;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:var(--fin-text3);display:block;margin-bottom:4px;">
+                            Gasto libre sin autorización (S/)
+                        </label>
+                        <input type="number" id="cfg-umbral-gasto" value="50"
+                               style="background:var(--fin-surface2);border:1px solid var(--fin-border);border-radius:8px;padding:8px 12px;color:var(--fin-text);width:100%;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:var(--fin-text3);display:block;margin-bottom:4px;">
+                            Doble firma a partir de (S/)
+                        </label>
+                        <input type="number" id="cfg-umbral-doble" value="1000"
+                               style="background:var(--fin-surface2);border:1px solid var(--fin-border);border-radius:8px;padding:8px 12px;color:var(--fin-text);width:100%;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:var(--fin-text3);display:block;margin-bottom:4px;">
+                            Máx adelanto por persona (S/)
+                        </label>
+                        <input type="number" id="cfg-max-adelanto" value="500"
+                               style="background:var(--fin-surface2);border:1px solid var(--fin-border);border-radius:8px;padding:8px 12px;color:var(--fin-text);width:100%;font-size:14px;">
+                    </div>
+                </div>
+                <button class="fin-btn primary" style="margin-top:12px;" onclick="Finanzas.guardarConfig()">
+                    <i class="ph ph-floppy-disk"></i> Guardar reglas
+                </button>
+            </div>
+        </div>
+
+        <!-- Historial -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-clock-counter-clockwise"></i> Historial de Autorizaciones</div>
+            </div>
+            <div class="fin-section-body" id="auth-historial">
+                <div class="fin-empty"><i class="ph ph-spinner"></i><p>Cargando historial...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: PRESUPUESTO Y RESERVAS        -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel" id="panel-presupuesto">
+
+        <!-- Reservas activas -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-lock-simple"></i> Reservas de Efectivo</div>
+                <button class="fin-btn primary sm" onclick="Finanzas.nuevaReserva()">
+                    <i class="ph ph-plus"></i> Nueva reserva
+                </button>
+            </div>
+            <div class="fin-section-body" id="reservas-lista">
+                <div class="fin-empty"><i class="ph ph-vault"></i><p>Sin reservas activas</p></div>
+            </div>
+        </div>
+
+        <!-- Pagos programados -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-calendar-check"></i> Pagos Programados</div>
+                <button class="fin-btn primary sm" onclick="Finanzas.nuevoPagoProgramado()">
+                    <i class="ph ph-plus"></i> Programar pago
+                </button>
+            </div>
+            <div class="fin-section-body" id="pagos-programados-lista">
+                <div class="fin-empty"><i class="ph ph-calendar-blank"></i><p>Sin pagos programados</p></div>
+            </div>
+        </div>
+
+        <!-- Disponible -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-wallet"></i> Disponibilidad</div>
+            </div>
+            <div class="fin-section-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+                    <div>
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Saldo total</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--fin-text);margin-top:4px;" id="disp-total">S/ 0</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Reservado</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--fin-yellow);margin-top:4px;" id="disp-reservado">S/ 0</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--fin-text3);text-transform:uppercase;">Disponible</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--fin-green);margin-top:4px;" id="disp-libre">S/ 0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- TAB: REPORTES                      -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="fin-panel" id="panel-reportes">
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-file-text"></i> Generar Reportes</div>
+            </div>
+            <div class="fin-section-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('ingresos-diario')">
+                        <i class="ph ph-calendar"></i> Ingresos del día
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('ingresos-mensual')">
+                        <i class="ph ph-chart-bar"></i> Ingresos del mes
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('metodo-pago')">
+                        <i class="ph ph-credit-card"></i> Por método de pago
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('morosidad')">
+                        <i class="ph ph-warning"></i> Morosidad
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('comprobantes')">
+                        <i class="ph ph-receipt"></i> Comprobantes emitidos
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('auditoria')">
+                        <i class="ph ph-shield-check"></i> Log de auditoría
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('cierres')">
+                        <i class="ph ph-cash-register"></i> Cierres de caja
+                    </button>
+                    <button class="fin-btn ghost" onclick="Finanzas.reporte('conciliacion')">
+                        <i class="ph ph-bank"></i> Conciliación bancaria
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reporte rápido: este mes vs anterior -->
+        <div class="fin-section">
+            <div class="fin-section-header">
+                <div class="fin-section-title"><i class="ph ph-chart-line-up"></i> Comparativo Mensual</div>
+            </div>
+            <div class="fin-section-body" id="reporte-comparativo">
+                <div class="fin-empty"><i class="ph ph-chart-bar"></i><p>Selecciona un reporte o espera la carga automática</p></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Toast para WebSocket -->
+<div class="fin-ws-toast" id="fin-ws-toast">
+    <div class="fin-ws-toast-header">
+        <span class="fin-ws-toast-title" id="ws-toast-title"></span>
+        <button class="fin-ws-toast-close" onclick="document.getElementById('fin-ws-toast').classList.remove('show')">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+    <div class="fin-ws-toast-body" id="ws-toast-body"></div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- JAVASCRIPT                         -->
+<!-- ═══════════════════════════════════ -->
+<script>
+const Finanzas = {
+    ws: null,
+    wsReconnectTimer: null,
+
+    // ─── Tabs ───
+    tab(name) {
+        document.querySelectorAll('.fin-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.fin-panel').forEach(p => p.classList.remove('active'));
+        document.querySelector(`.fin-tab[onclick*="${name}"]`)?.classList.add('active');
+        document.getElementById(`panel-${name}`)?.classList.add('active');
+        // Cargar datos del tab
+        this['cargar_' + name]?.();
+    },
+
+    // ─── Resumen ───
+    async cargar_resumen() {
+        try {
+            const r = await fetch('/api/finanzas/resumen');
+            const d = await r.json();
+            document.getElementById('kpi-ingresos-hoy').textContent = `S/ ${this.fmt(d.ingresos_hoy)}`;
+            document.getElementById('kpi-ingresos-sub').textContent = `${d.operaciones_hoy || 0} operaciones`;
+            document.getElementById('kpi-egresos-hoy').textContent = `S/ ${this.fmt(d.egresos_hoy)}`;
+            document.getElementById('kpi-saldo').textContent = `S/ ${this.fmt(d.saldo_neto)}`;
+            document.getElementById('kpi-pendientes').textContent = d.autorizaciones_pendientes || 0;
+
+            if (d.recaudacion_mes) {
+                document.getElementById('mes-efectivo').textContent = `S/ ${this.fmt(d.recaudacion_mes.efectivo)}`;
+                document.getElementById('mes-yape').textContent = `S/ ${this.fmt(d.recaudacion_mes.yape)}`;
+                document.getElementById('mes-plin').textContent = `S/ ${this.fmt(d.recaudacion_mes.plin)}`;
+                document.getElementById('mes-transferencia').textContent = `S/ ${this.fmt(d.recaudacion_mes.transferencia)}`;
+            }
+
+            this.updateBadge('badge-autorizaciones', d.autorizaciones_pendientes);
+        } catch(e) { console.error('Error resumen:', e); }
+    },
+
+    // ─── Cajas ───
+    async cargar_cajas() {
+        try {
+            const r = await fetch('/api/finanzas/cajas');
+            const d = await r.json();
+            const grid = document.getElementById('cajas-grid');
+            if (!d.cajas?.length) {
+                grid.innerHTML = '<div class="fin-empty"><i class="ph ph-cash-register"></i><p>No hay cajas registradas</p></div>';
+                return;
+            }
+            grid.innerHTML = d.cajas.map(c => `
+                <div class="fin-caja-card ${c.estado}">
+                    <div class="fin-caja-top">
+                        <div class="fin-caja-nombre">${c.nombre}</div>
+                        <span class="fin-caja-estado ${c.estado}">${c.estado === 'abierta' ? '🟢 Abierta' : '⚫ Cerrada'}</span>
+                    </div>
+                    <div class="fin-caja-cajera"><i class="ph ph-user"></i> ${c.cajera || 'Sin asignar'}</div>
+                    <div class="fin-caja-montos">
+                        <div class="fin-caja-monto">
+                            <div class="fin-caja-monto-label">Efectivo</div>
+                            <div class="fin-caja-monto-value" style="color:var(--fin-green);">S/ ${this.fmt(c.efectivo)}</div>
+                        </div>
+                        <div class="fin-caja-monto">
+                            <div class="fin-caja-monto-label">Digital</div>
+                            <div class="fin-caja-monto-value" style="color:var(--fin-cyan);">S/ ${this.fmt(c.digital)}</div>
+                        </div>
+                    </div>
+                    ${c.apertura ? `<div class="fin-caja-apertura"><i class="ph ph-clock"></i> Apertura: ${c.apertura}</div>` : ''}
+                </div>
+            `).join('');
+        } catch(e) { console.error('Error cajas:', e); }
+    },
+
+    // ─── Conciliación ───
+    async cargar_conciliacion() {
+        try {
+            const r = await fetch('/api/conciliacion/resumen');
+            const d = await r.json();
+            document.getElementById('conc-verificados').textContent = d.conciliados || 0;
+            document.getElementById('conc-sin-match').textContent = d.sin_match || 0;
+            document.getElementById('conc-sin-verificar').textContent = d.pagos_sin_verificar || 0;
+            document.getElementById('conc-tasa').textContent = (d.tasa_verificacion || 0) + '%';
+        } catch(e) {}
+        this.cargarNotificaciones();
+    },
+
+    async cargarNotificaciones() {
+        try {
+            const estado = document.getElementById('conc-filtro-estado')?.value || '';
+            const r = await fetch(`/api/conciliacion/notificaciones?estado=${estado}&dias=7`);
+            const d = await r.json();
+            const el = document.getElementById('conc-notificaciones');
+            if (!d.notificaciones?.length) {
+                el.innerHTML = '<div class="fin-empty"><i class="ph ph-envelope"></i><p>Sin notificaciones bancarias</p></div>';
+                return;
+            }
+            el.innerHTML = d.notificaciones.map(n => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--fin-surface2);border-radius:8px;margin-bottom:6px;">
+                    <div style="width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;
+                        background:${n.estado === 'conciliado' ? 'rgba(34,197,94,.1)' : 'rgba(245,158,11,.1)'};
+                        color:${n.estado === 'conciliado' ? 'var(--fin-green)' : 'var(--fin-yellow)'};">
+                        ${n.estado === 'conciliado' ? '✅' : '⏳'}
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:13px;color:var(--fin-text);font-weight:600;">S/ ${this.fmt(n.monto)} — ${(n.banco||'').toUpperCase()}</div>
+                        <div style="font-size:11px;color:var(--fin-text3);">${n.fecha_operacion} · ${n.remitente || ''} ${n.codigo_operacion ? '· #' + n.codigo_operacion : ''}</div>
+                    </div>
+                    <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;
+                        background:${{'conciliado':'rgba(34,197,94,.1)','sin_match':'rgba(245,158,11,.1)','pendiente':'rgba(99,102,241,.1)','ignorado':'rgba(100,116,139,.1)'}[n.estado]};
+                        color:${{'conciliado':'var(--fin-green)','sin_match':'var(--fin-yellow)','pendiente':'var(--fin-accent)','ignorado':'var(--fin-text3)'}[n.estado]};">
+                        ${n.estado}
+                    </span>
+                </div>
+            `).join('');
+        } catch(e) {}
+    },
+
+    // ─── Autorizaciones ───
+    async cargar_autorizaciones() {
+        try {
+            const r = await fetch('/api/finanzas/autorizaciones?estado=pendiente');
+            const d = await r.json();
+            const el = document.getElementById('auth-pendientes');
+            if (!d.solicitudes?.length) {
+                el.innerHTML = '<div class="fin-empty"><i class="ph ph-check-circle"></i><p>¡Todo al día! Sin autorizaciones pendientes.</p></div>';
+                this.updateBadge('badge-auth-pendientes', 0);
+                return;
+            }
+            this.updateBadge('badge-auth-pendientes', d.solicitudes.length);
+            el.innerHTML = d.solicitudes.map(s => `
+                <div class="fin-auth-item ${s.monto > 500 ? 'urgente' : 'normal'}">
+                    <div class="fin-auth-top">
+                        <span class="fin-auth-tipo ${s.tipo}">${s.tipo}</span>
+                        <div class="fin-auth-monto">S/ ${this.fmt(s.monto)}</div>
+                    </div>
+                    <div class="fin-auth-desc">${s.justificacion}</div>
+                    <div class="fin-auth-meta">
+                        <span><i class="ph ph-user"></i> ${s.solicitante_nombre}</span>
+                        <span><i class="ph ph-clock"></i> ${s.fecha}</span>
+                        ${s.requiere_doble_firma ? '<span style="color:var(--fin-red);"><i class="ph ph-shield-warning"></i> Doble firma</span>' : ''}
+                    </div>
+                    <div class="fin-auth-actions">
+                        <button class="fin-btn success sm" onclick="Finanzas.autorizar(${s.id}, 'aprobar')">
+                            <i class="ph ph-check"></i> Aprobar
+                        </button>
+                        <button class="fin-btn danger sm" onclick="Finanzas.autorizar(${s.id}, 'rechazar')">
+                            <i class="ph ph-x"></i> Rechazar
+                        </button>
+                        <button class="fin-btn ghost sm" onclick="Finanzas.verDetalle(${s.id})">
+                            <i class="ph ph-eye"></i> Detalle
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) { console.error('Error autorizaciones:', e); }
+    },
+
+    async autorizar(id, accion) {
+        let motivo = '';
+        if (accion === 'rechazar') {
+            motivo = prompt('Motivo del rechazo:');
+            if (!motivo) return;
+        }
+        try {
+            const r = await fetch(`/api/finanzas/autorizaciones/${id}/${accion}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ motivo })
+            });
+            const d = await r.json();
+            if (d.success) {
+                Toast.show(`Solicitud ${accion === 'aprobar' ? 'aprobada' : 'rechazada'}`, accion === 'aprobar' ? 'success' : 'warning');
+                this.cargar_autorizaciones();
+                this.cargar_resumen();
+            }
+        } catch(e) { Toast.show('Error al procesar', 'error'); }
+    },
+
+    // ─── Presupuesto ───
+    async cargar_presupuesto() {
+        // Cargar reservas y pagos programados
+    },
+
+    // ─── Reportes ───
+    async cargar_reportes() {},
+
+    async reporte(tipo) {
+        Toast.show(`Generando reporte: ${tipo}...`, 'info');
+        try {
+            const r = await fetch(`/api/finanzas/reportes/${tipo}`);
+            if (r.headers.get('content-type')?.includes('pdf')) {
+                const blob = await r.blob();
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } else {
+                const d = await r.json();
+                Toast.show(d.message || 'Reporte generado', 'success');
+            }
+        } catch(e) { Toast.show('Error al generar reporte', 'error'); }
+    },
+
+    // ─── Sincronización email ───
+    async sincronizarEmail() {
+        Toast.show('Sincronizando emails bancarios...', 'info');
+        try {
+            const r = await fetch('/api/conciliacion/sincronizar?horas=24', { method: 'POST' });
+            const d = await r.json();
+            Toast.show(d.message || 'Sincronizado', 'success');
+            if (document.getElementById('panel-conciliacion').classList.contains('active')) {
+                this.cargar_conciliacion();
+            }
+        } catch(e) { Toast.show('Error al sincronizar', 'error'); }
+    },
+
+    async emailStatus() {
+        try {
+            const r = await fetch('/api/conciliacion/email/status');
+            const d = await r.json();
+            Toast.show(d.mensaje || d.message, d.conectado ? 'success' : 'warning');
+        } catch(e) { Toast.show('Error verificando conexión', 'error'); }
+    },
+
+    // ─── Config ───
+    async guardarConfig() {
+        const config = {
+            umbral_anulacion: parseFloat(document.getElementById('cfg-umbral-anulacion').value),
+            umbral_gasto_libre: parseFloat(document.getElementById('cfg-umbral-gasto').value),
+            umbral_doble_firma: parseFloat(document.getElementById('cfg-umbral-doble').value),
+            max_adelanto_personal: parseFloat(document.getElementById('cfg-max-adelanto').value),
+        };
+        try {
+            const r = await fetch('/api/finanzas/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            });
+            Toast.show('Reglas actualizadas', 'success');
+        } catch(e) { Toast.show('Error al guardar', 'error'); }
+    },
+
+    // ─── Reservas ───
+    nuevaReserva() {
+        const concepto = prompt('Concepto de la reserva:');
+        if (!concepto) return;
+        const monto = prompt('Monto a reservar (S/):');
+        if (!monto) return;
+        Toast.show(`Reserva "${concepto}" por S/ ${monto} creada`, 'success');
+    },
+
+    nuevoPagoProgramado() {
+        Toast.show('Formulario de pago programado (próximamente)', 'info');
+    },
+
+    // ─── WebSocket ───
+    connectWS() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${proto}://${location.host}/ws/finanzas`;
+        try {
+            this.ws = new WebSocket(url);
+            this.ws.onopen = () => {
+                console.log('[Finanzas WS] Conectado');
+                document.querySelector('.fin-live-dot').style.background = 'var(--fin-green)';
+            };
+            this.ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                this.handleWSMessage(msg);
+            };
+            this.ws.onclose = () => {
+                console.log('[Finanzas WS] Desconectado, reconectando en 5s...');
+                document.querySelector('.fin-live-dot').style.background = 'var(--fin-red)';
+                this.wsReconnectTimer = setTimeout(() => this.connectWS(), 5000);
+            };
+        } catch(e) {
+            console.log('[Finanzas WS] No disponible, usando polling');
+            setInterval(() => this.cargar_resumen(), 30000);
+        }
+    },
+
+    handleWSMessage(msg) {
+        const { event, data } = msg;
+        switch(event) {
+            case 'nueva_autorizacion':
+                this.showWSToast('Nueva autorización', `${data.tipo}: S/ ${data.monto} — ${data.solicitante}`);
+                this.cargar_autorizaciones();
+                this.cargar_resumen();
+                break;
+            case 'pago_grande':
+                this.showWSToast('Pago inusual', `S/ ${data.monto} de ${data.colegiado} (${data.metodo})`);
+                break;
+            case 'cierre_caja':
+                this.showWSToast('Cierre de caja', `${data.cajera} cerró con ${data.diferencia > 0 ? 'sobrante' : 'faltante'}: S/ ${Math.abs(data.diferencia)}`);
+                this.cargar_cajas();
+                break;
+            case 'conciliacion':
+                if (document.getElementById('panel-conciliacion').classList.contains('active')) {
+                    this.cargar_conciliacion();
+                }
+                break;
+            case 'alerta_anomalia':
+                this.showWSToast(`⚠️ Alerta: ${data.tipo}`, data.descripcion);
+                break;
+        }
+    },
+
+    showWSToast(title, body) {
+        document.getElementById('ws-toast-title').textContent = title;
+        document.getElementById('ws-toast-body').textContent = body;
+        const toast = document.getElementById('fin-ws-toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 8000);
+        // Incrementar badge
+        const badge = document.getElementById('fin-notif-count');
+        badge.textContent = (parseInt(badge.textContent || 0) + 1);
+    },
+
+    toggleNotificaciones() {
+        document.getElementById('fin-notif-count').textContent = '';
+        Toast.show('Notificaciones leídas', 'info', 2000);
+    },
+
+    // ─── Helpers ───
+    fmt(n) { return (parseFloat(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}); },
+    updateBadge(id, count) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = count > 0 ? count : '';
+    },
+};
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    Finanzas.cargar_resumen();
+    Finanzas.connectWS();
+});
+</script>
+{% endblock %}
