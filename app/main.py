@@ -28,6 +28,7 @@ from app.routers.caja import router as caja_router, page_router as caja_page_rou
 
 from app.routers.reportes import router as reportes_router
 from app.routers.conciliacion import router as conciliacion_router
+from app.routers.finanzas import router as finanzas_router, ws_finanzas
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -160,7 +161,8 @@ app.include_router(caja_router)
 app.include_router(caja_page_router)
 app.include_router(reportes_router)
 app.include_router(conciliacion_router)
-
+app.include_router(finanzas_router)
+app.websocket("/ws/finanzas")(ws_finanzas)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
@@ -282,4 +284,4 @@ async def admin_reportes(request: Request):
 
 @app.get("/tesoreria")
 async def tesoreria_page(request: Request):
-    return templates.TemplateResponse("dashboard_tesoreria.html", {"request": request})
+    return templates.TemplateResponse("dashboard_finanzas.html", {"request": request})
