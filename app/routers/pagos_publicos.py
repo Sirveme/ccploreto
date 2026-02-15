@@ -1092,70 +1092,12 @@ async def validar_pago_colegiado(
         return {"success": True, "mensaje": "Pago rechazado"}
     
     elif accion == "aprobar":
-        pago.status = "approved"
-        pago.reviewed_at = datetime.now(timezone.utc)
-        
-        # Imputar a deudas (FIFO)
-        deudas = db.query(Debt).filter(
-            Debt.colegiado_id == pago.colegiado_id,
-            Debt.status.in_(["pending", "partial"])
-        ).order_by(Debt.due_date.asc(), Debt.created_at.asc()).all()
-        
-        monto_restante = pago.amount
-        
-        for deuda in deudas:
-            if monto_restante <= 0:
-                break
-            
-            if monto_restante >= deuda.balance:
-                monto_restante -= deuda.balance
-                deuda.balance = 0
-                deuda.status = "paid"
-            else:
-                deuda.balance -= monto_restante
-                deuda.status = "partial"
-                monto_restante = 0
-        
-        # Verificar si quedó al día
-        deudas_pendientes = db.query(Debt).filter(
-            Debt.colegiado_id == pago.colegiado_id,
-            Debt.status.in_(["pending", "partial"])
-        ).count()
-        
-        if deudas_pendientes == 0:
-            colegiado = db.query(Colegiado).filter(Colegiado.id == pago.colegiado_id).first()
-            if colegiado and colegiado.condicion == "inhabil":
-                colegiado.condicion = "habil"
-                colegiado.fecha_actualizacion_condicion = datetime.now(timezone.utc)
-        
-        #db.commit()
-        
-        # Sincronizar cambios ORM antes de emitir certificado
-        db.flush()
-        
-        # Emitir certificado automáticamente
-        certificado_info = None
-        try:
-            certificado_info = emitir_certificado_automatico(
-                db=db,
-                colegiado_id=pago.colegiado_id,
-                payment_id=pago.id
-            )
-        except Exception as e:
-            print(f"⚠️ Error emitiendo certificado: {e}")
-        
-        db.commit()
-        
-        respuesta = {
-            "success": True,
-            "mensaje": "Pago aprobado",
-            "saldo_a_favor": monto_restante if monto_restante > 0 else 0
-        }
-        
-        if certificado_info and certificado_info.get("emitido"):
-            respuesta["certificado"] = certificado_info
-            respuesta["mensaje"] = f"Pago aprobado. Certificado {certificado_info['codigo']} emitido."
-        
+        from app.services.aprobar_pago import aprobar_pago
+        respuesta = aprobar_pago(
+            db=db,
+            payment_id=pago.id,
+            aprobado_por="admin"
+        )
         return respuesta
     
     raise HTTPException(status_code=400, detail="Acción no válida")
