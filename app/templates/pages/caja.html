@@ -871,7 +871,7 @@
                 PASO 2: Panel completo (agregar después del panel de historial)
                 ═══════════════════════════════════════ -->
 
-            <div class="tab-content" id="tc-comprobantes" style="display:none;">
+            <div class="tab-content" id="panelComprobantes" style="display:none;">
                 <div class="panel-box">
                     <div class="panel-title">📄 COMPROBANTES EMITIDOS</div>
                     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -1325,13 +1325,10 @@ function cambiarTab(t) {
     document.getElementById('panelCatalogo').style.display=t==='catalogo'?'block':'none';
     document.getElementById('panelEgresos').style.display=t==='egresos'?'block':'none';
     document.getElementById('panelHistorial').style.display=t==='historial'?'block':'none';
+    document.getElementById('panelComprobantes').style.display=t==='comprobantes'?'block':'none';
     if(t==='egresos') cargarEgresos();
     if(t==='historial') { if(!document.getElementById('histFecha').value) { const ah=new Date(); ah.setMinutes(ah.getMinutes()-ah.getTimezoneOffset()-300); document.getElementById('histFecha').value=ah.toISOString().split('T')[0]; } cargarHistorial(); }
-
-    if (tab === 'comprobantes' && !document.getElementById('compLista').querySelector('.comp-row')) {
-        buscarComprobantes();
-    }
-
+    if(t==='comprobantes' && !document.getElementById('compLista').querySelector('.comp-row')) { buscarComprobantes(); }
 }
 function confirmarCobro() {
     if(!carrito.length) return;
