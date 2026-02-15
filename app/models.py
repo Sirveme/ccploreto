@@ -323,6 +323,9 @@ class Debt(Base):
     due_date = Column(DateTime(timezone=True), nullable=True)
     attachment_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    debt_type = Column(String(30), default="cuota_ordinaria")
+    notes = Column(Text, nullable=True)
     
     # Relaciones
     member = relationship("Member")
@@ -515,6 +518,9 @@ class Colegiado(Base):
     
     datos_actualizados_at = Column(DateTime)
     datos_completos = Column(Boolean, default=False)
+
+    habilidad_vence = Column(DateTime(timezone=True), nullable=True)
+    tiene_fraccionamiento = Column(Boolean, default=False)
 
     # Referencias de domicilio
     referencia_domicilio = Column(String(500), nullable=True)
