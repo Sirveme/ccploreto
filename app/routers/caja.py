@@ -1389,53 +1389,119 @@ async def anular_cobro(
 
 @router.get("/comprobante/{payment_id}")
 async def ver_comprobante(payment_id: int, db: Session = Depends(get_db)):
-    """Consultar comprobante de un pago"""
-    comp = db.query(Comprobante).filter(
+    """Detalle de comprobante(s) asociados a un pago."""
+    comps = db.query(Comprobante).filter(
         Comprobante.payment_id == payment_id,
-    ).order_by(Comprobante.created_at.desc()).first()
+    ).order_by(Comprobante.created_at.asc()).all()
 
-    if not comp:
-        raise HTTPException(404, detail="Comprobante no encontrado")
+    if not comps:
+        raise HTTPException(404, detail="No hay comprobantes para este pago")
 
     return {
-        "id": comp.id,
-        "tipo": comp.tipo,
-        "serie": comp.serie,
-        "numero": comp.numero,
-        "numero_formato": f"{comp.serie}-{str(comp.numero).zfill(8)}",
-        "cliente": comp.cliente_nombre,
-        "total": float(comp.total),
-        "estado": comp.status,
-        "pdf_url": comp.pdf_url,
-        "fecha": comp.created_at.strftime("%d/%m/%Y %H:%M") if comp.created_at else "",
+        "comprobantes": [
+            {
+                "id": c.id,
+                "tipo": c.tipo,
+                "tipo_nombre": {"01": "Factura", "03": "Boleta", "07": "Nota de Crédito", "08": "Nota de Débito"}.get(c.tipo, c.tipo),
+                "serie": c.serie,
+                "numero": c.numero,
+                "numero_formato": f"{c.serie}-{str(c.numero).zfill(8)}",
+                "fecha": c.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if c.created_at else "",
+                "cliente_nombre": c.cliente_nombre,
+                "cliente_doc": c.cliente_num_doc,
+                "total": float(c.total or 0),
+                "status": c.status,
+                "pdf_url": c.pdf_url,
+                "sunat_response": c.sunat_response_description,
+                "comprobante_ref_id": c.comprobante_ref_id,
+                "observaciones": c.observaciones,
+            }
+            for c in comps
+        ]
     }
 
 
 @router.get("/comprobantes")
 async def listar_comps(
+    buscar: Optional[str] = None,
+    tipo: Optional[str] = None,
+    estado: Optional[str] = None,
+    fecha_desde: Optional[str] = None,
+    fecha_hasta: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    tipo: str = None,
-    estado: str = None,
-    limit: int = 50,
 ):
-    """Listar comprobantes"""
-    org = db.query(Organization).first()
-    if not org:
-        return []
+    """
+    Lista todos los comprobantes con filtros.
+    Busca por: número comprobante, DNI/RUC, nombre cliente.
+    """
+    query = db.query(Comprobante).filter(
+        Comprobante.organization_id == 1,
+    )
 
-    service = FacturacionService(db, org.id)
-    comps = service.listar_comprobantes(limit=limit, tipo=tipo, status=estado)
+    # Filtro por tipo
+    if tipo:
+        query = query.filter(Comprobante.tipo == tipo)
 
-    return [{
-        "id": c.id,
-        "tipo": c.tipo,
-        "numero": f"{c.serie}-{str(c.numero).zfill(8)}",
-        "cliente": c.cliente_nombre,
-        "total": float(c.total),
-        "estado": c.status,
-        "pdf_url": c.pdf_url,
-        "fecha": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "",
-    } for c in comps]
+    # Filtro por estado
+    if estado:
+        query = query.filter(Comprobante.status == estado)
+
+    # Filtro por fechas (convertir a UTC: medianoche Perú = 05:00 UTC)
+    if fecha_desde:
+        try:
+            fd = datetime.strptime(fecha_desde, "%Y-%m-%d")
+            query = query.filter(Comprobante.created_at >= fd.replace(hour=5))
+        except ValueError:
+            pass
+
+    if fecha_hasta:
+        try:
+            fh = datetime.strptime(fecha_hasta, "%Y-%m-%d")
+            query = query.filter(Comprobante.created_at < (fh + timedelta(days=1)).replace(hour=5))
+        except ValueError:
+            pass
+
+    # Búsqueda por texto
+    if buscar:
+        buscar = buscar.strip()
+        query = query.filter(
+            (Comprobante.cliente_num_doc.ilike(f"%{buscar}%")) |
+            (Comprobante.cliente_nombre.ilike(f"%{buscar}%")) |
+            (Comprobante.serie.ilike(f"%{buscar}%")) |
+            (Comprobante.observaciones.ilike(f"%{buscar}%"))
+        )
+
+    total = query.count()
+    comprobantes = query.order_by(
+        Comprobante.created_at.desc()
+    ).offset((page - 1) * limit).limit(limit).all()
+
+    return {
+        "comprobantes": [
+            {
+                "id": c.id,
+                "tipo": c.tipo,
+                "serie": c.serie,
+                "numero": c.numero,
+                "numero_formato": f"{c.serie}-{str(c.numero).zfill(8)}",
+                "fecha": c.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if c.created_at else "",
+                "cliente_nombre": c.cliente_nombre,
+                "cliente_doc": c.cliente_num_doc,
+                "total": float(c.total or 0),
+                "status": c.status,
+                "payment_id": c.payment_id,
+                "pdf_url": c.pdf_url,
+                "comprobante_ref_id": c.comprobante_ref_id,
+                "observaciones": c.observaciones,
+            }
+            for c in comprobantes
+        ],
+        "total": total,
+        "page": page,
+        "pages": (total + limit - 1) // limit,
+    }
 
 
 @router.get("/consulta-ruc/{ruc}")
