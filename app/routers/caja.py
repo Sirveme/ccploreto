@@ -976,7 +976,7 @@ async def pdf_cierre_caja(sesion_id: int, db: Session = Depends(get_db)):
     sede_nombre = centro.nombre if centro else "Sede Principal"
 
     cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == sesion.usuario_admin_id).first()
-    cajero_nombre = cajero.nombre if cajero else "Cajero"
+    cajero_nombre = cajero.nombre_completo if cajero else "Cajero"
 
     # Pagos de la sesión (fix timezone: usar hora_apertura y hora_cierre)
     pagos = db.query(Payment).filter(
@@ -1074,7 +1074,7 @@ async def listar_sesiones(
             "id": s.id,
             "fecha": _fmt(s.fecha),
             "estado": s.estado,
-            "cajero": cajero.nombre if cajero else "-",
+            "cajero": cajero.nombre_completo if cajero else "-",
             "sede": centro.nombre if centro else "-",
             "hora_apertura": _fmt(s.hora_apertura),
             "hora_cierre": _fmt(s.hora_cierre),
