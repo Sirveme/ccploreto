@@ -1,10 +1,11 @@
 import json
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
+from app.database import get_db
 
 from jose import jwt
 from .utils.security import ALGORITHM # <--- Importar ALGO
@@ -264,6 +265,11 @@ async def terminos_condiciones(request: Request):
         "request": request,
         "org": getattr(request.state, 'org', None),
     })
+
+@app.get("/admin/comprobantes")
+async def admin_comprobantes(request: Request, db: Session = Depends(get_db)):
+    org = db.query(Organization).filter(Organization.id == 1).first()
+    return templates.TemplateResponse("admin_comprobantes.html", {"request": request, "org": org})
 
 
 # Ruta del template
