@@ -7,7 +7,6 @@ Flujo: Buscar colegiado → Ver deudas → Cobrar → Emitir comprobante
 
 Requiere rol: cajero, tesorero o admin
 """
-
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from decimal import Decimal
@@ -44,6 +43,27 @@ router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
 # Router para la página HTML (sin prefix)
 page_router = APIRouter(tags=["Caja"])
+
+
+PERU_TZ = timezone(timedelta(hours=-5))
+
+def _inicio_dia_peru_utc(fecha=None):
+    """
+    Retorna medianoche Perú convertida a UTC naive (para comparar con created_at).
+    fecha: date object o None para hoy.
+    Medianoche Perú (00:00 UTC-5) = 05:00 UTC
+    """
+    if fecha is None:
+        ahora_peru = datetime.now(PERU_TZ)
+        fecha = ahora_peru.date()
+    # Medianoche Perú en UTC = fecha 05:00:00 UTC
+    return datetime(fecha.year, fecha.month, fecha.day, 5, 0, 0)
+
+def _fin_dia_peru_utc(fecha=None):
+    """Fin del día Perú (23:59:59) convertido a UTC naive."""
+    inicio = _inicio_dia_peru_utc(fecha)
+    return inicio + timedelta(days=1)
+
 
 @page_router.get("/caja")
 async def pagina_caja(request: Request, member: Member = Depends(get_current_member)):
@@ -666,7 +686,7 @@ async def descargar_pdf_comprobante(
 async def resumen_del_dia(db: Session = Depends(get_db)):
     """Resumen de cobros del día para la pantalla de caja."""
     ahora = datetime.now(PERU_TZ)
-    inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_dia = _inicio_dia_peru_utc()
 
     pagos_dia = db.query(Payment).filter(
         Payment.status.in_(["approved", "anulado"]),
@@ -701,7 +721,7 @@ async def ultimos_cobros(
 ):
     """Últimos cobros realizados en caja (para el historial)"""
     ahora = datetime.now(PERU_TZ)
-    inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_dia = _inicio_dia_peru_utc()
 
     pagos = db.query(Payment).filter(
         Payment.notes.like("[CAJA]%"),
@@ -1162,7 +1182,9 @@ async def historial_cobros(
     except ValueError:
         raise HTTPException(400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
 
-    dia_inicio = dia.replace(hour=0, minute=0, second=0)
+    # Medianoche Perú (00:00 UTC-5) = 05:00 UTC
+    # Railway guarda created_at/reviewed_at en UTC
+    dia_inicio = dia.replace(hour=5, minute=0, second=0, microsecond=0)
     dia_fin = dia_inicio + timedelta(days=1)
 
     query = db.query(Payment).filter(
@@ -1190,12 +1212,15 @@ async def historial_cobros(
         except Exception:
             pass
 
+        # Convertir hora a Perú para mostrar
+        hora_peru = p.reviewed_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ) if p.reviewed_at else None
+
         operaciones.append({
             "id": p.id,
             "amount": float(p.amount or 0),
             "metodo_pago": p.payment_method,
             "notes": p.notes,
-            "reviewed_at": p.reviewed_at.isoformat() if p.reviewed_at else None,
+            "reviewed_at": hora_peru.isoformat() if hora_peru else None,
             "numero_comprobante": numero_comprobante,
             "status": p.status,
         })
