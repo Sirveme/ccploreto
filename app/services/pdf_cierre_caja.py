@@ -195,7 +195,7 @@ def generar_pdf_cierre(
         ["Monto apertura:", f"S/ {_f(sesion.monto_apertura)}", "Estado:", sesion.estado.upper()],
     ]
 
-    t_info = Table(info_data, colWidths=[75, 140, 65, 140])
+    t_info = Table(info_data, colWidths=[75, 175, 50, 120])
     t_info.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -216,13 +216,14 @@ def generar_pdf_cierre(
     story.append(Paragraph("CUADRE DE CAJA", s_titulo))
 
     monto_apertura = float(sesion.monto_apertura or 0)
-    total_efectivo = float(sesion.total_cobros_efectivo or 0)
-    total_digital = float(sesion.total_cobros_digital or 0)
-    total_egresos_val = float(sesion.total_egresos or 0)
-    total_esperado = float(sesion.total_esperado or 0)
+    # Recalcular desde pagos reales (no confiar en totales guardados por posible bug timezone)
+    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
+    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
+    total_egresos_val = sum(float(e.monto or 0) for e in egresos)
+    total_esperado = monto_apertura + total_efectivo - total_egresos_val
     monto_cierre = float(sesion.monto_cierre or 0)
-    diferencia = float(sesion.diferencia or 0)
-    cant_ops = int(sesion.cantidad_operaciones or 0)
+    diferencia = monto_cierre - total_esperado
+    cant_ops = len(pagos)
 
     cuadre_data = [
         ["CONCEPTO", "MONTO"],
