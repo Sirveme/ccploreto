@@ -1091,7 +1091,15 @@ function mostrarCierreExitoso(sesionId, resumen, mensaje) {
 
 function descargarPDFCierre() {
     if (ultimaSesionCerrada) {
-        window.open(`/api/caja/cierre-caja/${ultimaSesionCerrada}/pdf`, '_blank');
+        const url = `/api/caja/cierre-caja/${ultimaSesionCerrada}/pdf`;
+        const win = window.open(url, '_blank');
+        if (!win || win.closed) {
+            // Popup bloqueado — usar descarga directa
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.click();
+        }
     }
 }
 
@@ -1952,7 +1960,6 @@ function renderComprobantes(data) {
                 return;
             }
 
-            // Crear lista simple
             const items = sesiones.map(s => {
                 const dif = s.diferencia || 0;
                 const difStr = Math.abs(dif) < 0.01 ? '✓' : `${dif >= 0 ? '+' : ''}${dif.toFixed(2)}`;
@@ -1967,7 +1974,14 @@ function renderComprobantes(data) {
             if (sel && !isNaN(sel)) {
                 const idx = parseInt(sel) - 1;
                 if (idx >= 0 && idx < sesiones.length) {
-                    window.open(`/api/caja/cierre-caja/${sesiones[idx].id}/pdf`, '_blank');
+                    const url = `/api/caja/cierre-caja/${sesiones[idx].id}/pdf`;
+                    const win = window.open(url, '_blank');
+                    if (!win || win.closed) {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.target = '_blank';
+                        a.click();
+                    }
                 }
             }
         } catch (e) {
@@ -1977,5 +1991,4 @@ function renderComprobantes(data) {
 
 </script>
 </body>
-
 </html>
