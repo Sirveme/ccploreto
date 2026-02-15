@@ -741,6 +741,17 @@
         }
         .pag-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
         .pag-active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+
+        /* ============================================================
+        VERIFICACION DE NOTIFICACIONES BANCARIAS
+        ==============================================================*/
+        @keyframes verifPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .verif-pulsing { animation: verifPulse 1.5s infinite; }
+        .verif-ok { background: rgba(34,197,94,0.08) !important; border-color: rgba(34,197,94,0.3) !important; }
+        .verif-fail { background: rgba(245,158,11,0.08) !important; border-color: rgba(245,158,11,0.3) !important; }
     </style>
 </head>
 <body>
@@ -1032,6 +1043,24 @@
 </div>
 
 <div class="toast-box" id="toastBox"></div>
+
+<div id="verifBadge" style="
+    display:none;
+    align-items:center;
+    gap:8px;
+    padding:10px 14px;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--border);
+    border-radius:8px;
+    margin:8px 12px;
+    font-size:13px;
+    transition:all 0.3s ease;
+">
+    <span id="verifIcon" style="font-size:18px;">🔍</span>
+    <span id="verifText" style="flex:1;">Verificando...</span>
+    <span id="verifTimer" style="font-size:11px;color:var(--text-sec);"></span>
+</div>
+
 
 !-- Modal de Cierre Exitoso (agregar al final del body) -->
 <div id="modalCierreExitoso" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:none;align-items:center;justify-content:center;">
@@ -1988,7 +2017,79 @@ function renderComprobantes(data) {
             toast('Error cargando sesiones', 'error');
         }
     }
-
 </script>
+
+    <!-- VERIFICACION DE NOTIFICACIONES BANCARIAS -->
+    <script>
+    // Instancia para CAJA
+    const verifCaja = new VerificadorPago({
+        intervalo: 10000,    // Cada 10 seg
+        maxIntentos: 12,     // 2 minutos
+
+        onVerificado: (data) => {
+            const badge = document.getElementById('verifBadge');
+            badge.className = 'verif-ok';
+            document.getElementById('verifIcon').textContent = '✅';
+            document.getElementById('verifText').innerHTML = 
+                `<strong>Pago verificado</strong> — ${data.banco.toUpperCase()} ${data.codigo_operacion ? '#' + data.codigo_operacion : ''}`;
+            document.getElementById('verifTimer').textContent = data.fecha || '';
+
+            // Toast
+            if (typeof toast === 'function') toast(data.message, 'ok');
+
+            // Ocultar después de 10 seg
+            setTimeout(() => { badge.style.display = 'none'; }, 10000);
+        },
+
+        onTimeout: (monto, metodo, paymentId) => {
+            const badge = document.getElementById('verifBadge');
+            badge.className = 'verif-fail';
+            document.getElementById('verifIcon').textContent = '⚠️';
+            document.getElementById('verifText').innerHTML = 
+                `No verificado aún — <a href="#" onclick="reiniciarVerifCaja(${monto},'${metodo}',${paymentId});return false;" style="color:var(--accent);">Reintentar</a>`;
+            document.getElementById('verifTimer').textContent = '';
+        },
+
+        onProgreso: (intento, max) => {
+            const segs = (max - intento) * 10;
+            document.getElementById('verifTimer').textContent = `${segs}s`;
+            document.getElementById('verifIcon').textContent = '🔍';
+            document.getElementById('verifIcon').className = 'verif-pulsing';
+        },
+    });
+
+    /**
+     * Llamar después de registrar cobro digital exitoso.
+     * 
+     * INTEGRAR en la función que procesa el cobro, por ejemplo:
+     * 
+     * async function registrarCobro(...) {
+     *     const r = await fetch('/api/caja/cobrar', {...});
+     *     const d = await r.json();
+     *     if (d.success) {
+     *         toast('Cobro registrado ✓', 'ok');
+     *         // >>> AGREGAR ESTA LÍNEA <<<
+     *         if (['yape','plin','transferencia'].includes(metodoPago)) {
+     *             verificarPagoDigital(d.monto || monto, metodoPago, d.payment_id);
+     *         }
+     *     }
+     * }
+     */
+    function verificarPagoDigital(monto, metodo, paymentId) {
+        const badge = document.getElementById('verifBadge');
+        badge.style.display = 'flex';
+        badge.className = '';
+        document.getElementById('verifIcon').textContent = '🔍';
+        document.getElementById('verifIcon').className = 'verif-pulsing';
+        document.getElementById('verifText').textContent = `Verificando pago S/ ${monto.toFixed(2)} (${metodo})...`;
+        document.getElementById('verifTimer').textContent = '120s';
+
+        verifCaja.iniciar(monto, metodo, paymentId);
+    }
+
+    function reiniciarVerifCaja(monto, metodo, paymentId) {
+        verificarPagoDigital(monto, metodo, paymentId);
+    }
+    </script>
 </body>
 </html>
