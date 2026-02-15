@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesorería — Conciliación</title>
+    <style>
+        :root {
+            --bg:#0a0e1a;--surface:#111827;--surface2:#1a2236;--border:rgba(255,255,255,0.06);
+            --text:#e2e8f0;--text-sec:#94a3b8;--accent:#6366f1;--green:#22c55e;
+            --yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+
+        .top-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .top-bar h1{font-size:18px;font-weight:700;}
+        .top-bar a{color:var(--text-sec);text-decoration:none;font-size:13px;}
+        .top-bar a:hover{color:var(--text);}
+
+        .container{max-width:1200px;margin:0 auto;padding:20px 24px;}
+
+        /* Stats */
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
+        .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;}
+        .stat-val{font-size:24px;font-weight:700;}
+        .stat-lbl{font-size:10px;color:var(--text-sec);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;}
+        .stat-bar{height:4px;border-radius:2px;margin-top:8px;background:rgba(255,255,255,0.05);overflow:hidden;}
+        .stat-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+
+        /* Toolbar */
+        .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+        .t-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;display:flex;align-items:center;gap:6px;}
+        .t-btn:hover{background:var(--surface2);border-color:rgba(255,255,255,0.12);}
+        .t-btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+        .t-btn-primary:hover{filter:brightness(1.15);}
+        .t-btn-sync{position:relative;}
+        .t-btn-sync.loading::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,0.3);border-radius:8px;}
+        .t-select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;}
+
+        /* Tabs */
+        .tabs{display:flex;gap:2px;background:var(--surface);border-radius:10px;padding:3px;margin-bottom:16px;border:1px solid var(--border);}
+        .tab-btn{flex:1;padding:10px;border:none;background:transparent;color:var(--text-sec);cursor:pointer;border-radius:8px;font-size:13px;font-weight:500;transition:all .15s;}
+        .tab-btn.active{background:var(--accent);color:#fff;}
+        .tab-btn:hover:not(.active){background:rgba(255,255,255,0.05);}
+        .tab-count{background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;}
+
+        /* Table */
+        .tbl{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+        .tbl table{width:100%;border-collapse:collapse;}
+        .tbl th{background:var(--surface2);padding:10px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);text-align:left;font-weight:600;}
+        .tbl td{padding:12px 14px;font-size:13px;border-top:1px solid var(--border);}
+        .tbl tr:hover td{background:rgba(255,255,255,0.02);}
+
+        /* Badges */
+        .b{display:inline-block;font-size:10px;padding:3px 8px;border-radius:4px;font-weight:600;}
+        .b-ok{color:var(--green);background:rgba(34,197,94,0.1);}
+        .b-pend{color:var(--yellow);background:rgba(245,158,11,0.1);}
+        .b-no{color:var(--red);background:rgba(239,68,68,0.1);}
+        .b-ign{color:#6b7280;background:rgba(107,114,128,0.1);}
+        .b-yape{color:#7c3aed;background:rgba(124,58,237,0.1);}
+        .b-plin{color:var(--green);background:rgba(34,197,94,0.1);}
+        .b-trans{color:var(--blue);background:rgba(59,130,246,0.1);}
+
+        /* Actions */
+        .act{display:flex;gap:4px;}
+        .act button{background:transparent;border:1px solid var(--border);color:var(--text-sec);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;transition:all .15s;}
+        .act button:hover{background:rgba(255,255,255,0.08);color:var(--text);}
+
+        /* Empty */
+        .empty{text-align:center;padding:48px 20px;color:var(--text-sec);}
+        .empty .icon{font-size:40px;opacity:0.3;margin-bottom:8px;}
+
+        /* Paginación */
+        .pag{display:flex;justify-content:center;gap:6px;padding:14px;}
+        .pag button{background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text-sec);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;min-width:36px;}
+        .pag button:hover{background:rgba(255,255,255,0.1);}
+        .pag button.act-pg{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;}
+
+        @media(max-width:768px){
+            .container{padding:12px;}
+            .stats{grid-template-columns:repeat(2,1fr);}
+            .tbl{overflow-x:auto;}
+            .tbl table{min-width:650px;}
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <h1>💰 Tesorería — Conciliación de Pagos</h1>
+    <div style="display:flex;gap:16px;align-items:center;">
+        <span id="gmailStatus" style="font-size:12px;color:var(--text-sec);"></span>
+        <a href="/caja">← Caja</a>
+        <a href="/dashboard">Dashboard</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Stats -->
+    <div class="stats" id="statsGrid">
+        <div class="stat">
+            <div class="stat-val" style="color:var(--green);" id="sVerificados">-</div>
+            <div class="stat-lbl">Verificados</div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="barVerif" style="width:0;background:var(--green);"></div></div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" style="color:var(--yellow);" id="sSinMatch">-</div>
+            <div class="stat-lbl">Sin Match</div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" style="color:var(--red);" id="sSinVerificar">-</div>
+            <div class="stat-lbl">Pagos sin Verificar</div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" id="sTasa">-</div>
+            <div class="stat-lbl">Tasa Verificación</div>
+        </div>
+        <div class="stat">
+            <div class="stat-val" id="sTotal">-</div>
+            <div class="stat-lbl">Notificaciones</div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <button class="t-btn t-btn-primary t-btn-sync" onclick="sincronizar()" id="btnSync">
+            🔄 Sincronizar Gmail
+        </button>
+        <select class="t-select" id="filtroEstado" onchange="cargarNotificaciones()">
+            <option value="">Todos</option>
+            <option value="conciliado">✅ Conciliados</option>
+            <option value="sin_match">⚠️ Sin match</option>
+            <option value="pendiente">🔍 Pendientes</option>
+            <option value="ignorado">🚫 Ignorados</option>
+        </select>
+        <select class="t-select" id="filtroBanco" onchange="cargarNotificaciones()">
+            <option value="">Todos los bancos</option>
+            <option value="scotiabank">Scotiabank (Plin)</option>
+            <option value="interbank">Interbank</option>
+            <option value="bcp">BCP (Yape)</option>
+            <option value="bbva">BBVA</option>
+        </select>
+        <span style="flex:1;"></span>
+        <button class="t-btn" onclick="cargarResumen()">📊 Actualizar</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="cambiarVista('notificaciones')" id="tabNotif">
+            📧 Notificaciones bancarias <span class="tab-count" id="cntNotif">0</span>
+        </button>
+        <button class="tab-btn" onclick="cambiarVista('sinverificar')" id="tabSinV">
+            ⚠️ Pagos sin verificar <span class="tab-count" id="cntSinV">0</span>
+        </button>
+    </div>
+
+    <!-- Tabla notificaciones -->
+    <div id="vistaNotif" class="tbl">
+        <table>
+            <thead>
+                <tr>
+                    <th>Banco</th>
+                    <th>Fecha/Hora</th>
+                    <th>Monto</th>
+                    <th>Remitente</th>
+                    <th>Estado</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyNotif">
+                <tr><td colspan="6"><div class="empty"><div class="icon">📧</div>Sincroniza Gmail para ver notificaciones</div></td></tr>
+            </tbody>
+        </table>
+        <div class="pag" id="pagNotif"></div>
+    </div>
+
+    <!-- Tabla pagos sin verificar -->
+    <div id="vistaSinV" class="tbl" style="display:none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Método</th>
+                    <th>Monto</th>
+                    <th>Descripción</th>
+                </tr>
+            </thead>
+            <tbody id="tbodySinV">
+                <tr><td colspan="5"><div class="empty"><div class="icon">✅</div>Cargando...</div></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+const API = '/api/conciliacion';
+
+// ── Stats ──
+async function cargarResumen() {
+    try {
+        const r = await fetch(`${API}/resumen`);
+        const d = await r.json();
+        document.getElementById('sVerificados').textContent = d.pagos_verificados || 0;
+        document.getElementById('sSinMatch').textContent = d.sin_match || 0;
+        document.getElementById('sSinVerificar').textContent = d.pagos_sin_verificar || 0;
+        document.getElementById('sTasa').textContent = (d.tasa_verificacion || 0) + '%';
+        document.getElementById('sTotal').textContent = d.notificaciones_total || 0;
+        document.getElementById('cntSinV').textContent = d.pagos_sin_verificar || 0;
+
+        const tasa = d.tasa_verificacion || 0;
+        document.getElementById('barVerif').style.width = tasa + '%';
+    } catch (e) { console.error('Error resumen:', e); }
+}
+
+// ── Sincronizar ──
+async function sincronizar() {
+    const btn = document.getElementById('btnSync');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Sincronizando...';
+
+    try {
+        const r = await fetch(`${API}/sincronizar?horas=48`, { method: 'POST' });
+        const d = await r.json();
+        const s = d.stats || {};
+        const msg = `✅ ${s.nuevos || 0} nuevos, ${s.conciliados || 0} auto-conciliados, ${s.sin_match || 0} sin match`;
+        alert(msg);
+        cargarNotificaciones();
+        cargarResumen();
+    } catch (e) {
+        alert('Error sincronizando: ' + e.message);
+    } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.innerHTML = '🔄 Sincronizar Gmail';
+    }
+}
+
+// ── Notificaciones ──
+async function cargarNotificaciones(page = 1) {
+    const estado = document.getElementById('filtroEstado').value;
+    const banco = document.getElementById('filtroBanco').value;
+    let url = `${API}/notificaciones?page=${page}&limit=20`;
+    if (estado) url += `&estado=${estado}`;
+    if (banco) url += `&banco=${banco}`;
+
+    try {
+        const r = await fetch(url);
+        const d = await r.json();
+        renderNotificaciones(d);
+        document.getElementById('cntNotif').textContent = d.total || 0;
+    } catch (e) {
+        document.getElementById('tbodyNotif').innerHTML = '<tr><td colspan="6"><div class="empty"><div class="icon">⚠️</div>Error cargando</div></td></tr>';
+    }
+}
+
+function renderNotificaciones(data) {
+    const body = document.getElementById('tbodyNotif');
+    const notifs = data.notificaciones || [];
+
+    if (!notifs.length) {
+        body.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="icon">📭</div>No hay notificaciones</div></td></tr>';
+        return;
+    }
+
+    const bancoIcons = { scotiabank: '🏦', interbank: '🏦', bcp: '💜', bbva: '🔵' };
+    const tipoBadge = (t) => {
+        if (t?.includes('yape')) return '<span class="b b-yape">Yape</span>';
+        if (t?.includes('plin')) return '<span class="b b-plin">Plin</span>';
+        return '<span class="b b-trans">Transf</span>';
+    };
+    const estadoBadge = (e) => {
+        const map = { conciliado: ['✅ OK', 'b-ok'], sin_match: ['⚠️ Sin match', 'b-no'], pendiente: ['🔍 Pendiente', 'b-pend'], ignorado: ['🚫', 'b-ign'] };
+        const [lbl, cls] = map[e] || [e, ''];
+        return `<span class="b ${cls}">${lbl}</span>`;
+    };
+
+    body.innerHTML = notifs.map(n => `<tr>
+        <td>${bancoIcons[n.banco] || '🏦'} ${(n.banco || '').toUpperCase()}<br>${tipoBadge(n.tipo)}</td>
+        <td style="font-size:12px;">${n.fecha_operacion || '-'}<br><span style="color:var(--text-sec);">${n.codigo_operacion ? '#' + n.codigo_operacion : ''}</span></td>
+        <td style="font-weight:700;font-size:15px;">S/ ${n.monto.toFixed(2)}</td>
+        <td style="font-size:12px;">${n.remitente || '-'}</td>
+        <td>${estadoBadge(n.estado)}${n.conciliado_por ? `<br><span style="font-size:10px;color:var(--text-sec);">${n.conciliado_por}</span>` : ''}</td>
+        <td><div class="act">
+            ${n.estado === 'sin_match' ? `<button onclick="conciliarManual(${n.id},${n.monto})">🔗 Vincular</button>` : ''}
+            ${n.estado !== 'conciliado' && n.estado !== 'ignorado' ? `<button onclick="ignorar(${n.id})">🚫</button>` : ''}
+        </div></td>
+    </tr>`).join('');
+
+    // Paginación
+    const pag = document.getElementById('pagNotif');
+    if (data.pages > 1) {
+        let h = '';
+        for (let i = Math.max(1, data.page - 2); i <= Math.min(data.pages, data.page + 2); i++) {
+            h += `<button class="${i === data.page ? 'act-pg' : ''}" onclick="cargarNotificaciones(${i})">${i}</button>`;
+        }
+        pag.innerHTML = h;
+    } else { pag.innerHTML = ''; }
+}
+
+// ── Pagos sin verificar ──
+async function cargarPagosSinVerificar() {
+    try {
+        const r = await fetch(`${API}/pagos-sin-verificar?dias=30`);
+        const d = await r.json();
+        const body = document.getElementById('tbodySinV');
+        const pagos = d.pagos || [];
+
+        if (!pagos.length) {
+            body.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="icon">✅</div>Todos los pagos digitales están verificados</div></td></tr>';
+            return;
+        }
+
+        const metBadge = (m) => {
+            const map = { yape: 'b-yape', plin: 'b-plin', transferencia: 'b-trans' };
+            return `<span class="b ${map[m] || ''}">${(m || '').toUpperCase()}</span>`;
+        };
+
+        body.innerHTML = pagos.map(p => `<tr>
+            <td>#${p.id}</td>
+            <td style="font-size:12px;">${p.fecha}</td>
+            <td>${metBadge(p.metodo)}</td>
+            <td style="font-weight:600;">S/ ${p.monto.toFixed(2)}</td>
+            <td style="font-size:12px;color:var(--text-sec);">${p.notas}</td>
+        </tr>`).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// ── Acciones ──
+async function conciliarManual(notifId, monto) {
+    const paymentId = prompt(`Ingrese el ID del pago a vincular con esta notificación (S/ ${monto.toFixed(2)}):`);
+    if (!paymentId || isNaN(paymentId)) return;
+
+    try {
+        const r = await fetch(`${API}/manual?notificacion_id=${notifId}&payment_id=${parseInt(paymentId)}`, { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+            alert('✅ Conciliado');
+            cargarNotificaciones();
+            cargarResumen();
+        } else {
+            alert('Error: ' + (d.detail || 'Desconocido'));
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function ignorar(notifId) {
+    const obs = prompt('Motivo para ignorar (opcional):') || '';
+    try {
+        const r = await fetch(`${API}/ignorar?notificacion_id=${notifId}&observacion=${encodeURIComponent(obs)}`, { method: 'POST' });
+        const d = await r.json();
+        if (d.success) { cargarNotificaciones(); cargarResumen(); }
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ── Tabs ──
+function cambiarVista(vista) {
+    document.getElementById('vistaNotif').style.display = vista === 'notificaciones' ? '' : 'none';
+    document.getElementById('vistaSinV').style.display = vista === 'sinverificar' ? '' : 'none';
+    document.getElementById('tabNotif').classList.toggle('active', vista === 'notificaciones');
+    document.getElementById('tabSinV').classList.toggle('active', vista === 'sinverificar');
+    if (vista === 'sinverificar') cargarPagosSinVerificar();
+}
+
+// ── Gmail Status ──
+async function checkGmail() {
+    try {
+        const r = await fetch('/api/gmail/status');
+        const d = await r.json();
+        const el = document.getElementById('gmailStatus');
+        if (d.gmail_autorizado) {
+            el.innerHTML = '🟢 Gmail conectado';
+            el.style.color = 'var(--green)';
+        } else {
+            el.innerHTML = '<a href="/api/gmail/autorizar" style="color:var(--yellow);">⚠️ Conectar Gmail</a>';
+        }
+    } catch (e) {}
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+    cargarResumen();
+    cargarNotificaciones();
+    checkGmail();
+});
+</script>
+</body>
+</html>
