@@ -865,6 +865,13 @@
                     <div class="hist-summary" id="histSummary"></div>
                     <div id="histLista"><div class="hist-empty">Selecciona una fecha y presiona Buscar</div></div>
                 </div>
+
+                !-- Agregar un enlace discreto en algún lugar visible de caja: -->
+                <a href="#" onclick="verSesionesAnteriores();return false;" 
+                style="font-size:11px;color:var(--text-sec);text-decoration:none;opacity:0.7;">
+                📋 Ver cierres anteriores
+                </a>
+
             </div>
 
             <!-- ═══════════════════════════════════════
@@ -1025,6 +1032,90 @@
 </div>
 
 <div class="toast-box" id="toastBox"></div>
+
+!-- Modal de Cierre Exitoso (agregar al final del body) -->
+<div id="modalCierreExitoso" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:none;align-items:center;justify-content:center;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:40px;margin-bottom:8px;">✅</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text);">Caja Cerrada</div>
+        </div>
+
+        <div id="cierreResumenBox" style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.8;">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <div style="display:flex;gap:10px;">
+            <button onclick="descargarPDFCierre()" style="flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:filter 0.15s;" onmouseenter="this.style.filter='brightness(1.15)'" onmouseleave="this.style.filter=''">
+                📄 Descargar PDF
+            </button>
+            <button onclick="cerrarModalCierre()" style="padding:12px 20px;background:transparent;color:var(--text-sec);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// ── Variable para guardar el ID de la sesión cerrada ──
+let ultimaSesionCerrada = null;
+
+// ── Mostrar modal con resumen después de cerrar ──
+function mostrarCierreExitoso(sesionId, resumen, mensaje) {
+    ultimaSesionCerrada = sesionId;
+
+    const dif = resumen.diferencia || 0;
+    const difColor = Math.abs(dif) < 0.01 ? 'var(--green)' : (dif < 0 ? 'var(--red)' : 'var(--yellow)');
+    const difIcon = Math.abs(dif) < 0.01 ? '✓ Cuadra' : (dif < 0 ? '⚠ Faltante' : '⚠ Sobrante');
+
+    document.getElementById('cierreResumenBox').innerHTML = `
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">Apertura</span><span>S/ ${(resumen.monto_apertura||0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(+) Efectivo</span><span>S/ ${(resumen.total_cobros_efectivo||0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(+) Digital</span><span>S/ ${(resumen.total_cobros_digital||0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(-) Egresos</span><span>S/ ${(resumen.total_egresos||0).toFixed(2)}</span></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
+        <div style="display:flex;justify-content:space-between;"><span style="font-weight:600;">Esperado</span><span style="font-weight:600;">S/ ${(resumen.total_esperado||0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">Declarado</span><span>S/ ${(resumen.monto_cierre||0).toFixed(2)}</span></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;">
+            <span>Diferencia</span>
+            <span style="color:${difColor};">${dif >= 0 ? '+' : ''}${dif.toFixed(2)} ${difIcon}</span>
+        </div>
+        <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-sec);">${resumen.cantidad_operaciones||0} operaciones</div>
+    `;
+
+    const modal = document.getElementById('modalCierreExitoso');
+    modal.style.display = 'flex';
+}
+
+function descargarPDFCierre() {
+    if (ultimaSesionCerrada) {
+        window.open(`/api/caja/cierre-caja/${ultimaSesionCerrada}/pdf`, '_blank');
+    }
+}
+
+function cerrarModalCierre() {
+    document.getElementById('modalCierreExitoso').style.display = 'none';
+    // Recargar estado de caja
+    location.reload();
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   MODIFICAR la función existente de cerrar caja.
+   
+   Buscar donde hace el POST a /api/caja/cerrar-caja/{id}
+   y en el callback de éxito, REEMPLAZAR el toast por:
+   
+   if (d.success) {
+       mostrarCierreExitoso(sesionId, d.resumen, d.mensaje);
+   }
+   
+   En vez de solo:
+   toast(d.mensaje, 'ok');
+   ══════════════════════════════════════════════════════════ */
+</script>
 
 <script>
 const API = '/api/caja';
@@ -1849,6 +1940,40 @@ function renderComprobantes(data) {
         pag.innerHTML = '';
     }
 }
+
+    async function verSesionesAnteriores() {
+        try {
+            const r = await fetch('/api/caja/sesiones-caja?estado=cerrada&limit=10');
+            const d = await r.json();
+            const sesiones = d.sesiones || [];
+
+            if (!sesiones.length) {
+                toast('No hay sesiones cerradas', 'info');
+                return;
+            }
+
+            // Crear lista simple
+            const items = sesiones.map(s => {
+                const dif = s.diferencia || 0;
+                const difStr = Math.abs(dif) < 0.01 ? '✓' : `${dif >= 0 ? '+' : ''}${dif.toFixed(2)}`;
+                return `${s.fecha} — ${s.cajero} — S/ ${s.total_cobros.toFixed(2)} — ${difStr}`;
+            });
+
+            const sel = prompt(
+                'Sesiones cerradas (ingrese número para descargar PDF):\n\n' +
+                sesiones.map((s, i) => `${i + 1}. ${items[i]}`).join('\n')
+            );
+
+            if (sel && !isNaN(sel)) {
+                const idx = parseInt(sel) - 1;
+                if (idx >= 0 && idx < sesiones.length) {
+                    window.open(`/api/caja/cierre-caja/${sesiones[idx].id}/pdf`, '_blank');
+                }
+            }
+        } catch (e) {
+            toast('Error cargando sesiones', 'error');
+        }
+    }
 
 </script>
 </body>
