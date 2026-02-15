@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobantes — {{ org.nombre_corto or 'CCPL' }}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --surface: #111827;
+            --surface2: #1a2236;
+            --border: rgba(255,255,255,0.06);
+            --text: #e2e8f0;
+            --text-sec: #94a3b8;
+            --accent: #6366f1;
+            --green: #22c55e;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --blue: #3b82f6;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+        /* ── Header ── */
+        .top-bar {
+            background:var(--surface);
+            border-bottom:1px solid var(--border);
+            padding:14px 24px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            position:sticky;
+            top:0;
+            z-index:100;
+        }
+        .top-bar h1 { font-size:18px; font-weight:700; display:flex; align-items:center; gap:8px; }
+        .top-bar a { color:var(--text-sec); text-decoration:none; font-size:13px; transition:color 0.15s; }
+        .top-bar a:hover { color:var(--text); }
+
+        /* ── Layout ── */
+        .container { max-width:1200px; margin:0 auto; padding:20px 24px; }
+
+        /* ── Stats ── */
+        .stats-row {
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+            gap:12px;
+            margin-bottom:20px;
+        }
+        .stat-card {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:10px;
+            padding:14px 16px;
+            text-align:center;
+        }
+        .stat-val { font-size:22px; font-weight:700; }
+        .stat-lbl { font-size:11px; color:var(--text-sec); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+
+        /* ── Filtros ── */
+        .filters {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:10px;
+            padding:16px;
+            margin-bottom:16px;
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            align-items:flex-end;
+        }
+        .filter-group { display:flex; flex-direction:column; gap:4px; }
+        .filter-group label { font-size:10px; color:var(--text-sec); text-transform:uppercase; letter-spacing:0.5px; }
+        .f-input, .f-select {
+            background:var(--surface2);
+            border:1px solid var(--border);
+            color:var(--text);
+            padding:8px 12px;
+            border-radius:6px;
+            font-size:13px;
+            outline:none;
+            transition:border 0.15s;
+        }
+        .f-input:focus, .f-select:focus { border-color:var(--accent); }
+        .f-input { min-width:220px; }
+        .f-btn {
+            padding:8px 16px;
+            border-radius:6px;
+            border:none;
+            font-size:13px;
+            font-weight:600;
+            cursor:pointer;
+            transition:all 0.15s;
+        }
+        .f-btn-primary { background:var(--accent); color:#fff; }
+        .f-btn-primary:hover { filter:brightness(1.15); }
+        .f-btn-ghost { background:transparent; color:var(--text-sec); border:1px solid var(--border); }
+        .f-btn-ghost:hover { background:rgba(255,255,255,0.05); }
+
+        /* ── Tabla ── */
+        .comp-table {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:10px;
+            overflow:hidden;
+        }
+        .comp-table table { width:100%; border-collapse:collapse; }
+        .comp-table th {
+            background:var(--surface2);
+            padding:10px 14px;
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            color:var(--text-sec);
+            text-align:left;
+            font-weight:600;
+            border-bottom:1px solid var(--border);
+        }
+        .comp-table td {
+            padding:12px 14px;
+            font-size:13px;
+            border-bottom:1px solid var(--border);
+            vertical-align:middle;
+        }
+        .comp-table tr:hover td { background:rgba(255,255,255,0.02); }
+        .comp-table tr:last-child td { border-bottom:none; }
+
+        /* ── Badges ── */
+        .badge {
+            display:inline-block;
+            font-size:10px;
+            padding:3px 8px;
+            border-radius:4px;
+            font-weight:600;
+            white-space:nowrap;
+        }
+        .badge-accepted { color:var(--green); background:rgba(34,197,94,0.1); }
+        .badge-pending, .badge-encolado { color:var(--yellow); background:rgba(245,158,11,0.1); }
+        .badge-rejected, .badge-error { color:var(--red); background:rgba(239,68,68,0.1); }
+        .badge-anulado { color:#6b7280; background:rgba(107,114,128,0.1); }
+        .badge-factura { color:var(--blue); background:rgba(59,130,246,0.1); }
+        .badge-boleta { color:var(--accent); background:rgba(99,102,241,0.1); }
+        .badge-nc { color:var(--yellow); background:rgba(245,158,11,0.1); }
+
+        /* ── Botones acciones ── */
+        .act-btn {
+            background:transparent;
+            border:1px solid var(--border);
+            color:var(--text-sec);
+            padding:4px 8px;
+            border-radius:4px;
+            cursor:pointer;
+            font-size:12px;
+            transition:all 0.15s;
+        }
+        .act-btn:hover { background:rgba(255,255,255,0.08); color:var(--text); }
+        .act-btn-red:hover { border-color:var(--red); color:var(--red); }
+
+        /* ── Paginación ── */
+        .pag-row { display:flex; justify-content:center; gap:6px; padding:14px; }
+        .pag-btn {
+            background:rgba(255,255,255,0.05);
+            border:1px solid var(--border);
+            color:var(--text-sec);
+            padding:6px 12px;
+            border-radius:4px;
+            cursor:pointer;
+            font-size:12px;
+            transition:all 0.15s;
+        }
+        .pag-btn:hover { background:rgba(255,255,255,0.1); }
+        .pag-active { background:var(--accent)!important; color:#fff!important; border-color:var(--accent)!important; }
+
+        /* ── Empty ── */
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-sec); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; opacity:0.3; }
+        .empty-state p { font-size:14px; }
+
+        /* ── Responsive ── */
+        @media(max-width:768px) {
+            .container { padding:12px; }
+            .filters { flex-direction:column; }
+            .f-input { min-width:auto; width:100%; }
+            .stats-row { grid-template-columns:repeat(2,1fr); }
+            .comp-table { overflow-x:auto; }
+            .comp-table table { min-width:700px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <h1>📄 Comprobantes Electrónicos</h1>
+    <div style="display:flex;gap:16px;align-items:center;">
+        <a href="/caja">← Caja</a>
+        <a href="/dashboard">Dashboard</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-val" id="statTotal">-</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--green);" id="statAceptados">-</div><div class="stat-lbl">Aceptados</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--yellow);" id="statPendientes">-</div><div class="stat-lbl">Pendientes</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--red);" id="statRechazados">-</div><div class="stat-lbl">Rechazados</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:#6b7280;" id="statAnulados">-</div><div class="stat-lbl">Anulados</div></div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters">
+        <div class="filter-group" style="flex:1;min-width:200px;">
+            <label>Buscar</label>
+            <input type="text" class="f-input" id="fBuscar" placeholder="DNI, RUC, nombre, serie..." onkeydown="if(event.key==='Enter')buscar()">
+        </div>
+        <div class="filter-group">
+            <label>Tipo</label>
+            <select class="f-select" id="fTipo">
+                <option value="">Todos</option>
+                <option value="03">Boleta</option>
+                <option value="01">Factura</option>
+                <option value="07">Nota Crédito</option>
+                <option value="08">Nota Débito</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Estado</label>
+            <select class="f-select" id="fEstado">
+                <option value="">Todos</option>
+                <option value="accepted">Aceptado</option>
+                <option value="pending">Pendiente</option>
+                <option value="rejected">Rechazado</option>
+                <option value="anulado">Anulado</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Desde</label>
+            <input type="date" class="f-input" id="fDesde" style="min-width:auto;width:140px;">
+        </div>
+        <div class="filter-group">
+            <label>Hasta</label>
+            <input type="date" class="f-input" id="fHasta" style="min-width:auto;width:140px;">
+        </div>
+        <div style="display:flex;gap:6px;align-self:flex-end;">
+            <button class="f-btn f-btn-primary" onclick="buscar()">🔍 Buscar</button>
+            <button class="f-btn f-btn-ghost" onclick="limpiarFiltros()">Limpiar</button>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="comp-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Comprobante</th>
+                    <th>Cliente</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="compBody">
+                <tr><td colspan="5"><div class="empty-state"><div class="icon">📄</div><p>Cargando comprobantes...</p></div></td></tr>
+            </tbody>
+        </table>
+        <div class="pag-row" id="pagRow"></div>
+    </div>
+
+</div>
+
+<script>
+const API = '/api/caja';
+let paginaActual = 1;
+
+// Tipo labels
+const TIPOS = { '01': 'Factura', '03': 'Boleta', '07': 'NC', '08': 'ND' };
+const TIPO_BADGES = { '01': 'badge-factura', '03': 'badge-boleta', '07': 'badge-nc', '08': 'badge-nc' };
+const STATUS_BADGES = {
+    'accepted': ['Aceptado', 'badge-accepted'],
+    'pending': ['Pendiente', 'badge-pending'],
+    'encolado': ['Encolado', 'badge-encolado'],
+    'rejected': ['Rechazado', 'badge-rejected'],
+    'anulado': ['Anulado', 'badge-anulado'],
+    'error': ['Error', 'badge-error'],
+};
+
+async function buscar(page = 1) {
+    paginaActual = page;
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('limit', 20);
+
+    const buscar = document.getElementById('fBuscar').value.trim();
+    const tipo = document.getElementById('fTipo').value;
+    const estado = document.getElementById('fEstado').value;
+    const desde = document.getElementById('fDesde').value;
+    const hasta = document.getElementById('fHasta').value;
+
+    if (buscar) params.set('buscar', buscar);
+    if (tipo) params.set('tipo', tipo);
+    if (estado) params.set('estado', estado);
+    if (desde) params.set('fecha_desde', desde);
+    if (hasta) params.set('fecha_hasta', hasta);
+
+    try {
+        const r = await fetch(`${API}/comprobantes?${params}`);
+        const d = await r.json();
+        renderTabla(d);
+        actualizarStats(d);
+    } catch (e) {
+        document.getElementById('compBody').innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">⚠️</div><p>Error cargando comprobantes</p></div></td></tr>';
+    }
+}
+
+function renderTabla(data) {
+    const body = document.getElementById('compBody');
+    const comps = data.comprobantes || [];
+
+    if (!comps.length) {
+        body.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">📭</div><p>No se encontraron comprobantes</p></div></td></tr>';
+        document.getElementById('pagRow').innerHTML = '';
+        return;
+    }
+
+    body.innerHTML = comps.map(c => {
+        const tipoLabel = TIPOS[c.tipo] || c.tipo;
+        const tipoBadge = TIPO_BADGES[c.tipo] || '';
+        const [statusLabel, statusBadge] = STATUS_BADGES[c.status] || [c.status, ''];
+        const esNC = c.tipo === '07' || c.tipo === '08';
+
+        return `<tr>
+            <td>
+                <div style="font-weight:600;">${c.numero_formato}</div>
+                <div style="display:flex;gap:4px;margin-top:3px;">
+                    <span class="badge ${tipoBadge}">${tipoLabel}</span>
+                    ${c.comprobante_ref_id ? '<span style="font-size:10px;color:var(--text-sec);">ref</span>' : ''}
+                </div>
+                <div style="font-size:11px;color:var(--text-sec);margin-top:2px;">${c.fecha}</div>
+            </td>
+            <td>
+                <div style="font-weight:500;">${c.cliente_nombre || '-'}</div>
+                <div style="font-size:11px;color:var(--text-sec);">${c.cliente_doc || ''}</div>
+            </td>
+            <td>
+                <div style="font-weight:600;font-size:15px;color:${esNC ? 'var(--yellow)' : 'var(--green)'};">
+                    S/ ${c.total.toFixed(2)}
+                </div>
+            </td>
+            <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
+            <td style="text-align:center;">
+                <div style="display:flex;gap:4px;justify-content:center;">
+                    ${c.pdf_url ? `<button class="act-btn" onclick="window.open('${API}/comprobante/${c.payment_id}/pdf','_blank')" title="Ver PDF">📄</button>` : ''}
+                    ${c.status === 'accepted' && !esNC ? `<button class="act-btn act-btn-red" onclick="iniciarAnulacion(${c.payment_id},'${(c.cliente_nombre||'').replace(/'/g,"\\'")} — ${c.numero_formato}',${c.total})" title="Emitir NC">↩️</button>` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    // Paginación
+    const pag = document.getElementById('pagRow');
+    if (data.pages > 1) {
+        let html = '';
+        if (data.page > 1) html += `<button class="pag-btn" onclick="buscar(${data.page - 1})">‹ Anterior</button>`;
+        const start = Math.max(1, data.page - 3);
+        const end = Math.min(data.pages, data.page + 3);
+        for (let i = start; i <= end; i++) {
+            html += `<button class="pag-btn${i === data.page ? ' pag-active' : ''}" onclick="buscar(${i})">${i}</button>`;
+        }
+        if (data.page < data.pages) html += `<button class="pag-btn" onclick="buscar(${data.page + 1})">Siguiente ›</button>`;
+        pag.innerHTML = html;
+    } else {
+        pag.innerHTML = '';
+    }
+}
+
+function actualizarStats(data) {
+    document.getElementById('statTotal').textContent = data.total || 0;
+    // Stats individuales requerirían llamadas adicionales, pero por ahora mostramos total
+}
+
+function limpiarFiltros() {
+    document.getElementById('fBuscar').value = '';
+    document.getElementById('fTipo').value = '';
+    document.getElementById('fEstado').value = '';
+    document.getElementById('fDesde').value = '';
+    document.getElementById('fHasta').value = '';
+    buscar();
+}
+
+function iniciarAnulacion(paymentId, desc, monto) {
+    // Redirigir a caja con el modal de anulación
+    // O implementar modal inline aquí
+    if (confirm(`¿Emitir Nota de Crédito para:\n${desc}\nS/ ${monto.toFixed(2)}?`)) {
+        window.location.href = `/caja?anular=${paymentId}`;
+    }
+}
+
+// Cargar al inicio
+document.addEventListener('DOMContentLoaded', () => buscar());
+</script>
+
+</body>
+</html>

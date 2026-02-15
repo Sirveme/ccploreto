@@ -727,6 +727,20 @@
             .panel-right { width: 100%; max-width: 100%; }
             .cart-fab { bottom: 12px; right: 12px; width: 52px; height: 52px; }
         }
+
+
+        pag-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-sec);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.15s;
+        }
+        .pag-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .pag-active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
     </style>
 </head>
 <body>
@@ -805,6 +819,7 @@
             <button class="tab" data-t="catalogo" onclick="cambiarTab('catalogo')" id="tabCatalogo">Catálogo <span class="tab-count" id="cntConceptos">0</span></button>
             <button class="tab" data-t="egresos" onclick="cambiarTab('egresos')" id="tabEgresos">Egresos <span class="tab-count" id="cntEgresos">0</span></button>
             <button class="tab" data-t="historial" onclick="cambiarTab('historial')" id="tabHistorial">Historial</button>
+            <button class="tab" data-t="comprobantes" onclick="cambiarTab('comprobantes')" id="tabComprobantes">Comprobantes</button>
         </div>
 
         <div class="content-scroll">
@@ -851,6 +866,49 @@
                     <div id="histLista"><div class="hist-empty">Selecciona una fecha y presiona Buscar</div></div>
                 </div>
             </div>
+
+            <!-- ═══════════════════════════════════════
+                PASO 2: Panel completo (agregar después del panel de historial)
+                ═══════════════════════════════════════ -->
+
+            <div id="panelComprobantes" class="tab-panel" style="display:none;">
+                <div class="panel-box">
+                    <div class="panel-title">📄 COMPROBANTES EMITIDOS</div>
+
+                    <!-- Buscador -->
+                    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                        <input type="text" id="compBuscar" class="m-input" placeholder="Buscar por DNI, RUC, nombre o serie..." 
+                            style="flex:1;min-width:200px;" onkeydown="if(event.key==='Enter')buscarComprobantes()">
+                        <select id="compTipo" class="ap-select" style="width:120px;">
+                            <option value="">Todos</option>
+                            <option value="03">Boletas</option>
+                            <option value="01">Facturas</option>
+                            <option value="07">NC</option>
+                            <option value="08">ND</option>
+                        </select>
+                        <select id="compEstado" class="ap-select" style="width:120px;">
+                            <option value="">Todo estado</option>
+                            <option value="accepted">Aceptado</option>
+                            <option value="pending">Pendiente</option>
+                            <option value="rejected">Rechazado</option>
+                            <option value="anulado">Anulado</option>
+                        </select>
+                        <button class="action-btn btn-primary" onclick="buscarComprobantes()">🔍 Buscar</button>
+                    </div>
+
+                    <!-- Resumen rápido -->
+                    <div id="compSummary" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;"></div>
+
+                    <!-- Lista -->
+                    <div id="compLista" style="max-height:500px;overflow-y:auto;">
+                        <div class="hist-empty">Busca comprobantes por DNI, nombre o número</div>
+                    </div>
+
+                    <!-- Paginación -->
+                    <div id="compPaginacion" style="display:flex;justify-content:center;gap:8px;margin-top:10px;"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1698,6 +1756,108 @@ async function ejecutarAnulacion() {
 }
 
 function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+
+// ── COMPROBANTES ──
+let compPageActual = 1;
+
+async function buscarComprobantes(page = 1) {
+    compPageActual = page;
+    const buscar = document.getElementById('compBuscar').value.trim();
+    const tipo = document.getElementById('compTipo').value;
+    const estado = document.getElementById('compEstado').value;
+
+    let url = `${API}/comprobantes?page=${page}&limit=20`;
+    if (buscar) url += `&buscar=${encodeURIComponent(buscar)}`;
+    if (tipo) url += `&tipo=${tipo}`;
+    if (estado) url += `&estado=${estado}`;
+
+    try {
+        const r = await fetch(url);
+        const d = await r.json();
+        renderComprobantes(d);
+    } catch (e) {
+        document.getElementById('compLista').innerHTML = '<div class="hist-empty">Error cargando comprobantes</div>';
+    }
+}
+
+function renderComprobantes(data) {
+    const lista = document.getElementById('compLista');
+    const pag = document.getElementById('compPaginacion');
+    const summ = document.getElementById('compSummary');
+    const comps = data.comprobantes || [];
+
+    // Summary
+    if (data.total > 0) {
+        summ.innerHTML = `<div style="font-size:12px;color:var(--text-sec);">${data.total} comprobante(s) encontrado(s) — Página ${data.page}/${data.pages}</div>`;
+    } else {
+        summ.innerHTML = '';
+    }
+
+    if (!comps.length) {
+        lista.innerHTML = '<div class="hist-empty">No se encontraron comprobantes</div>';
+        pag.innerHTML = '';
+        return;
+    }
+
+    const tipoIcons = { '01': '🧾', '03': '🧾', '07': '↩️', '08': '↗️' };
+    const tipoNames = { '01': 'Factura', '03': 'Boleta', '07': 'NC', '08': 'ND' };
+    const statusBadge = (s) => {
+        const map = {
+            'accepted': ['Aceptado', '#22c55e', 'rgba(34,197,94,0.1)'],
+            'pending': ['Pendiente', '#f59e0b', 'rgba(245,158,11,0.1)'],
+            'encolado': ['Encolado', '#f59e0b', 'rgba(245,158,11,0.1)'],
+            'rejected': ['Rechazado', '#ef4444', 'rgba(239,68,68,0.1)'],
+            'anulado': ['Anulado', '#6b7280', 'rgba(107,114,128,0.1)'],
+            'error': ['Error', '#ef4444', 'rgba(239,68,68,0.1)'],
+        };
+        const [label, color, bg] = map[s] || ['?', '#888', 'rgba(136,136,136,0.1)'];
+        return `<span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;color:${color};background:${bg};font-weight:600;">${label}</span>`;
+    };
+
+    lista.innerHTML = comps.map(c => {
+        const icon = tipoIcons[c.tipo] || '📄';
+        const tipoNombre = tipoNames[c.tipo] || c.tipo;
+        const esNC = c.tipo === '07' || c.tipo === '08';
+
+        return `<div class="comp-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.03)'" onmouseleave="this.style.background='transparent'">
+            <div style="min-width:28px;text-align:center;font-size:16px;" title="${tipoNombre}">${icon}</div>
+            <div style="flex:1;overflow:hidden;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    ${c.numero_formato}
+                    ${esNC ? '<span style="font-size:10px;color:#818cf8;margin-left:4px;">NC</span>' : ''}
+                </div>
+                <div style="font-size:11px;color:var(--text-sec);margin-top:2px;">
+                    ${c.cliente_nombre || 'Sin cliente'}
+                    ${c.cliente_doc ? `<span style="opacity:0.5;margin-left:4px;">${c.cliente_doc}</span>` : ''}
+                </div>
+                <div style="font-size:10px;color:var(--text-sec);opacity:0.6;margin-top:1px;">${c.fecha}</div>
+            </div>
+            <div style="text-align:right;min-width:80px;">
+                <div style="font-size:14px;font-weight:600;color:${esNC ? '#f59e0b' : 'var(--green)'};">S/ ${c.total.toFixed(2)}</div>
+                ${statusBadge(c.status)}
+            </div>
+            <div style="display:flex;gap:4px;min-width:70px;justify-content:flex-end;">
+                ${c.pdf_url ? `<button class="hist-pdf" onclick="window.open('/api/caja/comprobante/${c.payment_id}/pdf','_blank')" title="Ver PDF">📄</button>` : ''}
+                ${c.status === 'accepted' && !esNC ? `<button class="hist-anular" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre||'').replace(/'/g,"\\'")} - ${c.numero_formato}',${c.total})" title="Emitir NC">Anular</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    // Paginación
+    if (data.pages > 1) {
+        let pagHTML = '';
+        if (data.page > 1) pagHTML += `<button class="pag-btn" onclick="buscarComprobantes(${data.page - 1})">‹</button>`;
+        for (let i = Math.max(1, data.page - 2); i <= Math.min(data.pages, data.page + 2); i++) {
+            pagHTML += `<button class="pag-btn${i === data.page ? ' pag-active' : ''}" onclick="buscarComprobantes(${i})">${i}</button>`;
+        }
+        if (data.page < data.pages) pagHTML += `<button class="pag-btn" onclick="buscarComprobantes(${data.page + 1})">›</button>`;
+        pag.innerHTML = pagHTML;
+    } else {
+        pag.innerHTML = '';
+    }
+}
+
 </script>
 </body>
 </html>
