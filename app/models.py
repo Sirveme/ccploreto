@@ -997,3 +997,89 @@ class ComprobanteElectronico(Base):
 
     def __repr__(self):
         return f"<Comprobante {self.numero_formato} [{self.estado}]>"
+
+
+"""
+Modelos: Verificación y Conciliación de Pagos Digitales
+Agregar a app/models.py
+
+Tablas:
+- CuentaReceptora: Cuentas Yape/Plin/BBVA donde reciben pagos
+- NotificacionBancaria: Emails parseados de los bancos
+- VerificacionPago: Vinculación notificación ↔ pago
+"""
+
+# ══════════════════════════════════════════════════════════
+# AGREGAR estos modelos a app/models.py
+# ══════════════════════════════════════════════════════════
+
+
+class CuentaReceptora(Base):
+    """Cuentas donde el colegio recibe pagos digitales"""
+    __tablename__ = "cuentas_receptoras"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+
+    nombre = Column(String(100), nullable=False)          # "Yape Milagros", "Plin Paulo", "BBVA Institucional"
+    tipo = Column(String(30), nullable=False)              # yape, plin, transferencia, deposito
+    banco = Column(String(50))                             # BCP, Scotiabank, Interbank, BBVA
+    titular = Column(String(200))                          # Nombre del titular
+    numero_cuenta = Column(String(50))                     # Últimos dígitos o número parcial
+    telefono = Column(String(15))                          # Número asociado a Yape/Plin
+
+    # Email de notificaciones de este banco
+    email_remitente = Column(String(150))                  # bancadigital@scotiabank.com.pe
+    email_destinatario = Column(String(150))               # colegiocontadoresp.loreto@gmail.com
+
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    organization = relationship("Organization")
+
+
+class NotificacionBancaria(Base):
+    """Emails de notificación parseados automáticamente"""
+    __tablename__ = "notificaciones_bancarias"
+    __table_args__ = (
+        Index('ix_notif_fecha_monto', 'fecha_operacion', 'monto'),
+        Index('ix_notif_estado', 'estado'),
+        Index('ix_notif_email_id', 'email_message_id', unique=True),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    cuenta_receptora_id = Column(Integer, ForeignKey("cuentas_receptoras.id"), nullable=True)
+
+    # Datos del email
+    email_message_id = Column(String(200), unique=True)    # Gmail message ID (evita duplicados)
+    email_from = Column(String(200))                        # bancadigital@scotiabank.com.pe
+    email_subject = Column(String(500))
+    email_date = Column(DateTime(timezone=True))            # Fecha del email
+
+    # Datos parseados de la notificación
+    banco = Column(String(50))                              # scotiabank, interbank, bcp, bbva
+    tipo_operacion = Column(String(50))                     # plin_recibido, yape_recibido, transferencia
+    monto = Column(Numeric(12, 2), nullable=False)
+    moneda = Column(String(3), default="PEN")
+    fecha_operacion = Column(DateTime(timezone=True))       # Fecha/hora de la operación bancaria
+    codigo_operacion = Column(String(50))                   # Código de operación del banco
+    remitente_nombre = Column(String(200))                  # Quien envió el dinero
+    cuenta_destino = Column(String(100))                    # Cuenta que recibió (parcial)
+    destino_tipo = Column(String(30))                       # "Yape", "Plin", "Cuenta"
+
+    # Estado de conciliación
+    estado = Column(String(20), default="pendiente")        # pendiente, conciliado, sin_match, ignorado
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)  # Pago matcheado
+    conciliado_por = Column(String(50))                     # "auto" o nombre del usuario
+    conciliado_at = Column(DateTime(timezone=True))
+    observaciones = Column(Text)
+
+    # Raw data para auditoría
+    raw_body = Column(Text)                                 # Cuerpo del email original
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    organization = relationship("Organization")
+    cuenta = relationship("CuentaReceptora")
+    payment = relationship("Payment")
