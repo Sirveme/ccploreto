@@ -1,8 +1,13 @@
-{% extends "base_admin.html" %}
-{% block title %}Finanzas{% endblock %}
-
-{% block head_extra %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanzas</title>
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
 <style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--fin-bg);color:var(--fin-text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
 :root {
     --fin-bg: #0c0f1a;
     --fin-surface: #141824;
@@ -247,9 +252,9 @@
 .fin-ws-toast-close { background: none; border: none; color: var(--fin-text3); cursor: pointer; font-size: 16px; }
 .fin-ws-toast-body { font-size: 12px; color: var(--fin-text2); }
 </style>
-{% endblock %}
+</head>
+<body>
 
-{% block content %}
 <div class="fin-wrap">
 
     <!-- HEADER -->
@@ -1008,4 +1013,5 @@ document.addEventListener('DOMContentLoaded', () => {
     Finanzas.connectWS();
 });
 </script>
-{% endblock %}
+</body>
+</html>
