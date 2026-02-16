@@ -370,26 +370,22 @@ def detectar_anomalias(db, organization_id: int, config: dict = None) -> list[di
     hace_24h = datetime.utcnow() - timedelta(hours=24)
     hace_30d = datetime.utcnow() - timedelta(days=30)
 
-    # ── Alerta 1: Anulaciones frecuentes por cajero ──
+    # ── Alerta 1: Anulaciones frecuentes (general, últimas 24h) ──
     max_anul = cfg.get("max_anulaciones_dia_cajero", 3)
     try:
-        anulaciones = db.query(
-            Comprobante.created_by,
-            func.count(Comprobante.id)
-        ).filter(
+        total_anulaciones = db.query(func.count(Comprobante.id)).filter(
             Comprobante.organization_id == organization_id,
-            Comprobante.estado == "anulado",
+            Comprobante.status == "anulado",
             Comprobante.updated_at >= hace_24h,
-        ).group_by(Comprobante.created_by).all()
+        ).scalar() or 0
 
-        for cajero_id, count in anulaciones:
-            if count > max_anul:
-                alertas.append({
-                    "tipo": "anulaciones_frecuentes",
-                    "severidad": "media",
-                    "descripcion": f"Cajero #{cajero_id} anuló {count} comprobantes en 24h (límite: {max_anul})",
-                    "datos": {"cajero_id": cajero_id, "cantidad": count},
-                })
+        if total_anulaciones > max_anul:
+            alertas.append({
+                "tipo": "anulaciones_frecuentes",
+                "severidad": "media",
+                "descripcion": f"{total_anulaciones} comprobantes anulados en 24h (límite: {max_anul})",
+                "datos": {"cantidad": total_anulaciones},
+            })
     except Exception as e:
         logger.warning(f"Error detectando anulaciones: {e}")
 
@@ -428,8 +424,8 @@ def generar_resumen_financiero(db, organization_id: int) -> dict:
     Genera el resumen para el dashboard de Finanzas.
     Optimizado para una sola consulta por métrica.
     """
-    from app.models import Payment, CajaApertura
-    from sqlalchemy import func, case
+    from app.models import Payment
+    from sqlalchemy import func
 
     hoy_inicio = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     mes_inicio = hoy_inicio.replace(day=1)
