@@ -189,15 +189,16 @@ async def actualizar_datos_personales(
     return {"status": "ok", "message": "Datos personales actualizados"}
 
 
-# ============================================================
+# ====================================
 # ACTUALIZAR DATOS DE ESTUDIOS
-# ============================================================
+# ====================================
 @router.post("/actualizar/estudios")
 async def actualizar_datos_estudios(
     universidad: str = Form(None),
     fecha_titulo: str = Form(None),
     grado_academico: str = Form(None),
     especialidad: str = Form(None),
+    comite_funcional: str = Form(None),
     member: Member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):

@@ -16,10 +16,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import (
-    Payment, CajaApertura, Colegiado, Debt, Comprobante,
-    Organization,  # Para config_finanzas
-)
+from app.models import Payment, Colegiado, Debt, Organization, Comprobante, SesionCaja
 
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
 
@@ -68,21 +65,26 @@ async def listar_cajas(db: Session = Depends(get_db)):
     org = _org_id()
     hoy = datetime.now(TZ_PERU).date()
 
-    cajas = db.query(CajaApertura).filter(
-        CajaApertura.organization_id == org,
-    ).order_by(CajaApertura.created_at.desc()).limit(10).all()
+    sesiones = db.query(SesionCaja).filter(
+        SesionCaja.organization_id == org,
+    ).order_by(SesionCaja.created_at.desc()).limit(10).all()
 
     resultado = []
-    for c in cajas:
-        es_hoy = c.created_at.date() == hoy if c.created_at else False
+    for s in sesiones:
+        fecha_sesion = s.fecha.date() if hasattr(s.fecha, 'date') else s.fecha
+        es_hoy = fecha_sesion == hoy if fecha_sesion else False
         resultado.append({
-            "id": c.id,
-            "nombre": f"Caja {c.id}",
-            "estado": "abierta" if (c.estado == "abierta" and es_hoy) else "cerrada",
-            "cajera": c.cajera_nombre if hasattr(c, 'cajera_nombre') else f"Cajera #{c.cajera_id}" if hasattr(c, 'cajera_id') else "—",
-            "efectivo": float(c.total_efectivo or 0) if hasattr(c, 'total_efectivo') else 0,
-            "digital": float(c.total_digital or 0) if hasattr(c, 'total_digital') else 0,
-            "apertura": c.created_at.astimezone(TZ_PERU).strftime("%H:%M") if c.created_at else None,
+            "id": s.id,
+            "nombre": f"Caja #{s.id}",
+            "estado": s.estado if (s.estado == "abierta" and es_hoy) else "cerrada",
+            "cajera": s.cajero.nombres if s.cajero and hasattr(s.cajero, 'nombres') else f"Cajero #{s.usuario_admin_id}",
+            "efectivo": float(s.total_cobros_efectivo or 0),
+            "digital": float(s.total_cobros_digital or 0),
+            "egresos": float(s.total_egresos or 0),
+            "operaciones": s.cantidad_operaciones or 0,
+            "apertura": s.hora_apertura.astimezone(TZ_PERU).strftime("%H:%M") if s.hora_apertura else None,
+            "monto_apertura": float(s.monto_apertura or 0),
+            "diferencia": float(s.diferencia or 0) if s.estado != "abierta" else None,
         })
 
     return {"cajas": resultado}
@@ -449,3 +451,17 @@ class FinanzasNotifier:
 # Instancia global
 notifier = FinanzasNotifier()
 
+
+# Este endpoint se registra en main.py directamente (no con prefix del router)
+# app.websocket("/ws/finanzas")(ws_finanzas)
+async def ws_finanzas(websocket: WebSocket):
+    await notifier.connect(websocket)
+    try:
+        while True:
+            # Mantener conexión viva; el servidor envía eventos
+            data = await websocket.receive_text()
+            # Ping/pong
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        notifier.disconnect(websocket)
