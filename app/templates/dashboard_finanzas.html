@@ -774,8 +774,8 @@ const Finanzas = {
                         <div style="font-size:11px;color:var(--fin-text3);">${n.fecha_operacion} · ${n.remitente || ''} ${n.codigo_operacion ? '· #' + n.codigo_operacion : ''}</div>
                     </div>
                     <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;
-                        background:${{'conciliado':'rgba(34,197,94,.1)','sin_match':'rgba(245,158,11,.1)','pendiente':'rgba(99,102,241,.1)','ignorado':'rgba(100,116,139,.1)'}[n.estado]};
-                        color:${{'conciliado':'var(--fin-green)','sin_match':'var(--fin-yellow)','pendiente':'var(--fin-accent)','ignorado':'var(--fin-text3)'}[n.estado]};">
+                        background:${this.estadoBg(n.estado)};
+                        color:${this.estadoColor(n.estado)};">
                         ${n.estado}
                     </span>
                 </div>
@@ -991,6 +991,14 @@ const Finanzas = {
     updateBadge(id, count) {
         const el = document.getElementById(id);
         if (el) el.textContent = count > 0 ? count : '';
+    },
+    estadoBg(e) {
+        const m = {conciliado:'rgba(34,197,94,.1)',sin_match:'rgba(245,158,11,.1)',pendiente:'rgba(99,102,241,.1)',ignorado:'rgba(100,116,139,.1)'};
+        return m[e] || 'rgba(100,116,139,.1)';
+    },
+    estadoColor(e) {
+        const m = {conciliado:'var(--fin-green)',sin_match:'var(--fin-yellow)',pendiente:'var(--fin-accent)',ignorado:'var(--fin-text3)'};
+        return m[e] || 'var(--fin-text3)';
     },
 };
 
