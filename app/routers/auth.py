@@ -85,25 +85,37 @@ async def login(
         ).first()
         
         if colegiado:
-            # Existe el colegiado pero no tiene usuario
-            if colegiado.condicion not in ('habil', 'vitalicio'):
-                return JSONResponse(
-                    status_code=200, 
-                    content=f"""<div class="p-3 mb-4 text-sm text-yellow-200 bg-yellow-900/50 border border-yellow-500/50 rounded-lg text-center">
-                        Su condición actual es <strong>{colegiado.condicion.upper()}</strong>.<br>
-                        Contacte a la oficina del Colegio para regularizar su situación.
-                    </div>""", 
-                    media_type="text/html"
-                )
-            else:
-                return JSONResponse(
-                    status_code=200, 
-                    content="""<div class="p-3 mb-4 text-sm text-yellow-200 bg-yellow-900/50 border border-yellow-500/50 rounded-lg text-center">
-                        Su cuenta aún no ha sido activada.<br>
-                        Contacte a la oficina del Colegio.
-                    </div>""", 
-                    media_type="text/html"
-                )
+            # Existe el colegiado pero no tiene usuario → crear automáticamente
+            from app.utils.security import get_password_hash
+            
+            new_user = User(
+                public_id=dni,
+                name=colegiado.apellidos_nombres or dni,
+                access_code=get_password_hash(dni),  # Clave inicial = DNI
+                debe_cambiar_clave=True,
+                login_count=0,
+            )
+            db.add(new_user)
+            db.flush()
+            
+            # Determinar rol según condición
+            rol = "colegiado"
+            
+            new_member = Member(
+                user_id=new_user.id,
+                organization_id=current_org['id'],
+                role=rol,
+                is_active=True,
+            )
+            db.add(new_member)
+            db.flush()
+            
+            # Vincular colegiado con member
+            colegiado.member_id = new_member.id
+            db.commit()
+            
+            # Ahora el user existe → cae al paso 4 (validar contraseña)
+            user = new_user
         else:
             return JSONResponse(
                 status_code=200, 
@@ -163,7 +175,7 @@ async def login(
         return response
 
     # 8. Login exitoso normal
-    return create_session_response(user, membership)
+    return create_session_response(user, membership, db)
 
 
 # ============================================================
@@ -281,27 +293,7 @@ async def procesar_cambio_clave(
     membership = db.query(Member).filter(Member.id == int(member_id)).first()
     
     if membership:
-        # Crear sesión normal y redirigir al dashboard
-        response = Response(status_code=200)
-        response.headers["HX-Redirect"] = "/dashboard"
-        
-        access_token = create_access_token(data={
-            "sub": str(membership.id),
-            "user_id": str(user.id),
-            "name": user.name,
-            "role": membership.role,
-            "org_name": membership.organization.name
-        })
-        
-        response.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            max_age=2592000,
-            samesite="lax",
-            secure=False
-        )
-        return response
+        return create_session_response(user, membership, db)
     
     # Fallback: redirigir al login
     return JSONResponse(
@@ -342,13 +334,13 @@ async def switch_profile(
     if not target_membership:
         raise HTTPException(status_code=403, detail="Acceso denegado")
     
-    return create_session_response(target_membership.user, target_membership)
+    return create_session_response(target_membership.user, target_membership, db)
 
 
 # ============================================================
 # HELPER: CREAR COOKIE Y REDIRIGIR
 # ============================================================
-def create_session_response(user, member):
+def create_session_response(user, member, db=None):
     """Crea la respuesta con cookie de sesión"""
     
     access_token = create_access_token(data={
@@ -367,6 +359,13 @@ def create_session_response(user, member):
         target_url = "/centinela"
     elif member.role in ["cajero", "tesorero"]:
         target_url = "/caja"
+    elif member.role == "colegiado":
+        # Verificar condición
+        col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
+        if col and col.condicion not in ('habil', 'vitalicio'):
+            target_url = "/portal/inactivo"
+        else:
+            target_url = "/dashboard"
 
     response = Response(status_code=200)
     response.headers["HX-Redirect"] = target_url
