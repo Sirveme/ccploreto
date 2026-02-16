@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Portal — Colegio Profesional</title>
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root {
+    --bg: #080b14;
+    --surface: #0f1322;
+    --surface2: #151a2e;
+    --surface3: #1c2240;
+    --border: rgba(148,163,184,0.06);
+    --border2: rgba(148,163,184,0.12);
+    --text: #e8edf5;
+    --text2: #94a3b8;
+    --text3: #5e6b82;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.08);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.06);
+    --yellow: #f59e0b;
+    --yellow-bg: rgba(245,158,11,0.06);
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+
+/* ═══ TOPBAR ═══ */
+.topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+}
+.topbar-brand { display: flex; align-items: center; gap: 10px; }
+.topbar-brand img { height: 32px; border-radius: 6px; }
+.topbar-brand span { font-size: 14px; font-weight: 700; color: var(--text); }
+.topbar-user { display: flex; align-items: center; gap: 10px; }
+.topbar-user span { font-size: 12px; color: var(--text2); }
+.topbar-btn {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
+    color: var(--red); padding: 6px 14px; border-radius: 8px; font-size: 11px;
+    font-weight: 600; cursor: pointer; transition: all .2s;
+}
+.topbar-btn:hover { background: rgba(239,68,68,0.2); }
+
+/* ═══ LAYOUT ═══ */
+.portal-wrap { max-width: 800px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* ═══ WELCOME BANNER ═══ */
+.welcome-banner {
+    margin: 20px 0; padding: 24px; border-radius: 16px;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border2); position: relative; overflow: hidden;
+}
+.welcome-banner::before {
+    content: ''; position: absolute; top: -40px; right: -40px; width: 160px; height: 160px;
+    background: radial-gradient(circle, rgba(99,102,241,0.08), transparent 70%);
+    border-radius: 50%;
+}
+.welcome-name { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.welcome-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+/* ═══ STATUS BADGE ═══ */
+.status-bar {
+    display: flex; align-items: center; gap: 12px; margin: 16px 0;
+    padding: 14px 18px; border-radius: 12px;
+}
+.status-bar.inactivo { background: var(--red-bg); border: 1px solid rgba(239,68,68,0.15); }
+.status-bar.habil { background: var(--green-bg); border: 1px solid rgba(34,197,94,0.15); }
+.status-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+    animation: pulse-status 2s infinite;
+}
+.status-dot.inactivo { background: var(--red); }
+.status-dot.habil { background: var(--green); }
+@keyframes pulse-status { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+.status-text { font-size: 14px; font-weight: 700; }
+.status-text.inactivo { color: var(--red); }
+.status-text.habil { color: var(--green); }
+.status-detail { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+/* ═══ DEUDA CARD ═══ */
+.deuda-card {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 16px; padding: 0; overflow: hidden; margin-bottom: 16px;
+}
+.deuda-header {
+    padding: 18px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.deuda-title { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.deuda-title i { color: var(--red); font-size: 20px; }
+.deuda-total {
+    font-size: 28px; font-weight: 800; color: var(--red);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+}
+.deuda-body { padding: 0; }
+.deuda-row {
+    display: flex; align-items: center; padding: 12px 20px;
+    border-bottom: 1px solid var(--border); transition: background .15s;
+}
+.deuda-row:last-child { border-bottom: none; }
+.deuda-row:hover { background: rgba(255,255,255,0.01); }
+.deuda-concepto { flex: 1; font-size: 13px; color: var(--text2); }
+.deuda-fecha { font-size: 11px; color: var(--text3); width: 80px; text-align: center; }
+.deuda-monto { font-size: 14px; font-weight: 700; color: var(--text); width: 100px; text-align: right; }
+.deuda-meses { font-size: 11px; color: var(--text3); text-align: center; padding: 12px 20px; }
+
+/* ═══ ACTION CARDS ═══ */
+.action-grid { display: grid; gap: 12px; margin: 20px 0; }
+
+.action-card {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 20px; cursor: pointer;
+    transition: all .25s ease; position: relative; overflow: hidden;
+}
+.action-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.action-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.action-card.primary::after { background: var(--accent); }
+.action-card.success::after { background: var(--green); }
+.action-card.warning::after { background: var(--yellow); }
+
+.action-icon {
+    width: 44px; height: 44px; border-radius: 12px; display: flex;
+    align-items: center; justify-content: center; font-size: 22px; margin-bottom: 14px;
+}
+.action-card.primary .action-icon { background: rgba(99,102,241,.1); color: var(--accent); }
+.action-card.success .action-icon { background: rgba(34,197,94,.1); color: var(--green); }
+.action-card.warning .action-icon { background: rgba(245,158,11,.1); color: var(--yellow); }
+
+.action-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.action-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+.action-badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
+    font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-top: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.action-badge.green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(34,197,94,0.15); }
+.action-badge.yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(245,158,11,0.15); }
+.action-badge.red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.15); }
+
+/* ═══ FRACCIONAMIENTO SIMULATOR ═══ */
+.fracc-card {
+    background: var(--surface); border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 14px; overflow: hidden; margin-bottom: 16px; display: none;
+}
+.fracc-card.visible { display: block; animation: slideDown .3s ease; }
+@keyframes slideDown { from{opacity:0;max-height:0;} to{opacity:1;max-height:600px;} }
+
+.fracc-header {
+    padding: 16px 20px; background: rgba(99,102,241,0.04);
+    border-bottom: 1px solid rgba(99,102,241,0.1);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.fracc-title { font-size: 14px; font-weight: 700; color: var(--accent2); display: flex; align-items: center; gap: 8px; }
+.fracc-body { padding: 20px; }
+
+.fracc-conditions {
+    background: var(--surface2); border-radius: 10px; padding: 14px;
+    margin-bottom: 16px; border: 1px solid var(--border);
+}
+.fracc-conditions h4 { font-size: 12px; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.fracc-cond-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--text); }
+.fracc-cond-row i { font-size: 16px; }
+.fracc-cond-row i.check { color: var(--green); }
+.fracc-cond-row i.x { color: var(--red); }
+
+.fracc-options { display: grid; gap: 8px; }
+.fracc-option {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; cursor: pointer; transition: all .2s;
+}
+.fracc-option:hover { border-color: var(--accent); background: rgba(99,102,241,0.03); }
+.fracc-option.selected { border-color: var(--accent); background: rgba(99,102,241,0.06); }
+.fracc-option-cuotas { font-size: 14px; font-weight: 700; color: var(--text); }
+.fracc-option-detalle { font-size: 12px; color: var(--text2); }
+.fracc-option-monto { font-size: 16px; font-weight: 800; color: var(--accent2); }
+
+.fracc-cta {
+    width: 100%; padding: 14px; background: var(--accent); color: #fff;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+    cursor: pointer; margin-top: 14px; transition: filter .2s;
+}
+.fracc-cta:hover { filter: brightness(1.1); }
+.fracc-cta:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ═══ WHAT YOU'RE MISSING ═══ */
+.missing-section { margin: 28px 0; }
+.missing-title {
+    font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+}
+.missing-sub { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+
+.missing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 500px) { .missing-grid { grid-template-columns: 1fr; } }
+
+.missing-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; position: relative;
+    transition: all .2s;
+}
+.missing-card::before {
+    content: '🔒'; position: absolute; top: 10px; right: 10px;
+    font-size: 14px; opacity: .5;
+}
+.missing-card:hover { border-color: var(--border2); }
+.missing-icon {
+    width: 36px; height: 36px; border-radius: 10px; display: flex;
+    align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px;
+}
+.missing-card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.missing-card-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
+.missing-stat {
+    font-size: 11px; color: var(--accent2); font-weight: 600;
+    margin-top: 8px; display: flex; align-items: center; gap: 4px;
+}
+
+/* ═══ PAGO SECTION ═══ */
+.pago-section {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 20px; margin: 16px 0; display: none;
+}
+.pago-section.visible { display: block; animation: slideDown .3s ease; }
+.pago-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.pago-cuentas { display: grid; gap: 10px; margin-bottom: 16px; }
+.pago-cuenta {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.pago-banco-icon {
+    width: 40px; height: 40px; border-radius: 8px; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px; color: var(--text2);
+}
+.pago-banco-info { flex: 1; }
+.pago-banco-nombre { font-size: 13px; font-weight: 700; color: var(--text); }
+.pago-banco-cuenta { font-size: 12px; color: var(--text2); font-family: monospace; }
+.pago-copy {
+    background: var(--surface3); border: 1px solid var(--border); color: var(--text2);
+    padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
+    transition: all .15s;
+}
+.pago-copy:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ═══ MODAL CAMBIO CLAVE ═══ */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; backdrop-filter: blur(4px);
+}
+.modal-overlay.hidden { display: none; }
+.modal-box {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 16px; padding: 28px; width: 90%; max-width: 380px;
+}
+.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+.modal-box p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+.modal-input {
+    width: 100%; padding: 12px 14px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 10px;
+    color: var(--text); font-size: 14px; margin-bottom: 10px;
+}
+.modal-input:focus { outline: none; border-color: var(--accent); }
+.modal-btn {
+    width: 100%; padding: 12px; background: var(--accent); color: #fff;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+    cursor: pointer; margin-top: 6px;
+}
+.modal-btn:hover { filter: brightness(1.1); }
+.modal-error { color: var(--red); font-size: 12px; margin-top: 6px; display: none; }
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 500px) {
+    .welcome-name { font-size: 17px; }
+    .deuda-total { font-size: 22px; }
+    .deuda-fecha { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <div class="topbar-brand">
+        <span id="topbar-org-name">Colegio Profesional</span>
+    </div>
+    <div class="topbar-user">
+        <span id="topbar-user-name"></span>
+        <button class="topbar-btn" onclick="Portal.logout()">
+            <i class="ph ph-sign-out"></i> Salir
+        </button>
+    </div>
+</div>
+
+<!-- Auth: /auth/login maneja login y cambio de clave -->
+
+<!-- PORTAL WRAP -->
+<div class="portal-wrap">
+
+    <!-- WELCOME -->
+    <div class="welcome-banner">
+        <div class="welcome-name" id="welcome-name">Bienvenido(a)</div>
+        <div class="welcome-sub" id="welcome-sub">
+            Estás en tu portal personal. Desde aquí puedes consultar tu estado,
+            revisar tu deuda y regularizar tu situación.
+        </div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="status-bar inactivo" id="status-bar">
+        <div class="status-dot inactivo" id="status-dot"></div>
+        <span class="status-text inactivo" id="status-text">INACTIVO</span>
+        <span class="status-detail" id="status-detail">
+            Acceso restringido por disposición estatutaria
+        </span>
+    </div>
+
+    <!-- DEUDA -->
+    <div class="deuda-card" id="deuda-card">
+        <div class="deuda-header">
+            <div class="deuda-title">
+                <i class="ph-fill ph-warning-circle"></i> Estado de Adeudo
+            </div>
+            <div class="deuda-total" id="deuda-total">S/ 0.00</div>
+        </div>
+        <div class="deuda-body" id="deuda-lista">
+            <!-- Se llena dinámicamente -->
+        </div>
+        <div class="deuda-meses" id="deuda-meses-info"></div>
+    </div>
+
+    <!-- ACCIONES -->
+    <div class="action-grid" id="action-grid">
+
+        <!-- Fraccionamiento -->
+        <div class="action-card primary" id="card-fraccionamiento" onclick="Portal.toggleFraccionamiento()" style="display:none;">
+            <div class="action-icon"><i class="ph ph-calculator"></i></div>
+            <div class="action-title">Fracciona tu deuda</div>
+            <div class="action-desc">
+                Tu deuda califica para fraccionamiento. Paga una cuota inicial
+                y el resto en cómodas cuotas mensuales.
+            </div>
+            <div class="action-badge green"><i class="ph ph-check-circle"></i> Disponible</div>
+        </div>
+
+        <!-- Pago directo -->
+        <div class="action-card success" onclick="Portal.togglePago()">
+            <div class="action-icon"><i class="ph ph-credit-card"></i></div>
+            <div class="action-title">Pagar ahora</div>
+            <div class="action-desc" id="pago-desc">
+                Realiza un pago parcial o total para regularizar tu situación.
+            </div>
+            <div class="action-badge yellow" id="pago-badge" style="display:none;">
+                <i class="ph ph-info"></i> Paga min. 50% para constancia
+            </div>
+        </div>
+
+        <!-- Hablar con el colegio -->
+        <div class="action-card warning" onclick="Portal.contactar()">
+            <div class="action-icon"><i class="ph ph-chat-circle-dots"></i></div>
+            <div class="action-title">Consultar al colegio</div>
+            <div class="action-desc">
+                ¿Tienes dudas? Comunícate con la oficina para orientación personalizada.
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMULADOR FRACCIONAMIENTO -->
+    <div class="fracc-card" id="fracc-panel">
+        <div class="fracc-header">
+            <div class="fracc-title"><i class="ph ph-calculator"></i> Simulador de Fraccionamiento</div>
+            <button onclick="Portal.toggleFraccionamiento()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">
+                <i class="ph ph-x"></i>
+            </button>
+        </div>
+        <div class="fracc-body">
+            <!-- Condiciones -->
+            <div class="fracc-conditions">
+                <h4>Condiciones del fraccionamiento</h4>
+                <div class="fracc-cond-row" id="cond-monto-min">
+                    <i class="ph-fill ph-check-circle check"></i>
+                    <span>Deuda mínima: S/ 500</span>
+                </div>
+                <div class="fracc-cond-row">
+                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
+                    <span>Cuota inicial: 20% de la deuda</span>
+                </div>
+                <div class="fracc-cond-row">
+                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
+                    <span>Cuota mínima mensual: S/ 100</span>
+                </div>
+                <div class="fracc-cond-row">
+                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
+                    <span>Máximo 12 cuotas</span>
+                </div>
+                <div class="fracc-cond-row">
+                    <i class="ph-fill ph-warning-circle" style="color:var(--yellow);"></i>
+                    <span>La constancia de habilidad se renueva mes a mes al pagar cada cuota</span>
+                </div>
+            </div>
+
+            <!-- Cuota inicial -->
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">
+                    Cuota inicial (mín. <span id="fracc-min-inicial">S/ 0</span>)
+                </label>
+                <input type="number" id="fracc-inicial-input" class="modal-input" style="margin:0;"
+                       placeholder="Monto de cuota inicial" onchange="Portal.recalcularFracc()">
+            </div>
+
+            <!-- Opciones de cuotas -->
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Elige tu plan de pagos:</div>
+            <div class="fracc-options" id="fracc-opciones">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <button class="fracc-cta" id="fracc-cta-btn" disabled onclick="Portal.solicitarFraccionamiento()">
+                <i class="ph ph-handshake"></i> Solicitar fraccionamiento
+            </button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN PAGO -->
+    <div class="pago-section" id="pago-section">
+        <h3><i class="ph ph-credit-card" style="color:var(--green);"></i> Realizar Pago</h3>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+            Transfiere a cualquiera de estas cuentas e indica tu número de colegiatura o DNI como referencia.
+        </p>
+        <div class="pago-cuentas" id="pago-cuentas">
+            <!-- Se llena desde la BD -->
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">También puedes pagar con:</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:13px;font-weight:600;color:#a855f7;">📲 Yape</span>
+                <span style="font-size:13px;font-weight:600;color:var(--cyan);">📲 Plin</span>
+            </div>
+        </div>
+        <p style="font-size:11px;color:var(--text3);">
+            Después de pagar, tu pago será verificado automáticamente.
+            Si pagaste con transferencia, la verificación puede tomar hasta 24 horas.
+        </p>
+    </div>
+
+    <!-- LO QUE TE ESTÁS PERDIENDO -->
+    <div class="missing-section">
+        <div class="missing-title">
+            <i class="ph ph-star-four" style="color:var(--yellow);"></i>
+            Lo que obtienes al activarte
+        </div>
+        <div class="missing-sub">Estos servicios están disponibles para colegiados hábiles</div>
+
+        <div class="missing-grid">
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(168,85,247,.1);color:var(--purple);">
+                    <i class="ph ph-bell-ringing"></i>
+                </div>
+                <div class="missing-card-title">Alertas Tributarias</div>
+                <div class="missing-card-desc">
+                    Monitorea los RUCs de tus clientes. Te avisamos antes de cada vencimiento tributario.
+                </div>
+                <div class="missing-stat">
+                    <i class="ph ph-chart-line-up"></i> <span id="stat-rucs">847</span> RUCs monitoreados por colegas
+                </div>
+            </div>
+
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(99,102,241,.1);color:var(--accent);">
+                    <i class="ph ph-robot"></i>
+                </div>
+                <div class="missing-card-title">Asistente IA Contable</div>
+                <div class="missing-card-desc">
+                    Consulta normas, plazos y procedimientos SUNAT con inteligencia artificial.
+                </div>
+                <div class="missing-stat">
+                    <i class="ph ph-chat-circle-dots"></i> <span id="stat-consultas">186</span> consultas este mes
+                </div>
+            </div>
+
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(34,197,94,.1);color:var(--green);">
+                    <i class="ph ph-certificate"></i>
+                </div>
+                <div class="missing-card-title">Constancia Digital</div>
+                <div class="missing-card-desc">
+                    Descarga tu constancia de habilidad al instante, con código QR verificable.
+                </div>
+                <div class="missing-stat">
+                    <i class="ph ph-clock"></i> Emisión inmediata
+                </div>
+            </div>
+
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(6,182,212,.1);color:var(--cyan);">
+                    <i class="ph ph-users-three"></i>
+                </div>
+                <div class="missing-card-title">Directorio Profesional</div>
+                <div class="missing-card-desc">
+                    Aparece en el directorio público de contadores hábiles. Clientes te encuentran.
+                </div>
+                <div class="missing-stat">
+                    <i class="ph ph-eye"></i> Visible para empleadores y clientes
+                </div>
+            </div>
+
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(245,158,11,.1);color:var(--yellow);">
+                    <i class="ph ph-graduation-cap"></i>
+                </div>
+                <div class="missing-card-title">Capacitaciones</div>
+                <div class="missing-card-desc">
+                    Acceso gratuito a cursos, seminarios y talleres del colegio.
+                </div>
+                <div class="missing-stat">
+                    <i class="ph ph-calendar"></i> Próximo evento: <span id="stat-evento">Mar 2026</span>
+                </div>
+            </div>
+
+            <div class="missing-card">
+                <div class="missing-icon" style="background:rgba(239,68,68,.1);color:var(--red);">
+                    <i class="ph ph-gavel"></i>
+                </div>
+                <div class="missing-card-title">Ejercicio Legal</div>
+                <div class="missing-card-desc">
+                    Solo los colegiados hábiles pueden ejercer legalmente, firmar estados financieros y participar en licitaciones.
+                </div>
+                <div class="missing-stat" style="color:var(--red);">
+                    <i class="ph ph-warning"></i> Sin habilidad = riesgo legal
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- JAVASCRIPT                         -->
+<!-- ═══════════════════════════════════ -->
+<script>
+const Portal = {
+    colegiado: null,
+    deudas: [],
+    deudaTotal: 0,
+    fraccSeleccion: null,
+
+    // ─── Init ───
+    async init() {
+        try {
+            const r = await fetch('/api/portal/mi-perfil');
+            if (r.status === 401 || r.status === 422) { location.href = '/'; return; }
+            const d = await r.json();
+            this.colegiado = d;
+
+            document.getElementById('topbar-user-name').textContent = d.nombre_corto || '';
+            document.getElementById('topbar-org-name').textContent = d.organizacion || 'Colegio Profesional';
+            document.getElementById('welcome-name').textContent = `¡Bienvenido(a), ${d.nombres || d.nombre_corto}!`;
+
+            // Si ya está hábil, redirigir al dashboard
+            if (d.condicion === 'habil' || d.condicion === 'vitalicio') {
+                location.href = '/dashboard';
+                return;
+            }
+
+            this.cargarDeuda();
+        } catch(e) {
+            console.error('Error init:', e);
+        }
+    },
+
+    // ─── Deuda ───
+    async cargarDeuda() {
+        try {
+            const r = await fetch('/api/portal/mi-deuda');
+            const d = await r.json();
+            this.deudas = d.deudas || [];
+            this.deudaTotal = d.total || 0;
+
+            document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.deudaTotal)}`;
+
+            const meses = this.deudas.length;
+            document.getElementById('deuda-meses-info').textContent =
+                meses > 0 ? `${meses} cuota${meses>1?'s':''} pendiente${meses>1?'s':''}` : '';
+
+            const lista = document.getElementById('deuda-lista');
+            if (this.deudas.length === 0) {
+                lista.innerHTML = '<div style="padding:20px;text-align:center;color:var(--green);">✅ No tienes deudas pendientes</div>';
+                return;
+            }
+
+            lista.innerHTML = this.deudas.map(d => `
+                <div class="deuda-row">
+                    <div class="deuda-concepto">${d.concepto}</div>
+                    <div class="deuda-fecha">${d.fecha_venc || ''}</div>
+                    <div class="deuda-monto">S/ ${this.fmt(d.balance)}</div>
+                </div>
+            `).join('');
+
+            // ¿Califica para fraccionamiento?
+            if (this.deudaTotal >= 500) {
+                document.getElementById('card-fraccionamiento').style.display = 'block';
+                this.prepararFraccionamiento();
+            } else {
+                // No califica — mostrar badge de pago mínimo
+                document.getElementById('pago-badge').style.display = 'inline-flex';
+            }
+
+            this.cargarCuentas();
+        } catch(e) { console.error('Error deuda:', e); }
+    },
+
+    // ─── Fraccionamiento ───
+    prepararFraccionamiento() {
+        const minInicial = Math.ceil(this.deudaTotal * 0.20);
+        document.getElementById('fracc-min-inicial').textContent = `S/ ${this.fmt(minInicial)}`;
+        document.getElementById('fracc-inicial-input').min = minInicial;
+        document.getElementById('fracc-inicial-input').value = minInicial;
+        this.recalcularFracc();
+    },
+
+    recalcularFracc() {
+        const inicial = parseFloat(document.getElementById('fracc-inicial-input').value) || 0;
+        const minInicial = Math.ceil(this.deudaTotal * 0.20);
+
+        if (inicial < minInicial) {
+            document.getElementById('fracc-opciones').innerHTML =
+                `<div style="color:var(--red);font-size:12px;padding:10px;">La cuota inicial debe ser al menos S/ ${this.fmt(minInicial)}</div>`;
+            document.getElementById('fracc-cta-btn').disabled = true;
+            return;
+        }
+
+        const saldo = this.deudaTotal - inicial;
+        const opciones = [];
+        for (let n = 2; n <= 12; n++) {
+            const cuota = saldo / n;
+            if (cuota >= 100) {
+                opciones.push({ cuotas: n, mensual: Math.ceil(cuota * 100) / 100 });
+            }
+        }
+
+        const el = document.getElementById('fracc-opciones');
+        if (opciones.length === 0) {
+            el.innerHTML = '<div style="color:var(--yellow);font-size:12px;padding:10px;">Con esa cuota inicial, no hay opciones que cumplan la cuota mínima de S/ 100</div>';
+            document.getElementById('fracc-cta-btn').disabled = true;
+            return;
+        }
+
+        el.innerHTML = opciones.map(o => `
+            <div class="fracc-option" onclick="Portal.selectFracc(${o.cuotas}, ${o.mensual}, this)">
+                <div>
+                    <div class="fracc-option-cuotas">${o.cuotas} cuotas</div>
+                    <div class="fracc-option-detalle">S/ ${this.fmt(o.mensual)} mensuales</div>
+                </div>
+                <div class="fracc-option-monto">S/ ${this.fmt(o.mensual)}/mes</div>
+            </div>
+        `).join('');
+
+        this.fraccSeleccion = null;
+        document.getElementById('fracc-cta-btn').disabled = true;
+    },
+
+    selectFracc(cuotas, mensual, el) {
+        document.querySelectorAll('.fracc-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        this.fraccSeleccion = { cuotas, mensual };
+        document.getElementById('fracc-cta-btn').disabled = false;
+    },
+
+    toggleFraccionamiento() {
+        const panel = document.getElementById('fracc-panel');
+        panel.classList.toggle('visible');
+    },
+
+    async solicitarFraccionamiento() {
+        if (!this.fraccSeleccion) return;
+
+        const inicial = parseFloat(document.getElementById('fracc-inicial-input').value);
+        const btn = document.getElementById('fracc-cta-btn');
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+
+        try {
+            const r = await fetch('/api/finanzas/fraccionamiento/crear', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    colegiado_id: this.colegiado.id,
+                    cuota_inicial: inicial,
+                    num_cuotas: this.fraccSeleccion.cuotas,
+                    notas: 'Solicitado desde portal web',
+                })
+            });
+            const d = await r.json();
+            if (d.success) {
+                alert(`¡Fraccionamiento aprobado!\n\nCuota inicial: S/ ${inicial}\n${this.fraccSeleccion.cuotas} cuotas de S/ ${this.fraccSeleccion.mensual}\n\nProcede a pagar la cuota inicial.`);
+                this.toggleFraccionamiento();
+                this.cargarDeuda();
+            } else {
+                alert(d.detail || d.mensaje || 'Error al procesar');
+            }
+        } catch(e) {
+            alert('Error de conexión');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-handshake"></i> Solicitar fraccionamiento';
+    },
+
+    // ─── Pago ───
+    togglePago() {
+        const section = document.getElementById('pago-section');
+        section.classList.toggle('visible');
+    },
+
+    async cargarCuentas() {
+        try {
+            const r = await fetch('/api/portal/cuentas-pago');
+            const d = await r.json();
+            const el = document.getElementById('pago-cuentas');
+            if (d.cuentas && d.cuentas.length) {
+                el.innerHTML = d.cuentas.map(c => `
+                    <div class="pago-cuenta">
+                        <div class="pago-banco-icon">${(c.banco || 'BCO').substring(0,3).toUpperCase()}</div>
+                        <div class="pago-banco-info">
+                            <div class="pago-banco-nombre">${c.banco}</div>
+                            <div class="pago-banco-cuenta">${c.numero_cuenta}</div>
+                        </div>
+                        <button class="pago-copy" onclick="navigator.clipboard.writeText('${c.numero_cuenta}');this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar',2000);">
+                            Copiar
+                        </button>
+                    </div>
+                `).join('');
+            }
+        } catch(e) {}
+    },
+
+    contactar() {
+        // Abrir WhatsApp o mostrar datos de contacto
+        const tel = this.colegiado?.telefono_colegio || '';
+        if (tel) {
+            window.open(`https://wa.me/51${tel}`, '_blank');
+        } else {
+            alert('Comunícate con la oficina del colegio para más información.');
+        }
+    },
+
+    logout() {
+        location.href = '/auth/logout';
+    },
+
+    // ─── Helpers ───
+    fmt(n) { return (parseFloat(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}); },
+};
+
+document.addEventListener('DOMContentLoaded', () => Portal.init());
+</script>
+</body>
+</html>
