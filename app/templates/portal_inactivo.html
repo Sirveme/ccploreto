@@ -3,290 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Portal — Colegio Profesional</title>
+    <title>Tu Portal — Colegio Profesional</title>
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,500;9..40,700;9..40,800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-:root {
-    --bg: #080b14;
-    --surface: #0f1322;
-    --surface2: #151a2e;
-    --surface3: #1c2240;
-    --border: rgba(148,163,184,0.06);
-    --border2: rgba(148,163,184,0.12);
-    --text: #e8edf5;
-    --text2: #94a3b8;
-    --text3: #5e6b82;
-    --accent: #6366f1;
-    --accent2: #818cf8;
-    --green: #22c55e;
-    --green-bg: rgba(34,197,94,0.08);
-    --red: #ef4444;
-    --red-bg: rgba(239,68,68,0.06);
-    --yellow: #f59e0b;
-    --yellow-bg: rgba(245,158,11,0.06);
-    --cyan: #06b6d4;
-    --purple: #a855f7;
-}
-body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+:root{--bg:#0a0f1e;--bg2:#0f172a;--sf:#131c33;--sf2:#1a2542;--sf3:#213054;--glow:#3b82f6;--glow2:#6366f1;--warm:#f59e0b;--green:#10b981;--green2:#34d399;--red:#f43f5e;--cyan:#06b6d4;--purple:#a78bfa;--tx:#f1f5f9;--tx2:#94a3b8;--tx3:#475569;--bd:rgba(148,163,184,.07);--bd2:rgba(148,163,184,.12);--ff:'DM Sans',sans-serif;--fd:'Playfair Display',serif}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-/* ═══ TOPBAR ═══ */
-.topbar {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 100;
-}
-.topbar-brand { display: flex; align-items: center; gap: 10px; }
-.topbar-brand img { height: 32px; border-radius: 6px; }
-.topbar-brand span { font-size: 14px; font-weight: 700; color: var(--text); }
-.topbar-user { display: flex; align-items: center; gap: 10px; }
-.topbar-user span { font-size: 12px; color: var(--text2); }
-.topbar-btn {
-    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
-    color: var(--red); padding: 6px 14px; border-radius: 8px; font-size: 11px;
-    font-weight: 600; cursor: pointer; transition: all .2s;
-}
-.topbar-btn:hover { background: rgba(239,68,68,0.2); }
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes bounce-g{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.fade-up{animation:fadeUp .8s ease both}
+.fd1{animation-delay:.15s}.fd2{animation-delay:.3s}.fd3{animation-delay:.45s}.fd4{animation-delay:.6s}
 
-/* ═══ LAYOUT ═══ */
-.portal-wrap { max-width: 800px; margin: 0 auto; padding: 0 16px 80px; }
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,15,30,.85);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-logo{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--glow),var(--glow2));font-size:16px;color:#fff}
+.topbar-name{font-size:13px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.topbar-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:all .2s}
+.topbar-btn.install{background:linear-gradient(135deg,var(--warm),#f97316);color:#fff;animation:bounce-g 2s infinite}
+.topbar-btn.logout{background:rgba(244,63,94,.08);color:var(--red);border:1px solid rgba(244,63,94,.15)}
+.topbar-btn.logout:hover{background:rgba(244,63,94,.15)}
 
-/* ═══ WELCOME BANNER ═══ */
-.welcome-banner {
-    margin: 20px 0; padding: 24px; border-radius: 16px;
-    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
-    border: 1px solid var(--border2); position: relative; overflow: hidden;
-}
-.welcome-banner::before {
-    content: ''; position: absolute; top: -40px; right: -40px; width: 160px; height: 160px;
-    background: radial-gradient(circle, rgba(99,102,241,0.08), transparent 70%);
-    border-radius: 50%;
-}
-.welcome-name { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-.welcome-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
+/* PWA BANNER */
+.pwa-banner{position:fixed;bottom:0;left:0;right:0;z-index:200;background:linear-gradient(135deg,#1e3a5f,#1a2542);border-top:1px solid rgba(59,130,246,.2);padding:16px 20px;display:none;animation:fadeUp .5s ease}
+.pwa-banner.visible{display:flex;align-items:center;gap:14px}
+.pwa-icon{width:48px;height:48px;border-radius:14px;flex-shrink:0;background:linear-gradient(135deg,var(--glow),var(--glow2));display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff}
+.pwa-text{flex:1}.pwa-title{font-size:14px;font-weight:700}.pwa-desc{font-size:11px;color:var(--tx2);margin-top:2px}
+.pwa-btn{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;white-space:nowrap;background:linear-gradient(135deg,var(--warm),#f97316);color:#fff}
+.pwa-close{background:none;border:none;color:var(--tx3);font-size:18px;cursor:pointer;padding:4px}
 
-/* ═══ STATUS BADGE ═══ */
-.status-bar {
-    display: flex; align-items: center; gap: 12px; margin: 16px 0;
-    padding: 14px 18px; border-radius: 12px;
-}
-.status-bar.inactivo { background: var(--red-bg); border: 1px solid rgba(239,68,68,0.15); }
-.status-bar.habil { background: var(--green-bg); border: 1px solid rgba(34,197,94,0.15); }
-.status-dot {
-    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
-    animation: pulse-status 2s infinite;
-}
-.status-dot.inactivo { background: var(--red); }
-.status-dot.habil { background: var(--green); }
-@keyframes pulse-status { 0%,100%{opacity:1;} 50%{opacity:.5;} }
-.status-text { font-size: 14px; font-weight: 700; }
-.status-text.inactivo { color: var(--red); }
-.status-text.habil { color: var(--green); }
-.status-detail { font-size: 11px; color: var(--text3); margin-left: auto; }
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:80px 24px 40px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-20%;left:-10%;width:60%;height:60%;background:radial-gradient(circle,rgba(59,130,246,.06),transparent 60%);pointer-events:none}
+.hero-emoji{font-size:56px;margin-bottom:16px;animation:float 3s ease infinite;display:inline-block}
+.hero-greeting{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--warm);text-transform:uppercase;letter-spacing:3px;margin-bottom:10px}
+.hero-name{font-family:var(--fd);font-size:36px;font-weight:800;line-height:1.15;margin-bottom:16px;background:linear-gradient(135deg,var(--tx) 0%,var(--tx2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+@media(min-width:500px){.hero-name{font-size:44px}}
+.hero-sub{font-size:16px;color:var(--tx2);max-width:420px;line-height:1.7;margin:0 auto 28px}
+.hero-sub strong{color:var(--tx);font-weight:700}
+.hero-ctas{display:flex;flex-direction:column;gap:10px;align-items:center}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all .25s;text-decoration:none}
+.hero-cta.primary{background:linear-gradient(135deg,var(--glow),var(--glow2));color:#fff;box-shadow:0 4px 20px rgba(59,130,246,.25)}
+.hero-cta.primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(59,130,246,.35)}
+.hero-cta.ghost{background:transparent;color:var(--tx2);border:1px solid var(--bd2)}
+.hero-cta.ghost:hover{color:var(--tx);border-color:var(--tx3)}
+.hero-scroll{margin-top:48px;color:var(--tx3);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:6px;animation:bounce-g 2s infinite}
 
-/* ═══ DEUDA CARD ═══ */
-.deuda-card {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 16px; padding: 0; overflow: hidden; margin-bottom: 16px;
-}
-.deuda-header {
-    padding: 18px 20px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-}
-.deuda-title { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
-.deuda-title i { color: var(--red); font-size: 20px; }
-.deuda-total {
-    font-size: 28px; font-weight: 800; color: var(--red);
-    font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
-}
-.deuda-body { padding: 0; }
-.deuda-row {
-    display: flex; align-items: center; padding: 12px 20px;
-    border-bottom: 1px solid var(--border); transition: background .15s;
-}
-.deuda-row:last-child { border-bottom: none; }
-.deuda-row:hover { background: rgba(255,255,255,0.01); }
-.deuda-concepto { flex: 1; font-size: 13px; color: var(--text2); }
-.deuda-fecha { font-size: 11px; color: var(--text3); width: 80px; text-align: center; }
-.deuda-monto { font-size: 14px; font-weight: 700; color: var(--text); width: 100px; text-align: right; }
-.deuda-meses { font-size: 11px; color: var(--text3); text-align: center; padding: 12px 20px; }
+/* SECTIONS */
+.section{padding:60px 20px;max-width:800px;margin:0 auto}
+.stag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;padding:6px 14px;border-radius:20px;margin-bottom:14px}
+.stag.blue{background:rgba(59,130,246,.08);color:var(--glow);border:1px solid rgba(59,130,246,.15)}
+.stag.green{background:rgba(16,185,129,.08);color:var(--green);border:1px solid rgba(16,185,129,.15)}
+.stag.warm{background:rgba(245,158,11,.08);color:var(--warm);border:1px solid rgba(245,158,11,.15)}
+.stitle{font-family:var(--fd);font-size:28px;font-weight:800;line-height:1.25;margin-bottom:10px}
+.sdesc{font-size:14px;color:var(--tx2);line-height:1.7;margin-bottom:32px}
+@media(max-width:500px){.stitle{font-size:22px}}
 
-/* ═══ ACTION CARDS ═══ */
-.action-grid { display: grid; gap: 12px; margin: 20px 0; }
+/* BENEFIT CARDS */
+.bgrid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:500px){.bgrid{grid-template-columns:1fr 1fr}}
+.bcard{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:22px;position:relative;overflow:hidden;transition:all .3s ease}
+.bcard:hover{border-color:var(--bd2);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.bcard .gdot{position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;opacity:.06;pointer-events:none}
+.bicon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+.btitle{font-size:15px;font-weight:700;margin-bottom:6px}
+.bdesc{font-size:12px;color:var(--tx2);line-height:1.6}
+.bstat{margin-top:12px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600}
+.bstat .num{font-size:20px;font-weight:800}
 
-.action-card {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 14px; padding: 20px; cursor: pointer;
-    transition: all .25s ease; position: relative; overflow: hidden;
-}
-.action-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.action-card::after {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-}
-.action-card.primary::after { background: var(--accent); }
-.action-card.success::after { background: var(--green); }
-.action-card.warning::after { background: var(--yellow); }
+/* TESTIMONIALS */
+.tscroll{display:flex;gap:14px;overflow-x:auto;padding:4px 0 20px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.tscroll::-webkit-scrollbar{height:4px}.tscroll::-webkit-scrollbar-track{background:var(--sf);border-radius:4px}.tscroll::-webkit-scrollbar-thumb{background:var(--sf3);border-radius:4px}
+.tcard{flex:0 0 280px;scroll-snap-align:start;background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px}
+.tquote{font-size:13px;color:var(--tx2);line-height:1.7;font-style:italic;margin-bottom:14px}
+.tquote::before{content:'\201C';font-size:28px;color:var(--glow);font-family:var(--fd);line-height:0;vertical-align:-10px;margin-right:4px}
+.tauthor{display:flex;align-items:center;gap:10px}
+.tavatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
+.tname{font-size:13px;font-weight:700}.trole{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
 
-.action-icon {
-    width: 44px; height: 44px; border-radius: 12px; display: flex;
-    align-items: center; justify-content: center; font-size: 22px; margin-bottom: 14px;
-}
-.action-card.primary .action-icon { background: rgba(99,102,241,.1); color: var(--accent); }
-.action-card.success .action-icon { background: rgba(34,197,94,.1); color: var(--green); }
-.action-card.warning .action-icon { background: rgba(245,158,11,.1); color: var(--yellow); }
+/* DEUDA */
+.dcont{background:var(--sf);border:1px solid var(--bd2);border-radius:20px;overflow:hidden}
+.dhead{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd);background:linear-gradient(135deg,rgba(244,63,94,.03),rgba(245,158,11,.03))}
+.dhead-left{display:flex;align-items:center;gap:12px}
+.dhead-icon{width:40px;height:40px;border-radius:12px;background:rgba(245,158,11,.1);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--warm)}
+.dhead-text h3{font-size:15px;font-weight:700}.dhead-text p{font-size:11px;color:var(--tx3)}
+.dtotal{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--warm),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.drow{display:flex;align-items:center;padding:12px 24px;border-bottom:1px solid var(--bd);transition:background .15s}
+.drow:last-child{border-bottom:none}.drow:hover{background:rgba(255,255,255,.01)}
+.dconcept{flex:1;font-size:13px;color:var(--tx2)}
+.ddate{font-size:11px;color:var(--tx3);width:70px;text-align:center}
+.damount{font-size:14px;font-weight:700;width:95px;text-align:right;font-variant-numeric:tabular-nums}
+.dsummary{padding:14px 24px;background:rgba(255,255,255,.01);font-size:11px;color:var(--tx3);text-align:center}
+@media(max-width:500px){.ddate{display:none}}
 
-.action-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.action-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+/* ACTION BUTTONS */
+.abtn-grid{display:grid;gap:12px;margin-top:20px}
+@media(min-width:500px){.abtn-grid{grid-template-columns:1fr 1fr}}
+.abtn{display:flex;align-items:center;gap:14px;padding:18px 20px;background:var(--sf);border:1px solid var(--bd2);border-radius:14px;cursor:pointer;transition:all .25s;text-decoration:none}
+.abtn:hover{transform:translateY(-2px);border-color:var(--glow);box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.abtn-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.abtn-text h4{font-size:14px;font-weight:700;margin-bottom:2px}.abtn-text p{font-size:11px;color:var(--tx2)}
 
-.action-badge {
-    display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
-    font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-top: 10px;
-    text-transform: uppercase; letter-spacing: 0.5px;
-}
-.action-badge.green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(34,197,94,0.15); }
-.action-badge.yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(245,158,11,0.15); }
-.action-badge.red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.15); }
+/* FRACC PANEL */
+.fpanel{background:var(--sf);border:1px solid rgba(99,102,241,.15);border-radius:16px;margin-top:16px;overflow:hidden;max-height:0;opacity:0;transition:all .4s ease}
+.fpanel.open{max-height:800px;opacity:1}
+.ftop{padding:16px 20px;background:rgba(99,102,241,.04);border-bottom:1px solid rgba(99,102,241,.1);display:flex;align-items:center;justify-content:space-between}
+.ftop h4{font-size:14px;font-weight:700;color:#818cf8;display:flex;align-items:center;gap:8px}
+.fbody{padding:20px}
+.fconds{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:16px}
+.fconds h5{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.fcond{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px}
+.fcond i.ok{color:var(--green)}.fcond i.info{color:#818cf8}.fcond i.warn{color:var(--warm)}
+.finput{width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:14px;font-family:var(--ff)}
+.finput:focus{outline:none;border-color:var(--glow)}
+.fopts{display:grid;gap:8px}
+.fopt{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .2s}
+.fopt:hover{border-color:#818cf8}.fopt.sel{border-color:#818cf8;background:rgba(99,102,241,.06)}
+.fopt-n{font-size:14px;font-weight:700}.fopt-d{font-size:12px;color:var(--tx2)}.fopt-m{font-size:16px;font-weight:800;color:#818cf8}
+.fsubmit{width:100%;padding:14px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;background:linear-gradient(135deg,var(--glow),var(--glow2));color:#fff;transition:filter .2s}
+.fsubmit:hover{filter:brightness(1.1)}.fsubmit:disabled{opacity:.4;cursor:not-allowed}
 
-/* ═══ FRACCIONAMIENTO SIMULATOR ═══ */
-.fracc-card {
-    background: var(--surface); border: 1px solid rgba(99,102,241,0.15);
-    border-radius: 14px; overflow: hidden; margin-bottom: 16px; display: none;
-}
-.fracc-card.visible { display: block; animation: slideDown .3s ease; }
-@keyframes slideDown { from{opacity:0;max-height:0;} to{opacity:1;max-height:600px;} }
+/* PAY PANEL */
+.ppanel{background:var(--sf);border:1px solid rgba(16,185,129,.15);border-radius:16px;margin-top:16px;overflow:hidden;max-height:0;opacity:0;transition:all .4s ease}
+.ppanel.open{max-height:600px;opacity:1}
+.ptop{padding:16px 20px;background:rgba(16,185,129,.04);border-bottom:1px solid rgba(16,185,129,.1)}
+.ptop h4{font-size:14px;font-weight:700;color:var(--green2);display:flex;align-items:center;gap:8px}
+.pbody{padding:20px}
+.paccount{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px}
+.pbank-icon{width:40px;height:40px;border-radius:10px;background:var(--sf3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--tx2)}
+.pbank-info{flex:1}.pbank-name{font-size:13px;font-weight:700}.pbank-num{font-size:12px;color:var(--tx2);font-family:monospace}
+.pcopy{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;background:var(--sf3);border:1px solid var(--bd);color:var(--tx2);cursor:pointer;transition:all .2s}
+.pcopy:hover{background:var(--glow);color:#fff;border-color:var(--glow)}
 
-.fracc-header {
-    padding: 16px 20px; background: rgba(99,102,241,0.04);
-    border-bottom: 1px solid rgba(99,102,241,0.1);
-    display: flex; align-items: center; justify-content: space-between;
-}
-.fracc-title { font-size: 14px; font-weight: 700; color: var(--accent2); display: flex; align-items: center; gap: 8px; }
-.fracc-body { padding: 20px; }
+/* CHAT */
+.chat-fab{position:fixed;bottom:24px;right:20px;z-index:150;width:56px;height:56px;border-radius:16px;border:none;background:linear-gradient(135deg,var(--glow),var(--glow2));color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,.35);transition:all .25s}
+.chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 30px rgba(59,130,246,.45)}
+.chat-fab .badge{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--red);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.chat-win{position:fixed;bottom:90px;right:20px;z-index:160;width:340px;max-height:480px;background:var(--bg2);border:1px solid var(--bd2);border-radius:20px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.chat-win.open{display:flex;animation:fadeUp .3s ease}
+@media(max-width:400px){.chat-win{left:10px;right:10px;width:auto;bottom:80px}}
+.cw-header{padding:14px 16px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
+.cw-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--glow),var(--glow2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+.cw-info h5{font-size:13px;font-weight:700}.cw-info p{font-size:10px;color:var(--green);display:flex;align-items:center;gap:4px}
+.cw-info p::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green)}
+.cw-close{margin-left:auto;background:none;border:none;color:var(--tx3);cursor:pointer;font-size:18px}
+.cw-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+.cm{max-width:85%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+.cm.bot{align-self:flex-start;background:var(--sf);border-bottom-left-radius:4px}
+.cm.user{align-self:flex-end;background:var(--glow);color:#fff;border-bottom-right-radius:4px}
+.cm .time{font-size:9px;opacity:.5;margin-top:4px;display:block;text-align:right}
+.cw-input-bar{padding:10px 14px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:center}
+.cw-input{flex:1;padding:10px 14px;background:var(--sf);border:1px solid var(--bd);border-radius:12px;color:var(--tx);font-size:13px;font-family:var(--ff)}
+.cw-input:focus{outline:none;border-color:var(--glow)}
+.cw-send{width:38px;height:38px;border-radius:10px;border:none;background:var(--glow);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
-.fracc-conditions {
-    background: var(--surface2); border-radius: 10px; padding: 14px;
-    margin-bottom: 16px; border: 1px solid var(--border);
-}
-.fracc-conditions h4 { font-size: 12px; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-.fracc-cond-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--text); }
-.fracc-cond-row i { font-size: 16px; }
-.fracc-cond-row i.check { color: var(--green); }
-.fracc-cond-row i.x { color: var(--red); }
-
-.fracc-options { display: grid; gap: 8px; }
-.fracc-option {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; cursor: pointer; transition: all .2s;
-}
-.fracc-option:hover { border-color: var(--accent); background: rgba(99,102,241,0.03); }
-.fracc-option.selected { border-color: var(--accent); background: rgba(99,102,241,0.06); }
-.fracc-option-cuotas { font-size: 14px; font-weight: 700; color: var(--text); }
-.fracc-option-detalle { font-size: 12px; color: var(--text2); }
-.fracc-option-monto { font-size: 16px; font-weight: 800; color: var(--accent2); }
-
-.fracc-cta {
-    width: 100%; padding: 14px; background: var(--accent); color: #fff;
-    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
-    cursor: pointer; margin-top: 14px; transition: filter .2s;
-}
-.fracc-cta:hover { filter: brightness(1.1); }
-.fracc-cta:disabled { opacity: .5; cursor: not-allowed; }
-
-/* ═══ WHAT YOU'RE MISSING ═══ */
-.missing-section { margin: 28px 0; }
-.missing-title {
-    font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px;
-    display: flex; align-items: center; gap: 8px;
-}
-.missing-sub { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
-
-.missing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 500px) { .missing-grid { grid-template-columns: 1fr; } }
-
-.missing-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 16px; position: relative;
-    transition: all .2s;
-}
-.missing-card::before {
-    content: '🔒'; position: absolute; top: 10px; right: 10px;
-    font-size: 14px; opacity: .5;
-}
-.missing-card:hover { border-color: var(--border2); }
-.missing-icon {
-    width: 36px; height: 36px; border-radius: 10px; display: flex;
-    align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px;
-}
-.missing-card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-.missing-card-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
-.missing-stat {
-    font-size: 11px; color: var(--accent2); font-weight: 600;
-    margin-top: 8px; display: flex; align-items: center; gap: 4px;
-}
-
-/* ═══ PAGO SECTION ═══ */
-.pago-section {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 14px; padding: 20px; margin: 16px 0; display: none;
-}
-.pago-section.visible { display: block; animation: slideDown .3s ease; }
-.pago-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-.pago-cuentas { display: grid; gap: 10px; margin-bottom: 16px; }
-.pago-cuenta {
-    display: flex; align-items: center; gap: 12px; padding: 12px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px;
-}
-.pago-banco-icon {
-    width: 40px; height: 40px; border-radius: 8px; background: var(--surface3);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 12px; color: var(--text2);
-}
-.pago-banco-info { flex: 1; }
-.pago-banco-nombre { font-size: 13px; font-weight: 700; color: var(--text); }
-.pago-banco-cuenta { font-size: 12px; color: var(--text2); font-family: monospace; }
-.pago-copy {
-    background: var(--surface3); border: 1px solid var(--border); color: var(--text2);
-    padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
-    transition: all .15s;
-}
-.pago-copy:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-/* ═══ MODAL CAMBIO CLAVE ═══ */
-.modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 999; backdrop-filter: blur(4px);
-}
-.modal-overlay.hidden { display: none; }
-.modal-box {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 16px; padding: 28px; width: 90%; max-width: 380px;
-}
-.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
-.modal-box p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
-.modal-input {
-    width: 100%; padding: 12px 14px; background: var(--surface2);
-    border: 1px solid var(--border2); border-radius: 10px;
-    color: var(--text); font-size: 14px; margin-bottom: 10px;
-}
-.modal-input:focus { outline: none; border-color: var(--accent); }
-.modal-btn {
-    width: 100%; padding: 12px; background: var(--accent); color: #fff;
-    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
-    cursor: pointer; margin-top: 6px;
-}
-.modal-btn:hover { filter: brightness(1.1); }
-.modal-error { color: var(--red); font-size: 12px; margin-top: 6px; display: none; }
-
-/* ═══ RESPONSIVE ═══ */
-@media (max-width: 500px) {
-    .welcome-name { font-size: 17px; }
-    .deuda-total { font-size: 22px; }
-    .deuda-fecha { display: none; }
-}
+.portal-footer{text-align:center;padding:40px 20px;font-size:10px;color:var(--tx3)}
+.portal-footer a{color:var(--glow);text-decoration:none}
 </style>
 </head>
 <body>
@@ -294,475 +174,261 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', syste
 <!-- TOPBAR -->
 <div class="topbar">
     <div class="topbar-brand">
-        <span id="topbar-org-name">Colegio Profesional</span>
+        <div class="topbar-logo"><i class="ph ph-buildings"></i></div>
+        <span class="topbar-name" id="topbar-org">Colegio Profesional</span>
     </div>
-    <div class="topbar-user">
-        <span id="topbar-user-name"></span>
-        <button class="topbar-btn" onclick="Portal.logout()">
-            <i class="ph ph-sign-out"></i> Salir
+    <div class="topbar-right">
+        <button class="topbar-btn install" id="btn-install" style="display:none" onclick="P.installPWA()">
+            <i class="ph ph-download-simple"></i> Instalar App
         </button>
+        <button class="topbar-btn logout" onclick="P.logout()"><i class="ph ph-sign-out"></i></button>
     </div>
 </div>
 
-<!-- Auth: /auth/login maneja login y cambio de clave -->
-
-<!-- PORTAL WRAP -->
-<div class="portal-wrap">
-
-    <!-- WELCOME -->
-    <div class="welcome-banner">
-        <div class="welcome-name" id="welcome-name">Bienvenido(a)</div>
-        <div class="welcome-sub" id="welcome-sub">
-            Estás en tu portal personal. Desde aquí puedes consultar tu estado,
-            revisar tu deuda y regularizar tu situación.
-        </div>
-    </div>
-
-    <!-- STATUS -->
-    <div class="status-bar inactivo" id="status-bar">
-        <div class="status-dot inactivo" id="status-dot"></div>
-        <span class="status-text inactivo" id="status-text">INACTIVO</span>
-        <span class="status-detail" id="status-detail">
-            Acceso restringido por disposición estatutaria
-        </span>
-    </div>
-
-    <!-- DEUDA -->
-    <div class="deuda-card" id="deuda-card">
-        <div class="deuda-header">
-            <div class="deuda-title">
-                <i class="ph-fill ph-warning-circle"></i> Estado de Adeudo
-            </div>
-            <div class="deuda-total" id="deuda-total">S/ 0.00</div>
-        </div>
-        <div class="deuda-body" id="deuda-lista">
-            <!-- Se llena dinámicamente -->
-        </div>
-        <div class="deuda-meses" id="deuda-meses-info"></div>
-    </div>
-
-    <!-- ACCIONES -->
-    <div class="action-grid" id="action-grid">
-
-        <!-- Fraccionamiento -->
-        <div class="action-card primary" id="card-fraccionamiento" onclick="Portal.toggleFraccionamiento()" style="display:none;">
-            <div class="action-icon"><i class="ph ph-calculator"></i></div>
-            <div class="action-title">Fracciona tu deuda</div>
-            <div class="action-desc">
-                Tu deuda califica para fraccionamiento. Paga una cuota inicial
-                y el resto en cómodas cuotas mensuales.
-            </div>
-            <div class="action-badge green"><i class="ph ph-check-circle"></i> Disponible</div>
-        </div>
-
-        <!-- Pago directo -->
-        <div class="action-card success" onclick="Portal.togglePago()">
-            <div class="action-icon"><i class="ph ph-credit-card"></i></div>
-            <div class="action-title">Pagar ahora</div>
-            <div class="action-desc" id="pago-desc">
-                Realiza un pago parcial o total para regularizar tu situación.
-            </div>
-            <div class="action-badge yellow" id="pago-badge" style="display:none;">
-                <i class="ph ph-info"></i> Paga min. 50% para constancia
-            </div>
-        </div>
-
-        <!-- Hablar con el colegio -->
-        <div class="action-card warning" onclick="Portal.contactar()">
-            <div class="action-icon"><i class="ph ph-chat-circle-dots"></i></div>
-            <div class="action-title">Consultar al colegio</div>
-            <div class="action-desc">
-                ¿Tienes dudas? Comunícate con la oficina para orientación personalizada.
-            </div>
-        </div>
-    </div>
-
-    <!-- SIMULADOR FRACCIONAMIENTO -->
-    <div class="fracc-card" id="fracc-panel">
-        <div class="fracc-header">
-            <div class="fracc-title"><i class="ph ph-calculator"></i> Simulador de Fraccionamiento</div>
-            <button onclick="Portal.toggleFraccionamiento()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">
-                <i class="ph ph-x"></i>
-            </button>
-        </div>
-        <div class="fracc-body">
-            <!-- Condiciones -->
-            <div class="fracc-conditions">
-                <h4>Condiciones del fraccionamiento</h4>
-                <div class="fracc-cond-row" id="cond-monto-min">
-                    <i class="ph-fill ph-check-circle check"></i>
-                    <span>Deuda mínima: S/ 500</span>
-                </div>
-                <div class="fracc-cond-row">
-                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
-                    <span>Cuota inicial: 20% de la deuda</span>
-                </div>
-                <div class="fracc-cond-row">
-                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
-                    <span>Cuota mínima mensual: S/ 100</span>
-                </div>
-                <div class="fracc-cond-row">
-                    <i class="ph-fill ph-info" style="color:var(--accent);"></i>
-                    <span>Máximo 12 cuotas</span>
-                </div>
-                <div class="fracc-cond-row">
-                    <i class="ph-fill ph-warning-circle" style="color:var(--yellow);"></i>
-                    <span>La constancia de habilidad se renueva mes a mes al pagar cada cuota</span>
-                </div>
-            </div>
-
-            <!-- Cuota inicial -->
-            <div style="margin-bottom:14px;">
-                <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">
-                    Cuota inicial (mín. <span id="fracc-min-inicial">S/ 0</span>)
-                </label>
-                <input type="number" id="fracc-inicial-input" class="modal-input" style="margin:0;"
-                       placeholder="Monto de cuota inicial" onchange="Portal.recalcularFracc()">
-            </div>
-
-            <!-- Opciones de cuotas -->
-            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Elige tu plan de pagos:</div>
-            <div class="fracc-options" id="fracc-opciones">
-                <!-- Se llena dinámicamente -->
-            </div>
-
-            <button class="fracc-cta" id="fracc-cta-btn" disabled onclick="Portal.solicitarFraccionamiento()">
-                <i class="ph ph-handshake"></i> Solicitar fraccionamiento
-            </button>
-        </div>
-    </div>
-
-    <!-- SECCIÓN PAGO -->
-    <div class="pago-section" id="pago-section">
-        <h3><i class="ph ph-credit-card" style="color:var(--green);"></i> Realizar Pago</h3>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">
-            Transfiere a cualquiera de estas cuentas e indica tu número de colegiatura o DNI como referencia.
-        </p>
-        <div class="pago-cuentas" id="pago-cuentas">
-            <!-- Se llena desde la BD -->
-        </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">También puedes pagar con:</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                <span style="font-size:13px;font-weight:600;color:#a855f7;">📲 Yape</span>
-                <span style="font-size:13px;font-weight:600;color:var(--cyan);">📲 Plin</span>
-            </div>
-        </div>
-        <p style="font-size:11px;color:var(--text3);">
-            Después de pagar, tu pago será verificado automáticamente.
-            Si pagaste con transferencia, la verificación puede tomar hasta 24 horas.
-        </p>
-    </div>
-
-    <!-- LO QUE TE ESTÁS PERDIENDO -->
-    <div class="missing-section">
-        <div class="missing-title">
-            <i class="ph ph-star-four" style="color:var(--yellow);"></i>
-            Lo que obtienes al activarte
-        </div>
-        <div class="missing-sub">Estos servicios están disponibles para colegiados hábiles</div>
-
-        <div class="missing-grid">
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(168,85,247,.1);color:var(--purple);">
-                    <i class="ph ph-bell-ringing"></i>
-                </div>
-                <div class="missing-card-title">Alertas Tributarias</div>
-                <div class="missing-card-desc">
-                    Monitorea los RUCs de tus clientes. Te avisamos antes de cada vencimiento tributario.
-                </div>
-                <div class="missing-stat">
-                    <i class="ph ph-chart-line-up"></i> <span id="stat-rucs">847</span> RUCs monitoreados por colegas
-                </div>
-            </div>
-
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(99,102,241,.1);color:var(--accent);">
-                    <i class="ph ph-robot"></i>
-                </div>
-                <div class="missing-card-title">Asistente IA Contable</div>
-                <div class="missing-card-desc">
-                    Consulta normas, plazos y procedimientos SUNAT con inteligencia artificial.
-                </div>
-                <div class="missing-stat">
-                    <i class="ph ph-chat-circle-dots"></i> <span id="stat-consultas">186</span> consultas este mes
-                </div>
-            </div>
-
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(34,197,94,.1);color:var(--green);">
-                    <i class="ph ph-certificate"></i>
-                </div>
-                <div class="missing-card-title">Constancia Digital</div>
-                <div class="missing-card-desc">
-                    Descarga tu constancia de habilidad al instante, con código QR verificable.
-                </div>
-                <div class="missing-stat">
-                    <i class="ph ph-clock"></i> Emisión inmediata
-                </div>
-            </div>
-
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(6,182,212,.1);color:var(--cyan);">
-                    <i class="ph ph-users-three"></i>
-                </div>
-                <div class="missing-card-title">Directorio Profesional</div>
-                <div class="missing-card-desc">
-                    Aparece en el directorio público de contadores hábiles. Clientes te encuentran.
-                </div>
-                <div class="missing-stat">
-                    <i class="ph ph-eye"></i> Visible para empleadores y clientes
-                </div>
-            </div>
-
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(245,158,11,.1);color:var(--yellow);">
-                    <i class="ph ph-graduation-cap"></i>
-                </div>
-                <div class="missing-card-title">Capacitaciones</div>
-                <div class="missing-card-desc">
-                    Acceso gratuito a cursos, seminarios y talleres del colegio.
-                </div>
-                <div class="missing-stat">
-                    <i class="ph ph-calendar"></i> Próximo evento: <span id="stat-evento">Mar 2026</span>
-                </div>
-            </div>
-
-            <div class="missing-card">
-                <div class="missing-icon" style="background:rgba(239,68,68,.1);color:var(--red);">
-                    <i class="ph ph-gavel"></i>
-                </div>
-                <div class="missing-card-title">Ejercicio Legal</div>
-                <div class="missing-card-desc">
-                    Solo los colegiados hábiles pueden ejercer legalmente, firmar estados financieros y participar en licitaciones.
-                </div>
-                <div class="missing-stat" style="color:var(--red);">
-                    <i class="ph ph-warning"></i> Sin habilidad = riesgo legal
-                </div>
-            </div>
-        </div>
-    </div>
-
+<!-- PWA BANNER -->
+<div class="pwa-banner" id="pwa-banner">
+    <div class="pwa-icon"><i class="ph ph-device-mobile"></i></div>
+    <div class="pwa-text"><div class="pwa-title">Instala la app</div><div class="pwa-desc">Recibe notificaciones y accede más rápido</div></div>
+    <button class="pwa-btn" onclick="P.installPWA()">Instalar</button>
+    <button class="pwa-close" onclick="this.parentElement.classList.remove('visible')"><i class="ph ph-x"></i></button>
 </div>
 
-<!-- ═══════════════════════════════════ -->
-<!-- JAVASCRIPT                         -->
-<!-- ═══════════════════════════════════ -->
+<!-- HERO -->
+<section class="hero" id="hero">
+    <div class="hero-emoji fade-up">👋</div>
+    <div class="hero-greeting fade-up fd1">Bienvenido de vuelta</div>
+    <h1 class="hero-name fade-up fd2" id="hero-name">Cargando...</h1>
+    <p class="hero-sub fade-up fd3">
+        Nos alegra verte aquí. Tu <strong>colegio profesional</strong> ha evolucionado con nuevos servicios digitales esperándote. Revisa todo lo que hemos preparado para ti.
+    </p>
+    <div class="hero-ctas fade-up fd4">
+        <a href="#beneficios" class="hero-cta primary"><i class="ph ph-star-four"></i> Descubre los nuevos servicios</a>
+        <a href="#deuda" class="hero-cta ghost"><i class="ph ph-arrow-down"></i> Ver mi situación</a>
+    </div>
+    <div class="hero-scroll"><i class="ph ph-caret-double-down"></i> Desliza para descubrir</div>
+</section>
+
+<!-- BENEFICIOS -->
+<section class="section" id="beneficios">
+    <div class="stag blue"><i class="ph ph-sparkle"></i> Nuevos servicios</div>
+    <h2 class="stitle">Tu colegio evolucionó.<br>Tú también puedes.</h2>
+    <p class="sdesc">Estos servicios están disponibles para colegiados hábiles. Al regularizar tu situación, accedes a todos de inmediato.</p>
+    <div class="bgrid">
+        <div class="bcard" style="--c:var(--purple)"><div class="gdot" style="background:var(--purple)"></div>
+            <div class="bicon" style="background:rgba(167,139,250,.1);color:var(--purple)"><i class="ph ph-bell-ringing"></i></div>
+            <div class="btitle">Alertas Tributarias</div>
+            <div class="bdesc">Registra los RUCs de tus clientes y recibe avisos antes de cada vencimiento. Nunca más una multa por olvido.</div>
+            <div class="bstat" style="color:var(--purple)"><span class="num" id="stat-rucs">847</span>&nbsp; RUCs monitoreados por colegas</div>
+        </div>
+        <div class="bcard"><div class="gdot" style="background:var(--glow)"></div>
+            <div class="bicon" style="background:rgba(59,130,246,.1);color:var(--glow)"><i class="ph ph-robot"></i></div>
+            <div class="btitle">Asistente IA Contable</div>
+            <div class="bdesc">Consulta normas, plazos SUNAT y procedimientos tributarios con inteligencia artificial. Respuestas al instante.</div>
+            <div class="bstat" style="color:var(--glow)"><span class="num" id="stat-ia">186</span>&nbsp; consultas resueltas este mes</div>
+        </div>
+        <div class="bcard"><div class="gdot" style="background:var(--green)"></div>
+            <div class="bicon" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ph ph-certificate"></i></div>
+            <div class="btitle">Constancia Digital Inmediata</div>
+            <div class="bdesc">Descarga tu constancia de habilidad al instante con código QR verificable. Sin trámites, sin esperas.</div>
+            <div class="bstat" style="color:var(--green)"><i class="ph ph-lightning"></i>&nbsp; Emisión en segundos</div>
+        </div>
+        <div class="bcard"><div class="gdot" style="background:var(--cyan)"></div>
+            <div class="bicon" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ph ph-users-three"></i></div>
+            <div class="btitle">Directorio Profesional</div>
+            <div class="bdesc">Apareces en el directorio público de contadores hábiles. Empleadores y clientes te encuentran.</div>
+            <div class="bstat" style="color:var(--cyan)"><i class="ph ph-eye"></i>&nbsp; Visible en búsquedas públicas</div>
+        </div>
+        <div class="bcard"><div class="gdot" style="background:var(--warm)"></div>
+            <div class="bicon" style="background:rgba(245,158,11,.1);color:var(--warm)"><i class="ph ph-graduation-cap"></i></div>
+            <div class="btitle">Capacitaciones Gratuitas</div>
+            <div class="bdesc">Cursos, seminarios y talleres sin costo adicional. Mantén tu formación actualizada.</div>
+            <div class="bstat" style="color:var(--warm)"><i class="ph ph-calendar"></i>&nbsp; Próximo: <span id="stat-evento">Mar 2026</span></div>
+        </div>
+        <div class="bcard"><div class="gdot" style="background:var(--red)"></div>
+            <div class="bicon" style="background:rgba(244,63,94,.1);color:var(--red)"><i class="ph ph-shield-warning"></i></div>
+            <div class="btitle">Ejercicio Legal Pleno</div>
+            <div class="bdesc">Solo hábiles pueden firmar estados financieros, participar en licitaciones y ejercer sin riesgo de sanción.</div>
+            <div class="bstat" style="color:var(--red)"><i class="ph ph-warning"></i>&nbsp; Sin habilidad = riesgo legal</div>
+        </div>
+    </div>
+</section>
+
+<!-- TESTIMONIOS -->
+<section class="section" style="padding-top:20px">
+    <div class="stag green"><i class="ph ph-chat-circle-text"></i> Colegas opinan</div>
+    <h2 class="stitle">Lo que dicen quienes<br>ya están activos</h2>
+    <p class="sdesc">Colegiados hábiles que aprovechan los nuevos servicios.</p>
+    <div class="tscroll">
+        <div class="tcard">
+            <div class="tquote">Las alertas tributarias me salvaron de dos multas el mes pasado. Ahora sé exactamente cuándo vence cada obligación de mis clientes.</div>
+            <div class="tauthor"><div class="tavatar" style="background:linear-gradient(135deg,var(--purple),#7c3aed)">MR</div><div><div class="tname">María R.</div><div class="trole">Contadora independiente</div></div></div>
+        </div>
+        <div class="tcard">
+            <div class="tquote">Necesitaba una constancia urgente un domingo. La descargué en 30 segundos desde el celular. Impresionante el cambio.</div>
+            <div class="tauthor"><div class="tavatar" style="background:linear-gradient(135deg,var(--glow),#2563eb)">JL</div><div><div class="tname">Jorge L.</div><div class="trole">Auditor · 15 años colegiado</div></div></div>
+        </div>
+        <div class="tcard">
+            <div class="tquote">El asistente IA me ayudó a resolver una consulta tributaria compleja sobre renta de cuarta categoría en 2 minutos.</div>
+            <div class="tauthor"><div class="tavatar" style="background:linear-gradient(135deg,var(--green),#059669)">CP</div><div><div class="tname">Carlos P.</div><div class="trole">Socio en estudio contable</div></div></div>
+        </div>
+        <div class="tcard">
+            <div class="tquote">Regularicé mi deuda con fraccionamiento y en el mismo día ya tenía acceso a todo. El proceso fue muy fácil.</div>
+            <div class="tauthor"><div class="tavatar" style="background:linear-gradient(135deg,var(--warm),#d97706)">AL</div><div><div class="tname">Ana L.</div><div class="trole">Ex-inactiva · ahora hábil</div></div></div>
+        </div>
+    </div>
+</section>
+
+<!-- DEUDA -->
+<section class="section" id="deuda" style="padding-top:20px">
+    <div class="stag warm"><i class="ph ph-path"></i> Tu camino de regreso</div>
+    <h2 class="stitle">Regularizar es más<br>fácil de lo que crees</h2>
+    <p class="sdesc">Aquí está el detalle de tu situación. Tienes opciones flexibles para ponerte al día.</p>
+
+    <div class="dcont" id="deuda-card">
+        <div class="dhead">
+            <div class="dhead-left">
+                <div class="dhead-icon"><i class="ph ph-receipt"></i></div>
+                <div class="dhead-text"><h3>Estado de adeudo</h3><p id="deuda-count">Cargando...</p></div>
+            </div>
+            <div class="dtotal" id="deuda-total">S/ 0.00</div>
+        </div>
+        <div id="deuda-lista"></div>
+        <div class="dsummary" id="deuda-summary"></div>
+    </div>
+
+    <div class="abtn-grid">
+        <div class="abtn" id="btn-fracc" style="display:none" onclick="P.toggleFracc()">
+            <div class="abtn-icon" style="background:rgba(99,102,241,.1);color:var(--glow2)"><i class="ph ph-calculator"></i></div>
+            <div class="abtn-text"><h4>Fraccionar mi deuda</h4><p>Paga una inicial y el resto en cuotas mensuales</p></div>
+        </div>
+        <div class="abtn" onclick="P.togglePay()">
+            <div class="abtn-icon" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ph ph-credit-card"></i></div>
+            <div class="abtn-text"><h4>Pagar ahora</h4><p>Transferencia, Yape o Plin</p></div>
+        </div>
+    </div>
+
+    <!-- Fraccionamiento -->
+    <div class="fpanel" id="fpanel">
+        <div class="ftop"><h4><i class="ph ph-calculator"></i> Simulador de Fraccionamiento</h4><button onclick="P.toggleFracc()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:18px"><i class="ph ph-x"></i></button></div>
+        <div class="fbody">
+            <div class="fconds">
+                <h5>Condiciones</h5>
+                <div class="fcond"><i class="ph-fill ph-check-circle ok"></i> Deuda mínima: S/ 500</div>
+                <div class="fcond"><i class="ph-fill ph-info info"></i> Cuota inicial: 20% de la deuda</div>
+                <div class="fcond"><i class="ph-fill ph-info info"></i> Cuota mínima mensual: S/ 100</div>
+                <div class="fcond"><i class="ph-fill ph-info info"></i> Máximo 12 cuotas</div>
+                <div class="fcond"><i class="ph-fill ph-warning-circle warn"></i> Habilidad se renueva al pagar cada cuota</div>
+            </div>
+            <div style="margin-bottom:14px"><label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px">Cuota inicial (mín. <span id="fmin">S/ 0</span>)</label><input type="number" class="finput" id="fini" placeholder="Monto inicial" onchange="P.calcF()"></div>
+            <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">Elige tu plan:</div>
+            <div class="fopts" id="fopts"></div>
+            <button class="fsubmit" id="fsubmit" disabled onclick="P.solicitarF()"><i class="ph ph-handshake"></i> Solicitar fraccionamiento</button>
+        </div>
+    </div>
+
+    <!-- Pago -->
+    <div class="ppanel" id="ppanel">
+        <div class="ptop"><h4><i class="ph ph-credit-card"></i> Cuentas para pagar</h4><button onclick="P.togglePay()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:18px"><i class="ph ph-x"></i></button></div>
+        <div class="pbody">
+            <p style="font-size:12px;color:var(--tx2);margin-bottom:14px">Indica tu número de colegiatura o DNI como referencia al transferir.</p>
+            <div id="pay-accounts"></div>
+            <div style="display:flex;gap:12px;padding:14px;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;margin-top:10px">
+                <span style="font-size:13px;font-weight:600;color:var(--purple)">📲 Yape</span>
+                <span style="font-size:13px;font-weight:600;color:var(--cyan)">📲 Plin</span>
+            </div>
+            <p style="font-size:11px;color:var(--tx3);margin-top:12px">Tu pago será verificado automáticamente. Transferencias pueden tomar hasta 24h.</p>
+        </div>
+    </div>
+</section>
+
+<div class="portal-footer"><p><i class="ph ph-shield-check"></i> Portal seguro · <a href="https://duilio.store" target="_blank">ColegiosPro</a></p></div>
+
+<!-- CHAT -->
+<button class="chat-fab" id="chat-fab" onclick="P.toggleChat()"><i class="ph ph-chat-circle-dots"></i><span class="badge" id="chat-badge" style="display:none">1</span></button>
+<div class="chat-win" id="chat-win">
+    <div class="cw-header">
+        <div class="cw-avatar"><i class="ph ph-robot"></i></div>
+        <div class="cw-info"><h5>Asistente del Colegio</h5><p>En línea</p></div>
+        <button class="cw-close" onclick="P.toggleChat()"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="cw-msgs" id="cw-msgs">
+        <div class="cm bot">¡Hola! 👋 Soy el asistente del colegio. Puedo ayudarte con dudas sobre tu deuda, fraccionamiento, o cómo regularizar tu situación.<span class="time">Ahora</span></div>
+    </div>
+    <div class="cw-input-bar">
+        <input class="cw-input" id="cw-input" placeholder="Escribe tu mensaje..." onkeydown="if(event.key==='Enter')P.sendMsg()">
+        <button class="cw-send" onclick="P.sendMsg()"><i class="ph ph-paper-plane-tilt"></i></button>
+    </div>
+</div>
+
 <script>
-const Portal = {
-    colegiado: null,
-    deudas: [],
-    deudaTotal: 0,
-    fraccSeleccion: null,
+const P={
+    col:null,deudas:[],total:0,fsel:null,dp:null,ws:null,
 
-    // ─── Init ───
-    async init() {
-        try {
-            const r = await fetch('/api/portal/mi-perfil');
-            if (r.status === 401 || r.status === 422) { location.href = '/'; return; }
-            const d = await r.json();
-            this.colegiado = d;
-
-            document.getElementById('topbar-user-name').textContent = d.nombre_corto || '';
-            document.getElementById('topbar-org-name').textContent = d.organizacion || 'Colegio Profesional';
-            document.getElementById('welcome-name').textContent = `¡Bienvenido(a), ${d.nombres || d.nombre_corto}!`;
-
-            // Si ya está hábil, redirigir al dashboard
-            if (d.condicion === 'habil' || d.condicion === 'vitalicio') {
-                location.href = '/dashboard';
-                return;
-            }
-
-            this.cargarDeuda();
-        } catch(e) {
-            console.error('Error init:', e);
-        }
+    async init(){
+        try{
+            const r=await fetch('/api/portal/mi-perfil');
+            if(r.status===401||r.status===422){location.href='/';return}
+            const d=await r.json();this.col=d;
+            document.getElementById('topbar-org').textContent=d.organizacion||'Colegio Profesional';
+            document.getElementById('hero-name').textContent=d.nombres||d.nombre_completo||d.nombre_corto;
+            if(d.condicion==='habil'||d.condicion==='vitalicio'){location.href='/dashboard';return}
+            this.loadDeuda();this.loadStats();this.initPWA();this.initWS();
+        }catch(e){console.error(e)}
     },
 
-    // ─── Deuda ───
-    async cargarDeuda() {
-        try {
-            const r = await fetch('/api/portal/mi-deuda');
-            const d = await r.json();
-            this.deudas = d.deudas || [];
-            this.deudaTotal = d.total || 0;
-
-            document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.deudaTotal)}`;
-
-            const meses = this.deudas.length;
-            document.getElementById('deuda-meses-info').textContent =
-                meses > 0 ? `${meses} cuota${meses>1?'s':''} pendiente${meses>1?'s':''}` : '';
-
-            const lista = document.getElementById('deuda-lista');
-            if (this.deudas.length === 0) {
-                lista.innerHTML = '<div style="padding:20px;text-align:center;color:var(--green);">✅ No tienes deudas pendientes</div>';
-                return;
-            }
-
-            lista.innerHTML = this.deudas.map(d => `
-                <div class="deuda-row">
-                    <div class="deuda-concepto">${d.concepto}</div>
-                    <div class="deuda-fecha">${d.fecha_venc || ''}</div>
-                    <div class="deuda-monto">S/ ${this.fmt(d.balance)}</div>
-                </div>
-            `).join('');
-
-            // ¿Califica para fraccionamiento?
-            if (this.deudaTotal >= 500) {
-                document.getElementById('card-fraccionamiento').style.display = 'block';
-                this.prepararFraccionamiento();
-            } else {
-                // No califica — mostrar badge de pago mínimo
-                document.getElementById('pago-badge').style.display = 'inline-flex';
-            }
-
-            this.cargarCuentas();
-        } catch(e) { console.error('Error deuda:', e); }
+    async loadDeuda(){
+        try{
+            const r=await fetch('/api/portal/mi-deuda');const d=await r.json();
+            this.deudas=d.deudas||[];this.total=d.total||0;
+            document.getElementById('deuda-total').textContent=`S/ ${this.fmt(this.total)}`;
+            document.getElementById('deuda-count').textContent=`${d.cantidad} cuota${d.cantidad!==1?'s':''} pendiente${d.cantidad!==1?'s':''}`;
+            const l=document.getElementById('deuda-lista');
+            if(!this.deudas.length){l.innerHTML='<div style="padding:24px;text-align:center;color:var(--green);font-size:15px">✅ ¡No tienes deudas pendientes!</div>';return}
+            l.innerHTML=this.deudas.map(d=>`<div class="drow"><div class="dconcept">${d.concepto}</div><div class="ddate">${d.fecha_venc||''}</div><div class="damount">S/ ${this.fmt(d.balance)}</div></div>`).join('');
+            if(d.califica_fraccionamiento){document.getElementById('btn-fracc').style.display='flex';this.prepF()}
+            this.loadAccounts();
+        }catch(e){console.error(e)}
     },
 
-    // ─── Fraccionamiento ───
-    prepararFraccionamiento() {
-        const minInicial = Math.ceil(this.deudaTotal * 0.20);
-        document.getElementById('fracc-min-inicial').textContent = `S/ ${this.fmt(minInicial)}`;
-        document.getElementById('fracc-inicial-input').min = minInicial;
-        document.getElementById('fracc-inicial-input').value = minInicial;
-        this.recalcularFracc();
+    async loadStats(){try{const r=await fetch('/api/portal/stats-servicios');const d=await r.json();const $=id=>document.getElementById(id);if(d.rucs_monitoreados)$('stat-rucs').textContent=d.rucs_monitoreados;if(d.consultas_ia_mes)$('stat-ia').textContent=d.consultas_ia_mes;if(d.proximo_evento)$('stat-evento').textContent=d.proximo_evento}catch(e){}},
+
+    async loadAccounts(){try{const r=await fetch('/api/portal/cuentas-pago');const d=await r.json();const el=document.getElementById('pay-accounts');if(d.cuentas&&d.cuentas.length){el.innerHTML=d.cuentas.map(c=>`<div class="paccount"><div class="pbank-icon">${(c.banco||'BCO').substring(0,3).toUpperCase()}</div><div class="pbank-info"><div class="pbank-name">${c.banco}</div><div class="pbank-num">${c.numero_cuenta}</div></div><button class="pcopy" onclick="navigator.clipboard.writeText('${c.numero_cuenta}');this.textContent='✓';setTimeout(()=>this.textContent='Copiar',1500)">Copiar</button></div>`).join('')}}catch(e){}},
+
+    prepF(){const m=Math.ceil(this.total*.2);document.getElementById('fmin').textContent=`S/ ${this.fmt(m)}`;const i=document.getElementById('fini');i.min=m;i.value=m;this.calcF()},
+    calcF(){
+        const ini=parseFloat(document.getElementById('fini').value)||0;const min=Math.ceil(this.total*.2);const el=document.getElementById('fopts');
+        if(ini<min){el.innerHTML=`<div style="color:var(--red);font-size:12px">Mínimo: S/ ${this.fmt(min)}</div>`;document.getElementById('fsubmit').disabled=true;return}
+        const s=this.total-ini;const opts=[];for(let n=2;n<=12;n++){const c=s/n;if(c>=100)opts.push({n,c:Math.ceil(c*100)/100})}
+        if(!opts.length){el.innerHTML='<div style="color:var(--warm);font-size:12px">Sin opciones con esa cuota inicial</div>';document.getElementById('fsubmit').disabled=true;return}
+        el.innerHTML=opts.map(o=>`<div class="fopt" onclick="P.selF(${o.n},${o.c},this)"><div><div class="fopt-n">${o.n} cuotas</div><div class="fopt-d">de S/ ${this.fmt(o.c)} c/u</div></div><div class="fopt-m">S/ ${this.fmt(o.c)}/mes</div></div>`).join('');
+        this.fsel=null;document.getElementById('fsubmit').disabled=true;
+    },
+    selF(n,c,el){document.querySelectorAll('.fopt').forEach(o=>o.classList.remove('sel'));el.classList.add('sel');this.fsel={n,c};document.getElementById('fsubmit').disabled=false},
+    toggleFracc(){document.getElementById('fpanel').classList.toggle('open')},
+    togglePay(){document.getElementById('ppanel').classList.toggle('open')},
+    async solicitarF(){
+        if(!this.fsel)return;const ini=parseFloat(document.getElementById('fini').value);const b=document.getElementById('fsubmit');b.disabled=true;b.textContent='Procesando...';
+        try{const r=await fetch('/api/finanzas/fraccionamiento/crear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({colegiado_id:this.col.id,cuota_inicial:ini,num_cuotas:this.fsel.n,notas:'Portal web'})});const d=await r.json();
+            if(d.success){alert(`¡Fraccionamiento aprobado!\nInicial: S/ ${ini}\n${this.fsel.n} cuotas de S/ ${this.fsel.c}`);this.toggleFracc();this.loadDeuda()}else{alert(d.detail||d.mensaje||'Error')}}catch(e){alert('Error de conexión')}
+        b.disabled=false;b.innerHTML='<i class="ph ph-handshake"></i> Solicitar fraccionamiento';
     },
 
-    recalcularFracc() {
-        const inicial = parseFloat(document.getElementById('fracc-inicial-input').value) || 0;
-        const minInicial = Math.ceil(this.deudaTotal * 0.20);
+    initWS(){const proto=location.protocol==='https:'?'wss':'ws';try{this.ws=new WebSocket(`${proto}://${location.host}/ws/chat`);this.ws.onmessage=e=>{const m=JSON.parse(e.data);this.addMsg(m.text,'bot');if(!document.getElementById('chat-win').classList.contains('open')){const b=document.getElementById('chat-badge');b.textContent=parseInt(b.textContent||'0')+1;b.style.display='flex'}};this.ws.onclose=()=>setTimeout(()=>this.initWS(),5000)}catch(e){}},
+    toggleChat(){const w=document.getElementById('chat-win');w.classList.toggle('open');if(w.classList.contains('open')){document.getElementById('chat-badge').style.display='none';document.getElementById('cw-input').focus()}},
+    sendMsg(){const i=document.getElementById('cw-input');const t=i.value.trim();if(!t)return;this.addMsg(t,'user');i.value='';if(this.ws&&this.ws.readyState===WebSocket.OPEN){this.ws.send(JSON.stringify({text:t,colegiado_id:this.col?.id}))}else{setTimeout(()=>this.addMsg('Estamos configurando el chat. Por ahora, puedes comunicarte directamente con la oficina del colegio.','bot'),800)}},
+    addMsg(t,type){const el=document.getElementById('cw-msgs');const now=new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});el.innerHTML+=`<div class="cm ${type}">${t}<span class="time">${now}</span></div>`;el.scrollTop=el.scrollHeight},
 
-        if (inicial < minInicial) {
-            document.getElementById('fracc-opciones').innerHTML =
-                `<div style="color:var(--red);font-size:12px;padding:10px;">La cuota inicial debe ser al menos S/ ${this.fmt(minInicial)}</div>`;
-            document.getElementById('fracc-cta-btn').disabled = true;
-            return;
-        }
+    initPWA(){window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();this.dp=e;document.getElementById('btn-install').style.display='flex';document.getElementById('pwa-banner').classList.add('visible')})},
+    async installPWA(){if(!this.dp)return;this.dp.prompt();const r=await this.dp.userChoice;if(r.outcome==='accepted'){document.getElementById('btn-install').style.display='none';document.getElementById('pwa-banner').classList.remove('visible')}this.dp=null},
 
-        const saldo = this.deudaTotal - inicial;
-        const opciones = [];
-        for (let n = 2; n <= 12; n++) {
-            const cuota = saldo / n;
-            if (cuota >= 100) {
-                opciones.push({ cuotas: n, mensual: Math.ceil(cuota * 100) / 100 });
-            }
-        }
-
-        const el = document.getElementById('fracc-opciones');
-        if (opciones.length === 0) {
-            el.innerHTML = '<div style="color:var(--yellow);font-size:12px;padding:10px;">Con esa cuota inicial, no hay opciones que cumplan la cuota mínima de S/ 100</div>';
-            document.getElementById('fracc-cta-btn').disabled = true;
-            return;
-        }
-
-        el.innerHTML = opciones.map(o => `
-            <div class="fracc-option" onclick="Portal.selectFracc(${o.cuotas}, ${o.mensual}, this)">
-                <div>
-                    <div class="fracc-option-cuotas">${o.cuotas} cuotas</div>
-                    <div class="fracc-option-detalle">S/ ${this.fmt(o.mensual)} mensuales</div>
-                </div>
-                <div class="fracc-option-monto">S/ ${this.fmt(o.mensual)}/mes</div>
-            </div>
-        `).join('');
-
-        this.fraccSeleccion = null;
-        document.getElementById('fracc-cta-btn').disabled = true;
-    },
-
-    selectFracc(cuotas, mensual, el) {
-        document.querySelectorAll('.fracc-option').forEach(o => o.classList.remove('selected'));
-        el.classList.add('selected');
-        this.fraccSeleccion = { cuotas, mensual };
-        document.getElementById('fracc-cta-btn').disabled = false;
-    },
-
-    toggleFraccionamiento() {
-        const panel = document.getElementById('fracc-panel');
-        panel.classList.toggle('visible');
-    },
-
-    async solicitarFraccionamiento() {
-        if (!this.fraccSeleccion) return;
-
-        const inicial = parseFloat(document.getElementById('fracc-inicial-input').value);
-        const btn = document.getElementById('fracc-cta-btn');
-        btn.disabled = true;
-        btn.textContent = 'Procesando...';
-
-        try {
-            const r = await fetch('/api/finanzas/fraccionamiento/crear', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    colegiado_id: this.colegiado.id,
-                    cuota_inicial: inicial,
-                    num_cuotas: this.fraccSeleccion.cuotas,
-                    notas: 'Solicitado desde portal web',
-                })
-            });
-            const d = await r.json();
-            if (d.success) {
-                alert(`¡Fraccionamiento aprobado!\n\nCuota inicial: S/ ${inicial}\n${this.fraccSeleccion.cuotas} cuotas de S/ ${this.fraccSeleccion.mensual}\n\nProcede a pagar la cuota inicial.`);
-                this.toggleFraccionamiento();
-                this.cargarDeuda();
-            } else {
-                alert(d.detail || d.mensaje || 'Error al procesar');
-            }
-        } catch(e) {
-            alert('Error de conexión');
-        }
-        btn.disabled = false;
-        btn.innerHTML = '<i class="ph ph-handshake"></i> Solicitar fraccionamiento';
-    },
-
-    // ─── Pago ───
-    togglePago() {
-        const section = document.getElementById('pago-section');
-        section.classList.toggle('visible');
-    },
-
-    async cargarCuentas() {
-        try {
-            const r = await fetch('/api/portal/cuentas-pago');
-            const d = await r.json();
-            const el = document.getElementById('pago-cuentas');
-            if (d.cuentas && d.cuentas.length) {
-                el.innerHTML = d.cuentas.map(c => `
-                    <div class="pago-cuenta">
-                        <div class="pago-banco-icon">${(c.banco || 'BCO').substring(0,3).toUpperCase()}</div>
-                        <div class="pago-banco-info">
-                            <div class="pago-banco-nombre">${c.banco}</div>
-                            <div class="pago-banco-cuenta">${c.numero_cuenta}</div>
-                        </div>
-                        <button class="pago-copy" onclick="navigator.clipboard.writeText('${c.numero_cuenta}');this.textContent='✓ Copiado';setTimeout(()=>this.textContent='Copiar',2000);">
-                            Copiar
-                        </button>
-                    </div>
-                `).join('');
-            }
-        } catch(e) {}
-    },
-
-    contactar() {
-        // Abrir WhatsApp o mostrar datos de contacto
-        const tel = this.colegiado?.telefono_colegio || '';
-        if (tel) {
-            window.open(`https://wa.me/51${tel}`, '_blank');
-        } else {
-            alert('Comunícate con la oficina del colegio para más información.');
-        }
-    },
-
-    logout() {
-        location.href = '/auth/logout';
-    },
-
-    // ─── Helpers ───
-    fmt(n) { return (parseFloat(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}); },
+    logout(){location.href='/auth/logout'},
+    fmt(n){return(parseFloat(n)||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 };
 
-document.addEventListener('DOMContentLoaded', () => Portal.init());
+document.addEventListener('DOMContentLoaded',()=>P.init());
+
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.style.opacity='1';e.target.style.transform='translateY(0)'}})},{threshold:.1});
+document.querySelectorAll('.bcard,.tcard,.dcont,.abtn').forEach(el=>{el.style.opacity='0';el.style.transform='translateY(20px)';el.style.transition='all .6s ease';obs.observe(el)});
 </script>
 </body>
 </html>
