@@ -184,13 +184,20 @@
 <!-- BOTTOM DOCK (único elemento fijo) -->
 <div class="bottom-dock">
     <div class="dock-inner">
+        <!-- Botón descuento estacional: Ene-Feb 20%, Mar 10%, Abr+ oculto -->
+        <button class="dock-btn descuento" id="dock-descuento" style="display:none"
+                onclick="abrirDescuentoAnual()">
+            <i class="ph ph-tag"></i>
+            <span class="dock-label" id="dock-descuento-label"></span>
+        </button>
+
         <button class="dock-btn primary" onclick="solicitarConstancia()">
             <i class="ph ph-file-text"></i>
             <span class="dock-label">Constancia</span>
         </button>
         <button class="dock-btn secondary" onclick="ModalPagos.open()">
-            <i class="ph ph-currency-circle-dollar"></i>
-            <span class="dock-label">Pagar</span>
+            <i class="ph ph-wallet"></i>
+            <span class="dock-label">Mis Pagos</span>
         </button>
         <button class="dock-btn mic" onclick="window.Neural && window.Neural.toggleListen()" id="dock-mic">
             <i class="ph ph-microphone"></i>
@@ -230,7 +237,7 @@
 <dialog id="modal-pagos">
     <div class="modal-header">
         <h3 class="modal-title">
-            <i class="ph ph-wallet"></i>
+            <i class="ph ph-wallet" style="color:var(--gold);"></i>
             Mis Pagos
         </h3>
         <button class="modal-close" onclick="Modal.close('modal-pagos')">
@@ -238,25 +245,33 @@
         </button>
     </div>
     
-    <div class="modal-body">
+    <div class="modal-body" style="position:relative;">
         <!-- Tabs -->
         <div class="pagos-tabs">
-            <button class="pagos-tab active" data-tab="resumen">
-                <i class="ph ph-chart-pie"></i>
-                <span>Resumen</span>
+            <button class="pagos-tab active" data-tab="deudas">
+                <i class="ph ph-receipt"></i>
+                <span>Deudas</span>
+            </button>
+            <button class="pagos-tab" data-tab="servicios">
+                <i class="ph ph-storefront"></i>
+                <span>Servicios</span>
             </button>
             <button class="pagos-tab" data-tab="historial">
                 <i class="ph ph-clock-counter-clockwise"></i>
                 <span>Historial</span>
             </button>
-            <button class="pagos-tab" data-tab="deudas">
-                <i class="ph ph-receipt"></i>
-                <span>Deudas</span>
-            </button>
         </div>
         
-        <!-- Tab: Resumen -->
-        <div id="pagos-resumen" class="pagos-tab-content active">
+        <!-- Tab: Deudas (resumen + pendientes con checkbox) -->
+        <div id="pagos-deudas" class="pagos-tab-content active">
+            <div class="pagos-skeleton">
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+            </div>
+        </div>
+        
+        <!-- Tab: Servicios (catálogo de productos) -->
+        <div id="pagos-servicios" class="pagos-tab-content">
             <div class="pagos-skeleton">
                 <div class="skeleton-item"></div>
                 <div class="skeleton-item"></div>
@@ -266,18 +281,13 @@
         <!-- Tab: Historial -->
         <div id="pagos-historial" class="pagos-tab-content">
             <div class="pagos-empty">
-                <i class="ph ph-receipt"></i>
+                <i class="ph ph-clock-counter-clockwise"></i>
                 <p>Cargando historial...</p>
             </div>
         </div>
         
-        <!-- Tab: Deudas -->
-        <div id="pagos-deudas" class="pagos-tab-content">
-            <div class="pagos-empty">
-                <i class="ph ph-list-checks"></i>
-                <p>Cargando deudas...</p>
-            </div>
-        </div>
+        <!-- Sticky Footer: carrito + botón pagar -->
+        <div id="pagos-footer" class="pagos-footer"></div>
     </div>
 </dialog>
 
