@@ -691,10 +691,72 @@ select.egr-input { cursor: pointer; }
 /* ══════════════════════════════════════════════════
    HISTORIAL
    ══════════════════════════════════════════════════ */
-.hist-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.hist-filters input, .hist-filters select { padding: 10px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; }
-.hist-filters input:focus, .hist-filters select:focus { border-color: var(--border-focus); }
-.hist-btn { padding: 10px 14px; background: var(--accent); border: none; border-radius: 6px; color: white; font-weight: 600; font-size: 12px; cursor: pointer; min-height: 44px; }
+/* ══════════════════════════════════════════════════
+   TOOLBAR DE FILTROS (flt-*) — reutilizable
+   Una sola franja compacta tipo financial app
+   ══════════════════════════════════════════════════ */
+.flt-bar {
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 8px;
+}
+.flt-input {
+    padding: 6px 8px; background: var(--bg-inset);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; outline: none; min-height: 34px;
+    transition: border-color 0.15s;
+}
+.flt-input:focus { border-color: var(--accent); }
+.flt-date { width: 130px; }
+.flt-select { width: 85px; cursor: pointer; }
+.flt-btn {
+    padding: 6px 12px; border: none; border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    min-height: 34px; white-space: nowrap;
+    transition: all 0.15s;
+}
+.flt-btn-primary { background: var(--accent); color: white; }
+.flt-btn-primary:hover { background: #3d6be0; }
+.flt-btn-green { background: var(--green-dark); color: white; }
+.flt-btn-green:hover { background: #047857; }
+
+/* ── Strip Summary — 2 filas tipo ticker ── */
+.strip-summary {
+    display: flex; flex-wrap: wrap; gap: 4px 12px;
+    padding: 6px 10px; margin-bottom: 8px;
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 11px;
+}
+.strip-summary:empty { display: none; }
+.ss-item {
+    display: inline-flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+}
+.ss-lbl { color: var(--text-muted); }
+.ss-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; color: var(--text);
+}
+.ss-val.green { color: var(--green); }
+.ss-val.accent { color: var(--accent); }
+.ss-val.red { color: var(--red); }
+.ss-sep {
+    width: 1px; height: 12px; background: var(--border);
+    margin: 0 2px; flex-shrink: 0;
+}
+
+/* ── Strip Info — línea sutil (for comprobantes) ── */
+.strip-info {
+    display: flex; align-items: center; gap: 4px 10px;
+    flex-wrap: wrap;
+    font-size: 11px; color: var(--text-muted);
+    padding: 4px 0; margin-bottom: 6px;
+}
+.strip-info:empty { display: none; }
+
+/* OLD hist-filters kept for backward compat but hidden */
+.hist-filters { display: none; }
+.hist-summary { display: none; }
 .hist-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 5px; font-size: 13px; transition: border-color 0.15s; }
 .hist-item:hover { border-color: var(--accent); }
 .hist-hora { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); width: 42px; flex-shrink: 0; }
@@ -702,10 +764,6 @@ select.egr-input { cursor: pointer; }
 .hist-metodo { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--bg); color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
 .hist-monto { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px; color: var(--green); white-space: nowrap; }
 .hist-comp { font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
-.hist-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
-.hist-stat { padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
-.hist-stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; color: var(--green); }
-.hist-stat-lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 .hist-empty { text-align: center; padding: 30px; color: var(--text-muted); font-size: 13px; }
 .hist-anular { padding: 6px 10px; background: var(--red-soft); border: 1px solid rgba(248,113,113,0.3); border-radius: 4px; color: var(--red); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 32px; }
 .hist-anular:hover { background: var(--red); color: white; }
@@ -1058,8 +1116,7 @@ select.egr-input { cursor: pointer; }
     /* Egresos form: stack vertical */
     .egr-form-row { flex-direction: column; gap: 0; }
 
-    /* Historial summary: 2 columnas */
-    .hist-summary { grid-template-columns: repeat(2, 1fr); }
+    /* Historial summary: already compact strip */
 
     /* Toast: más ancho */
     .toast-box { right: 8px; left: 8px; }
@@ -1102,10 +1159,12 @@ select.egr-input { cursor: pointer; }
     /* Métodos pago: 2 columnas para más espacio */
     .metodos-grid { grid-template-columns: repeat(2, 1fr); }
 
-    /* Historial summary: stack */
-    .hist-summary { grid-template-columns: 1fr 1fr; gap: 6px; }
-    .hist-stat { padding: 8px; }
-    .hist-stat-val { font-size: 15px; }
+    /* Toolbar: allow wrapping on very small screens */
+    .flt-bar { flex-wrap: wrap; }
+    .flt-date { width: auto; flex: 1; min-width: 110px; }
+    .flt-select { width: 75px; }
+    .flt-input { font-size: 11px; padding: 5px 6px; }
+    .flt-btn { padding: 5px 10px; font-size: 11px; }
 
     /* Comprobantes: scroll horizontal en detalles */
     .co-card { padding: 8px 10px; }
