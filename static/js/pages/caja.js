@@ -100,6 +100,7 @@ function distanciaMetros(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+/*
 function verificarGeo() {
     const el = document.getElementById('geoBlock');
     const titulo = document.getElementById('geoTitle');
@@ -151,6 +152,7 @@ function verificarGeo() {
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
 }
+*/
 
 function iniciarApp() {
     actualizarReloj(); setInterval(actualizarReloj, 30000);
