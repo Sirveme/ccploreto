@@ -177,9 +177,9 @@
             <div id="panelHistorial" style="display:none;">
                 <div class="section-box green">
                     <div class="sec-title green">📊 Historial de operaciones</div>
-                    <div class="hist-filters">
-                        <input type="date" id="histFecha" style="flex:1;">
-                        <select id="histTipo" style="width:100px;">
+                    <div class="flt-bar">
+                        <input type="date" id="histFecha" class="flt-input flt-date">
+                        <select id="histTipo" class="flt-input flt-select">
                             <option value="">Todos</option>
                             <option value="efectivo">Efectivo</option>
                             <option value="yape">Yape</option>
@@ -188,10 +188,10 @@
                             <option value="transferencia">Transfer.</option>
                             <option value="deposito">Depósito</option>
                         </select>
-                        <button class="hist-btn" onclick="cargarHistorial()">Buscar</button>
-                        <button class="hist-btn" style="background:var(--green);" onclick="exportarDia()">📥 Excel</button>
+                        <button class="flt-btn flt-btn-primary" onclick="cargarHistorial()">Buscar</button>
+                        <button class="flt-btn flt-btn-green" onclick="exportarDia()" title="Exportar Excel">📥</button>
                     </div>
-                    <div class="hist-summary" id="histSummary"></div>
+                    <div class="strip-summary" id="histSummary"></div>
                     <div id="histLista">
                         <div class="hist-empty">Selecciona una fecha y presiona Buscar</div>
                     </div>
@@ -205,30 +205,28 @@
             <!-- Panel Comprobantes -->
             <div class="tab-content" id="panelComprobantes" style="display:none;">
                 <div class="panel-box">
-                    <div class="panel-title">📄 COMPROBANTES EMITIDOS</div>
-                    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                        <input type="text" id="compBuscar" class="m-input"
-                               placeholder="DNI, RUC, nombre, serie..."
-                               style="flex:1;min-width:180px;text-align:left;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:400;"
+                    <div class="sec-title" style="color:var(--purple);">📄 Comprobantes emitidos</div>
+                    <div class="flt-bar">
+                        <input type="text" id="compBuscar" class="flt-input" style="flex:1;min-width:0;"
+                               placeholder="DNI, nombre, serie..."
                                onkeydown="if(event.key==='Enter')buscarComprobantes()">
-                        <select id="compTipo" class="ap-select" style="width:110px;">
-                            <option value="">Todos</option>
-                            <option value="03">Boletas</option>
-                            <option value="01">Facturas</option>
+                        <select id="compTipo" class="flt-input flt-select">
+                            <option value="">Tipo</option>
+                            <option value="03">Boleta</option>
+                            <option value="01">Factura</option>
                             <option value="07">NC</option>
                         </select>
-                        <select id="compEstado" class="ap-select" style="width:110px;">
-                            <option value="">Todo estado</option>
+                        <select id="compEstado" class="flt-input flt-select">
+                            <option value="">Estado</option>
                             <option value="accepted">Aceptado</option>
                             <option value="pending">Pendiente</option>
                             <option value="rejected">Rechazado</option>
                             <option value="anulado">Anulado</option>
                         </select>
-                        <button class="action-btn btn-primary" onclick="buscarComprobantes()"
-                                style="padding:8px 14px;background:var(--accent);border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;">🔍</button>
+                        <button class="flt-btn flt-btn-primary" onclick="buscarComprobantes()">🔍</button>
                     </div>
-                    <div id="compSummary" style="font-size:12px;color:var(--text-sec);margin-bottom:8px;"></div>
-                    <div id="compLista" style="max-height:500px;overflow-y:auto;">
+                    <div id="compSummary" class="strip-info"></div>
+                    <div id="compLista">
                         <div class="hist-empty">Busca comprobantes por DNI, nombre o número</div>
                     </div>
                     <div id="compPaginacion" style="display:flex;justify-content:center;gap:6px;margin-top:10px;"></div>
