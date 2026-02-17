@@ -31,6 +31,7 @@ from app.routers.conciliacion import router as conciliacion_router
 from app.routers.finanzas import router as finanzas_router, ws_finanzas
 from app.routers.portal_colegiado import router as portal_router
 from app.routers.fragments import router as fragments_router
+from app.routers.api_colegiado_pagos import router as api_colegiado_pagos_router
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -167,6 +168,7 @@ app.include_router(finanzas_router)
 app.websocket("/ws/finanzas")(ws_finanzas)
 app.include_router(portal_router)
 app.include_router(fragments_router)
+app.include_router(api_colegiado_pagos_router)
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
