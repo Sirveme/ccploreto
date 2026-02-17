@@ -1,0 +1,179 @@
+<!-- 
+    app/templates/pages/politica_privacidad.html
+    Política de Privacidad - Cumplimiento Ley 29733 / D.S. 016-2024-JUS
+    
+    TITULAR del tratamiento: Colegio de Contadores Públicos de Loreto
+    ENCARGADO del tratamiento: PERU SISTEMAS PRO EIRL
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad - {{ org.name if org else 'Colegio de Contadores Públicos de Loreto' }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: #0f172a;
+            color: #cbd5e1;
+            line-height: 1.8;
+            padding: 2rem 1.5rem 4rem;
+        }
+        .container { max-width: 780px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #cfab53; text-decoration: none; font-size: 14px; margin-bottom: 2rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 { font-size: 1.8rem; color: #ffffff; margin-bottom: 0.5rem; }
+        .last-update { font-size: 13px; color: #64748b; margin-bottom: 2.5rem; }
+        h2 {
+            font-size: 1.15rem; color: #e2e8f0; margin: 2rem 0 0.8rem;
+            padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        h3 { font-size: 1rem; color: #cfab53; margin: 1.5rem 0 0.5rem; }
+        p, li { font-size: 14px; margin-bottom: 0.8rem; }
+        ul, ol { padding-left: 1.5rem; }
+        li { margin-bottom: 0.4rem; }
+        .highlight-box {
+            background: rgba(207,171,83,0.06); border: 1px solid rgba(207,171,83,0.15);
+            border-radius: 8px; padding: 1.2rem 1.5rem; margin: 1.5rem 0;
+        }
+        .highlight-box strong { color: #cfab53; }
+        .info-box {
+            background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15);
+            border-radius: 8px; padding: 1.2rem 1.5rem; margin: 1.5rem 0;
+        }
+        .info-box strong { color: #3b82f6; }
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 13px; }
+        th, td { padding: 10px 14px; text-align: left; border: 1px solid rgba(255,255,255,0.08); }
+        th { background: rgba(255,255,255,0.04); color: #e2e8f0; font-weight: 600; }
+        a { color: #cfab53; }
+        .rnpdp-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 8px; padding: 12px 18px; margin: 1rem 0; font-size: 13px; color: #10b981;
+        }
+        @media (max-width: 640px) { body { padding: 1.5rem 1rem 3rem; } h1 { font-size: 1.4rem; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Volver al inicio</a>
+        
+        <h1>Política de Privacidad y Protección de Datos Personales</h1>
+        <p class="last-update">Última actualización: 10 de febrero de 2026</p>
+
+        <h2>1. Identificación del Responsable y del Encargado del Tratamiento</h2>
+        
+        <h3>Responsable del Tratamiento (Titular del Banco de Datos)</h3>
+        <div class="highlight-box">
+            <p><strong>Institución:</strong> Colegio de Contadores Públicos de Loreto (CCPL)</p>
+            <p><strong>Domicilio:</strong> Jr. Putumayo 460, Iquitos, Loreto</p>
+            <p><strong>Teléfono:</strong> (065) 23-4567</p>
+            <p><strong>Email:</strong> info@ccploreto.org.pe</p>
+        </div>
+        <p>El Colegio de Contadores Públicos de Loreto es el responsable del tratamiento de los datos personales de sus colegiados, usuarios y visitantes del presente sitio web. Es quien determina la finalidad y los medios del tratamiento de datos personales.</p>
+
+        <h3>Encargado del Tratamiento (Proveedor Tecnológico)</h3>
+        <div class="info-box">
+            <p><strong>Razón Social:</strong> PERU SISTEMAS PRO E.I.R.L.</p>
+            <p><strong>RUC:</strong> 20615446565</p>
+            <p><strong>Representante Legal:</strong> Duilio César Restuccia Eslava</p>
+            <p><strong>Domicilio:</strong> Calle Iquitos Mz A, Lt 49 — Punchana, Maynas, Loreto</p>
+            <p><strong>Email:</strong> info@colegiospro.org.pe</p>
+        </div>
+        <p>Perú Sistemas PRO E.I.R.L., en su calidad de encargado del tratamiento, desarrolla y administra la plataforma tecnológica utilizada por el CCPL, procesando datos personales únicamente conforme a las instrucciones y finalidades definidas por el Colegio. El encargado cuenta con su propio Banco de Datos Personales inscrito ante la Autoridad Nacional de Protección de Datos Personales.</p>
+        
+        <div class="rnpdp-badge">
+            ✓ Encargado del tratamiento inscrito ante la ANPDP — Código PJ-2026-742 (Constancia INS-2026-778)
+        </div>
+
+        <h2>2. Finalidad del Tratamiento</h2>
+        <p>Los datos personales recopilados a través de esta plataforma se tratan con las siguientes finalidades, determinadas por el CCPL:</p>
+        <ul>
+            <li>Gestión de la relación institucional entre el CCPL y sus colegiados.</li>
+            <li>Emisión de constancias de habilidad, certificados y documentos institucionales.</li>
+            <li>Procesamiento de pagos, cuotas, facturación electrónica y emisión de comprobantes.</li>
+            <li>Verificación pública del estado de habilidad de colegiados (nombre, apellidos, matrícula y estado).</li>
+            <li>Comunicaciones institucionales, notificaciones operativas y soporte.</li>
+            <li>Gestión de capacitaciones, eventos y convenios institucionales.</li>
+            <li>Cumplimiento de obligaciones legales y regulatorias aplicables al CCPL.</li>
+        </ul>
+
+        <h2>3. Datos Personales Recopilados</h2>
+        <table>
+            <thead><tr><th>Tipo de Dato</th><th>Ejemplo</th><th>Finalidad</th></tr></thead>
+            <tbody>
+                <tr><td>Identificación</td><td>Nombres, apellidos, DNI, matrícula</td><td>Identificación del colegiado</td></tr>
+                <tr><td>Contacto</td><td>Email, teléfono, dirección</td><td>Comunicaciones y notificaciones</td></tr>
+                <tr><td>Profesional</td><td>N° colegiatura, especialización, estado</td><td>Gestión institucional y verificación</td></tr>
+                <tr><td>Financiero</td><td>Estado de cuenta, pagos realizados</td><td>Facturación y cobranza</td></tr>
+                <tr><td>Acceso</td><td>Credenciales de usuario, IP, sesiones</td><td>Seguridad y autenticación</td></tr>
+            </tbody>
+        </table>
+
+        <h2>4. Consulta Pública de Habilidad</h2>
+        <p>La plataforma ofrece un servicio de consulta pública del estado de habilidad profesional, accesible sin autenticación. Esta consulta muestra únicamente:</p>
+        <ul>
+            <li>Nombres y apellidos del colegiado</li>
+            <li>Número de matrícula</li>
+            <li>Estado: HÁBIL o INHÁBIL</li>
+        </ul>
+        <p>Esta información tiene carácter público conforme a las funciones de los Colegios Profesionales establecidas en la legislación peruana, siendo necesaria para que empleadores, entidades públicas y terceros puedan verificar la habilitación profesional de un contador público colegiado.</p>
+
+        <h2>5. Transferencia Internacional de Datos</h2>
+        <p>Para la prestación de los servicios tecnológicos, el encargado del tratamiento utiliza proveedores de infraestructura internacional:</p>
+        <table>
+            <thead><tr><th>Proveedor</th><th>País</th><th>Servicio</th></tr></thead>
+            <tbody>
+                <tr><td>Google LLC</td><td>Chile / EE.UU.</td><td>Servicios de infraestructura cloud</td></tr>
+                <tr><td>Cloudflare, Inc.</td><td>Estados Unidos</td><td>Seguridad web, DNS y CDN</td></tr>
+                <tr><td>Railway Corp.</td><td>Estados Unidos</td><td>Hospedaje de aplicaciones</td></tr>
+            </tbody>
+        </table>
+        <p>Estos proveedores cuentan con políticas de protección de datos adecuadas y la transferencia se realiza conforme a lo establecido en la Ley N° 29733 y su reglamento.</p>
+
+        <h2>6. Plazo de Conservación</h2>
+        <p>Los datos personales se conservarán durante el tiempo que dure la relación del colegiado con el CCPL, y posteriormente por el plazo legal que corresponda conforme a la normativa tributaria y de protección de datos aplicable.</p>
+
+        <h2>7. Derechos del Titular de Datos Personales</h2>
+        <p>Conforme a la Ley N° 29733 y su reglamento (D.S. N° 016-2024-JUS), usted tiene derecho a:</p>
+        <ul>
+            <li><strong>Acceso:</strong> Conocer qué datos personales suyos son tratados.</li>
+            <li><strong>Rectificación:</strong> Solicitar la corrección de datos inexactos o incompletos.</li>
+            <li><strong>Cancelación:</strong> Solicitar la eliminación de sus datos cuando ya no sean necesarios.</li>
+            <li><strong>Oposición:</strong> Oponerse al tratamiento de sus datos en determinadas circunstancias.</li>
+        </ul>
+        <p>Para ejercer estos derechos, puede dirigirse al responsable del tratamiento:</p>
+        <div class="highlight-box">
+            <p><strong>Colegio de Contadores Públicos de Loreto</strong></p>
+            <p><strong>Dirección:</strong> Jr. Putumayo 460, Iquitos, Loreto</p>
+            <p><strong>Email:</strong> info@ccploreto.org.pe</p>
+            <p><strong>WhatsApp:</strong> 979 169 813</p>
+        </div>
+        <p>También puede contactar al encargado del tratamiento en info@colegiospro.org.pe o al celular 967 317 946.</p>
+        <p>Su solicitud será atendida en un plazo máximo de 10 días hábiles. Si considera que sus derechos no han sido debidamente atendidos, puede presentar una reclamación ante la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos (Calle Scipión Llona 350, Miraflores, Lima — <a href="https://sgd.minjus.gob.pe/sgd-virtual" target="_blank" rel="noopener">Mesa de Partes Virtual</a>).</p>
+
+        <h2>8. Medidas de Seguridad</h2>
+        <p>Tanto el responsable como el encargado del tratamiento han implementado medidas técnicas y organizativas para proteger los datos personales, incluyendo cifrado de datos en tránsito (HTTPS/TLS), control de acceso basado en roles, monitoreo de accesos, copias de seguridad periódicas y protección contra ataques mediante Cloudflare WAF.</p>
+
+        <h2>9. Cookies</h2>
+        <p>La plataforma utiliza cookies técnicas esenciales para el funcionamiento del sistema (autenticación, preferencias de sesión). No se utilizan cookies de terceros con fines publicitarios ni de seguimiento.</p>
+
+        <h2>10. Modificaciones</h2>
+        <p>Esta política puede ser actualizada periódicamente por el CCPL. Cualquier cambio será comunicado a través de la plataforma.</p>
+
+        <h2>11. Legislación Aplicable</h2>
+        <p>Ley N° 29733 — Ley de Protección de Datos Personales y D.S. N° 016-2024-JUS — Reglamento.</p>
+
+        <br>
+        <p style="font-size: 12px; color: #475569; text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06);">
+            Colegio de Contadores Públicos de Loreto — Responsable del Tratamiento<br>
+            Plataforma desarrollada por Perú Sistemas PRO E.I.R.L. &amp; Sigco — Encargado del Tratamiento<br>
+            Banco de Datos del Encargado inscrito ante la ANPDP — Código PJ-2026-742
+        </p>
+    </div>
+</body>
+</html>
