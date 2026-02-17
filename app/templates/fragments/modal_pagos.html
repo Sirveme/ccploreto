@@ -1,0 +1,34 @@
+{# Fragment: modal_pagos.html — Cargado lazy via /fragments/modal_pagos #}
+<dialog id="modal-pagos">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-wallet" style="color:#fbbf24;"></i> Mis Pagos</h3>
+        <button class="modal-close" onclick="Modal.close('modal-pagos')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+        <!-- Tabs -->
+        <div class="pagos-tabs">
+            <button class="pagos-tab active" data-tab="resumen">
+                <i class="ph ph-chart-pie"></i> <span>Resumen</span>
+            </button>
+            <button class="pagos-tab" data-tab="historial">
+                <i class="ph ph-clock-counter-clockwise"></i> <span>Historial</span>
+            </button>
+            <button class="pagos-tab" data-tab="deudas">
+                <i class="ph ph-receipt"></i> <span>Deudas</span>
+            </button>
+        </div>
+
+        <div id="pagos-resumen" class="pagos-tab-content active">
+            <div class="pagos-skeleton">
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+            </div>
+        </div>
+        <div id="pagos-historial" class="pagos-tab-content">
+            <div class="pagos-empty"><i class="ph ph-receipt"></i><p>Cargando historial...</p></div>
+        </div>
+        <div id="pagos-deudas" class="pagos-tab-content">
+            <div class="pagos-empty"><i class="ph ph-list-checks"></i><p>Cargando deudas...</p></div>
+        </div>
+    </div>
+</dialog>

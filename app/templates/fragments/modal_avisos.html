@@ -1,0 +1,144 @@
+{# Fragment: modal_avisos.html — Cargado lazy via /fragments/modal_avisos #}
+<dialog id="modal-avisos" class="modal-avisos-full">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-bell-ringing"></i> Mis Alertas Tributarias</h3>
+        <button class="modal-close" onclick="Modal.close('modal-avisos')"><i class="ph ph-x"></i></button>
+    </div>
+    
+    <div class="modal-body avisos-body">
+        <!-- Tabs -->
+        <div class="avisos-tabs">
+            <button class="tab-btn active" onclick="AvisosApp.switchTab('configurar')">
+                <i class="ph ph-gear"></i> Configurar
+            </button>
+            <button class="tab-btn" onclick="AvisosApp.switchTab('mis-rucs')">
+                <i class="ph ph-buildings"></i> Mis RUCs
+            </button>
+            <button class="tab-btn" onclick="AvisosApp.switchTab('proximos')">
+                <i class="ph ph-calendar-check"></i> Próximos
+            </button>
+        </div>
+
+        <!-- TAB: CONFIGURAR -->
+        <div id="tab-configurar" class="tab-content active">
+            <div class="config-section config-global">
+                <h4 class="section-title"><i class="ph ph-sliders"></i> Configuración de Alertas</h4>
+                <p class="section-desc">Esta configuración aplica a todas las obligaciones activas</p>
+                
+                <div class="config-row">
+                    <label>Días antes del vencimiento:</label>
+                    <div class="dias-selector" id="dias-global">
+                        <button class="dia-btn active" data-dias="5">5</button>
+                        <button class="dia-btn active" data-dias="3">3</button>
+                        <button class="dia-btn" data-dias="1">1</button>
+                    </div>
+                    <small class="hint">Selecciona uno o más días</small>
+                </div>
+                
+                <div class="config-row">
+                    <label>Horarios de alerta:</label>
+                    <div class="horarios-selector" id="horarios-global">
+                        <button class="hora-btn" data-hora="7">7am</button>
+                        <button class="hora-btn active" data-hora="8">8am</button>
+                        <button class="hora-btn" data-hora="10">10am</button>
+                        <button class="hora-btn" data-hora="12">12pm</button>
+                        <button class="hora-btn active" data-hora="14">2pm</button>
+                        <button class="hora-btn" data-hora="16">4pm</button>
+                        <button class="hora-btn" data-hora="18">6pm</button>
+                        <button class="hora-btn active" data-hora="19">7pm</button>
+                        <button class="hora-btn" data-hora="21">9pm</button>
+                    </div>
+                    <small class="hint">Máximo 3 horarios por día</small>
+                </div>
+            </div>
+            
+            <div class="config-section config-obligaciones">
+                <h4 class="section-title"><i class="ph ph-list-checks"></i> Obligaciones a Monitorear</h4>
+                
+                <div class="obligaciones-list">
+                    <div class="obligacion-item">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon blue"><i class="ph ph-file-text"></i></span>
+                            <div><strong>PDT 621</strong><small>IGV - Renta Mensual</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-pdt621" checked><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="obligacion-item">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon green"><i class="ph ph-users"></i></span>
+                            <div><strong>PLAME</strong><small>Planilla Electrónica</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-plame" checked><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="obligacion-item destacado">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon orange"><i class="ph ph-piggy-bank"></i></span>
+                            <div><strong>AFP / ONP</strong><small>⚠️ Vence ANTES que PLAME</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-afp" checked><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="obligacion-item">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon purple"><i class="ph ph-wallet"></i></span>
+                            <div><strong>CTS</strong><small>15 Mayo y 15 Noviembre</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-cts"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="obligacion-item">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon pink"><i class="ph ph-gift"></i></span>
+                            <div><strong>Gratificaciones</strong><small>15 Julio y 15 Diciembre</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-grati"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="obligacion-item">
+                        <div class="obligacion-info">
+                            <span class="obligacion-icon red"><i class="ph ph-calendar"></i></span>
+                            <div><strong>Renta Anual</strong><small>Marzo-Junio según tipo empresa</small></div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-renta"><span class="toggle-slider"></span></label>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-guardar-config" onclick="AvisosApp.guardarConfiguracion()">
+                <i class="ph ph-floppy-disk"></i> Guardar Configuración
+            </button>
+        </div>
+
+        <!-- TAB: MIS RUCs -->
+        <div id="tab-mis-rucs" class="tab-content">
+            <p class="tab-intro">Agrega los RUCs de tus clientes para monitorear sus vencimientos</p>
+            <div class="add-ruc-form">
+                <input type="text" id="input-nuevo-ruc" placeholder="Ingresa RUC (11 dígitos)"
+                       maxlength="11" inputmode="numeric" pattern="[0-9]*"
+                       onkeypress="if(event.key==='Enter') AvisosApp.agregarRuc()">
+                <button class="btn-add-ruc" onclick="AvisosApp.agregarRuc()"><i class="ph ph-plus"></i></button>
+            </div>
+            <div class="rucs-list" id="lista-rucs"></div>
+            <div class="empty-state" id="empty-rucs" style="display:none;">
+                <i class="ph ph-buildings"></i>
+                <p>Aún no tienes RUCs registrados</p>
+                <small>Agrega los RUCs de tus clientes</small>
+            </div>
+        </div>
+
+        <!-- TAB: PRÓXIMOS VENCIMIENTOS -->
+        <div id="tab-proximos" class="tab-content">
+            <div class="proximos-header">
+                <span class="proximos-titulo">Próximos 30 días</span>
+                <button class="btn-refresh" onclick="AvisosApp.renderProximos()"><i class="ph ph-arrows-clockwise"></i></button>
+            </div>
+            <div class="proximos-list" id="lista-proximos"></div>
+            <div class="empty-state" id="empty-proximos" style="display:none;">
+                <i class="ph ph-calendar-blank"></i>
+                <p>Agrega RUCs para ver vencimientos</p>
+            </div>
+            <div class="proximos-legend">
+                <span class="legend-item"><span class="dot urgente"></span> 1-2 días</span>
+                <span class="legend-item"><span class="dot pronto"></span> 3-5 días</span>
+                <span class="legend-item"><span class="dot ok"></span> +5 días</span>
+            </div>
+        </div>
+    </div>
+</dialog>

@@ -1,0 +1,89 @@
+{# Fragment: modal_mi_sitio.html — Cargado lazy via /fragments/modal_mi_sitio #}
+<dialog id="modal-mi-sitio">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-globe" style="color:var(--gold);"></i> Mi Sitio Web</h3>
+        <button class="modal-close" onclick="Modal.close('modal-mi-sitio')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+
+        {% if colegiado and colegiado.codigo_matricula %}
+        <!-- Browser Preview -->
+        <div class="browser-preview">
+            <div class="browser-header">
+                <div class="browser-dots">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="browser-url">
+                    <i class="ph ph-lock-simple"></i>
+                    <span>{{ request.url.netloc }}/colegiado/{{ colegiado.codigo_matricula }}</span>
+                </div>
+            </div>
+            <div class="browser-content">
+                <div class="preview-card">
+                    <div class="preview-photo">
+                        {% if colegiado.foto_url %}
+                            <img src="{{ colegiado.foto_url }}" alt="Foto">
+                        {% else %}
+                            <span class="preview-initial">{{ colegiado.apellidos_nombres[0] | upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="preview-name">{{ colegiado.apellidos_nombres }}</div>
+                    <div class="preview-org">{{ theme.site_name if theme else 'Colegio Profesional' }}</div>
+                    <div class="preview-badge {{ 'habil' if colegiado.es_habil else 'inhabil' }}">
+                        <i class="ph ph-seal-check"></i>
+                        {{ 'Hábil' if colegiado.es_habil else 'Inhábil' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- URL Copy -->
+        <div class="url-section">
+            <label>Tu enlace personal:</label>
+            <div class="url-box">
+                <input type="text" id="mi-sitio-url"
+                       value="{{ request.url.scheme }}://{{ request.url.netloc }}/colegiado/{{ colegiado.codigo_matricula }}"
+                       readonly>
+                <button class="btn-copy" onclick="copiarMiSitio()">
+                    <i class="ph ph-copy" id="copy-icon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-buttons">
+            <a href="/colegiado/{{ colegiado.codigo_matricula }}" target="_blank" class="btn-action primary">
+                <i class="ph ph-arrow-square-out"></i> Ver mi sitio
+            </a>
+            <button class="btn-action secondary" onclick="compartirMiSitio()">
+                <i class="ph ph-share-network"></i> Compartir
+            </button>
+        </div>
+
+        <!-- Features -->
+        <div class="features-list">
+            <div class="feature-item"><i class="ph ph-check-circle"></i><span>Perfil público verificable 24/7</span></div>
+            <div class="feature-item"><i class="ph ph-check-circle"></i><span>QR de verificación incluido</span></div>
+            <div class="feature-item"><i class="ph ph-check-circle"></i><span>Adaptado a móviles y PC</span></div>
+        </div>
+
+        <!-- Tip -->
+        <div class="tip-box">
+            <i class="ph ph-lightbulb"></i>
+            <p>Completa tu perfil en <strong>"Mi Perfil"</strong> para que tu sitio web muestre toda tu información profesional.</p>
+        </div>
+
+        {% else %}
+        <div class="empty-state" style="text-align:center;padding:40px 16px;">
+            <i class="ph ph-warning" style="font-size:48px;color:#f59e0b;margin-bottom:16px;display:block;"></i>
+            <h4 style="font-size:16px;margin-bottom:8px;color:white;">Perfil no vinculado</h4>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.6;">
+                Tu cuenta no está vinculada a un registro de colegiado. Contacta a la administración del Colegio.
+            </p>
+        </div>
+        {% endif %}
+
+    </div>
+</dialog>

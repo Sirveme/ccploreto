@@ -1,0 +1,371 @@
+{# Fragment: modal_perfil.html — Cargado lazy via /fragments/modal_perfil #}
+<dialog id="modal-perfil">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-user-circle" style="color:var(--gold);"></i> Mi Perfil</h3>
+        <button class="modal-close" onclick="Modal.close('modal-perfil')"><i class="ph ph-x"></i></button>
+    </div>
+
+    <!-- Carnet Preview -->
+    <div class="carnet-preview">
+        <div class="carnet-photo">
+            {% if colegiado and colegiado.foto_url %}
+                <img src="{{ colegiado.foto_url }}" alt="Foto" id="preview-foto">
+            {% else %}
+                <div class="carnet-photo-placeholder" id="preview-foto-placeholder">
+                    {{ (colegiado.apellidos_nombres[0] if colegiado else user.user.name[0]) | upper }}
+                </div>
+            {% endif %}
+            <label class="carnet-photo-edit" for="input-foto-perfil" title="Cambiar foto">
+                <i class="ph ph-camera"></i>
+            </label>
+            <input type="file" id="input-foto-perfil" accept="image/*" style="display:none;" onchange="previsualizarFoto(this)">
+        </div>
+        <div class="carnet-info">
+            <div class="carnet-name">{{ config.general.prefijo_titulo or '' }} {{ colegiado.apellidos_nombres if colegiado else user.user.name }}</div>
+            <div class="carnet-matricula">Mat. {{ colegiado.codigo_matricula if colegiado else user.public_id }}</div>
+            {% set es_habil = colegiado and colegiado.es_habil %}
+            <span class="badge-status {{ 'badge-habil' if es_habil else 'badge-inhabil' }}" style="font-size:11px;">
+                {% if es_habil %}✓ HÁBIL{% else %}✗ INHÁBIL{% endif %}
+            </span>
+        </div>
+        <div class="carnet-qr">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.url.scheme }}://{{ request.url.netloc }}/verificar/{{ colegiado.codigo_matricula if colegiado else user.public_id }}" alt="QR" loading="lazy">
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-label">
+            <span>Ficha de Datos</span>
+            <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width:0%;"></div>
+        </div>
+    </div>
+
+    <form id="form-perfil-completo" onsubmit="guardarPerfilCompleto(event)">
+    <div class="modal-body">
+
+        <!-- ACCORDION: DATOS PERSONALES -->
+        <div class="accordion open" id="acc-personal">
+            <div class="accordion-header" onclick="toggleAccordion('acc-personal')">
+                <div class="accordion-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;">
+                    <i class="ph ph-user"></i>
+                </div>
+                <span class="accordion-title">Datos Personales</span>
+                <span class="accordion-status incomplete" id="status-personal">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Email <span class="required">*</span></label>
+                            <input type="email" name="email" class="form-input" placeholder="correo@ejemplo.com"
+                                   value="{{ colegiado.email if colegiado and colegiado.email else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Teléfono / WhatsApp <span class="required">*</span></label>
+                            <input type="tel" name="telefono" class="form-input" placeholder="999 999 999"
+                                   value="{{ colegiado.telefono if colegiado and colegiado.telefono else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección <span class="required">*</span></label>
+                        <input type="text" name="direccion" class="form-input" placeholder="Jr. / Av. ..."
+                               value="{{ colegiado.direccion if colegiado and colegiado.direccion else '' }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Referencia</label>
+                        <input type="text" name="referencia_domicilio" class="form-input" placeholder="Cerca de..., Frente a..."
+                               value="{{ colegiado.referencia_domicilio if colegiado and colegiado.referencia_domicilio else '' }}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha Nacimiento <span class="required">*</span></label>
+                            <input type="date" name="fecha_nacimiento" class="form-input"
+                                   value="{{ colegiado.fecha_nacimiento.strftime('%Y-%m-%d') if colegiado and colegiado.fecha_nacimiento else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lugar Nacimiento</label>
+                            <input type="text" name="lugar_nacimiento" class="form-input" placeholder="Ciudad, País"
+                                   value="{{ colegiado.lugar_nacimiento if colegiado and colegiado.lugar_nacimiento else '' }}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Estado Civil</label>
+                            <select name="estado_civil" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                {% for val, label in [('soltero','Soltero(a)'),('casado','Casado(a)'),('conviviente','Conviviente'),('divorciado','Divorciado(a)'),('viudo','Viudo(a)')] %}
+                                <option value="{{ val }}" {{ 'selected' if colegiado and colegiado.estado_civil == val else '' }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tipo de Sangre</label>
+                            <select name="tipo_sangre" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                {% for ts in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+                                <option value="{{ ts }}" {{ 'selected' if colegiado and colegiado.tipo_sangre == ts else '' }}>{{ ts }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: ESTUDIOS -->
+        <div class="accordion" id="acc-estudios">
+            <div class="accordion-header" onclick="toggleAccordion('acc-estudios')">
+                <div class="accordion-icon" style="background:rgba(139,92,246,0.15);color:#8b5cf6;">
+                    <i class="ph ph-graduation-cap"></i>
+                </div>
+                <span class="accordion-title">Datos de Estudios</span>
+                <span class="accordion-status incomplete" id="status-estudios">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Universidad <span class="required">*</span></label>
+                        <input type="text" name="universidad" class="form-input" placeholder="Universidad Nacional..."
+                               value="{{ colegiado.universidad if colegiado and colegiado.universidad else '' }}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha de Título</label>
+                            <input type="date" name="fecha_titulo" class="form-input"
+                                   value="{{ colegiado.fecha_titulo.strftime('%Y-%m-%d') if colegiado and colegiado.fecha_titulo else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Grado Académico</label>
+                            <select name="grado_academico" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                {% for val, label in [('bachiller','Bachiller'),('titulado','Título Profesional'),('maestria','Maestría'),('doctorado','Doctorado')] %}
+                                <option value="{{ val }}" {{ 'selected' if colegiado and colegiado.grado_academico == val else '' }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Especialidad / Área de experiencia</label>
+                        <input type="text" name="especialidad" class="form-input" placeholder="Tributación, Auditoría, NIIF..."
+                               value="{{ colegiado.especialidad if colegiado and colegiado.especialidad else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Comité Funcional</label>
+                        <select name="comite_funcional" class="form-select">
+                            <option value="">-- Seleccionar Comité --</option>
+                            {% for val, label in [
+                                ('auditoria','Auditoría'),('administracion_finanzas','Administración y Finanzas'),
+                                ('tributacion','Tributación'),('peritaje','Peritaje'),
+                                ('sector_gubernamental','Sector Gubernamental'),('etica','Ética y Ejercicio Profesional'),
+                                ('educacion','Educación'),('pymes','PYMES'),('niif','NIIF'),
+                                ('sistemas_ti','Sistemas y TI'),('control_calidad','Control de Calidad')
+                            ] %}
+                            <option value="{{ val }}" {{ 'selected' if colegiado and colegiado.comite_funcional == val else '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: LABORALES -->
+        <div class="accordion" id="acc-laboral">
+            <div class="accordion-header" onclick="toggleAccordion('acc-laboral')">
+                <div class="accordion-icon" style="background:rgba(249,115,22,0.15);color:#f97316;">
+                    <i class="ph ph-briefcase"></i>
+                </div>
+                <span class="accordion-title">Datos Laborales</span>
+                <span class="accordion-status incomplete" id="status-laboral">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Situación Laboral <span class="required">*</span></label>
+                        <select name="situacion_laboral" class="form-select" required>
+                            <option value="">-- Seleccionar --</option>
+                            {% for val, label in [('dependiente','Dependiente'),('independiente','Independiente'),('ambos','Dependiente e Independiente'),('desempleado','Desempleado / Buscando empleo'),('jubilado','Jubilado')] %}
+                            <option value="{{ val }}" {{ 'selected' if colegiado and colegiado.situacion_laboral == val else '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Centro de Trabajo / Estudio Contable</label>
+                        <input type="text" name="centro_trabajo" class="form-input" placeholder="Nombre de la empresa o estudio"
+                               value="{{ colegiado.centro_trabajo if colegiado and colegiado.centro_trabajo else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Referencia</label>
+                        <input type="text" name="referencia_trabajo" class="form-input" placeholder="Cerca de..."
+                               value="{{ colegiado.referencia_trabajo if colegiado and colegiado.referencia_trabajo else '' }}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Cargo</label>
+                            <input type="text" name="cargo" class="form-input" placeholder="Contador General..."
+                                   value="{{ colegiado.cargo if colegiado and colegiado.cargo else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">RUC Empleador</label>
+                            <input type="text" name="ruc_empleador" class="form-input" maxlength="11" placeholder="20XXXXXXXXX"
+                                   value="{{ colegiado.ruc_empleador if colegiado and colegiado.ruc_empleador else '' }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección del Trabajo</label>
+                        <input type="text" name="direccion_trabajo" class="form-input"
+                               value="{{ colegiado.direccion_trabajo if colegiado and colegiado.direccion_trabajo else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Teléfono del Trabajo</label>
+                        <input type="tel" name="telefono_trabajo" class="form-input"
+                               value="{{ colegiado.telefono_trabajo if colegiado and colegiado.telefono_trabajo else '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: FAMILIARES -->
+        <div class="accordion" id="acc-familiar">
+            <div class="accordion-header" onclick="toggleAccordion('acc-familiar')">
+                <div class="accordion-icon" style="background:rgba(236,72,153,0.15);color:#ec4899;">
+                    <i class="ph ph-users-three"></i>
+                </div>
+                <span class="accordion-title">Datos Familiares</span>
+                <span class="accordion-status incomplete" id="status-familiar">Pendiente</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Cónyuge</label>
+                            <input type="text" name="nombre_conyuge" class="form-input"
+                                   value="{{ colegiado.nombre_conyuge if colegiado and colegiado.nombre_conyuge else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cantidad de Hijos</label>
+                            <input type="number" name="cantidad_hijos" class="form-input" min="0"
+                                   value="{{ colegiado.cantidad_hijos if colegiado and colegiado.cantidad_hijos else 0 }}">
+                        </div>
+                    </div>
+                    <p class="emergency-label"><i class="ph ph-warning"></i> Contacto de Emergencia</p>
+                    <div class="form-group">
+                        <label class="form-label">Nombre Completo <span class="required">*</span></label>
+                        <input type="text" name="contacto_emergencia_nombre" class="form-input"
+                               value="{{ colegiado.contacto_emergencia_nombre if colegiado and colegiado.contacto_emergencia_nombre else '' }}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Teléfono <span class="required">*</span></label>
+                            <input type="tel" name="contacto_emergencia_telefono" class="form-input"
+                                   value="{{ colegiado.contacto_emergencia_telefono if colegiado and colegiado.contacto_emergencia_telefono else '' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Parentesco</label>
+                            <input type="text" name="contacto_emergencia_parentesco" class="form-input" placeholder="Esposa, Hijo..."
+                                   value="{{ colegiado.contacto_emergencia_parentesco if colegiado and colegiado.contacto_emergencia_parentesco else '' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: MI PÁGINA WEB -->
+        <div class="accordion" id="acc-pagina-web">
+            <div class="accordion-header" onclick="toggleAccordion('acc-pagina-web')">
+                <div class="accordion-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">
+                    <i class="ph ph-browser"></i>
+                </div>
+                <span class="accordion-title">Mi Página Web</span>
+                <span class="accordion-status" style="background:rgba(100,116,139,0.15);color:#94a3b8;">Opcional</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Sobre mí</label>
+                        <textarea name="sobre_mi" class="form-input" rows="3"
+                                  placeholder="Breve descripción profesional..."
+                                  style="resize:vertical;min-height:70px;">{{ colegiado.sobre_mi if colegiado and colegiado.sobre_mi else '' }}</textarea>
+                    </div>
+                    <p class="section-note"><i class="ph ph-briefcase"></i> Experiencia Laboral (últimos 3 empleos)</p>
+                    {% set exp = colegiado.experiencia_laboral if colegiado and colegiado.experiencia_laboral else [] %}
+                    {% for i in range(3) %}
+                    <div class="exp-block">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Empresa</label>
+                                <input type="text" name="exp_empresa_{{ i+1 }}" class="form-input" placeholder="Nombre"
+                                       value="{{ exp[i].empresa if exp|length > i else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="font-size:11px;">Cargo</label>
+                                <input type="text" name="exp_cargo_{{ i+1 }}" class="form-input" placeholder="Cargo"
+                                       value="{{ exp[i].cargo if exp|length > i else '' }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:11px;">Período</label>
+                            <input type="text" name="exp_periodo_{{ i+1 }}" class="form-input" placeholder="2020 - 2023"
+                                   value="{{ exp[i].periodo if exp|length > i else '' }}">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: REDES SOCIALES -->
+        <div class="accordion" id="acc-redes">
+            <div class="accordion-header" onclick="toggleAccordion('acc-redes')">
+                <div class="accordion-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4;">
+                    <i class="ph ph-globe"></i>
+                </div>
+                <span class="accordion-title">Presencia Digital</span>
+                <span class="accordion-status" style="background:rgba(100,116,139,0.15);color:#94a3b8;">Opcional</span>
+                <i class="ph ph-caret-down accordion-arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="accordion-inner">
+                    <div class="form-group">
+                        <label class="form-label">Sitio Web Personal / Estudio</label>
+                        <input type="url" name="sitio_web" class="form-input" placeholder="https://miestudio.com"
+                            value="{{ colegiado.sitio_web if colegiado and colegiado.sitio_web else '' }}">
+                    </div>
+                    <div class="social-grid">
+                        {% for name, prefix, placeholder in [
+                            ('linkedin', 'linkedin.com/in/', 'mi-perfil'),
+                            ('facebook', 'facebook.com/', 'mi.pagina'),
+                            ('instagram', '@', 'mi_usuario'),
+                            ('tiktok', '@', 'mi_usuario')
+                        ] %}
+                        <div class="social-input-group">
+                            <label class="form-label">{{ name | capitalize }}</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">{{ prefix }}</span>
+                                <input type="text" name="{{ name }}" class="form-input" placeholder="{{ placeholder }}"
+                                    value="{{ colegiado[name].replace('https://linkedin.com/in/', '').replace('https://www.linkedin.com/in/', '').replace('https://facebook.com/', '').replace('https://www.facebook.com/', '').replace('@', '') if colegiado and colegiado[name] else '' }}">
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-footer">
+        <button type="submit" class="btn-primary" id="btn-guardar-perfil">
+            <i class="ph ph-floppy-disk"></i> Guardar Cambios
+        </button>
+    </div>
+    </form>
+</dialog>

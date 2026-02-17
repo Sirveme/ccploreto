@@ -1,0 +1,185 @@
+{# Fragment: modal_herramientas.html — Cargado lazy via /fragments/modal_herramientas #}
+<dialog id="modal-herramientas">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="ph ph-toolbox" style="color:#a78bfa;"></i> Herramientas Pro</h3>
+        <button class="modal-close" onclick="Modal.close('modal-herramientas')"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+
+        <!-- Tabs -->
+        <div class="tools-tabs">
+            <button class="tools-tab active" onclick="cambiarTabHerramientas('sunat', this)">
+                <i class="ph ph-buildings"></i> <span>SUNAT</span>
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('calc', this)">
+                <i class="ph ph-calculator"></i> <span>Cálculos</span>
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('facturacion', this)">
+                <i class="ph ph-receipt"></i> <span>Facturación</span>
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('consultas', this)">
+                <i class="ph ph-magnifying-glass"></i> <span>Consultas</span>
+            </button>
+            <button class="tools-tab" onclick="cambiarTabHerramientas('bancos', this)">
+                <i class="ph ph-bank"></i> <span>Bancos</span>
+            </button>
+        </div>
+
+        <div class="tools-content">
+
+            <!-- TAB: SUNAT -->
+            <div id="tab-sunat" class="tools-panel active">
+                <div class="tools-grid">
+                    <a href="https://e-menu.sunat.gob.pe/cl-ti-itmenu/MenuInternet.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-key"></i></div>
+                        <span class="tool-name">Clave SOL</span>
+                        <span class="tool-desc">Menú principal</span>
+                    </a>
+                    <a href="https://e-rhe.sunat.gob.pe/ol-ti-itrhemisgen/RECIBO_HONORARIOS_ELECTRONICO.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-file-text"></i></div>
+                        <span class="tool-name">Emitir RHE</span>
+                        <span class="tool-desc">Recibo Honorarios</span>
+                    </a>
+                    <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaWeb.jsp" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-magnifying-glass"></i></div>
+                        <span class="tool-name">Consulta RUC</span>
+                        <span class="tool-desc">Buscar contribuyente</span>
+                    </a>
+                    <a href="https://e-menu.sunat.gob.pe/cl-ti-itmenu/MenuInternet.htm?pestession=DECLARACIONES" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-file-arrow-up"></i></div>
+                        <span class="tool-name">Declaraciones</span>
+                        <span class="tool-desc">PDT / Declara Fácil</span>
+                    </a>
+                    <a href="https://www.sunat.gob.pe/ol-ti-itmoam/OL-AD-ITE-AMG-Cro/cronograma.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-calendar"></i></div>
+                        <span class="tool-name">Cronograma</span>
+                        <span class="tool-desc">Vencimientos 2025</span>
+                    </a>
+                    <a href="https://ww1.sunat.gob.pe/ol-ti-itdaaboram/busqam.htm" target="_blank" class="tool-link">
+                        <div class="tool-icon sunat"><i class="ph ph-clipboard-text"></i></div>
+                        <span class="tool-name">Mis Trámites</span>
+                        <span class="tool-desc">Estado de solicitudes</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- TAB: CALCULADORAS -->
+            <div id="tab-calc" class="tools-panel">
+                <div class="calc-section">
+                    <!-- IGV -->
+                    <div class="calc-card">
+                        <div class="calc-header"><i class="ph ph-percent"></i><span>Calculadora IGV</span></div>
+                        <div class="calc-body">
+                            <div class="calc-input-group">
+                                <label>Monto:</label>
+                                <input type="number" id="calc-igv-monto" placeholder="0.00" oninput="calcularIGV()" inputmode="decimal">
+                            </div>
+                            <div class="calc-toggle">
+                                <button class="calc-toggle-btn active" onclick="setTipoIGV('sin')" id="btn-sin-igv">Sin IGV</button>
+                                <button class="calc-toggle-btn" onclick="setTipoIGV('con')" id="btn-con-igv">Con IGV</button>
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row"><span>Base Imponible:</span><strong id="igv-base">S/ 0.00</strong></div>
+                                <div class="calc-result-row"><span>IGV (18%):</span><strong id="igv-monto">S/ 0.00</strong></div>
+                                <div class="calc-result-row total"><span>Total:</span><strong id="igv-total">S/ 0.00</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Renta 4ta -->
+                    <div class="calc-card">
+                        <div class="calc-header"><i class="ph ph-money"></i><span>Retención 4ta Categoría</span></div>
+                        <div class="calc-body">
+                            <div class="calc-input-group">
+                                <label>Monto RHE:</label>
+                                <input type="number" id="calc-4ta-monto" placeholder="0.00" oninput="calcularRenta4ta()" inputmode="decimal">
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row"><span>Retención 8%:</span><strong id="renta4ta-retencion">S/ 0.00</strong></div>
+                                <div class="calc-result-row"><span>Aplica retención:</span><strong id="renta4ta-aplica">-</strong></div>
+                                <div class="calc-result-row total"><span>Neto a recibir:</span><strong id="renta4ta-neto">S/ 0.00</strong></div>
+                            </div>
+                            <div class="calc-note"><i class="ph ph-info"></i> Retención aplica si RHE > S/ 1,500</div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Cambio -->
+                    <div class="calc-card">
+                        <div class="calc-header">
+                            <i class="ph ph-currency-dollar"></i><span>Tipo de Cambio</span>
+                            <span class="calc-badge" id="tc-fecha">Cargando...</span>
+                        </div>
+                        <div class="calc-body">
+                            <div class="tc-display">
+                                <div class="tc-item"><span class="tc-label">Compra</span><span class="tc-value" id="tc-compra">-</span></div>
+                                <div class="tc-item"><span class="tc-label">Venta</span><span class="tc-value" id="tc-venta">-</span></div>
+                            </div>
+                            <div class="calc-input-group" style="margin-top:12px;">
+                                <label>Convertir USD:</label>
+                                <input type="number" id="tc-usd" placeholder="100.00" oninput="convertirTC()" inputmode="decimal">
+                            </div>
+                            <div class="calc-results">
+                                <div class="calc-result-row total"><span>Equivale a:</span><strong id="tc-resultado">S/ 0.00</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: FACTURACIÓN -->
+            <div id="tab-facturacion" class="tools-panel">
+                <div class="featured-tool">
+                    <div class="featured-badge"><i class="ph ph-star"></i> Recomendado para Loreto</div>
+                    <div class="featured-content">
+                        <div class="featured-logo"><i class="ph ph-lightning"></i></div>
+                        <div class="featured-info">
+                            <h4>Facturalo.pro</h4>
+                            <p>Sistema de Facturación Electrónica regional</p>
+                            <ul class="featured-benefits">
+                                <li><i class="ph ph-check"></i> Soporte local en Iquitos</li>
+                                <li><i class="ph ph-check"></i> Precio especial para colegiados CCPL</li>
+                                <li><i class="ph ph-check"></i> Integración con SUNAT garantizada</li>
+                                <li><i class="ph ph-check"></i> Capacitación incluida</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <a href="https://facturalo.pro" target="_blank" class="featured-btn">
+                        <i class="ph ph-arrow-square-out"></i> Visitar Facturalo.pro
+                    </a>
+                </div>
+                <div class="tools-divider"><span>Otros proveedores</span></div>
+                <div class="tools-grid compact">
+                    <a href="https://www.nubefact.com" target="_blank" class="tool-link small"><div class="tool-icon gray"><i class="ph ph-cloud"></i></div><span class="tool-name">Nubefact</span></a>
+                    <a href="https://www.efact.pe" target="_blank" class="tool-link small"><div class="tool-icon gray"><i class="ph ph-file-text"></i></div><span class="tool-name">eFact</span></a>
+                    <a href="https://www.bizlinks.com.pe" target="_blank" class="tool-link small"><div class="tool-icon gray"><i class="ph ph-link"></i></div><span class="tool-name">Bizlinks</span></a>
+                    <a href="https://www.pse.pe" target="_blank" class="tool-link small"><div class="tool-icon gray"><i class="ph ph-buildings"></i></div><span class="tool-name">PSE.pe</span></a>
+                </div>
+            </div>
+
+            <!-- TAB: CONSULTAS -->
+            <div id="tab-consultas" class="tools-panel">
+                <div class="tools-grid">
+                    <a href="https://www.sbs.gob.pe/app/pp/sistip_portal/paginas/publicacion/tipocambiopromedio.aspx" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-currency-dollar"></i></div><span class="tool-name">TC SBS</span><span class="tool-desc">Oficial diario</span></a>
+                    <a href="https://www.mef.gob.pe/es/valor-de-la-uit" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-chart-line-up"></i></div><span class="tool-name">UIT Vigente</span><span class="tool-desc">S/ 5,350</span></a>
+                    <a href="https://www.mef.gob.pe/es/tribunal-fiscal" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-scales"></i></div><span class="tool-name">Tribunal Fiscal</span><span class="tool-desc">Resoluciones</span></a>
+                    <a href="https://busquedas.elperuano.pe/normaslegales/" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-newspaper"></i></div><span class="tool-name">El Peruano</span><span class="tool-desc">Normas legales</span></a>
+                    <a href="https://www.sunarp.gob.pe/seccion/servicios/consulta-vehicular.html" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-car"></i></div><span class="tool-name">SUNARP</span><span class="tool-desc">Consulta vehicular</span></a>
+                    <a href="https://www.essalud.gob.pe" target="_blank" class="tool-link"><div class="tool-icon blue"><i class="ph ph-first-aid-kit"></i></div><span class="tool-name">ESSALUD</span><span class="tool-desc">Aportes y servicios</span></a>
+                </div>
+            </div>
+
+            <!-- TAB: BANCOS -->
+            <div id="tab-bancos" class="tools-panel">
+                <div class="tools-grid">
+                    <a href="https://www.viabcp.com" target="_blank" class="tool-link"><div class="tool-icon bank-bcp"><i class="ph ph-bank"></i></div><span class="tool-name">BCP</span><span class="tool-desc">Banca por Internet</span></a>
+                    <a href="https://www.bbva.pe" target="_blank" class="tool-link"><div class="tool-icon bank-bbva"><i class="ph ph-bank"></i></div><span class="tool-name">BBVA</span><span class="tool-desc">Banca empresas</span></a>
+                    <a href="https://interbank.pe" target="_blank" class="tool-link"><div class="tool-icon bank-ibk"><i class="ph ph-bank"></i></div><span class="tool-name">Interbank</span><span class="tool-desc">Banca digital</span></a>
+                    <a href="https://www.scotiabank.com.pe" target="_blank" class="tool-link"><div class="tool-icon bank-scotia"><i class="ph ph-bank"></i></div><span class="tool-name">Scotiabank</span><span class="tool-desc">Scotia en línea</span></a>
+                    <a href="https://www.bn.com.pe" target="_blank" class="tool-link"><div class="tool-icon bank-bn"><i class="ph ph-bank"></i></div><span class="tool-name">Banco Nación</span><span class="tool-desc">Multired virtual</span></a>
+                    <a href="https://www.banbif.com.pe" target="_blank" class="tool-link"><div class="tool-icon bank-banbif"><i class="ph ph-bank"></i></div><span class="tool-name">BanBif</span><span class="tool-desc">Banca en línea</span></a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</dialog>
