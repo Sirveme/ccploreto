@@ -28,6 +28,41 @@ const REF_PLACEHOLDERS = {
     deposito: 'Nro. de operación / voucher'
 };
 
+/**
+ * Truncar número de comprobante: B001-00000042 → B001-42
+ */
+function fmtNum(num) {
+    if (!num) return '';
+    return num.replace(/(-)(0+)(\d+)$/, '$1$3');
+}
+
+/**
+ * Formato de método de pago con ícono
+ */
+function fmtMetodo(m) {
+    const map = {
+        efectivo: '💵', yape: '📱', plin: '📱',
+        tarjeta: '💳', transferencia: '🏦', deposito: '🧾'
+    };
+    return `${map[m] || ''} ${(m || '').toUpperCase()}`;
+}
+
+/**
+ * Badge de estado para comprobantes
+ */
+function statusBadge(s) {
+    const map = {
+        accepted: ['Aceptado', 'st-ok'],
+        pending: ['Pendiente', 'st-warn'],
+        encolado: ['Encolado', 'st-warn'],
+        rejected: ['Rechazado', 'st-err'],
+        anulado: ['Anulado', 'st-muted'],
+        error: ['Error', 'st-err'],
+    };
+    const [label, cls] = map[s] || ['?', 'st-muted'];
+    return `<span class="st-badge ${cls}">${label}</span>`;
+}
+
 // Sedes CCPL para geolocalización
 const SEDES_CCPL = [
     { nombre: 'Oficina Principal', lat: -3.7486127, lng: -73.2529467, radio: 100 },
@@ -953,32 +988,38 @@ function renderHistorial(data) {
         const monto = o.amount || o.total || 0;
         const desc = o.notes || o.descripcion || 'Cobro';
         const compNum = o.numero_comprobante || o.comprobante_numero || '';
+        const compCorto = fmtNum(compNum);
         const esAnulado = o.status === 'anulado' || o.status === 'refunded';
+        const met = o.metodo_pago || o.payment_method || '';
         const ncParcialMatch = desc.match(/\[NC PARCIAL S\/([\d.]+)\]/);
         const ncNumMatch = desc.match(/\[NC:\s*([^\]]+)\]/);
         const ncMonto = ncParcialMatch ? ncParcialMatch[1] : null;
-        const ncNumero = ncNumMatch ? ncNumMatch[1].trim() : null;
+        const ncNumero = ncNumMatch ? fmtNum(ncNumMatch[1].trim()) : null;
         const descLimpia = desc.replace('[CAJA] ', '').replace(/\[NC PARCIAL S\/[\d.]+\][^\[]*/g, '').replace(/\[NC:[^\]]+\]/g, '').replace(/\[ANULADO\][^\[]*/g, '').trim();
 
         let ncBadge = '';
         if (ncParcialMatch && !esAnulado) {
-            ncBadge = `<span style="display:inline-block;background:rgba(251,191,36,0.15);color:#fbbf24;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">NC parcial S/ ${ncMonto}</span>`;
+            ncBadge = `<span class="hi-nc-badge">NC -${ncMonto}</span>`;
         }
         if (ncNumero) {
-            ncBadge += `<span style="display:inline-block;background:rgba(99,102,241,0.12);color:#818cf8;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;">📄 ${ncNumero}</span>`;
+            ncBadge += `<span class="hi-nc-num">${ncNumero}</span>`;
         }
 
-        return `<div class="hist-item${esAnulado ? ' anulado' : ''}">
-            <span class="hist-hora">${hora}</span>
-            <div style="flex:1;overflow:hidden;">
-                <div class="hist-desc">${descLimpia}${ncBadge}</div>
-                ${compNum ? `<div class="hist-comp">📄 ${compNum}</div>` : ''}
-                ${esAnulado ? '<span class="hist-badge-anulado">anulado</span>' : ''}
+        return `<div class="hi-card${esAnulado ? ' hi-anulado' : ''}">
+            <div class="hi-row1">
+                <span class="hi-desc">${descLimpia}${ncBadge}</span>
+                <span class="hi-monto">${esAnulado ? '<s>' : ''}S/ ${monto.toFixed(2)}${esAnulado ? '</s>' : ''}</span>
             </div>
-            <span class="hist-metodo">${o.metodo_pago || o.payment_method || ''}</span>
-            <span class="hist-monto${esAnulado ? ' hist-monto-tachado' : ''}">S/ ${monto.toFixed(2)}</span>
-            ${compNum && !esAnulado ? `<button class="hist-pdf" onclick="verComprobante(${o.id})" title="Ver PDF">📄</button>` : ''}
-            ${!esAnulado ? `<button class="hist-anular" onclick="mostrarAnular(${o.id},'${descLimpia.replace(/'/g, "\\'")}',${monto})">Anular</button>` : ''}
+            <div class="hi-row2">
+                <span class="hi-hora">${hora}</span>
+                ${compCorto ? `<span class="hi-comp">${compCorto}</span>` : ''}
+                <span class="hi-met">${met}</span>
+                ${esAnulado ? '<span class="hi-badge-anul">anulado</span>' : ''}
+                <span class="hi-actions">
+                    ${compNum && !esAnulado ? `<button class="hi-btn-pdf" onclick="verComprobante(${o.id})" title="Ver PDF">📄</button>` : ''}
+                    ${!esAnulado ? `<button class="hi-btn-anul" onclick="mostrarAnular(${o.id},'${descLimpia.replace(/'/g, "\\'")}',${monto})">✕</button>` : ''}
+                </span>
+            </div>
         </div>`;
     }).join('');
 }
@@ -1094,7 +1135,7 @@ function renderComprobantes(data) {
     const comps = data.comprobantes || [];
 
     summ.innerHTML = data.total > 0
-        ? `<div style="font-size:12px;color:var(--text-sec);">${data.total} comprobante(s) — Página ${data.page}/${data.pages}</div>`
+        ? `<div style="font-size:12px;color:var(--text-sec);">${data.total} comprobante(s) — Pág. ${data.page}/${data.pages}</div>`
         : '';
 
     if (!comps.length) {
@@ -1102,40 +1143,30 @@ function renderComprobantes(data) {
         pag.innerHTML = ''; return;
     }
 
-    const tipoIcons = { '01': '🧾', '03': '🧾', '07': '↩️', '08': '↗️' };
     const tipoNames = { '01': 'Factura', '03': 'Boleta', '07': 'NC', '08': 'ND' };
-    const statusBadge = (s) => {
-        const map = {
-            accepted: ['Aceptado', '#22c55e', 'rgba(34,197,94,0.1)'],
-            pending: ['Pendiente', '#f59e0b', 'rgba(245,158,11,0.1)'],
-            encolado: ['Encolado', '#f59e0b', 'rgba(245,158,11,0.1)'],
-            rejected: ['Rechazado', '#ef4444', 'rgba(239,68,68,0.1)'],
-            anulado: ['Anulado', '#6b7280', 'rgba(107,114,128,0.1)'],
-            error: ['Error', '#ef4444', 'rgba(239,68,68,0.1)'],
-        };
-        const [label, color, bg] = map[s] || ['?', '#888', 'rgba(136,136,136,0.1)'];
-        return `<span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;color:${color};background:${bg};font-weight:600;">${label}</span>`;
-    };
 
     lista.innerHTML = comps.map(c => {
-        const icon = tipoIcons[c.tipo] || '📄';
         const esNC = c.tipo === '07' || c.tipo === '08';
-        return `<div class="comp-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.03)'" onmouseleave="this.style.background='transparent'">
-            <div style="min-width:28px;text-align:center;font-size:16px;">${icon}</div>
-            <div style="flex:1;overflow:hidden;">
-                <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    ${c.numero_formato}${esNC ? '<span style="font-size:10px;color:#818cf8;margin-left:4px;">NC</span>' : ''}
-                </div>
-                <div style="font-size:11px;color:var(--text-sec);margin-top:2px;">${c.cliente_nombre || 'Sin cliente'}${c.cliente_doc ? `<span style="opacity:0.5;margin-left:4px;">${c.cliente_doc}</span>` : ''}</div>
-                <div style="font-size:10px;color:var(--text-sec);opacity:0.6;margin-top:1px;">${c.fecha}</div>
+        const tipoLabel = tipoNames[c.tipo] || c.tipo;
+        const numCorto = fmtNum(c.numero_formato);
+        // Fecha corta: "17/02 10:03" en vez de "17/02/2026 10:03:45"
+        const fechaCorta = (c.fecha || '').replace(/\/\d{4}/, '').replace(/:\d{2}$/, '');
+
+        return `<div class="co-card${esNC ? ' co-nc' : ''}">
+            <div class="co-row1">
+                <span class="co-num">${numCorto}${esNC ? `<span class="co-tipo-nc">${tipoLabel}</span>` : ''}</span>
+                <span class="co-monto${esNC ? ' co-monto-nc' : ''}">${c.total.toFixed(2)}</span>
             </div>
-            <div style="text-align:right;min-width:80px;">
-                <div style="font-size:14px;font-weight:600;color:${esNC ? '#f59e0b' : 'var(--green)'};">S/ ${c.total.toFixed(2)}</div>
+            <div class="co-row2">
+                <span class="co-cliente">${c.cliente_nombre || 'Sin cliente'}${c.cliente_doc ? ` · ${c.cliente_doc}` : ''}</span>
                 ${statusBadge(c.status)}
             </div>
-            <div style="display:flex;gap:4px;min-width:70px;justify-content:flex-end;">
-                ${c.pdf_url ? `<button class="hist-pdf" onclick="window.open('/api/caja/comprobante/${c.payment_id}/pdf','_blank')">📄</button>` : ''}
-                ${c.status === 'accepted' && !esNC ? `<button class="hist-anular" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${c.numero_formato}',${c.total})">Anular</button>` : ''}
+            <div class="co-row3">
+                <span class="co-fecha">${fechaCorta}</span>
+                <span class="co-actions">
+                    ${c.pdf_url ? `<button class="co-btn-pdf" onclick="window.open('/api/caja/comprobante/${c.payment_id}/pdf','_blank')" title="Ver PDF">📄 PDF</button>` : ''}
+                    ${c.status === 'accepted' && !esNC ? `<button class="co-btn-anul" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${numCorto}',${c.total})">Anular</button>` : ''}
+                </span>
             </div>
         </div>`;
     }).join('');
