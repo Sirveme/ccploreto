@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/pages/dashboard_colegiado.css">
+<link rel="stylesheet" href="/static/css/pages/modal-pagos.css">
 <link rel="stylesheet" href="/static/css/components/ai-fab.css">
 {% endblock %}
 
@@ -111,7 +112,7 @@
     <section class="options-section fade-in fade-in-delay-3">
         <h2 class="section-title">Servicios</h2>
         <div class="options-grid">
-            <div class="option-card" onclick="abrirModalLazy('modal-pagos')">
+            <div class="option-card" onclick="ModalPagos.open()">
                 <div class="option-icon blue"><i class="ph ph-wallet"></i></div>
                 <span class="option-label">Mis Pagos</span>
             </div>
@@ -183,11 +184,11 @@
 <!-- BOTTOM DOCK (único elemento fijo) -->
 <div class="bottom-dock">
     <div class="dock-inner">
-        <button class="dock-btn primary" onclick="generarConstancia()">
+        <button class="dock-btn primary" onclick="solicitarConstancia()">
             <i class="ph ph-file-text"></i>
             <span class="dock-label">Constancia</span>
         </button>
-        <button class="dock-btn secondary" onclick="abrirFormularioPago()">
+        <button class="dock-btn secondary" onclick="ModalPagos.open()">
             <i class="ph ph-currency-circle-dollar"></i>
             <span class="dock-label">Pagar</span>
         </button>
@@ -225,6 +226,61 @@
     </div>
 </dialog>
 
+<!-- MODAL: MIS PAGOS (inline — modal-pagos.js maneja datos y render) -->
+<dialog id="modal-pagos">
+    <div class="modal-header">
+        <h3 class="modal-title">
+            <i class="ph ph-wallet"></i>
+            Mis Pagos
+        </h3>
+        <button class="modal-close" onclick="Modal.close('modal-pagos')">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+    
+    <div class="modal-body">
+        <!-- Tabs -->
+        <div class="pagos-tabs">
+            <button class="pagos-tab active" data-tab="resumen">
+                <i class="ph ph-chart-pie"></i>
+                <span>Resumen</span>
+            </button>
+            <button class="pagos-tab" data-tab="historial">
+                <i class="ph ph-clock-counter-clockwise"></i>
+                <span>Historial</span>
+            </button>
+            <button class="pagos-tab" data-tab="deudas">
+                <i class="ph ph-receipt"></i>
+                <span>Deudas</span>
+            </button>
+        </div>
+        
+        <!-- Tab: Resumen -->
+        <div id="pagos-resumen" class="pagos-tab-content active">
+            <div class="pagos-skeleton">
+                <div class="skeleton-item"></div>
+                <div class="skeleton-item"></div>
+            </div>
+        </div>
+        
+        <!-- Tab: Historial -->
+        <div id="pagos-historial" class="pagos-tab-content">
+            <div class="pagos-empty">
+                <i class="ph ph-receipt"></i>
+                <p>Cargando historial...</p>
+            </div>
+        </div>
+        
+        <!-- Tab: Deudas -->
+        <div id="pagos-deudas" class="pagos-tab-content">
+            <div class="pagos-empty">
+                <i class="ph ph-list-checks"></i>
+                <p>Cargando deudas...</p>
+            </div>
+        </div>
+    </div>
+</dialog>
+
 <!-- Placeholders para modales aún no implementados -->
 {% for modal_id in ['modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-estadisticas', 'modal-normas'] %}
 <dialog id="{{ modal_id }}">
@@ -249,6 +305,7 @@
 <!-- SCRIPTS -->
 <script src="/static/js/modules/ux-system.js"></script>
 <script src="/static/js/pages/dashboard_colegiado.js"></script>
+<script src="/static/js/modules/modal-pagos.js"></script>
 <script src="/static/js/components/ai-fab.js"></script>
 <script src="/static/js/modules/verificacion-pago.js"></script>
 {% block extra_scripts %}{% endblock %}
