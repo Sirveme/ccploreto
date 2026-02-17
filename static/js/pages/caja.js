@@ -1149,8 +1149,8 @@ function renderComprobantes(data) {
         const esNC = c.tipo === '07' || c.tipo === '08';
         const tipoLabel = tipoNames[c.tipo] || c.tipo;
         const numCorto = fmtNum(c.numero_formato);
-        // Fecha corta: "17/02 10:03" en vez de "17/02/2026 10:03:45"
-        const fechaCorta = (c.fecha || '').replace(/\/\d{4}/, '').replace(/:\d{2}$/, '');
+        // Fecha completa: "17/02/2026 10:03"
+        const fechaCorta = (c.fecha || '').replace(/:\d{2}$/, ''); // solo quitar segundos si los hay
 
         return `<div class="co-card${esNC ? ' co-nc' : ''}">
             <div class="co-row1">
