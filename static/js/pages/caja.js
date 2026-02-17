@@ -975,10 +975,13 @@ function renderHistorial(data) {
         const totalDigit = activos.filter(o => o.metodo_pago !== 'efectivo').reduce((s, o) => s + (o.amount || o.total || 0), 0);
         const totalGen = activos.reduce((s, o) => s + (o.amount || o.total || 0), 0);
         summ.innerHTML = `
-            <div class="hist-stat"><div class="hist-stat-val">${activos.length}${anulados ? ` <span style="font-size:11px;color:var(--red)">(-${anulados})</span>` : ''}</div><div class="hist-stat-lbl">Operaciones</div></div>
-            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalGen.toFixed(2)}</div><div class="hist-stat-lbl">Total cobrado</div></div>
-            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalEfect.toFixed(2)}</div><div class="hist-stat-lbl">Efectivo</div></div>
-            <div class="hist-stat"><div class="hist-stat-val">S/ ${totalDigit.toFixed(2)}</div><div class="hist-stat-lbl">Digital</div></div>`;
+            <span class="ss-item"><span class="ss-lbl">Ops</span><span class="ss-val">${activos.length}${anulados ? `<span style="color:var(--red)">(-${anulados})</span>` : ''}</span></span>
+            <span class="ss-sep"></span>
+            <span class="ss-item"><span class="ss-lbl">Total</span><span class="ss-val green">S/ ${totalGen.toFixed(2)}</span></span>
+            <span class="ss-sep"></span>
+            <span class="ss-item"><span class="ss-lbl">Efectivo</span><span class="ss-val">S/ ${totalEfect.toFixed(2)}</span></span>
+            <span class="ss-sep"></span>
+            <span class="ss-item"><span class="ss-lbl">Digital</span><span class="ss-val accent">S/ ${totalDigit.toFixed(2)}</span></span>`;
     } else { summ.innerHTML = ''; }
 
     if (!ops.length) { lista.innerHTML = '<div class="hist-empty">Sin operaciones en esta fecha</div>'; return; }
@@ -1135,7 +1138,7 @@ function renderComprobantes(data) {
     const comps = data.comprobantes || [];
 
     summ.innerHTML = data.total > 0
-        ? `<div style="font-size:12px;color:var(--text-sec);">${data.total} comprobante(s) — Pág. ${data.page}/${data.pages}</div>`
+        ? `<span class="ss-item"><span class="ss-val">${data.total}</span> <span class="ss-lbl">comprobante(s)</span></span> <span class="ss-sep"></span> <span class="ss-item"><span class="ss-lbl">Pág.</span> <span class="ss-val">${data.page}/${data.pages}</span></span>`
         : '';
 
     if (!comps.length) {
@@ -1150,7 +1153,7 @@ function renderComprobantes(data) {
         const tipoLabel = tipoNames[c.tipo] || c.tipo;
         const numCorto = fmtNum(c.numero_formato);
         // Fecha completa: "17/02/2026 10:03"
-        const fechaCorta = (c.fecha || '').replace(/(\d{2}:\d{2}):\d{2}$/, '$1'); // solo quitar segundos si los hay
+        const fechaCorta = (c.fecha || '').replace(/:\d{2}$/, ''); // solo quitar segundos si los hay
 
         return `<div class="co-card${esNC ? ' co-nc' : ''}">
             <div class="co-row1">
@@ -1282,5 +1285,4 @@ function verificarPagoDigital(monto, metodo, paymentId) {
 
 function reiniciarVerifCaja(monto, metodo, paymentId) {
     verificarPagoDigital(monto, metodo, paymentId);
-
 }
