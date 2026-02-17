@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/publico", tags=["API Pública"])
 @router.get("/certificado/{codigo}")
 async def verificar_certificado_publico(codigo: str, db: Session = Depends(get_db)):
     """
-    Verifica un certificado de habilidad.
+    Verifica un constancia de habilidad.
     Endpoint público para colegiospro.org.pe
     """
     
@@ -50,7 +50,7 @@ async def verificar_certificado_publico(codigo: str, db: Session = Depends(get_d
     if not result:
         return JSONResponse({
             "encontrado": False,
-            "mensaje": "Certificado no encontrado en el sistema"
+            "mensaje": "Constancia no encontrada en el sistema"
         }, status_code=404)
     
     es_vigente = result.estado_actual == 'VIGENTE'
@@ -69,7 +69,7 @@ async def verificar_certificado_publico(codigo: str, db: Session = Depends(get_d
             "estado": result.estado_actual,
             "en_fraccionamiento": result.en_fraccionamiento or False
         },
-        "mensaje": "Certificado válido y vigente" if es_vigente else f"Certificado {result.estado_actual}"
+        "mensaje": "Constancia válida y vigente" if es_vigente else f"Constancia {result.estado_actual}"
     })
 
 

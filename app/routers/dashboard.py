@@ -383,23 +383,23 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
     
     # ACCIÓN: Ver certificado / constancia
     if any(phrase in message for phrase in [
-        "ver certificado", "descargar certificado", "mi certificado",
+        "ver constancia", "descargar constancia", "mi constancia",
         "constancia", "obtener constancia", "descargar constancia",
-        "certificado de habilidad", "estoy habil", "estoy hábil"
+        "constancia de habilidad", "estoy habil", "estoy hábil"
     ]):
         if colegiado_data:
             es_habil = colegiado_data["condicion"] in ["habil", "vitalicio", "Hábil", "Vitalicio"]
             if es_habil:
                 response = {
                     "type": "article",
-                    "category": "✅ Certificado",
-                    "title": "Abriendo certificados...",
+                    "category": "✅ Constancia",
+                    "title": "Abriendo constancias...",
                     "description": "Estás HÁBIL. Puedes descargar tu constancia de habilidad.",
                     "icon": "certificate",
                 }
                 return {
                     "response": response, 
-                    "action": "open_certificados", 
+                    "action": "open_constancias", 
                     "colegiado": colegiado_data,
                     "cost": 0.001
                 }
@@ -408,7 +408,7 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
                     "type": "article",
                     "category": "⚠️ Atención",
                     "title": "Actualmente estás INHÁBIL",
-                    "description": f"Tienes S/ {colegiado_data['deuda']['total']:.2f} pendiente. Regulariza para obtener tu certificado.",
+                    "description": f"Tienes S/ {colegiado_data['deuda']['total']:.2f} pendiente. Regulariza para obtener tu constancia.",
                     "icon": "alert-triangle",
                     "tip": {"label": "Siguiente paso", "text": "Di 'quiero pagar' para regularizarte."}
                 }
@@ -416,9 +416,9 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
         else:
             response = {
                 "type": "article",
-                "category": "Certificados",
+                "category": "Constancias",
                 "title": "Consulta tu habilidad",
-                "description": "Ingresa tu DNI o matrícula para verificar tu estado y descargar tu certificado.",
+                "description": "Ingresa tu DNI o matrícula para verificar tu estado y descargar tu constancia.",
                 "icon": "certificate",
             }
         
@@ -442,7 +442,7 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
             "steps": [
                 {"title": "💳 'Quiero pagar'", "description": "Abre el formulario de pago directo"},
                 {"title": "📊 'Ver mi deuda'", "description": "Consulta tu estado de cuenta"},
-                {"title": "📜 'Mi certificado'", "description": "Descarga tu constancia de habilidad"},
+                {"title": "📜 'Mi constancia'", "description": "Descarga tu constancia de habilidad"},
                 {"title": "🕐 'Horarios'", "description": "Info de atención en oficina"},
             ],
             "tip": {"label": "Tip", "text": "También puedes usar comandos de voz. ¡Solo habla!"}
@@ -522,12 +522,12 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
         "type": "article",
         "category": "Asistente CCPL",
         "title": "¿En qué puedo ayudarte?",
-        "description": "Soy el asistente virtual del CCPL. Puedo ayudarte con pagos, certificados, consultas y más.",
+        "description": "Soy el asistente virtual del CCPL. Puedo ayudarte con pagos, constancias, consultas y más.",
         "icon": "robot",
         "related": [
             {"title": "Quiero pagar", "icon": "credit-card"},
             {"title": "Ver mi deuda", "icon": "receipt"},
-            {"title": "Mi certificado", "icon": "certificate"},
+            {"title": "Mi constancia", "icon": "certificate"},
             {"title": "Horarios", "icon": "clock"}
         ]
     }

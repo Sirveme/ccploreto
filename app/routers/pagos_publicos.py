@@ -239,7 +239,7 @@ async def registrar_pago(
     certificado_info = None
     
     if certificado_auto:
-        # Modo automático: aprobar pago + emitir certificado de inmediato
+        # Modo automático: aprobar pago + emitir constancia de inmediato
         nuevo_pago.status = "approved"
         nuevo_pago.reviewed_at = datetime.now(timezone.utc)
         
@@ -356,7 +356,7 @@ async def registrar_pago(
             vigencia = certificado_info["vigencia_hasta"]
             docs_html += f'''
                 <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: #22c55e; font-weight: 600; margin: 0 0 5px 0;">📜 Certificado de Habilidad</p>
+                    <p style="color: #22c55e; font-weight: 600; margin: 0 0 5px 0;">📜 Constancia de Habilidad</p>
                     <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">Código: {codigo}</p>
                     <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">Vigente hasta: {vigencia}</p>
                     <a href="/api/certificados/descargar/{codigo}" target="_blank"
@@ -368,9 +368,9 @@ async def registrar_pago(
         elif requiere_certificado == "1":
             docs_html += f'''
                 <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: #eab308; font-weight: 600; margin: 0 0 5px 0;">⚠️ Certificado no emitido</p>
+                    <p style="color: #eab308; font-weight: 600; margin: 0 0 5px 0;">⚠️ Constancia no emitida</p>
                     <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">
-                        {certificado_info.get("error", "Aún tienes deuda pendiente") if certificado_info else "Debes estar al día para obtener certificado"}
+                        {certificado_info.get("error", "Aún tienes deuda pendiente") if certificado_info else "Debes estar al día para obtener constancia"}
                     </p>
                 </div>
             '''
@@ -441,7 +441,7 @@ async def registrar_pago(
             </p>
             <p style="color: var(--texto-gris, #888); font-size: 11px; margin-top: 10px; opacity: 0.7;">
                 {f"Solicitaste: {tipo_comprobante.capitalize()}" if tipo_comprobante != "recibo" else ""}
-                {" + Certificado" if requiere_certificado == "1" else ""}
+                {" + Constancia" if requiere_certificado == "1" else ""}
             </p>
         </div>
     ''')

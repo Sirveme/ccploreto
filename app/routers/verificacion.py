@@ -58,7 +58,7 @@ async def verificar_certificado_ccpl(
     if not cert:
         exito = False
         motivo = "codigo_no_existe"
-        mensaje = "Certificado no encontrado. Verifique el código ingresado."
+        mensaje = "Constancia no encontrada. Verifique el código ingresado."
         datos_certificado = None
         
     elif cert.codigo_seguridad is None:
@@ -66,12 +66,12 @@ async def verificar_certificado_ccpl(
         if cert.estado == "anulado":
             exito = False
             motivo = "certificado_anulado"
-            mensaje = "Este certificado ha sido ANULADO."
+            mensaje = "Esta constancia ha sido ANULADA."
             datos_certificado = None
         elif cert.fecha_vigencia_hasta < date.today():
             exito = True
             motivo = "certificado_vencido"
-            mensaje = "Certificado auténtico pero VENCIDO (emitido antes del sistema de seguridad)."
+            mensaje = "Constancia auténtica pero VENCIDA (emitida antes del sistema de seguridad)."
             datos_certificado = {
                 "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
                 "matricula": cert.matricula,
@@ -82,7 +82,7 @@ async def verificar_certificado_ccpl(
         else:
             exito = True
             motivo = None
-            mensaje = "Certificado válido (emitido antes del sistema de seguridad)."
+            mensaje = "Constancia válida (emitida antes del sistema de seguridad)."
             datos_certificado = {
                 "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
                 "matricula": cert.matricula,
@@ -108,13 +108,13 @@ async def verificar_certificado_ccpl(
         elif cert.estado == "anulado":
             exito = False
             motivo = "certificado_anulado"
-            mensaje = "Este certificado ha sido ANULADO."
+            mensaje = "Esta constancia ha sido ANULADA."
             datos_certificado = None
             
         elif cert.fecha_vigencia_hasta < date.today():
             exito = True
             motivo = "certificado_vencido"
-            mensaje = "Certificado auténtico pero VENCIDO."
+            mensaje = "Constancia auténtica pero VENCIDA."
             datos_certificado = {
                 "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
                 "matricula": cert.matricula,
@@ -125,7 +125,7 @@ async def verificar_certificado_ccpl(
         else:
             exito = True
             motivo = None
-            mensaje = "Certificado VÁLIDO y VIGENTE."
+            mensaje = "Constancia VÁLIDA y VIGENTE."
             datos_certificado = {
                 "nombre": f"CPC. {cert.nombres} {cert.apellidos}",
                 "matricula": cert.matricula,

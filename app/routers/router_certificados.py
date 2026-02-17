@@ -1,7 +1,7 @@
 """
 Router: Certificados de Habilitación Digital
 =============================================
-Endpoints para emitir y verificar certificados
+Endpoints para emitir y verificar constancias
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/certificados", tags=["certificados"])
 
 def calcular_vigencia(fecha_pago: date, en_fraccionamiento: bool = False) -> date:
     """
-    Calcula la fecha de vigencia del certificado.
+    Calcula la fecha de vigencia dla constancia.
     
     Reglas:
     - Normal: mes de pago + 3 meses (último día del mes)
@@ -35,9 +35,9 @@ def calcular_vigencia(fecha_pago: date, en_fraccionamiento: bool = False) -> dat
     Ejemplo: Pago en enero 2026
     - Normal: vigente hasta 31 de abril 2026... wait, no
     - Corrección: Si pago en enero, vigencia es por 3 meses DESPUÉS
-      Entonces: enero + 3 = abril, pero el certificado dice "marzo 2027"
+      Entonces: enero + 3 = abril, pero la constancia dice "marzo 2027"
       
-    Revisando el certificado de ejemplo:
+    Revisando la constancia de ejemplo:
     - Fecha emisión: 31 de enero 2026
     - Vigencia hasta: 31 de Marzo del 2027
     
@@ -91,7 +91,7 @@ async def emitir_certificado(
     db: Session = Depends(get_db)
 ):
     """
-    Emite un certificado de habilitación para el colegiado.
+    Emite una constancia de habilitación para el colegiado.
     
     Verifica:
     1. Que el colegiado tenga pagos aprobados
@@ -217,7 +217,7 @@ async def emitir_certificado(
 @router.get("/verificar/{codigo}")
 async def verificar_certificado(codigo: str, db: Session = Depends(get_db)):
     """
-    Endpoint público para verificar un certificado.
+    Endpoint público para verificar una constancia.
     No requiere autenticación.
     """
     
@@ -244,7 +244,7 @@ async def verificar_certificado(codigo: str, db: Session = Depends(get_db)):
     if not result:
         return JSONResponse({
             "valido": False,
-            "mensaje": "Certificado no encontrado"
+            "mensaje": "Constancia no encontrada"
         }, status_code=404)
     
     es_valido = result.estado_actual == 'VIGENTE'
@@ -257,7 +257,7 @@ async def verificar_certificado(codigo: str, db: Session = Depends(get_db)):
         "fecha_emision": result.fecha_emision.isoformat(),
         "vigencia_hasta": result.fecha_vigencia_hasta.isoformat(),
         "estado": result.estado_actual,
-        "mensaje": "Certificado válido y vigente" if es_valido else f"Certificado {result.estado_actual}"
+        "mensaje": "Constancia válida y vigente" if es_valido else f"Constancia {result.estado_actual}"
     })
 
 
@@ -266,7 +266,7 @@ async def mis_certificados(
     member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
-    """Lista los certificados emitidos del colegiado actual"""
+    """Lista los constancias emitidas del colegiado actual"""
     
     colegiado = db.execute(
         text("SELECT id FROM colegiados WHERE member_id = :mid"),
@@ -316,8 +316,8 @@ async def descargar_certificado(
     db: Session = Depends(get_db)
 ):
     """
-    Regenera y descarga un certificado previamente emitido.
-    Solo el dueño del certificado o admin puede descargarlo.
+    Regenera y descarga una constancia previamente emitido.
+    Solo el dueño dla constancia o admin puede descargarlo.
     """
     
     cert = db.execute(
@@ -336,7 +336,7 @@ async def descargar_certificado(
     ).fetchone()
     
     if not cert:
-        raise HTTPException(status_code=404, detail="Certificado no encontrado")
+        raise HTTPException(status_code=404, detail="Constancia no encontrada")
     
     # Verificar permisos
     if cert.member_id != member.id and not member.is_admin:
@@ -353,7 +353,7 @@ async def descargar_certificado(
         en_fraccionamiento=cert.en_fraccionamiento or False
     )
     
-    nombre_archivo = f"Certificado_{cert.codigo_verificacion}.pdf"
+    nombre_archivo = f"Constancia_{cert.codigo_verificacion}.pdf"
     
     return StreamingResponse(
         pdf_buffer,
@@ -369,10 +369,10 @@ async def anular_certificado(
     member = Depends(get_current_member),
     db: Session = Depends(get_db)
 ):
-    """Anula un certificado (solo admin)"""
+    """Anula una constancia (solo admin)"""
     
     if not member.is_admin:
-        raise HTTPException(status_code=403, detail="Solo administradores pueden anular certificados")
+        raise HTTPException(status_code=403, detail="Solo administradores pueden anular constancias")
     
     result = db.execute(
         text("""
@@ -385,11 +385,11 @@ async def anular_certificado(
     ).fetchone()
     
     if not result:
-        raise HTTPException(status_code=404, detail="Certificado no encontrado")
+        raise HTTPException(status_code=404, detail="Constancia no encontrada")
     
     db.commit()
     
-    return {"success": True, "mensaje": f"Certificado {codigo} anulado"}
+    return {"success": True, "mensaje": f"Constancia {codigo} anulada"}
 
 
 
@@ -410,7 +410,7 @@ async def verificar_publico(codigo: str, db: Session = Depends(get_db)):
 async def pagina_verificacion():
     """Retorna info para la página de verificación"""
     return JSONResponse({
-        "mensaje": "Use /verificacion/{codigo} para verificar un certificado",
+        "mensaje": "Use /verificacion/{codigo} para verificar una constancia",
         "ejemplo": "/verificacion/2026-0000001"
     })
 
