@@ -179,51 +179,66 @@ function verAviso(el) {
     Modal.open('modal-aviso');
 }
 
-// Solicitar constancia de habilidad (TIENE COSTO)
+// Solicitar Constancia de Habilidad (TIENE COSTO — CONST-HAB en catálogo)
 async function solicitarConstancia() {
-    // La constancia tiene costo → pasar por flujo de pago
-    // Primero verificar si tiene constancia pagada pendiente de descarga
     const btn = document.querySelector('.dock-btn.primary');
     const originalHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="ph ph-spinner spinner"></i>';
 
     try {
+        // Verificar si ya tiene constancia pagada pendiente de descarga
         const res = await fetch('/api/colegiado/constancia/estado');
         if (res.ok) {
             const data = await res.json();
             if (data.pagada && data.url) {
-                // Ya pagada, descargar directamente
                 window.open(data.url, '_blank');
                 if (typeof Toast !== 'undefined') Toast.show('Descargando constancia', 'success');
                 return;
             }
         }
     } catch (err) {
-        // Endpoint no existe aún, continuar al flujo de pago
-        console.log('[Constancia] Estado no disponible, abriendo pago');
+        // Endpoint aún no existe → ir al catálogo
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
     }
 
-    // No tiene constancia pagada → abrir formulario de pago con concepto preseleccionado
-    if (typeof AIFab !== 'undefined' && AIFab.openPagoFormPrellenado) {
-        AIFab.openPagoFormPrellenado({
-            nombre: APP_CONFIG.user.name,
-            matricula: APP_CONFIG.user.matricula,
-            concepto_preseleccionado: 'constancia_habilidad'
-        });
-    } else {
-        // Fallback: abrir modal de pagos
-        if (typeof ModalPagos !== 'undefined') {
-            ModalPagos.open();
-        }
-        if (typeof Toast !== 'undefined') {
-            Toast.show('Solicita tu Constancia de Habilidad en la sección de pagos', 'info');
-        }
-    }
+    // Abrir Mis Pagos → tab Servicios → CONST-HAB preseleccionado
+    ModalPagos.open({ concepto_preseleccionado: 'CONST-HAB' });
 }
+
+// === DOCK ESTACIONAL: Descuentos por pago anticipado ===
+// Ene-Feb: 20% dto | Mar: 10% dto | Abr-Dic: sin botón descuento
+// Solo aplica a cuotas FUTURAS, no a deuda atrasada.
+
+function initDockEstacional() {
+    const mes = new Date().getMonth() + 1; // 1-12
+    const btn = document.getElementById('dock-descuento');
+    const label = document.getElementById('dock-descuento-label');
+    if (!btn || !label) return;
+
+    if (mes <= 2) {
+        label.textContent = '20% Dto.';
+        btn.dataset.porcentaje = '20';
+        btn.style.display = '';
+    } else if (mes === 3) {
+        label.textContent = '10% Dto.';
+        btn.dataset.porcentaje = '10';
+        btn.style.display = '';
+    }
+    // Abr-Dic: botón permanece oculto (display:none del HTML)
+}
+
+// Abre Mis Pagos con cuotas futuras del año y descuento aplicado
+function abrirDescuentoAnual() {
+    const btn = document.getElementById('dock-descuento');
+    const porcentaje = parseInt(btn?.dataset.porcentaje || '0');
+    ModalPagos.open({ descuento_anual: porcentaje });
+}
+
+// Inicializar dock al cargar
+document.addEventListener('DOMContentLoaded', initDockEstacional);
 
 // Toggle sonidos
 let sonidosActivos = localStorage.getItem('sonidos') !== 'false';
