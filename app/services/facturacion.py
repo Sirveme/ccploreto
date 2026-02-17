@@ -504,21 +504,28 @@ class FacturacionService:
     
     
 
-    def _construir_items_nc(self, original: Comprobante, monto_nc: float, es_parcial: bool) -> list:
+    def _construir_items_nc(self, original: "Comprobante", monto_nc: float, es_parcial: bool) -> list:
         """
         Items para la Nota de Crédito.
-        Total: mismos items del original.
-        Parcial: un solo item con el monto parcial.
+        Total: mismos items del original (preserva las 4 líneas con L4 de pago).
+        Parcial: un solo item con el monto parcial, preservando L2-L4 del original.
         """
         if not es_parcial and original.items:
             return original.items
 
+        # ── Parcial: construir descripción con contexto del original ──
         descripcion = "NOTA DE CRÉDITO"
         if original.items and len(original.items) > 0:
             desc_original = original.items[0].get("descripcion", "")
             if desc_original:
-                primera_linea = desc_original.split("\n")[0]
+                lineas = desc_original.split("\n")
+                # L1 del original → prefijada con "NC:"
+                primera_linea = lineas[0]
                 descripcion = f"NC: {primera_linea}"
+                # Preservar L2, L3, L4 si existen
+                if len(lineas) > 1:
+                    lineas_extra = "\n".join(lineas[1:])
+                    descripcion += f"\n{lineas_extra}"
 
         return [{
             "codigo": "SRV001",
@@ -592,12 +599,13 @@ class FacturacionService:
     # ITEMS DEL COMPROBANTE
     # ───────────────────────────────────────────────────────
 
-    def _construir_items(self, payment: Payment, tipo_comprobante: str = "03") -> list:
+    def _construir_items(self, payment: "Payment", tipo_comprobante: str = "03") -> list:
         """
-        Items con descripción en 3 líneas separadas por \\n:
+        Items con descripción en 4 líneas separadas por \\n:
           L1: CUOTA ORDINARIA ENERO, FEBRERO 2026 (2 MESES)
           L2: RESTUCCIA ESLAVA, DUILIO CESAR
           L3: DNI [05393776] Cód. Matr. [10-2244]
+          L4: Yape: Fecha [16-02-2026] Hora [09:25] N° Operación [464564]
         """
         items = []
 
@@ -605,14 +613,27 @@ class FacturacionService:
             Colegiado.id == payment.colegiado_id
         ).first()
 
+        # ── L2: Nombre del colegiado/pagador ──
         linea_nombre = ""
+        # ── L3: Documentos ──
         linea_docs = ""
+
         if colegiado:
             linea_nombre = colegiado.apellidos_nombres or ""
             dni = colegiado.dni or ""
             matr = colegiado.codigo_matricula or ""
             linea_docs = f"DNI [{dni}] Cód. Matr. [{matr}]"
+        elif payment.pagador_nombre:
+            # Público general o tercero
+            linea_nombre = payment.pagador_nombre or ""
+            doc = payment.pagador_documento or ""
+            if doc:
+                linea_docs = f"DNI [{doc}]"
 
+        # ── L4: Forma de pago ──
+        linea_pago = self._construir_linea_pago(payment)
+
+        # ── Buscar deudas pagadas para armar L1 ──
         deudas_pagadas = self.db.query(Debt).filter(
             Debt.colegiado_id == payment.colegiado_id,
             Debt.status == "paid"
@@ -640,11 +661,13 @@ class FacturacionService:
                 else:
                     linea_1 = concepto
 
+                # ── Ensamblar descripción con 4 líneas ──
                 descripcion = linea_1.upper()
                 if linea_nombre:
                     descripcion += f"\n{linea_nombre}"
                 if linea_docs:
                     descripcion += f"\n{linea_docs}"
+                descripcion += f"\n{linea_pago}"
 
                 items.append({
                     "codigo": "SRV001",
@@ -657,16 +680,16 @@ class FacturacionService:
                     "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
                 })
 
+        # ── Fallback: sin deudas asociadas ──
         if not items:
             linea_1 = payment.notes or "Pago de cuotas de colegiatura"
-            if payment.operation_code:
-                linea_1 += f" - {payment.payment_method or ''} Nº {payment.operation_code}"
 
             descripcion = linea_1.upper()
             if linea_nombre:
                 descripcion += f"\n{linea_nombre}"
             if linea_docs:
                 descripcion += f"\n{linea_docs}"
+            descripcion += f"\n{linea_pago}"
 
             items.append({
                 "codigo": "SRV001",
@@ -759,6 +782,60 @@ class FacturacionService:
             return meses_str
 
         return ", ".join(periodos)
+    
+    def _construir_linea_pago(self, payment: "Payment") -> str:
+        """
+        Construye la línea de forma de pago para la descripción del comprobante.
+
+        Formato:
+            Yape: Fecha [16-02-2026] Hora [09:25] N° Operación [456841]
+            EFECTIVO: Fecha [16-02-2026] Hora [09:25]
+            Transferencia BBVA: Fecha [...] Hora [...] N° Operación [...]
+
+        Usa payment.created_at (convertido a hora Perú) como fecha/hora.
+        Si en el futuro se agrega campo transaction_at, se priorizaría ese.
+        """
+        # ── Mapeo de payment_method → etiqueta visible ──
+        ETIQUETAS = {
+            "Efectivo":       "EFECTIVO",
+            "Yape":           "Yape",
+            "Plin":           "Plin",
+            "Transferencia":  "Transferencia BBVA",
+            "Izipay":         "IZIPAY",
+            "Izipay-Yape":    "Izipay - Yape",
+            "Izipay-Plin":    "Izipay - Plin",
+            "Izipay-Banco":   "Izipay - Banco",
+            "Izipay-Tarjeta": "Izipay - Tarjeta",
+        }
+
+        metodo = payment.payment_method or "Efectivo"
+        etiqueta = ETIQUETAS.get(metodo, metodo)  # fallback: usar tal cual
+
+        # ── Fecha y hora (priorizar transaction_at si existe en el futuro) ──
+        ts = getattr(payment, 'transaction_at', None) or payment.created_at
+        if ts:
+            # Convertir a hora Perú si tiene timezone
+            if ts.tzinfo is not None:
+                ts_peru = ts.astimezone(TZ_PERU)
+            else:
+                # Asumir UTC si no tiene timezone
+                from datetime import timezone as tz
+                ts_peru = ts.replace(tzinfo=tz.utc).astimezone(TZ_PERU)
+            fecha_str = ts_peru.strftime("%d-%m-%Y")
+            hora_str = ts_peru.strftime("%H:%M")
+        else:
+            fecha_str = ""
+            hora_str = ""
+
+        # ── Construir línea ──
+        op_code = payment.operation_code or ""
+
+        # Efectivo no tiene N° Operación
+        if metodo == "Efectivo":
+            return f"{etiqueta}: Fecha [{fecha_str}] Hora [{hora_str}]"
+
+        # Todos los demás incluyen N° Operación
+        return f"{etiqueta}: Fecha [{fecha_str}] Hora [{hora_str}] N° Operación [{op_code}]"
 
     # ───────────────────────────────────────────────────────
     # ENVÍO A FACTURALO.PRO
