@@ -903,6 +903,13 @@ class FacturacionService:
                     }
                 )
 
+                response = await client.post(...)
+
+                # ── DEBUG: ver respuesta cruda ──
+                logger.error(f"FACTURALO RAW status={response.status_code}")
+                logger.error(f"FACTURALO RAW headers={dict(response.headers)}")
+                logger.error(f"FACTURALO RAW body={response.text[:500]}")
+
                 data = response.json()
 
                 if response.status_code in [200, 201] and data.get("exito"):
