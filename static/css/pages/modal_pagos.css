@@ -1,0 +1,719 @@
+/* ============================================
+   MODAL PAGOS v2 — Catálogo + Deudas + Historial
+   Para dashboard_colegiado.html
+   ============================================ */
+
+/* === TABS === */
+.pagos-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: sticky;
+    top: 0;
+    background: #0f172a;
+    z-index: 5;
+    padding: 0 4px;
+}
+
+.pagos-tab {
+    flex: 1;
+    padding: 14px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+}
+
+.pagos-tab:hover { color: #cbd5e1; }
+
+.pagos-tab.active {
+    color: #fbbf24;
+    border-bottom-color: #fbbf24;
+}
+
+.pagos-tab i { font-size: 16px; }
+
+.pagos-tab .tab-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.pagos-tab-content {
+    display: none;
+    padding: 16px 20px;
+    padding-bottom: 100px; /* espacio para sticky footer */
+    animation: pagosSlideIn 0.2s ease-out;
+}
+
+.pagos-tab-content.active { display: block; }
+
+@keyframes pagosSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* === RESUMEN CARDS === */
+.cuenta-resumen {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.cuenta-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+    border-left: 3px solid transparent;
+}
+
+.cuenta-card.deuda { border-left-color: #ef4444; }
+.cuenta-card.pagado { border-left-color: #22c55e; }
+.cuenta-card.pendiente { border-left-color: #f59e0b; }
+
+.cuenta-label {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.cuenta-valor {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.cuenta-card.deuda .cuenta-valor { color: #ef4444; }
+.cuenta-card.pagado .cuenta-valor { color: #22c55e; }
+.cuenta-card.pendiente .cuenta-valor { color: #f59e0b; }
+
+/* === DEUDAS LIST === */
+.deudas-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 20px 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.deudas-select-all {
+    font-size: 11px;
+    color: #fbbf24;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.deudas-select-all:hover { background: rgba(251,191,36,0.1); }
+
+.deuda-check-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.deuda-check-item:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(251,191,36,0.2);
+}
+
+.deuda-check-item.selected {
+    background: rgba(251,191,36,0.06);
+    border-color: rgba(251,191,36,0.3);
+}
+
+.deuda-check-item.vencida {
+    border-left: 3px solid #ef4444;
+}
+
+.deuda-check-item.proxima {
+    border-left: 3px solid #f59e0b;
+}
+
+.deuda-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid rgba(255,255,255,0.2);
+    background: transparent;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    color: transparent;
+    font-size: 12px;
+}
+
+.deuda-check-item.selected .deuda-checkbox {
+    background: #fbbf24;
+    border-color: #fbbf24;
+    color: #0f172a;
+}
+
+.deuda-check-info { flex: 1; min-width: 0; }
+
+.deuda-check-concepto {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deuda-check-meta {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.deuda-check-meta .vencida { color: #ef4444; font-weight: 600; }
+.deuda-check-meta .proxima { color: #f59e0b; }
+
+.deuda-check-monto {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ef4444;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* === CATÁLOGO === */
+.cat-filters {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 0 12px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.cat-filters::-webkit-scrollbar { display: none; }
+
+.cat-pill {
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.cat-pill i { font-size: 14px; }
+
+.cat-pill:hover {
+    background: rgba(255,255,255,0.05);
+    color: #e2e8f0;
+}
+
+.cat-pill.active {
+    background: rgba(251,191,36,0.15);
+    border-color: rgba(251,191,36,0.4);
+    color: #fbbf24;
+}
+
+.cat-pill .pill-count {
+    font-size: 10px;
+    background: rgba(255,255,255,0.1);
+    padding: 1px 5px;
+    border-radius: 8px;
+    font-weight: 700;
+}
+
+.cat-pill.active .pill-count {
+    background: rgba(251,191,36,0.25);
+}
+
+/* Product grid */
+.cat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+@media (min-width: 480px) {
+    .cat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.cat-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.cat-item:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+}
+
+.cat-item:active { transform: scale(0.97); }
+
+.cat-item.in-cart {
+    border-color: rgba(16,185,129,0.4);
+    background: rgba(16,185,129,0.06);
+}
+
+.cat-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.cat-item-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+    line-height: 1.3;
+}
+
+.cat-item-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+}
+
+.cat-item-price.libre {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.cat-item-stock {
+    font-size: 10px;
+    color: #64748b;
+}
+
+.cat-item-stock.low { color: #f59e0b; }
+.cat-item-stock.out { color: #ef4444; }
+
+.cat-item-cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background: #10b981;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+}
+
+/* Category section headers */
+.cat-section-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 20px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cat-section-header:first-child { margin-top: 0; }
+.cat-section-header i { font-size: 14px; }
+
+/* Monto libre input (inline en el modal) */
+.monto-libre-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.15s;
+}
+
+.monto-libre-card {
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 320px;
+    animation: pagosSlideIn 0.2s ease-out;
+}
+
+.monto-libre-card h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: white;
+}
+
+.monto-libre-card .monto-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.monto-libre-card input {
+    width: 100%;
+    padding: 14px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+}
+
+.monto-libre-card input:focus {
+    border-color: #fbbf24;
+}
+
+.monto-libre-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.monto-libre-actions button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.monto-libre-actions .btn-cancel {
+    background: rgba(255,255,255,0.05);
+    color: #94a3b8;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.monto-libre-actions .btn-confirm {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #0f172a;
+}
+
+/* === STICKY FOOTER (carrito / checkout) === */
+.pagos-footer {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, #0f172a 80%, transparent);
+    padding: 16px 20px 20px;
+    z-index: 10;
+    display: none; /* shown via JS when items selected */
+}
+
+.pagos-footer.visible { display: block; }
+
+.pagos-footer-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.pagos-footer-items {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.pagos-footer-items strong {
+    color: #fbbf24;
+}
+
+.pagos-footer-total {
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+}
+
+.pagos-footer-total small {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 400;
+}
+
+.btn-pagar-footer {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #0f172a;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+}
+
+.btn-pagar-footer:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(251,191,36,0.3);
+}
+
+.btn-pagar-footer:active { transform: scale(0.98); }
+
+.btn-pagar-footer:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Cart items in footer */
+.pagos-footer-cart {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.cart-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    font-size: 11px;
+    color: #cbd5e1;
+}
+
+.cart-chip .chip-remove {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: none;
+    background: rgba(239,68,68,0.2);
+    color: #ef4444;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    padding: 0;
+    transition: background 0.2s;
+}
+
+.cart-chip .chip-remove:hover { background: rgba(239,68,68,0.4); }
+
+/* === HISTORIAL === */
+.pagos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pago-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+}
+
+.pago-item:hover { background: rgba(255,255,255,0.06); }
+
+.pago-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pago-fecha { font-size: 11px; color: #64748b; }
+.pago-concepto { font-size: 13px; color: #e2e8f0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pago-metodo {
+    font-size: 11px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pago-monto-estado {
+    text-align: right;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    margin-left: 12px;
+}
+
+.pago-monto { font-size: 15px; font-weight: 700; color: white; }
+
+.pago-estado {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pago-estado.approved { background: rgba(34,197,94,0.15); color: #22c55e; }
+.pago-estado.review { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.pago-estado.rejected { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+/* === EMPTY & LOADING === */
+.pagos-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #475569;
+}
+
+.pagos-empty i { font-size: 40px; margin-bottom: 12px; opacity: 0.4; display: block; }
+.pagos-empty p { margin: 0; font-size: 13px; }
+.pagos-empty small { color: #374151; font-size: 12px; }
+
+.pagos-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.skeleton-item {
+    height: 60px;
+    background: linear-gradient(90deg,
+        rgba(255,255,255,0.03) 25%,
+        rgba(255,255,255,0.07) 50%,
+        rgba(255,255,255,0.03) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 10px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* === INFO BOX === */
+.pagos-info-box {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pagos-info-box i { color: #10b981; font-size: 20px; flex-shrink: 0; }
+.pagos-info-box p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.4; }
+
+/* === RESPONSIVE === */
+@media (max-width: 380px) {
+    .cuenta-resumen { grid-template-columns: 1fr 1fr; }
+    .cuenta-resumen .cuenta-card:last-child { grid-column: span 2; }
+    .cuenta-valor { font-size: 18px; }
+    .cat-grid { grid-template-columns: repeat(2, 1fr); }
+    .pagos-tab span { display: none; }
+    .pagos-tab i { font-size: 20px; }
+}
+
+@media (max-width: 600px) {
+    .pago-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .pago-monto-estado {
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        margin-left: 0;
+    }
+}
+
+/* === FADE IN === */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
