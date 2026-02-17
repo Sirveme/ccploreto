@@ -1150,7 +1150,7 @@ function renderComprobantes(data) {
         const tipoLabel = tipoNames[c.tipo] || c.tipo;
         const numCorto = fmtNum(c.numero_formato);
         // Fecha completa: "17/02/2026 10:03"
-        const fechaCorta = (c.fecha || '').replace(/:\d{2}$/, ''); // solo quitar segundos si los hay
+        const fechaCorta = (c.fecha || '').replace(/(\d{2}:\d{2}):\d{2}$/, '$1'); // solo quitar segundos si los hay
 
         return `<div class="co-card${esNC ? ' co-nc' : ''}">
             <div class="co-row1">
@@ -1282,4 +1282,5 @@ function verificarPagoDigital(monto, metodo, paymentId) {
 
 function reiniciarVerifCaja(monto, metodo, paymentId) {
     verificarPagoDigital(monto, metodo, paymentId);
+
 }
