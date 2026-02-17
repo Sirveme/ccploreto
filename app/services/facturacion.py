@@ -809,7 +809,12 @@ class FacturacionService:
         }
 
         metodo = payment.payment_method or "Efectivo"
-        etiqueta = ETIQUETAS.get(metodo, metodo)  # fallback: usar tal cual
+        # Buscar case-insensitive
+        etiqueta = metodo  # fallback
+        for key, val in ETIQUETAS.items():
+            if key.lower() == metodo.lower():
+                etiqueta = val
+                break
 
         # ── Fecha y hora (priorizar transaction_at si existe en el futuro) ──
         ts = getattr(payment, 'transaction_at', None) or payment.created_at
