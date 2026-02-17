@@ -4,7 +4,7 @@ app/routers/fragments.py
 
 Sirve templates Jinja2 con contexto del colegiado actual.
 Los modales del dashboard se cargan bajo demanda (lazy loading)
-para reducir el HTML inicial de ~900 a ~256 líneas.
+para reducir el HTML inicial.
 """
 
 from fastapi import APIRouter, Request, Depends
@@ -23,7 +23,6 @@ router = APIRouter(prefix="/fragments", tags=["Fragments"])
 # Modales permitidos (whitelist de seguridad)
 ALLOWED_FRAGMENTS = {
     'modal_perfil',
-    'modal_pagos',
     'modal_herramientas',
     'modal_mi_sitio',
     'modal_avisos',
@@ -47,10 +46,10 @@ async def get_fragment(
             status_code=404
         )
 
-    # Obtener colegiado vinculado al member
+    # Obtener colegiado vinculado al member (misma lógica que dashboard.py línea 218)
     colegiado = db.query(Colegiado).filter(
-        Colegiado.id == member.colegiado_id
-    ).first() if hasattr(member, 'colegiado_id') and member.colegiado_id else None
+        Colegiado.member_id == member.id
+    ).first()
 
     # Obtener config de la organización
     org = db.query(Organization).filter(
