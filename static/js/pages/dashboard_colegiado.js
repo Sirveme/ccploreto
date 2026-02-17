@@ -51,11 +51,6 @@ window.ModalLazy = {
             css: '/static/css/pages/modal_perfil.css',
             js:  '/static/js/pages/modal_perfil.js'
         },
-        'modal-pagos': {
-            fragment: 'modal_pagos',
-            css: '/static/css/pages/modal_pagos.css',
-            js:  '/static/js/modules/modal-pagos.js'
-        },
         'modal-herramientas': {
             fragment: 'modal_herramientas',
             css: '/static/css/pages/modal_herramientas.css',
@@ -184,43 +179,49 @@ function verAviso(el) {
     Modal.open('modal-aviso');
 }
 
-// Generar constancia de habilidad
-async function generarConstancia() {
+// Solicitar constancia de habilidad (TIENE COSTO)
+async function solicitarConstancia() {
+    // La constancia tiene costo → pasar por flujo de pago
+    // Primero verificar si tiene constancia pagada pendiente de descarga
     const btn = document.querySelector('.dock-btn.primary');
     const originalHTML = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Generando...';
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i>';
 
     try {
-        const res = await fetch('/api/colegiado/constancia', { method: 'POST' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `constancia_${APP_CONFIG.user.matricula}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        if (typeof Toast !== 'undefined') Toast.show('Constancia generada', 'success');
+        const res = await fetch('/api/colegiado/constancia/estado');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.pagada && data.url) {
+                // Ya pagada, descargar directamente
+                window.open(data.url, '_blank');
+                if (typeof Toast !== 'undefined') Toast.show('Descargando constancia', 'success');
+                return;
+            }
+        }
     } catch (err) {
-        console.error('[Constancia] Error:', err);
-        if (typeof Toast !== 'undefined') Toast.show('Error al generar constancia', 'error');
+        // Endpoint no existe aún, continuar al flujo de pago
+        console.log('[Constancia] Estado no disponible, abriendo pago');
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
     }
-}
 
-// Abrir formulario de pago
-function abrirFormularioPago() {
-    // Si AIFab tiene el formulario prellenado, usarlo
-    if (typeof AIFab !== 'undefined' && AIFab.openPagoForm) {
-        AIFab.openPagoForm();
+    // No tiene constancia pagada → abrir formulario de pago con concepto preseleccionado
+    if (typeof AIFab !== 'undefined' && AIFab.openPagoFormPrellenado) {
+        AIFab.openPagoFormPrellenado({
+            nombre: APP_CONFIG.user.name,
+            matricula: APP_CONFIG.user.matricula,
+            concepto_preseleccionado: 'constancia_habilidad'
+        });
     } else {
         // Fallback: abrir modal de pagos
-        abrirModalLazy('modal-pagos');
+        if (typeof ModalPagos !== 'undefined') {
+            ModalPagos.open();
+        }
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Solicita tu Constancia de Habilidad en la sección de pagos', 'info');
+        }
     }
 }
 
