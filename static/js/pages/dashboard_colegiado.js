@@ -1,394 +1,246 @@
 /**
- * ColegiosPro - Dashboard del Colegiado
- * Orquestador principal con carga lazy de módulos
- * 
- * Arquitectura:
- *   dashboard_colegiado.js (este archivo) = ~100 líneas, carga siempre
- *   /js/modules/modal-*.js = módulos individuales, carga bajo demanda
- *   /js/modules/ux-system.js = SoundFX, Modal, Toast (carga siempre)
+ * Dashboard Colegiado — Shell + Lazy Modal Loader
+ * ColegiosPro CCPL
  */
 
-// ============================================
-// CONFIG GLOBAL (inyectada desde template)
-// ============================================
-window.APP_CONFIG = window.APP_CONFIG || {};
+/* ═══ APP CONFIG (Jinja2 inyecta valores) ═══ */
+window.APP_CONFIG = {
+    user: {
+        id: "{{ user.id }}",
+        name: "{{ colegiado.apellidos_nombres if colegiado else user.user.name }}",
+        matricula: "{{ colegiado.codigo_matricula if colegiado else user.public_id }}"
+    },
+    vapidPublicKey: "{{ vapid_public_key }}",
+    wsUrl: (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+           window.location.host + '/ws/{{ user.id }}'
+};
 
-// ============================================
-// SISTEMA DE CARGA LAZY DE MÓDULOS
-// ============================================
-const ModuleLoader = {
-    // Cache de módulos ya cargados
-    _loaded: new Set(),
-    _loading: new Map(), // promesas en curso
+/* ═══ MODAL BASE (open/close para dialogs) ═══ */
+window.Modal = {
+    open(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('closing');
+        el.showModal();
+    },
+
+    close(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('closing');
+        setTimeout(() => {
+            el.close();
+            el.classList.remove('closing');
+        }, 150);
+    }
+};
+
+/* ═══ LAZY MODAL LOADER ═══ */
+window.ModalLazy = {
+    loaded: {},
+    loading: {},
 
     /**
-     * Registra qué módulo JS necesita cada modal
-     * key = id del <dialog>, value = path relativo al JS
+     * Mapa de modales lazy con sus assets
+     * fragment: nombre del endpoint /fragments/{fragment}
+     * css/js: rutas relativas a /static/
      */
     registry: {
-        'modal-perfil':          '/static/js/modules/modal-perfil.js',
-        'modal-pagos':           '/static/js/modules/modal-pagos.js',
-        'modal-constancia':      '/static/js/modules/modal-constancia.js',
-        'modal-certificados':    '/static/js/modules/modal-certificados.js',
-        'modal-herramientas':    '/static/js/modules/modal-herramientas.js',
-        'modal-mi-sitio':        '/static/js/modules/modal-mi-sitio.js',
-        'modal-avisos':          '/static/js/modules/modal-avisos.js',
-        'modal-calculadora':     '/static/js/modules/modal-calculadora.js',
-        'modal-normas':          '/static/js/modules/modal-normas.js',
-        'modal-directorio':      '/static/js/modules/modal-directorio.js',
-        'modal-capacitaciones':  '/static/js/modules/modal-capacitaciones.js',
-        'modal-convenios':       '/static/js/modules/modal-convenios.js',
-        'modal-votaciones':      '/static/js/modules/modal-votaciones.js',
-        'modal-bolsa-trabajo':   '/static/js/modules/modal-bolsa-trabajo.js',
-        'modal-chat':            '/static/js/modules/modal-chat.js',
-        'modal-estadisticas':    '/static/js/modules/modal-estadisticas.js',
-        // Modales simples sin JS propio (no necesitan lazy load)
-        // 'modal-aviso': null  → se maneja inline
+        'modal-perfil': {
+            fragment: 'modal_perfil',
+            css: '/static/css/pages/modal_perfil.css',
+            js:  '/static/js/pages/modal_perfil.js'
+        },
+        'modal-pagos': {
+            fragment: 'modal_pagos',
+            css: '/static/css/pages/modal_pagos.css',
+            js:  '/static/js/modules/modal-pagos.js'
+        },
+        'modal-herramientas': {
+            fragment: 'modal_herramientas',
+            css: '/static/css/pages/modal_herramientas.css',
+            js:  '/static/js/pages/modal_herramientas.js'
+        },
+        'modal-mi-sitio': {
+            fragment: 'modal_mi_sitio',
+            css: '/static/css/pages/modal_mi_sitio.css',
+            js:  '/static/js/pages/modal_mi_sitio.js'
+        },
+        'modal-avisos': {
+            fragment: 'modal_avisos',
+            css: '/static/css/pages/modal_avisos.css',
+            js:  '/static/js/pages/modal_avisos.js'
+        }
     },
 
-    /**
-     * Carga un módulo JS por id de modal
-     * Retorna Promise que resuelve cuando el script está listo
-     */
-    async load(modalId) {
-        const src = this.registry[modalId];
-        
-        // Sin módulo registrado → no necesita carga
-        if (!src) return Promise.resolve();
-
-        // Ya cargado → resolver inmediatamente
-        if (this._loaded.has(modalId)) return Promise.resolve();
-
-        // En proceso de carga → retornar promesa existente
-        if (this._loading.has(modalId)) return this._loading.get(modalId);
-
-        // Crear promesa de carga
-        const promise = new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-
-            script.onload = () => {
-                this._loaded.add(modalId);
-                this._loading.delete(modalId);
-                console.log(`[ModuleLoader] ✓ ${modalId}`);
-                resolve();
-            };
-
-            script.onerror = () => {
-                this._loading.delete(modalId);
-                console.error(`[ModuleLoader] ✗ ${modalId}: ${src}`);
-                reject(new Error(`No se pudo cargar el módulo: ${src}`));
-            };
-
-            document.head.appendChild(script);
-        });
-
-        this._loading.set(modalId, promise);
-        return promise;
-    },
-
-    /**
-     * Precarga módulos en idle time (conexiones rápidas)
-     * Solo precarga si la conexión no es lenta
-     */
-    preloadWhenIdle(modalIds) {
-        // Detectar conexión lenta
-        const conn = navigator.connection || navigator.mozConnection;
-        if (conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g')) {
-            console.log('[ModuleLoader] Conexión lenta detectada, sin precarga');
+    async open(modalId) {
+        // Si ya está en DOM (inline o ya cargado), solo abrir
+        if (document.getElementById(modalId)) {
+            Modal.open(modalId);
             return;
         }
 
-        const load = () => {
-            modalIds.forEach(id => {
-                if (!this._loaded.has(id) && this.registry[id]) {
-                    // Usar <link rel="prefetch"> para no bloquear
-                    const link = document.createElement('link');
-                    link.rel = 'prefetch';
-                    link.href = this.registry[id];
-                    link.as = 'script';
-                    document.head.appendChild(link);
-                }
-            });
-        };
+        // Si está en registro lazy, cargar
+        const config = this.registry[modalId];
+        if (!config) {
+            console.warn(`[ModalLazy] Modal "${modalId}" no registrado`);
+            return;
+        }
 
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(load, { timeout: 5000 });
-        } else {
-            setTimeout(load, 3000);
+        // Evitar doble carga
+        if (this.loading[modalId]) {
+            await this.loading[modalId];
+            Modal.open(modalId);
+            return;
+        }
+
+        // Mostrar indicador de carga
+        this._showLoading();
+
+        try {
+            this.loading[modalId] = this._load(modalId, config);
+            await this.loading[modalId];
+            delete this.loading[modalId];
+            this.loaded[modalId] = true;
+
+            // Abrir después de cargar
+            Modal.open(modalId);
+        } catch (err) {
+            console.error(`[ModalLazy] Error cargando "${modalId}":`, err);
+            this._showError(modalId);
+        } finally {
+            this._hideLoading();
         }
     },
 
-    /**
-     * Verifica si un módulo ya está cargado
-     */
-    isLoaded(modalId) {
-        return this._loaded.has(modalId);
-    }
-};
-
-// Exponer globalmente
-window.ModuleLoader = ModuleLoader;
-
-// ============================================
-// FUNCIÓN PRINCIPAL: ABRIR MODAL CON LAZY LOAD
-// ============================================
-
-/**
- * Abre un modal, cargando su módulo JS si es necesario.
- * Muestra spinner mientras carga en conexiones lentas.
- * 
- * Uso en HTML: onclick="abrirModalLazy('modal-pagos')"
- * 
- * @param {string} modalId - ID del elemento <dialog>
- * @param {object} options - { onOpen: callback, data: {} }
- */
-async function abrirModalLazy(modalId, options = {}) {
-    const modal = document.getElementById(modalId);
-    if (!modal) {
-        console.error(`Modal no encontrado: ${modalId}`);
-        Toast.show('Sección no disponible', 'warning');
-        return;
-    }
-
-    const needsLoad = ModuleLoader.registry[modalId] && !ModuleLoader.isLoaded(modalId);
-
-    // Mostrar modal inmediatamente con spinner si necesita carga
-    if (needsLoad) {
-        _showModalLoading(modal);
-    }
-
-    try {
-        // Cargar módulo (no-op si ya está cargado o no tiene módulo)
-        await ModuleLoader.load(modalId);
-
-        // Quitar spinner
-        if (needsLoad) {
-            _hideModalLoading(modal);
+    async _load(modalId, config) {
+        // 1. Cargar CSS (no bloqueante)
+        if (config.css && !document.querySelector(`link[href="${config.css}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = config.css;
+            document.head.appendChild(link);
         }
 
-        // Abrir con efecto
-        Modal.open(modalId, options);
+        // 2. Fetch HTML fragment
+        const res = await fetch(`/fragments/${config.fragment}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await res.text();
 
-        // Disparar evento custom para que el módulo inicialice
-        modal.dispatchEvent(new CustomEvent('modal:opened', { 
-            detail: options.data || {} 
-        }));
+        // 3. Inyectar en DOM
+        const container = document.getElementById('modal-container');
+        container.insertAdjacentHTML('beforeend', html);
 
-    } catch (err) {
-        _hideModalLoading(modal);
-        Toast.show('Error al cargar. Intenta de nuevo.', 'error');
-        SoundFX.play('error');
-    }
-}
+        // 4. Cargar JS (después de que el HTML esté en DOM)
+        if (config.js && !document.querySelector(`script[src="${config.js}"]`)) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = config.js;
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Failed to load ${config.js}`));
+                document.body.appendChild(script);
+            });
+        }
+    },
 
-// Alias corto para uso en templates
-window.abrirModalLazy = abrirModalLazy;
+    _showLoading() {
+        // Mini spinner overlay
+        if (document.getElementById('lazy-loader')) return;
+        const div = document.createElement('div');
+        div.id = 'lazy-loader';
+        div.innerHTML = '<div class="spinner" style="width:28px;height:28px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--gold);border-radius:50%;"></div>';
+        Object.assign(div.style, {
+            position: 'fixed', inset: '0', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.5)', zIndex: '9999'
+        });
+        document.body.appendChild(div);
+    },
 
-// También mantener compatibilidad con modales simples
-window.abrirModal = function(modalId) {
-    // Modal-aviso y otros simples → abrir directo
-    if (!ModuleLoader.registry[modalId]) {
-        Modal.open(modalId);
-    } else {
-        abrirModalLazy(modalId);
+    _hideLoading() {
+        document.getElementById('lazy-loader')?.remove();
+    },
+
+    _showError(modalId) {
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Error cargando módulo. Intenta de nuevo.', 'error');
+        }
     }
 };
 
-// ============================================
-// HELPERS DE LOADING STATE
-// ============================================
+/* Función global compatible con onclick="abrirModalLazy('...')" */
+window.abrirModalLazy = function(modalId) {
+    ModalLazy.open(modalId);
+};
 
-function _showModalLoading(modal) {
-    // Guardar contenido original del body
-    const body = modal.querySelector('.modal-body');
-    if (body && !body.dataset.originalContent) {
-        body.dataset.originalContent = body.innerHTML;
-        body.innerHTML = `
-            <div class="modal-loading-state" style="text-align:center; padding:48px 20px; color:#94a3b8;">
-                <div class="loading-spinner" style="
-                    width:40px; height:40px; margin:0 auto 16px;
-                    border:3px solid rgba(255,255,255,0.1);
-                    border-top-color:#6366f1;
-                    border-radius:50%;
-                    animation: spin 0.8s linear infinite;
-                "></div>
-                <p style="margin:0; font-size:14px;">Cargando módulo...</p>
-            </div>
-        `;
-    }
-    modal.showDialog ? modal.showDialog() : modal.showModal();
-}
+/* ═══ SHELL FUNCTIONS ═══ */
 
-function _hideModalLoading(modal) {
-    const body = modal.querySelector('.modal-body');
-    if (body && body.dataset.originalContent) {
-        body.innerHTML = body.dataset.originalContent;
-        delete body.dataset.originalContent;
-    }
-}
-
-// ============================================
-// FUNCIONES DEL DASHBOARD (siempre disponibles)
-// ============================================
-
-// Ver Aviso (modal simple, sin lazy load)
+// Ver aviso en modal
 function verAviso(el) {
-    document.getElementById('aviso-titulo').textContent = el.dataset.title;
-    document.getElementById('aviso-contenido').textContent = el.dataset.content;
+    const titulo = el.dataset.title;
+    const contenido = el.dataset.content;
+    document.getElementById('aviso-titulo').textContent = titulo;
+    document.getElementById('aviso-contenido').innerHTML = contenido;
     Modal.open('modal-aviso');
 }
 
-// Toggle Accordion
-function toggleAccordion(id) {
-    const acc = document.getElementById(id);
-    const wasOpen = acc.classList.contains('open');
-    document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
-    if (!wasOpen) {
-        acc.classList.add('open');
-        SoundFX.play('click');
-    }
-}
-
-// Calcular progreso de ficha
-function calcularProgreso() {
-    const form = document.getElementById('form-perfil-completo');
-    if (!form) return;
-
-    const camposRequeridos = form.querySelectorAll('[required]');
-    let completados = 0;
-    camposRequeridos.forEach(campo => {
-        if (campo.value && campo.value.trim() !== '') completados++;
-    });
-
-    const porcentaje = Math.round((completados / camposRequeridos.length) * 100);
-    const percentEl = document.getElementById('progress-percent');
-    const fillEl = document.getElementById('progress-fill');
-    if (percentEl) percentEl.textContent = porcentaje + '%';
-    if (fillEl) fillEl.style.width = porcentaje + '%';
-
-    actualizarEstadoSeccion('personal', ['email', 'telefono', 'direccion', 'fecha_nacimiento']);
-    actualizarEstadoSeccion('estudios', ['universidad']);
-    actualizarEstadoSeccion('laboral', ['situacion_laboral']);
-    actualizarEstadoSeccion('familiar', ['contacto_emergencia_nombre', 'contacto_emergencia_telefono']);
-}
-
-function actualizarEstadoSeccion(seccion, campos) {
-    const form = document.getElementById('form-perfil-completo');
-    if (!form) return;
-    let completo = true;
-    campos.forEach(nombre => {
-        const campo = form.querySelector(`[name="${nombre}"]`);
-        if (!campo || !campo.value || campo.value.trim() === '') completo = false;
-    });
-    const statusEl = document.getElementById(`status-${seccion}`);
-    if (statusEl) {
-        statusEl.textContent = completo ? 'Completo' : 'Pendiente';
-        statusEl.className = 'accordion-status ' + (completo ? 'complete' : 'incomplete');
-    }
-}
-
-// Escuchar cambios en formulario de perfil
-document.getElementById('form-perfil-completo')?.addEventListener('input', calcularProgreso);
-
-// Previsualizar foto
-function previsualizarFoto(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const placeholder = document.getElementById('preview-foto-placeholder');
-            if (placeholder) {
-                placeholder.outerHTML = `<img src="${e.target.result}" alt="Foto" id="preview-foto">`;
-            } else {
-                document.getElementById('preview-foto').src = e.target.result;
-            }
-        };
-        reader.readAsDataURL(input.files[0]);
-        SoundFX.play('success');
-    }
-}
-
-// Guardar perfil completo
-async function guardarPerfilCompleto(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btn-guardar-perfil');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Guardando...';
+// Generar constancia de habilidad
+async function generarConstancia() {
+    const btn = document.querySelector('.dock-btn.primary');
+    const originalHTML = btn.innerHTML;
     btn.disabled = true;
-
-    const form = e.target;
-    const formData = new FormData(form);
-    const fotoInput = document.getElementById('input-foto-perfil');
-    if (fotoInput?.files.length > 0) {
-        formData.append('foto', fotoInput.files[0]);
-    }
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Generando...';
 
     try {
-        const response = await fetch('/api/colegiado/actualizar', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (response.ok) {
-            SoundFX.play('success');
-            Toast.show('Datos actualizados correctamente', 'success');
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            throw new Error(data.detail || 'Error al guardar');
-        }
+        const res = await fetch('/api/colegiado/constancia', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `constancia_${APP_CONFIG.user.matricula}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        if (typeof Toast !== 'undefined') Toast.show('Constancia generada', 'success');
     } catch (err) {
-        SoundFX.play('error');
-        Toast.show(err.message || 'Error al guardar los datos', 'error');
-        btn.innerHTML = originalText;
+        console.error('[Constancia] Error:', err);
+        if (typeof Toast !== 'undefined') Toast.show('Error al generar constancia', 'error');
+    } finally {
         btn.disabled = false;
+        btn.innerHTML = originalHTML;
     }
 }
 
-// Toggle Sonidos
+// Abrir formulario de pago
+function abrirFormularioPago() {
+    // Si AIFab tiene el formulario prellenado, usarlo
+    if (typeof AIFab !== 'undefined' && AIFab.openPagoForm) {
+        AIFab.openPagoForm();
+    } else {
+        // Fallback: abrir modal de pagos
+        abrirModalLazy('modal-pagos');
+    }
+}
+
+// Toggle sonidos
+let sonidosActivos = localStorage.getItem('sonidos') !== 'false';
+
 function toggleSonidos() {
-    const enabled = SoundFX.toggle();
-    const btn = document.getElementById('btn-sound');
-    if (btn) btn.innerHTML = enabled ? '<i class="ph ph-speaker-high"></i>' : '<i class="ph ph-speaker-slash"></i>';
-    Toast.show(enabled ? 'Sonidos activados' : 'Sonidos desactivados', 'info', 2000);
-}
-
-async function abrirFormularioPago() {
-    // Obtener datos del colegiado desde el endpoint
-    try {
-        const response = await fetch('/api/colegiado/mis-pagos');
-        const data = await response.json();
-        
-        if (data && typeof AIFab !== 'undefined') {
-            const colegiado = {
-                id: data.colegiado?.id,
-                nombre: data.colegiado?.nombre,
-                dni: data.colegiado?.dni || '',
-                matricula: data.colegiado?.matricula,
-                condicion: data.colegiado?.condicion,
-                deuda: data.resumen
-            };
-            AIFab.openPagoFormPrellenado(colegiado);
-        }
-    } catch (e) {
-        console.error('Error:', e);
-        if (typeof Toast !== 'undefined') Toast.show('Error al cargar datos', 'error');
+    sonidosActivos = !sonidosActivos;
+    localStorage.setItem('sonidos', sonidosActivos);
+    const icon = document.querySelector('#btn-sound i');
+    icon.className = sonidosActivos ? 'ph ph-speaker-high' : 'ph ph-speaker-slash';
+    if (typeof Toast !== 'undefined') {
+        Toast.show(sonidosActivos ? 'Sonidos activados' : 'Sonidos silenciados', 'info');
     }
 }
 
-
-// ============================================
-// INICIALIZACIÓN
-// ============================================
+// Inicializar estado del botón de sonido
 document.addEventListener('DOMContentLoaded', () => {
-    Modal.initBackdropClose();
-    calcularProgreso();
-
-    // Precarga inteligente: módulos más usados primero
-    // Solo en conexiones buenas, con prefetch (no bloquea)
-    ModuleLoader.preloadWhenIdle([
-        'modal-pagos',
-        'modal-constancia',
-        'modal-certificados'
-    ]);
+    if (!sonidosActivos) {
+        const icon = document.querySelector('#btn-sound i');
+        if (icon) icon.className = 'ph ph-speaker-slash';
+    }
 });
