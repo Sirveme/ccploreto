@@ -115,6 +115,12 @@
     <!-- ============================================
          LAYOUT DE CONFIGURACIÓN
          ============================================ -->
+    <!-- AGREGAR ANTES DEL <div class="config-layout"> -->
+    <button class="config-nav-toggle" onclick="ConfigAdmin.toggleNav()">
+        <span><i class="ph ph-list"></i> Configuración</span>
+        <i class="ph ph-caret-down"></i>
+    </button>
+
     <div class="config-layout">
         
         <!-- NAVEGACIÓN LATERAL -->
@@ -142,7 +148,7 @@
                 <div class="config-nav-icon"><i class="ph ph-certificate"></i></div>
                 <div class="config-nav-text">
                     <div class="config-nav-label">Habilidad</div>
-                    <div class="config-nav-desc">Reglas y certificados</div>
+                    <div class="config-nav-desc">Reglas y constancias</div>
                 </div>
             </div>
             
@@ -158,9 +164,20 @@
                 <div class="config-nav-icon"><i class="ph ph-file-text"></i></div>
                 <div class="config-nav-text">
                     <div class="config-nav-label">Documentos</div>
-                    <div class="config-nav-desc">Certificados y firmas</div>
+                    <div class="config-nav-desc">Constancias y firmas</div>
                 </div>
             </div>
+
+            <!-- AGREGAR ESTE ITEM EN LA NAV, después de Documentos -->
+            <div class="config-nav-item ai-item" data-section="inteligencia-artificial">
+                <div class="config-nav-icon"><i class="ph ph-brain"></i></div>
+                <div class="config-nav-text">
+                    <div class="config-nav-label">Inteligencia Artificial</div>
+                    <div class="config-nav-desc">APIs y consumo</div>
+                </div>
+                <span class="config-nav-badge ai">IA</span>
+            </div>
+
             
             <div class="config-nav-title" style="margin-top:16px;">Próximamente</div>
             
@@ -203,6 +220,258 @@
         
         <!-- PANEL DE CONTENIDO -->
         <main class="config-panel">
+
+            <!-- ========== SECCIÓN: INTELIGENCIA ARTIFICIAL ========== -->
+            <section id="section-inteligencia-artificial" class="config-section-panel">
+                <div class="config-panel-header">
+                    <div class="config-panel-title">
+                        <i class="ph ph-brain" style="color: var(--admin-ai);"></i>
+                        <div>
+                            <h2>Inteligencia Artificial</h2>
+                            <p>Configuración de APIs, consumo y modelos de lenguaje</p>
+                        </div>
+                    </div>
+                    <div class="config-panel-actions">
+                        <button class="btn-admin btn-admin-ai" onclick="ConfigAdmin.guardar('inteligencia-artificial')">
+                            <i class="ph ph-floppy-disk"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="config-panel-body">
+                    
+                    <!-- Consumo del Mes -->
+                    <div class="ai-section-highlight">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px;">
+                            <div class="ai-cost-display">
+                                <div class="ai-cost-value" id="ai-cost-month">$0.00</div>
+                                <div class="ai-cost-label">Consumo este mes</div>
+                            </div>
+                            <div class="ai-cost-display">
+                                <div class="ai-cost-value" style="color: var(--admin-success);" id="ai-balance">$10.00</div>
+                                <div class="ai-cost-label">Saldo disponible</div>
+                            </div>
+                            <div class="ai-cost-display">
+                                <div class="ai-cost-value" style="color: var(--admin-text);" id="ai-queries">0</div>
+                                <div class="ai-cost-label">Consultas realizadas</div>
+                            </div>
+                        </div>
+                        <div style="text-align:center; margin-top:20px;">
+                            <button class="btn-admin btn-admin-ai" onclick="ConfigIA.recargar()">
+                                <i class="ph ph-plus-circle"></i> Recargar Saldo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Proveedores de IA -->
+                    <div class="config-section">
+                        <h3 class="config-section-title ai-title">
+                            <i class="ph ph-robot"></i>
+                            Proveedores Activos
+                        </h3>
+                        
+                        <div class="config-grid">
+                            <!-- Anthropic/Claude -->
+                            <div class="ai-provider-card active">
+                                <div class="ai-provider-header">
+                                    <div class="ai-provider-logo" style="background:linear-gradient(135deg, #d97706, #f59e0b); color:white;">A</div>
+                                    <div>
+                                        <div class="ai-provider-name">Anthropic Claude</div>
+                                        <div style="font-size:12px; color:var(--admin-text-muted);">claude-3-5-sonnet</div>
+                                    </div>
+                                    <div class="ai-provider-status">
+                                        <span class="status-badge active">Activo</span>
+                                    </div>
+                                </div>
+                                <div class="config-field">
+                                    <label class="config-label">API Key</label>
+                                    <input type="password" class="config-input" name="anthropic_api_key"
+                                        value="sk-ant-••••••••••••" placeholder="sk-ant-...">
+                                </div>
+                                <div class="ai-usage-bar">
+                                    <div class="ai-usage-fill" style="width: 35%;"></div>
+                                </div>
+                                <div class="ai-usage-stats">
+                                    <span>$3.50 usado</span>
+                                    <span>$10.00 límite</span>
+                                </div>
+                            </div>
+                            
+                            <!-- OpenAI -->
+                            <div class="ai-provider-card">
+                                <div class="ai-provider-header">
+                                    <div class="ai-provider-logo" style="background:#10a37f; color:white;">
+                                        <i class="ph ph-openai-logo"></i>
+                                    </div>
+                                    <div>
+                                        <div class="ai-provider-name">OpenAI</div>
+                                        <div style="font-size:12px; color:var(--admin-text-muted);">gpt-4o</div>
+                                    </div>
+                                    <div class="ai-provider-status">
+                                        <span class="status-badge inactive">Inactivo</span>
+                                    </div>
+                                </div>
+                                <div class="config-field">
+                                    <label class="config-label">API Key</label>
+                                    <input type="password" class="config-input" name="openai_api_key"
+                                        placeholder="sk-..." disabled>
+                                </div>
+                                <p style="font-size:12px; color:var(--admin-text-muted); margin-top:8px;">
+                                    <i class="ph ph-info"></i> Configura tu API Key para activar
+                                </p>
+                            </div>
+                            
+                            <!-- Google Gemini -->
+                            <div class="ai-provider-card">
+                                <div class="ai-provider-header">
+                                    <div class="ai-provider-logo" style="background:linear-gradient(135deg, #4285f4, #ea4335, #fbbc04, #34a853); color:white;">G</div>
+                                    <div>
+                                        <div class="ai-provider-name">Google Gemini</div>
+                                        <div style="font-size:12px; color:var(--admin-text-muted);">gemini-pro</div>
+                                    </div>
+                                    <div class="ai-provider-status">
+                                        <span class="status-badge inactive">Inactivo</span>
+                                    </div>
+                                </div>
+                                <div class="config-field">
+                                    <label class="config-label">API Key</label>
+                                    <input type="password" class="config-input" name="google_api_key"
+                                        placeholder="AIza..." disabled>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Configuración de uso -->
+                    <div class="config-section">
+                        <h3 class="config-section-title ai-title">
+                            <i class="ph ph-sliders-horizontal"></i>
+                            Configuración de Uso
+                        </h3>
+                        
+                        <div class="config-toggle active" onclick="ConfigAdmin.toggle(this, 'ai_chatbot_activo')">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon" style="background:var(--admin-ai-glow);">
+                                    <i class="ph ph-chat-teardrop-dots" style="color:var(--admin-ai);"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Chatbot Asistente</h4>
+                                    <p>Asistente IA para consultas de colegiados (FAQ, trámites, fechas)</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="ai_chatbot_activo" value="true">
+                        </div>
+                        
+                        <div class="config-toggle" onclick="ConfigAdmin.toggle(this, 'ai_voz_activo')" style="margin-top:12px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-microphone"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Comandos de Voz</h4>
+                                    <p>Permitir consultas por voz en el dashboard</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="ai_voz_activo" value="false">
+                        </div>
+                        
+                        <div class="config-toggle" onclick="ConfigAdmin.toggle(this, 'ai_analisis_activo')" style="margin-top:12px;">
+                            <div class="config-toggle-info">
+                                <div class="config-toggle-icon">
+                                    <i class="ph ph-chart-line-up"></i>
+                                </div>
+                                <div class="config-toggle-text">
+                                    <h4>Análisis Predictivo</h4>
+                                    <p>IA analiza patrones de morosidad y sugiere acciones</p>
+                                </div>
+                            </div>
+                            <div class="toggle-switch"></div>
+                            <input type="hidden" name="ai_analisis_activo" value="false">
+                        </div>
+                        
+                        <div class="config-grid" style="margin-top:20px;">
+                            <div class="config-field">
+                                <label class="config-label">Límite mensual de gasto</label>
+                                <div class="config-input-group">
+                                    <input type="number" class="config-input" name="ai_limite_mensual"
+                                        value="{{ config.ai_limite_mensual or 10 }}" min="1" max="100">
+                                    <span class="config-addon">USD</span>
+                                </div>
+                            </div>
+                            
+                            <div class="config-field">
+                                <label class="config-label">Proveedor preferido</label>
+                                <select class="config-input config-select" name="ai_proveedor_default">
+                                    <option value="anthropic" selected>Anthropic Claude</option>
+                                    <option value="openai">OpenAI GPT-4</option>
+                                    <option value="google">Google Gemini</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Historial de uso -->
+                    <div class="config-section">
+                        <h3 class="config-section-title ai-title">
+                            <i class="ph ph-clock-counter-clockwise"></i>
+                            Historial de Uso (Últimos 7 días)
+                        </h3>
+                        
+                        <div style="background:rgba(0,0,0,0.3); border-radius:12px; padding:20px;">
+                            <div id="ai-usage-chart" style="height:200px; display:flex; align-items:flex-end; gap:8px;">
+                                <!-- Barras del gráfico -->
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:40%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Lun</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:65%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Mar</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:30%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Mié</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:80%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Jue</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:55%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Vie</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai-gradient); border-radius:4px 4px 0 0; height:20%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Sáb</span>
+                                </div>
+                                <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                                    <div style="width:100%; background:var(--admin-ai); border-radius:4px 4px 0 0; height:45%;"></div>
+                                    <span style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">Hoy</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:16px;">
+                            <div style="text-align:center; padding:16px; background:rgba(0,0,0,0.2); border-radius:10px;">
+                                <div style="font-size:24px; font-weight:700; color:var(--admin-ai);">127</div>
+                                <div style="font-size:12px; color:var(--admin-text-muted);">Consultas chatbot</div>
+                            </div>
+                            <div style="text-align:center; padding:16px; background:rgba(0,0,0,0.2); border-radius:10px;">
+                                <div style="font-size:24px; font-weight:700; color:var(--admin-success);">4.2s</div>
+                                <div style="font-size:12px; color:var(--admin-text-muted);">Tiempo promedio</div>
+                            </div>
+                            <div style="text-align:center; padding:16px; background:rgba(0,0,0,0.2); border-radius:10px;">
+                                <div style="font-size:24px; font-weight:700; color:var(--admin-warning);">89%</div>
+                                <div style="font-size:12px; color:var(--admin-text-muted);">Satisfacción</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </section>
+
             
             <!-- ========== SECCIÓN: IDENTIDAD ========== -->
             <section id="section-identidad" class="config-section-panel active">
@@ -301,7 +570,7 @@
                             </div>
                             
                             <div class="config-field">
-                                <label class="config-label">Logo para Certificados</label>
+                                <label class="config-label">Logo para Constancias</label>
                                 <div class="config-upload-area" onclick="ConfigAdmin.uploadFile('logo_cert')">
                                     <img src="{{ config.logo_certificados_url or '/static/img/logo-placeholder.png' }}" 
                                          alt="Logo Certificados" id="preview-logo_cert" style="max-height:80px;">
@@ -633,11 +902,11 @@
                     <div class="config-section">
                         <h3 class="config-section-title">
                             <i class="ph ph-scroll"></i>
-                            Certificado de Habilidad
+                            Constancia de Habilidad
                         </h3>
                         <div class="config-grid">
                             <div class="config-field">
-                                <label class="config-label">Vigencia del Certificado</label>
+                                <label class="config-label">Vigencia de la Constancia</label>
                                 <select class="config-input config-select" name="vigencia_certificado">
                                     <option value="fin_mes" {{ 'selected' if config.vigencia_certificado == 'fin_mes' else '' }}>
                                         Hasta fin del mes actual
@@ -670,8 +939,8 @@
                                     <i class="ph ph-user-square"></i>
                                 </div>
                                 <div class="config-toggle-text">
-                                    <h4>Incluir Foto en Certificado</h4>
-                                    <p>Mostrar la foto del colegiado en el certificado de habilidad</p>
+                                    <h4>Incluir Foto en Constancia</h4>
+                                    <p>Mostrar la foto del colegiado en el constancia de habilidad</p>
                                 </div>
                             </div>
                             <div class="toggle-switch"></div>
@@ -850,12 +1119,12 @@
                     <div class="config-section">
                         <h3 class="config-section-title">
                             <i class="ph ph-article"></i>
-                            Texto Legal del Certificado
+                            Texto Legal de la Constancia
                         </h3>
                         <div class="config-field full-width">
-                            <label class="config-label">Leyenda del Certificado de Habilidad</label>
+                            <label class="config-label">Leyenda del Constancia de Habilidad</label>
                             <textarea class="config-input config-textarea" name="leyenda_certificado"
-                                      rows="4" placeholder="El presente certificado acredita que el profesional...">{{ config.leyenda_certificado or '' }}</textarea>
+                                      rows="4" placeholder="La presente constancia acredita que el profesional...">{{ config.leyenda_certificado or '' }}</textarea>
                         </div>
                     </div>
                 </div>
