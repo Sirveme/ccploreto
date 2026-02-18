@@ -22,23 +22,24 @@ window.ModalPagos = {
     // ─────────────────────────────────────────────────────────
     init() {
         this._injectStyles();
-        const modal = document.getElementById('modal-pagos');
-        if (!modal) return;
 
-        // Tabs
-        modal.addEventListener('click', e => {
+        // Delegation desde document — funciona aunque el fragment cargue tarde (lazy)
+        document.addEventListener('click', e => {
+            // Solo actuar si el click está dentro de #modal-pagos
+            if (!e.target.closest('#modal-pagos')) return;
+
             const tab = e.target.closest('[data-pagos-tab]');
             if (tab) { this.switchTab(tab.dataset.pagosTab); return; }
 
             const accion = e.target.closest('[data-accion]');
-            if (accion) this._dispatch(accion);
+            if (accion) { this._dispatch(accion); return; }
 
             const pill = e.target.closest('[data-cat-filtro]');
             if (pill) { this._filtrarCatalogo(pill.dataset.catFiltro); return; }
         });
 
-        // Cambio de cantidad en carrito
-        modal.addEventListener('change', e => {
+        document.addEventListener('change', e => {
+            if (!e.target.closest('#modal-pagos')) return;
             if (e.target.dataset.cantidadId) {
                 this._setCantidad(
                     parseInt(e.target.dataset.cantidadId),
