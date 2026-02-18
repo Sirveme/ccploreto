@@ -1,351 +1,386 @@
-/* ============================================
-   MODAL PAGOS - Estilos
-   Para dashboard_colegiado.html
-   ============================================ */
+/* ============================================================
+   MODAL MIS PAGOS — ccploreto.org.pe
+   Archivo: static/css/pages/modal-pagos.css
+   v2 — adaptado a catalogo + categorias + filter pills
+============================================================ */
 
-/* Tabs del modal */
-.pagos-tabs {
+/* ── TABS ────────────────────────────────────────────────── */
+.mp-tabs {
     display: flex;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 20px;
+    gap: 0;
+    border-bottom: 2px solid var(--color-border, #2a2a3a);
+    margin: 0 -1.25rem;
+    padding: 0 1.25rem;
 }
 
-.pagos-tab {
-    flex: 1;
-    padding: 12px 16px;
-    background: transparent;
+[data-pagos-tab] {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.65rem 1rem;
+    background: none;
     border: none;
-    color: #94a3b8;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.pagos-tab:hover {
-    color: #e2e8f0;
-    background: rgba(255,255,255,0.05);
-}
-
-.pagos-tab.active {
-    color: #fbbf24;
-    border-bottom: 2px solid #fbbf24;
-}
-
-.pagos-tab i {
-    font-size: 18px;
-}
-
-/* Contenido de tabs */
-.pagos-tab-content {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
-.pagos-tab-content.active {
-    display: block;
-}
-
-/* Resumen de cuenta */
-.cuenta-resumen {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
-}
-
-.cuenta-card {
-    background: rgba(255,255,255,0.03);
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
-}
-
-.cuenta-card.deuda {
-    border-left: 3px solid #ef4444;
-}
-
-.cuenta-card.pagado {
-    border-left: 3px solid #22c55e;
-}
-
-.cuenta-card.pendiente {
-    border-left: 3px solid #f59e0b;
-}
-
-.cuenta-label {
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-}
-
-.cuenta-valor {
-    font-size: 24px;
-    font-weight: 700;
-}
-
-.cuenta-card.deuda .cuenta-valor { color: #ef4444; }
-.cuenta-card.pagado .cuenta-valor { color: #22c55e; }
-.cuenta-card.pendiente .cuenta-valor { color: #f59e0b; }
-
-/* Lista de pagos */
-.pagos-lista {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.pago-item {
-    background: rgba(255,255,255,0.03);
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background 0.2s;
-}
-
-.pago-item:hover {
-    background: rgba(255,255,255,0.06);
-}
-
-.pago-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.pago-fecha {
-    font-size: 12px;
-    color: #64748b;
-}
-
-.pago-concepto {
-    font-size: 14px;
-    color: #e2e8f0;
-}
-
-.pago-metodo {
-    font-size: 11px;
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.pago-monto-estado {
-    text-align: right;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-}
-
-.pago-monto {
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.pago-estado {
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 20px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: var(--color-text-muted, #999);
+    font-size: 0.85rem;
     font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
 }
 
-.pago-estado.approved {
-    background: rgba(34, 197, 94, 0.2);
-    color: #22c55e;
+[data-pagos-tab]:hover { color: var(--color-text, #eee); }
+
+[data-pagos-tab].active {
+    color: var(--color-primary, #f59e0b);
+    border-bottom-color: var(--color-primary, #f59e0b);
 }
 
-.pago-estado.review {
-    background: rgba(245, 158, 11, 0.2);
-    color: #f59e0b;
+[data-pagos-tab] i { font-size: 1rem; }
+
+/* ── PANELS ──────────────────────────────────────────────── */
+[data-pagos-panel]        { display: none; padding: 1rem 0; }
+[data-pagos-panel].active { display: block; }
+
+/* ── KPI RESUMEN ─────────────────────────────────────────── */
+.mp-resumen-header {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
 }
 
-.pago-estado.rejected {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+.mp-resumen-item {
+    background: var(--color-bg-card, #1e1e2e);
+    border: 1px solid var(--color-border, #2a2a3a);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    text-align: center;
 }
 
-/* Deudas pendientes */
-.deudas-lista {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.mp-resumen-item label {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--color-text-muted, #888);
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
 }
 
-.deuda-item {
-    background: rgba(255,255,255,0.03);
-    border-radius: 10px;
-    padding: 14px 16px;
+.mp-resumen-item strong { font-size: 1rem; font-weight: 700; color: var(--color-text, #eee); }
+.mp-resumen-item.mp-deuda   strong { color: var(--color-danger,  #ef4444); }
+.mp-resumen-item.mp-revision strong { color: var(--color-warning, #f59e0b); }
+.mp-resumen-item.mp-pagado  strong { color: var(--color-success, #22c55e); }
+
+/* ── BADGE ───────────────────────────────────────────────── */
+.mp-badge {
+    display: inline-flex; align-items: center;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+}
+.mp-badge--habil      { background:#dcfce7; color:#166534; }
+.mp-badge--inhabil    { background:#fee2e2; color:#991b1b; }
+.mp-badge--suspendido { background:#fef9c3; color:#854d0e; }
+.mp-badge--approved   { background:#dcfce7; color:#166534; }
+.mp-badge--review     { background:#fef9c3; color:#854d0e; }
+.mp-badge--rejected   { background:#fee2e2; color:#991b1b; }
+
+/* ── DEUDAS ──────────────────────────────────────────────── */
+.mp-deudas-total {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0.5rem 0 0.75rem;
+    font-size: 0.83rem;
+    color: var(--color-text-muted, #888);
 }
+.mp-monto-danger { color: var(--color-danger, #ef4444) !important; font-size: 1.05rem; }
 
-.deuda-item.vencida {
-    border-left: 3px solid #ef4444;
-}
+.mp-deudas-lista { display: flex; flex-direction: column; gap: 0.5rem; }
 
-.deuda-item.proxima {
-    border-left: 3px solid #f59e0b;
-}
-
-.deuda-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.deuda-concepto {
-    font-size: 14px;
-    color: #e2e8f0;
-}
-
-.deuda-periodo {
-    font-size: 12px;
-    color: #64748b;
-}
-
-.deuda-vence {
-    font-size: 11px;
-    color: #94a3b8;
-}
-
-.deuda-monto {
-    font-size: 18px;
-    font-weight: 600;
-    color: #ef4444;
-}
-
-/* Botón pagar */
-.btn-pagar-deuda {
-    width: 100%;
-    margin-top: 20px;
-    padding: 14px 24px;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #0f172a;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
+.mp-deuda-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--color-bg-card, #1e1e2e);
+    border: 1px solid var(--color-border, #2a2a3a);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
 }
 
-.btn-pagar-deuda:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
+.mp-deuda-info {
+    display: flex; flex-direction: column; gap: 0.12rem; flex: 1; min-width: 0;
+}
+.mp-deuda-concepto {
+    font-size: 0.88rem; font-weight: 600; color: var(--color-text, #eee);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-deuda-meta  { font-size: 0.72rem; color: var(--color-text-muted, #888); }
+
+.mp-deuda-right {
+    display: flex; align-items: center; gap: 0.65rem; flex-shrink: 0;
 }
 
-.btn-pagar-deuda:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+.mp-monto {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.08rem;
+    font-size: 0.92rem; font-weight: 700; color: var(--color-text, #eee);
 }
+.mp-monto small     { font-size: 0.68rem; font-weight: 400; color: var(--color-text-muted, #888); }
+.mp-monto--parcial  { color: var(--color-warning, #f59e0b); }
+.mp-monto-sm        { font-size: 0.9rem; font-weight: 700; color: var(--color-text, #eee); }
 
-/* Empty state */
-.pagos-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: #64748b;
-}
-
-.pagos-empty i {
-    font-size: 48px;
-    margin-bottom: 12px;
-    opacity: 0.5;
-}
-
-.pagos-empty p {
-    margin: 0;
-}
-
-/* Sección de información adicional */
-.pagos-info-box {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+.mp-fraccionar-box {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: rgba(99,102,241,0.07);
+    border: 1px solid rgba(99,102,241,0.25);
     border-radius: 10px;
-    padding: 14px 16px;
-    margin-top: 16px;
+    padding: 0.85rem 1rem;
+    margin-top: 1rem; font-size: 0.82rem;
+}
+.mp-fraccionar-box > i { font-size: 1.4rem; color: #818cf8; flex-shrink: 0; margin-top: 0.1rem; }
+.mp-fraccionar-box strong { display: block; font-size: 0.84rem; color: var(--color-text, #eee); }
+.mp-fraccionar-box p { margin: 0.15rem 0 0; color: var(--color-text-muted, #999); }
+
+/* ── FILTER PILLS (Servicios) ────────────────────────────── */
+.mp-cat-pills {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
+    scrollbar-width: none;
+}
+.mp-cat-pills::-webkit-scrollbar { display: none; }
+
+.mp-cat-pill {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    background: var(--color-bg-card, #1e1e2e);
+    border: 1px solid var(--color-border, #2a2a3a);
+    border-radius: 999px;
+    color: var(--color-text-muted, #999);
+    font-size: 0.78rem; font-weight: 500;
+    white-space: nowrap; cursor: pointer;
+    transition: all 0.15s;
 }
 
-.pagos-info-box i {
-    color: #3b82f6;
-    font-size: 18px;
-    margin-top: 2px;
+.mp-cat-pill i { font-size: 0.9rem; }
+
+.mp-cat-pill:hover {
+    border-color: var(--cat-color, var(--color-primary, #f59e0b));
+    color: var(--cat-color, var(--color-primary, #f59e0b));
 }
 
-.pagos-info-box p {
-    margin: 0;
-    font-size: 13px;
-    color: #94a3b8;
-    line-height: 1.5;
+.mp-cat-pill.active {
+    background: color-mix(in srgb, var(--cat-color, var(--color-primary,#f59e0b)) 15%, transparent);
+    border-color: var(--cat-color, var(--color-primary, #f59e0b));
+    color: var(--cat-color, var(--color-primary, #f59e0b));
 }
 
-/* Loading skeleton */
-.pagos-skeleton {
+.mp-cat-count {
+    background: var(--color-border, #2a2a3a);
+    border-radius: 999px;
+    padding: 0 0.35rem;
+    font-size: 0.68rem; font-weight: 700;
+    min-width: 16px; text-align: center;
+    color: var(--color-text-muted, #888);
+}
+
+/* ── CATÁLOGO: GRUPOS ────────────────────────────────────── */
+.mp-catalogo-grupo { margin-bottom: 0.9rem; }
+
+.mp-grupo-header {
+    display: flex; align-items: center; gap: 0.45rem;
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--cat-color, var(--color-text-muted, #888));
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--color-border, #2a2a3a);
+    margin-bottom: 0.5rem;
+}
+.mp-grupo-header i { font-size: 1rem; }
+
+/* ── CATÁLOGO: ITEMS ─────────────────────────────────────── */
+.mp-item {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: var(--color-bg-card, #1e1e2e);
+    border: 1px solid var(--color-border, #2a2a3a);
+    border-radius: 8px;
+    margin-bottom: 0.4rem;
+    transition: border-color 0.15s;
+}
+.mp-item:hover { border-color: rgba(245,158,11,0.3); }
+
+.mp-item-info {
+    display: flex; flex-direction: column; gap: 0.1rem; flex: 1; min-width: 0;
+}
+.mp-item-nombre {
+    font-size: 0.87rem; font-weight: 500; color: var(--color-text, #eee);
+}
+.mp-item-desc {
+    font-size: 0.72rem; color: var(--color-text-muted, #888);
+}
+.mp-stock       { font-size: 0.7rem; margin-top: 0.1rem; }
+.mp-stock--ok   { color: var(--color-success, #22c55e); }
+.mp-stock--agotado { color: var(--color-danger, #ef4444); }
+.mp-tag-agotado { font-size: 0.72rem; color: var(--color-danger, #ef4444); }
+
+.mp-item-acciones {
+    display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;
+}
+.mp-item-precio {
+    font-size: 0.9rem; font-weight: 700;
+    color: var(--color-primary, #f59e0b); white-space: nowrap;
+}
+.mp-item-en-carrito { display: flex; align-items: center; gap: 0.4rem; }
+.mp-item-en-carrito input {
+    width: 52px; padding: 0.25rem 0.4rem;
+    background: var(--color-bg, #12121f);
+    border: 1px solid var(--color-border, #2a2a3a);
+    color: var(--color-text, #eee);
+    border-radius: 6px; font-size: 0.82rem; text-align: center;
 }
 
-.skeleton-item {
-    height: 70px;
-    background: linear-gradient(90deg, 
-        rgba(255,255,255,0.03) 25%, 
-        rgba(255,255,255,0.08) 50%, 
-        rgba(255,255,255,0.03) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 12px;
+/* ── CARRITO FOOTER ──────────────────────────────────────── */
+.mp-carrito-footer {
+    display: none;
+    position: sticky; bottom: 0;
+    background: var(--color-bg-card, #1e1e2e);
+    border-top: 1px solid var(--color-border, #2a2a3a);
+    margin: 0 -1.25rem -1rem;
+    padding: 0.75rem 1.25rem;
+    justify-content: space-between; align-items: center; gap: 0.75rem;
+    z-index: 10;
+}
+.mp-carrito-footer--visible { display: flex; }
+.mp-carrito-info {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.88rem; color: var(--color-text, #eee);
+}
+.mp-carrito-info i { font-size: 1.1rem; color: var(--color-primary, #f59e0b); }
+.mp-carrito-info strong { color: var(--color-primary, #f59e0b); font-size: 1rem; }
+
+/* ── HISTORIAL ───────────────────────────────────────────── */
+.mp-historial-lista { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.mp-historial-row {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 0.1rem 0.75rem;
+    align-items: start;
+    background: var(--color-bg-card, #1e1e2e);
+    border: 1px solid var(--color-border, #2a2a3a);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+}
+.mp-historial-fecha {
+    font-size: 0.72rem; color: var(--color-text-muted, #888); padding-top: 0.1rem;
+}
+.mp-historial-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.mp-historial-info span  { font-size: 0.87rem; font-weight: 500; color: var(--color-text, #eee); }
+.mp-historial-info small { font-size: 0.72rem; color: var(--color-text-muted, #888); }
+.mp-historial-right {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;
+}
+.mp-rechazo-msg {
+    grid-column: 2 / -1;
+    font-size: 0.75rem; color: var(--color-danger, #ef4444);
+    background: rgba(239,68,68,0.07);
+    border-radius: 5px; padding: 0.3rem 0.55rem; margin-top: 0.25rem;
 }
 
-@keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+/* ── BOTONES ─────────────────────────────────────────────── */
+.mp-btn-pagar,
+.mp-btn-agregar {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.3rem 0.7rem;
+    background: var(--color-primary, #f59e0b); color: #000;
+    border: none; border-radius: 6px;
+    font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
 }
+.mp-btn-pagar:hover, .mp-btn-agregar:hover { opacity: 0.85; }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.mp-btn-quitar {
+    display: inline-flex; align-items: center;
+    padding: 0.3rem 0.5rem;
+    background: rgba(239,68,68,0.1);
+    color: var(--color-danger, #ef4444);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 6px; font-size: 0.8rem; cursor: pointer;
+    transition: background 0.15s;
 }
+.mp-btn-quitar:hover { background: rgba(239,68,68,0.2); }
 
-/* Responsive */
+.mp-btn-secundario {
+    padding: 0.35rem 0.8rem;
+    background: transparent;
+    border: 1px solid var(--color-border, #3a3a4a);
+    color: var(--color-text, #eee); border-radius: 6px;
+    font-size: 0.78rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: background 0.15s;
+}
+.mp-btn-secundario:hover { background: rgba(255,255,255,0.05); }
+
+.mp-btn-pagar-carrito {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 1.1rem;
+    background: var(--color-primary, #f59e0b); color: #000;
+    border: none; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+}
+.mp-btn-pagar-carrito:hover { opacity: 0.85; }
+
+/* ── EMPTY / LOADING / ERROR ─────────────────────────────── */
+.mp-empty, .mp-loading, .mp-error {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 0.6rem;
+    padding: 2.5rem 1rem; text-align: center;
+    color: var(--color-text-muted, #888); font-size: 0.85rem;
+}
+.mp-empty i  { font-size: 2.2rem; color: var(--color-success, #22c55e); }
+.mp-error i  { font-size: 2rem; color: var(--color-danger, #ef4444); }
+.mp-error button {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.4rem 1rem;
+    background: transparent; border: 1px solid var(--color-border, #3a3a4a);
+    color: var(--color-text, #eee); border-radius: 7px; font-size: 0.82rem; cursor: pointer;
+}
+.mp-spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--color-border, #2a2a3a);
+    border-top-color: var(--color-primary, #f59e0b);
+    border-radius: 50%;
+    animation: mp-spin 0.7s linear infinite;
+}
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 480px) {
-    .cuenta-resumen {
-        grid-template-columns: 1fr 1fr;
+    .mp-resumen-header { grid-template-columns: 1fr 1fr; }
+    .mp-resumen-header .mp-pagado { grid-column: 1 / -1; }
+
+    [data-pagos-tab] span { display: none; }  /* Solo icono */
+    [data-pagos-tab] { padding: 0.6rem 0.7rem; }
+
+    .mp-deuda-row   { flex-wrap: wrap; }
+    .mp-deuda-right { width: 100%; justify-content: flex-end; }
+
+    .mp-historial-row { grid-template-columns: 60px 1fr; }
+    .mp-historial-right {
+        grid-column: 2; flex-direction: row;
+        align-items: center; flex-wrap: wrap;
     }
-    
-    .cuenta-valor {
-        font-size: 20px;
-    }
-    
-    .pago-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-    
-    .pago-monto-estado {
-        align-items: flex-start;
-        flex-direction: row;
-        width: 100%;
-        justify-content: space-between;
-    }
+
+    .mp-item { flex-wrap: wrap; }
+    .mp-item-acciones { width: 100%; justify-content: flex-end; }
+
+    .mp-cat-pill-label { display: none; }  /* Solo icono + contador en móvil */
 }
