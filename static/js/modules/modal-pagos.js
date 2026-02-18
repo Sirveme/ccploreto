@@ -1,684 +1,621 @@
 /**
- * Modal Pagos v2 — Dashboard Colegiado
- * Tabs: Deudas | Servicios (Catálogo) | Historial
- * Con sistema de carrito y checkout integrado.
+ * Modal Mis Pagos — Dashboard Colegiado CCPL
+ * Adaptado a: GET /api/colegiado/mis-pagos
+ *
+ * Estructura de respuesta esperada:
+ *   colegiado, resumen, deudas[], catalogo[], categorias[], historial[]
+ *
+ * Archivo: static/js/modules/modal-pagos.js
  */
 
 if (typeof window.ModalPagos === 'undefined') {
 
 window.ModalPagos = {
-    data: null,
-    isLoading: false,
-    activeTab: 'deudas',
+    data:          null,
+    isLoading:     false,
+    carrito:       [],          // { id, nombre, precio, cantidad }
+    tabActiva:     'deudas',
+    catFiltro:     'todos',     // filtro activo en tab Servicios
 
-    // Carrito unificado: deudas seleccionadas + servicios agregados
-    cart: {
-        deudas: [],      // [{ id, concepto, balance }]
-        servicios: [],   // [{ id, codigo, nombre, monto, cantidad }]
-    },
-
-    // Categoría activa en el catálogo
-    catFilter: 'todos',
-
-    /* ==========================================
-       INICIALIZACIÓN
-       ========================================== */
-
+    // ─────────────────────────────────────────────────────────
+    //  INIT
+    // ─────────────────────────────────────────────────────────
     init() {
-        this.bindTabs();
-    },
+        this._injectStyles();
+        const modal = document.getElementById('modal-pagos');
+        if (!modal) return;
 
-    bindTabs() {
-        document.querySelectorAll('#modal-pagos .pagos-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const tabId = e.currentTarget.dataset.tab;
-                this.switchTab(tabId);
-            });
+        // Tabs
+        modal.addEventListener('click', e => {
+            const tab = e.target.closest('[data-pagos-tab]');
+            if (tab) { this.switchTab(tab.dataset.pagosTab); return; }
+
+            const accion = e.target.closest('[data-accion]');
+            if (accion) this._dispatch(accion);
+
+            const pill = e.target.closest('[data-cat-filtro]');
+            if (pill) { this._filtrarCatalogo(pill.dataset.catFiltro); return; }
+        });
+
+        // Cambio de cantidad en carrito
+        modal.addEventListener('change', e => {
+            if (e.target.dataset.cantidadId) {
+                this._setCantidad(
+                    parseInt(e.target.dataset.cantidadId),
+                    parseInt(e.target.value) || 1
+                );
+            }
         });
     },
 
-    switchTab(tabId) {
-        this.activeTab = tabId;
-        document.querySelectorAll('#modal-pagos .pagos-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('#modal-pagos .pagos-tab-content').forEach(c => c.classList.remove('active'));
-
-        const tab = document.querySelector(`#modal-pagos .pagos-tab[data-tab="${tabId}"]`);
-        const content = document.getElementById(`pagos-${tabId}`);
-        if (tab) tab.classList.add('active');
-        if (content) content.classList.add('active');
-
-        this.updateFooter();
+    _injectStyles() {
+        if (document.getElementById('mp-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'mp-styles';
+        s.textContent = `
+.mp-tabs{display:flex;gap:0;border-bottom:2px solid var(--color-border,#2a2a3a);margin:0 -1.25rem;padding:0 1.25rem}
+[data-pagos-tab]{display:flex;align-items:center;gap:.4rem;padding:.65rem 1rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--color-text-muted,#999);font-size:.85rem;font-weight:500;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap}
+[data-pagos-tab]:hover{color:var(--color-text,#eee)}
+[data-pagos-tab].active{color:var(--color-primary,#f59e0b);border-bottom-color:var(--color-primary,#f59e0b)}
+[data-pagos-tab] i{font-size:1rem}
+[data-pagos-panel]{display:none;padding:1rem 0}
+[data-pagos-panel].active{display:block}
+.mp-resumen-header{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.75rem}
+.mp-resumen-item{background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:8px;padding:.65rem .75rem;text-align:center}
+.mp-resumen-item label{display:block;font-size:.68rem;color:var(--color-text-muted,#888);margin-bottom:.2rem;white-space:nowrap}
+.mp-resumen-item strong{font-size:1rem;font-weight:700;color:var(--color-text,#eee)}
+.mp-resumen-item.mp-deuda strong{color:#ef4444}
+.mp-resumen-item.mp-revision strong{color:#f59e0b}
+.mp-resumen-item.mp-pagado strong{color:#22c55e}
+.mp-badge{display:inline-flex;align-items:center;padding:.12rem .5rem;border-radius:999px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.mp-badge--habil{background:#dcfce7;color:#166534}
+.mp-badge--inhabil{background:#fee2e2;color:#991b1b}
+.mp-badge--approved{background:#dcfce7;color:#166534}
+.mp-badge--review{background:#fef9c3;color:#854d0e}
+.mp-badge--rejected{background:#fee2e2;color:#991b1b}
+.mp-deudas-total{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0 .75rem;font-size:.83rem;color:var(--color-text-muted,#888)}
+.mp-monto-danger{color:#ef4444!important;font-size:1.05rem;font-weight:700}
+.mp-deudas-lista{display:flex;flex-direction:column;gap:.5rem}
+.mp-deuda-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:8px;padding:.7rem .9rem}
+.mp-deuda-info{display:flex;flex-direction:column;gap:.12rem;flex:1;min-width:0}
+.mp-deuda-concepto{font-size:.88rem;font-weight:600;color:var(--color-text,#eee);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-deuda-meta{font-size:.72rem;color:var(--color-text-muted,#888)}
+.mp-deuda-right{display:flex;align-items:center;gap:.65rem;flex-shrink:0}
+.mp-monto{display:flex;flex-direction:column;align-items:flex-end;gap:.08rem;font-size:.92rem;font-weight:700;color:var(--color-text,#eee)}
+.mp-monto small{font-size:.68rem;font-weight:400;color:var(--color-text-muted,#888)}
+.mp-monto--parcial{color:#f59e0b}
+.mp-monto-sm{font-size:.9rem;font-weight:700;color:var(--color-text,#eee)}
+.mp-fraccionar-box{display:flex;align-items:flex-start;gap:.75rem;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:.85rem 1rem;margin-top:1rem;font-size:.82rem}
+.mp-fraccionar-box>i{font-size:1.4rem;color:#818cf8;flex-shrink:0;margin-top:.1rem}
+.mp-fraccionar-box strong{display:block;font-size:.84rem;color:var(--color-text,#eee)}
+.mp-fraccionar-box p{margin:.15rem 0 0;color:var(--color-text-muted,#999)}
+.mp-cat-pills{display:flex;gap:.45rem;overflow-x:auto;padding-bottom:.6rem;margin-bottom:.75rem;scrollbar-width:none}
+.mp-cat-pills::-webkit-scrollbar{display:none}
+.mp-cat-pill{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:999px;color:var(--color-text-muted,#999);font-size:.78rem;font-weight:500;white-space:nowrap;cursor:pointer;transition:all .15s}
+.mp-cat-pill:hover,.mp-cat-pill.active{border-color:var(--cat-color,#f59e0b);color:var(--cat-color,#f59e0b)}
+.mp-cat-pill.active{background:rgba(245,158,11,.1)}
+.mp-cat-count{background:var(--color-border,#2a2a3a);border-radius:999px;padding:0 .35rem;font-size:.68rem;font-weight:700;min-width:16px;text-align:center;color:var(--color-text-muted,#888)}
+.mp-catalogo-grupo{margin-bottom:.9rem}
+.mp-grupo-header{display:flex;align-items:center;gap:.45rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--cat-color,var(--color-text-muted,#888));padding:.3rem 0;border-bottom:1px solid var(--color-border,#2a2a3a);margin-bottom:.5rem}
+.mp-grupo-header i{font-size:1rem}
+.mp-item{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem .85rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:8px;margin-bottom:.4rem;transition:border-color .15s}
+.mp-item:hover{border-color:rgba(245,158,11,.3)}
+.mp-item-info{display:flex;flex-direction:column;gap:.1rem;flex:1;min-width:0}
+.mp-item-nombre{font-size:.87rem;font-weight:500;color:var(--color-text,#eee)}
+.mp-item-desc{font-size:.72rem;color:var(--color-text-muted,#888)}
+.mp-stock{font-size:.7rem;margin-top:.1rem}
+.mp-stock--ok{color:#22c55e}
+.mp-stock--agotado,.mp-tag-agotado{color:#ef4444;font-size:.72rem}
+.mp-item-acciones{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.mp-item-precio{font-size:.9rem;font-weight:700;color:var(--color-primary,#f59e0b);white-space:nowrap}
+.mp-item-en-carrito{display:flex;align-items:center;gap:.4rem}
+.mp-item-en-carrito input{width:52px;padding:.25rem .4rem;background:var(--color-bg,#12121f);border:1px solid var(--color-border,#2a2a3a);color:var(--color-text,#eee);border-radius:6px;font-size:.82rem;text-align:center}
+.mp-carrito-footer{display:none;position:sticky;bottom:0;background:var(--color-bg-card,#1e1e2e);border-top:1px solid var(--color-border,#2a2a3a);margin:0 -1.25rem -1rem;padding:.75rem 1.25rem;justify-content:space-between;align-items:center;gap:.75rem;z-index:10}
+.mp-carrito-footer--visible{display:flex}
+.mp-carrito-info{display:flex;align-items:center;gap:.6rem;font-size:.88rem;color:var(--color-text,#eee)}
+.mp-carrito-info i{font-size:1.1rem;color:#f59e0b}
+.mp-carrito-info strong{color:#f59e0b;font-size:1rem}
+.mp-historial-lista{display:flex;flex-direction:column;gap:.5rem}
+.mp-historial-row{display:grid;grid-template-columns:72px 1fr auto;gap:.1rem .75rem;align-items:start;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:8px;padding:.7rem .9rem}
+.mp-historial-fecha{font-size:.72rem;color:var(--color-text-muted,#888);padding-top:.1rem}
+.mp-historial-info{display:flex;flex-direction:column;gap:.1rem}
+.mp-historial-info span{font-size:.87rem;font-weight:500;color:var(--color-text,#eee)}
+.mp-historial-info small{font-size:.72rem;color:var(--color-text-muted,#888)}
+.mp-historial-right{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
+.mp-rechazo-msg{grid-column:2/-1;font-size:.75rem;color:#ef4444;background:rgba(239,68,68,.07);border-radius:5px;padding:.3rem .55rem;margin-top:.25rem}
+.mp-btn-pagar,.mp-btn-agregar{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;background:var(--color-primary,#f59e0b);color:#000;border:none;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.mp-btn-pagar:hover,.mp-btn-agregar:hover{opacity:.85}
+.mp-btn-quitar{display:inline-flex;align-items:center;padding:.3rem .5rem;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:6px;font-size:.8rem;cursor:pointer}
+.mp-btn-secundario{padding:.35rem .8rem;background:transparent;border:1px solid var(--color-border,#3a3a4a);color:var(--color-text,#eee);border-radius:6px;font-size:.78rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.mp-btn-pagar-carrito{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;background:var(--color-primary,#f59e0b);color:#000;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:opacity .15s}
+.mp-btn-pagar-carrito:hover{opacity:.85}
+.mp-empty,.mp-loading,.mp-error{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;padding:2.5rem 1rem;text-align:center;color:var(--color-text-muted,#888);font-size:.85rem}
+.mp-empty i{font-size:2.2rem;color:#22c55e}
+.mp-error i{font-size:2rem;color:#ef4444}
+.mp-error button{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem 1rem;background:transparent;border:1px solid var(--color-border,#3a3a4a);color:var(--color-text,#eee);border-radius:7px;font-size:.82rem;cursor:pointer}
+.mp-spinner{width:28px;height:28px;border:3px solid var(--color-border,#2a2a3a);border-top-color:var(--color-primary,#f59e0b);border-radius:50%;animation:mp-spin .7s linear infinite}
+@keyframes mp-spin{to{transform:rotate(360deg)}}
+@media(max-width:480px){
+.mp-resumen-header{grid-template-columns:1fr 1fr}
+.mp-resumen-header .mp-pagado{grid-column:1/-1}
+[data-pagos-tab] span{display:none}
+[data-pagos-tab]{padding:.6rem .7rem}
+.mp-deuda-row{flex-wrap:wrap}
+.mp-deuda-right{width:100%;justify-content:flex-end}
+.mp-historial-row{grid-template-columns:60px 1fr}
+.mp-historial-right{grid-column:2;flex-direction:row;align-items:center;flex-wrap:wrap}
+.mp-item{flex-wrap:wrap}
+.mp-item-acciones{width:100%;justify-content:flex-end}
+.mp-cat-pill-label{display:none}
+}`;
+        document.head.appendChild(s);
     },
 
-    /* ==========================================
-       ABRIR MODAL + CARGAR DATOS
-       ========================================== */
-
-    async open(options = {}) {
-        Modal.open('modal-pagos');
-
-        if (!this.data) {
-            await this.cargarDatos();
-        }
-
-        // Si viene con concepto preseleccionado (ej: desde botón Constancia)
-        if (options.concepto_preseleccionado) {
-            this.switchTab('servicios');
-            setTimeout(() => this.preseleccionarServicio(options.concepto_preseleccionado), 100);
+    _dispatch(el) {
+        const accion = el.dataset.accion;
+        const id     = parseInt(el.dataset.id);
+        switch (accion) {
+            case 'agregar':        this._agregarAlCarrito(id);   break;
+            case 'quitar':         this._quitarDelCarrito(id);   break;
+            case 'pagar-carrito':  this._pagarCarrito();         break;
+            case 'pagar-deuda':    this._pagarDeuda(id);         break;
+            case 'fraccionar':     this._abrirFraccionamiento(); break;
         }
     },
 
-    async cargarDatos() {
+    // ─────────────────────────────────────────────────────────
+    //  ABRIR / CARGAR
+    // ─────────────────────────────────────────────────────────
+    async open() {
+        const modal = document.getElementById('modal-pagos');
+        if (!modal) return;
+        if (typeof Modal !== 'undefined') Modal.open('modal-pagos');
+        else { modal.showModal?.() || modal.classList.add('open'); }
+
+        if (!this.data) await this._cargarDatos();
+    },
+
+    async _cargarDatos() {
         if (this.isLoading) return;
         this.isLoading = true;
-        this.mostrarLoading();
-
+        this._mostrarLoading();
         try {
             const res = await fetch('/api/colegiado/mis-pagos');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
             this.data = await res.json();
-            this.renderAll();
+            this._renderTodo();
+            this.switchTab(this.tabActiva);
         } catch (err) {
-            console.error('[ModalPagos] Error:', err);
-            this.mostrarError('No se pudieron cargar los datos.');
+            console.error('[ModalPagos]', err);
+            this._mostrarError();
         } finally {
             this.isLoading = false;
         }
     },
 
-    mostrarLoading() {
-        ['pagos-deudas', 'pagos-servicios', 'pagos-historial'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = `<div class="pagos-skeleton">
-                <div class="skeleton-item"></div><div class="skeleton-item"></div><div class="skeleton-item"></div>
-            </div>`;
-        });
+    async refresh() {
+        this.data    = null;
+        this.carrito = [];
+        await this._cargarDatos();
     },
 
-    mostrarError(msg) {
-        const el = document.getElementById('pagos-deudas');
-        if (el) el.innerHTML = `<div class="pagos-empty">
-            <i class="ph ph-warning-circle"></i>
-            <p>${msg}</p>
-            <button onclick="ModalPagos.refresh()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#94a3b8;cursor:pointer;">
-                <i class="ph ph-arrow-clockwise"></i> Reintentar
-            </button>
-        </div>`;
+    // ─────────────────────────────────────────────────────────
+    //  TABS
+    // ─────────────────────────────────────────────────────────
+    switchTab(id) {
+        this.tabActiva = id;
+        document.querySelectorAll('[data-pagos-tab]').forEach(b =>
+            b.classList.toggle('active', b.dataset.pagosTab === id)
+        );
+        document.querySelectorAll('[data-pagos-panel]').forEach(p =>
+            p.classList.toggle('active', p.dataset.pagosPanel === id)
+        );
     },
 
-    renderAll() {
-        this.renderDeudas();
-        this.renderCatalogo();
-        this.renderHistorial();
-        this.updateBadges();
-        this.updateFooter();
-    },
-
-    /* ==========================================
-       TAB: DEUDAS
-       ========================================== */
-
-    renderDeudas() {
-        const container = document.getElementById('pagos-deudas');
-        if (!container || !this.data) return;
-
-        const { resumen, deudas } = this.data;
-
-        // Resumen cards
-        let html = `
-            <div class="cuenta-resumen">
-                <div class="cuenta-card deuda">
-                    <div class="cuenta-label">Deuda</div>
-                    <div class="cuenta-valor">S/ ${this.fmt(resumen.deuda_total)}</div>
-                </div>
-                <div class="cuenta-card pagado">
-                    <div class="cuenta-label">Pagado</div>
-                    <div class="cuenta-valor">S/ ${this.fmt(resumen.total_pagado)}</div>
-                </div>
-                <div class="cuenta-card pendiente">
-                    <div class="cuenta-label">Revisión</div>
-                    <div class="cuenta-valor">S/ ${this.fmt(resumen.en_revision)}</div>
-                </div>
-            </div>
-        `;
-
-        if (!deudas || deudas.length === 0) {
-            html += `<div class="pagos-info-box">
-                <i class="ph ph-check-circle"></i>
-                <p>¡Estás al día! No tienes deudas pendientes.</p>
-            </div>`;
-            container.innerHTML = html;
-            return;
-        }
-
-        // Header con select all
-        html += `
-            <div class="deudas-section-title">
-                <span>${deudas.length} cuota${deudas.length > 1 ? 's' : ''} pendiente${deudas.length > 1 ? 's' : ''}</span>
-                <button class="deudas-select-all" onclick="ModalPagos.toggleSelectAll()">
-                    ${this.cart.deudas.length === deudas.length ? 'Deseleccionar' : 'Seleccionar todo'}
-                </button>
-            </div>
-        `;
-
-        // Lista de deudas con checkbox
-        deudas.forEach(d => {
-            const isSelected = this.cart.deudas.some(cd => cd.id === d.id);
-            const vencClass = this.getVencimientoClass(d.vencimiento);
-            const vencText = this.getVencimientoText(d.vencimiento);
-
-            html += `
-                <div class="deuda-check-item ${isSelected ? 'selected' : ''} ${vencClass}"
-                     onclick="ModalPagos.toggleDeuda(${d.id})">
-                    <div class="deuda-checkbox">
-                        ${isSelected ? '<i class="ph ph-check-bold"></i>' : ''}
-                    </div>
-                    <div class="deuda-check-info">
-                        <div class="deuda-check-concepto">${d.concepto}</div>
-                        <div class="deuda-check-meta">
-                            ${d.periodo ? `<span>${d.periodo}</span>` : ''}
-                            ${vencText ? `<span class="${vencClass}">${vencText}</span>` : ''}
-                        </div>
-                    </div>
-                    <div class="deuda-check-monto">S/ ${this.fmt(d.balance)}</div>
-                </div>
-            `;
-        });
-
-        container.innerHTML = html;
-    },
-
-    toggleDeuda(deudaId) {
-        const idx = this.cart.deudas.findIndex(d => d.id === deudaId);
-        if (idx >= 0) {
-            this.cart.deudas.splice(idx, 1);
-        } else {
-            const deuda = this.data.deudas.find(d => d.id === deudaId);
-            if (deuda) {
-                this.cart.deudas.push({
-                    id: deuda.id,
-                    concepto: deuda.concepto_corto || deuda.concepto,
-                    balance: deuda.balance,
-                    tipo: 'deuda'
-                });
-            }
-        }
-        this.renderDeudas();
-        this.updateFooter();
-    },
-
-    toggleSelectAll() {
+    // ─────────────────────────────────────────────────────────
+    //  RENDER PRINCIPAL
+    // ─────────────────────────────────────────────────────────
+    _renderTodo() {
         if (!this.data) return;
-        if (this.cart.deudas.length === this.data.deudas.length) {
-            this.cart.deudas = [];
-        } else {
-            this.cart.deudas = this.data.deudas.map(d => ({
-                id: d.id,
-                concepto: d.concepto_corto || d.concepto,
-                balance: d.balance,
-                tipo: 'deuda'
-            }));
-        }
-        this.renderDeudas();
-        this.updateFooter();
+        this._renderHeader();
+        this._renderDeudas();
+        this._renderServicios();
+        this._renderHistorial();
     },
 
-    /* ==========================================
-       TAB: CATÁLOGO DE SERVICIOS
-       ========================================== */
+    /* ── Header: badge condición + KPIs ── */
+    _renderHeader() {
+        const { resumen, colegiado } = this.data;
 
-    renderCatalogo() {
-        const container = document.getElementById('pagos-servicios');
-        if (!container || !this.data) return;
+        // Badge condición (habil / inhabil / suspendido)
+        const badge = document.getElementById('mp-condicion-badge');
+        if (badge && colegiado) {
+            const condicion = colegiado.es_habil ? 'habil' : 'inhabil';
+            badge.textContent = colegiado.es_habil ? 'Hábil' : 'Inhábil';
+            badge.className   = `mp-badge mp-badge--${condicion}`;
+        }
 
-        const { catalogo, categorias } = this.data;
-        if (!catalogo || catalogo.length === 0) {
-            container.innerHTML = `<div class="pagos-empty">
-                <i class="ph ph-storefront"></i>
-                <p>No hay servicios disponibles</p>
-            </div>`;
+        const set = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = this._fmt(val);
+        };
+        set('mp-deuda-total',  resumen.deuda_total);
+        set('mp-en-revision',  resumen.en_revision);
+        set('mp-total-pagado', resumen.total_pagado);
+    },
+
+    /* ── TAB DEUDAS ── */
+    _renderDeudas() {
+        const el = document.getElementById('mp-panel-deudas');
+        if (!el) return;
+        const { deudas, resumen } = this.data;
+
+        if (!deudas?.length) {
+            el.innerHTML = `
+                <div class="mp-empty">
+                    <i class="ph ph-check-circle"></i>
+                    <p>¡Sin deudas pendientes!</p>
+                    <small>Estás al día con tus pagos.</small>
+                </div>`;
             return;
         }
 
-        // Filter pills
-        let html = `<div class="cat-filters">
-            <button class="cat-pill ${this.catFilter === 'todos' ? 'active' : ''}"
-                    onclick="ModalPagos.filterCat('todos')">
-                <i class="ph ph-squares-four"></i> Todos
-                <span class="pill-count">${catalogo.length}</span>
-            </button>`;
-
-        (categorias || []).forEach(cat => {
-            html += `
-                <button class="cat-pill ${this.catFilter === cat.key ? 'active' : ''}"
-                        onclick="ModalPagos.filterCat('${cat.key}')">
-                    <i class="ph ${cat.icon}"></i>
-                    ${cat.label}
-                    <span class="pill-count">${cat.count}</span>
-                </button>`;
-        });
-        html += `</div>`;
-
-        // Filtered items
-        const items = this.catFilter === 'todos'
-            ? catalogo
-            : catalogo.filter(c => c.categoria === this.catFilter);
-
-        // Group by category if showing all
-        if (this.catFilter === 'todos') {
-            const groups = {};
-            items.forEach(item => {
-                if (!groups[item.categoria]) groups[item.categoria] = [];
-                groups[item.categoria].push(item);
-            });
-
-            Object.entries(groups).forEach(([cat, catItems]) => {
-                const meta = (categorias || []).find(c => c.key === cat);
-                html += `
-                    <div class="cat-section-header">
-                        <i class="ph ${meta?.icon || 'ph-circle'}" style="color:${meta?.color || '#64748b'}"></i>
-                        ${meta?.label || cat}
-                    </div>
-                    <div class="cat-grid">
-                        ${catItems.map(item => this.renderCatItem(item)).join('')}
-                    </div>
-                `;
-            });
-        } else {
-            html += `<div class="cat-grid">
-                ${items.map(item => this.renderCatItem(item)).join('')}
-            </div>`;
-        }
-
-        container.innerHTML = html;
-    },
-
-    renderCatItem(item) {
-        const inCart = this.cart.servicios.find(s => s.id === item.id);
-        const cantidad = inCart ? inCart.cantidad : 0;
-        const isOutOfStock = item.maneja_stock && item.stock_actual <= 0;
-
-        let priceHtml;
-        if (item.monto_base > 0) {
-            priceHtml = `<div class="cat-item-price">S/ ${this.fmt(item.monto_base)}</div>`;
-        } else if (item.permite_monto_libre) {
-            priceHtml = `<div class="cat-item-price libre">Monto libre</div>`;
-        } else {
-            priceHtml = `<div class="cat-item-price libre">Consultar</div>`;
-        }
-
-        let stockHtml = '';
-        if (item.maneja_stock) {
-            if (item.stock_actual <= 0) {
-                stockHtml = `<div class="cat-item-stock out">Agotado</div>`;
-            } else if (item.stock_actual <= 3) {
-                stockHtml = `<div class="cat-item-stock low">Quedan ${item.stock_actual}</div>`;
-            }
-        }
-
-        const onclick = isOutOfStock
-            ? ''
-            : `onclick="ModalPagos.addServicio(${item.id})"`;
-
-        return `
-            <div class="cat-item ${cantidad > 0 ? 'in-cart' : ''}" ${onclick}
-                 style="${isOutOfStock ? 'opacity:0.4;cursor:not-allowed;' : ''}">
-                ${cantidad > 0 ? `<div class="cat-item-cart-badge">${cantidad}</div>` : ''}
-                <div class="cat-item-icon" style="background:${item.categoria_color}15;color:${item.categoria_color}">
-                    <i class="ph ${item.categoria_icon}"></i>
+        const rows = deudas.map(d => `
+            <div class="mp-deuda-row">
+                <div class="mp-deuda-info">
+                    <span class="mp-deuda-concepto">${d.concepto}</span>
+                    <span class="mp-deuda-meta">
+                        ${d.periodo || ''}
+                        ${d.vencimiento ? ' · Vence: ' + this._fmtFecha(d.vencimiento) : ''}
+                    </span>
                 </div>
-                <div class="cat-item-name">${item.nombre_corto || item.nombre}</div>
-                ${priceHtml}
-                ${stockHtml}
-            </div>
-        `;
-    },
-
-    filterCat(cat) {
-        this.catFilter = cat;
-        this.renderCatalogo();
-    },
-
-    addServicio(itemId) {
-        const item = this.data.catalogo.find(c => c.id === itemId);
-        if (!item) return;
-
-        // Si requiere monto libre, pedir monto
-        if (item.permite_monto_libre && item.monto_base === 0) {
-            this.pedirMontoLibre(item);
-            return;
-        }
-
-        const existing = this.cart.servicios.find(s => s.id === itemId);
-        if (existing) {
-            existing.cantidad++;
-            existing.monto = item.monto_base * existing.cantidad;
-        } else {
-            this.cart.servicios.push({
-                id: item.id,
-                codigo: item.codigo,
-                nombre: item.nombre_corto || item.nombre,
-                monto_unitario: item.monto_base,
-                monto: item.monto_base,
-                cantidad: 1,
-                tipo: 'servicio'
-            });
-        }
-
-        this.renderCatalogo();
-        this.updateFooter();
-    },
-
-    removeServicio(itemId) {
-        const idx = this.cart.servicios.findIndex(s => s.id === itemId);
-        if (idx >= 0) {
-            this.cart.servicios.splice(idx, 1);
-            this.renderCatalogo();
-            this.updateFooter();
-        }
-    },
-
-    removeDeudaFromCart(deudaId) {
-        const idx = this.cart.deudas.findIndex(d => d.id === deudaId);
-        if (idx >= 0) {
-            this.cart.deudas.splice(idx, 1);
-            this.renderDeudas();
-            this.updateFooter();
-        }
-    },
-
-    pedirMontoLibre(item) {
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'monto-libre-overlay';
-        overlay.id = 'monto-libre-overlay';
-
-        const minText = item.monto_minimo > 0 ? `Mínimo: S/ ${this.fmt(item.monto_minimo)}` : '';
-        const maxText = item.monto_maximo > 0 ? `Máximo: S/ ${this.fmt(item.monto_maximo)}` : '';
-        const rangeText = [minText, maxText].filter(Boolean).join(' · ') || 'Ingresa el monto';
-
-        overlay.innerHTML = `
-            <div class="monto-libre-card">
-                <h4>${item.nombre_corto || item.nombre}</h4>
-                <div class="monto-sub">${rangeText}</div>
-                <input type="number" id="input-monto-libre" placeholder="0.00"
-                       min="${item.monto_minimo || 0}" ${item.monto_maximo > 0 ? `max="${item.monto_maximo}"` : ''}
-                       step="0.01" inputmode="decimal" autofocus>
-                <div class="monto-libre-actions">
-                    <button class="btn-cancel" onclick="ModalPagos.cerrarMontoLibre()">Cancelar</button>
-                    <button class="btn-confirm" onclick="ModalPagos.confirmarMontoLibre(${item.id})">
-                        <i class="ph ph-plus"></i> Agregar
+                <div class="mp-deuda-right">
+                    <div class="mp-monto ${d.status === 'partial' ? 'mp-monto--parcial' : ''}">
+                        S/ ${this._fmt(d.balance)}
+                        ${d.monto_original && d.monto_original !== d.balance
+                            ? `<small>de S/ ${this._fmt(d.monto_original)}</small>` : ''}
+                    </div>
+                    <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}">
+                        <i class="ph ph-credit-card"></i> Pagar
                     </button>
                 </div>
+            </div>`).join('');
+
+        // ¿Fraccionamiento disponible?
+        let fBox = '';
+        const deudaTotal = resumen.deuda_total;
+        if (deudaTotal >= 500) {
+            const inicial = (deudaTotal * 0.20).toFixed(2);
+            fBox = `
+                <div class="mp-fraccionar-box">
+                    <i class="ph ph-calendar-blank"></i>
+                    <div>
+                        <strong>¿Necesitas fraccionar tu deuda?</strong>
+                        <p>Deuda total S/ ${this._fmt(deudaTotal)}.
+                           Pago inicial 20% (S/ ${inicial}),
+                           desde S/ 100/mes hasta 12 cuotas.</p>
+                    </div>
+                    <button class="mp-btn-secundario" data-accion="fraccionar">
+                        Ver opciones
+                    </button>
+                </div>`;
+        }
+
+        el.innerHTML = `
+            <div class="mp-deudas-total">
+                <span>Deuda total</span>
+                <strong class="mp-monto-danger">S/ ${this._fmt(deudaTotal)}</strong>
             </div>
-        `;
-
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) this.cerrarMontoLibre();
-        });
-
-        setTimeout(() => document.getElementById('input-monto-libre')?.focus(), 100);
+            <div class="mp-deudas-lista">${rows}</div>
+            ${fBox}`;
     },
 
-    confirmarMontoLibre(itemId) {
-        const input = document.getElementById('input-monto-libre');
-        const monto = parseFloat(input?.value);
+    /* ── TAB SERVICIOS / CATÁLOGO ── */
+    _renderServicios() {
+        const el = document.getElementById('mp-panel-servicios');
+        if (!el) return;
+        const { catalogo, categorias } = this.data;
 
-        if (!monto || monto <= 0) {
-            input?.focus();
+        if (!catalogo?.length) {
+            el.innerHTML = `<div class="mp-empty"><p>Sin servicios disponibles.</p></div>`;
             return;
         }
 
-        const item = this.data.catalogo.find(c => c.id === itemId);
-        if (!item) return;
+        // Pills de categoría
+        const pills = [
+            `<button class="mp-cat-pill ${this.catFiltro === 'todos' ? 'active' : ''}"
+                data-cat-filtro="todos">
+                <i class="ph ph-squares-four"></i> Todos
+                <span class="mp-cat-count">${catalogo.length}</span>
+             </button>`,
+            ...(categorias || []).map(cat => `
+                <button class="mp-cat-pill ${this.catFiltro === cat.key ? 'active' : ''}"
+                    data-cat-filtro="${cat.key}"
+                    style="--cat-color:${cat.color}">
+                    <i class="ph ${cat.icon}"></i>
+                    <span class="mp-cat-pill-label">${cat.label}</span>
+                    <span class="mp-cat-count">${cat.count}</span>
+                </button>`)
+        ].join('');
 
-        if (item.monto_minimo > 0 && monto < item.monto_minimo) {
-            if (typeof Toast !== 'undefined') Toast.show(`Monto mínimo: S/ ${this.fmt(item.monto_minimo)}`, 'warning');
-            return;
+        // Items (filtrados)
+        const filtrados = this.catFiltro === 'todos'
+            ? catalogo
+            : catalogo.filter(c => c.categoria === this.catFiltro);
+
+        // Agrupar por categoría si no hay filtro activo
+        let itemsHtml = '';
+        if (this.catFiltro === 'todos') {
+            const grupos = {};
+            filtrados.forEach(item => {
+                if (!grupos[item.categoria]) grupos[item.categoria] = [];
+                grupos[item.categoria].push(item);
+            });
+            itemsHtml = Object.entries(grupos).map(([cat, items]) => {
+                const meta = (categorias || []).find(c => c.key === cat) || {};
+                return `
+                    <div class="mp-catalogo-grupo">
+                        <div class="mp-grupo-header" style="--cat-color:${meta.color || '#888'}">
+                            <i class="ph ${meta.icon || 'ph-circle'}"></i>
+                            ${meta.label || cat}
+                        </div>
+                        ${items.map(i => this._renderItem(i)).join('')}
+                    </div>`;
+            }).join('');
+        } else {
+            itemsHtml = `<div class="mp-catalogo-grupo">
+                ${filtrados.map(i => this._renderItem(i)).join('')}
+            </div>`;
         }
-        if (item.monto_maximo > 0 && monto > item.monto_maximo) {
-            if (typeof Toast !== 'undefined') Toast.show(`Monto máximo: S/ ${this.fmt(item.monto_maximo)}`, 'warning');
-            return;
-        }
 
-        this.cart.servicios.push({
-            id: item.id,
-            codigo: item.codigo,
-            nombre: item.nombre_corto || item.nombre,
-            monto_unitario: monto,
-            monto: monto,
-            cantidad: 1,
-            tipo: 'servicio'
-        });
-
-        this.cerrarMontoLibre();
-        this.renderCatalogo();
-        this.updateFooter();
+        el.innerHTML = `
+            <div class="mp-cat-pills">${pills}</div>
+            <div id="mp-catalogo-items">${itemsHtml}</div>
+            <div id="mp-carrito-footer" class="mp-carrito-footer ${this.carrito.length ? 'mp-carrito-footer--visible' : ''}">
+                ${this._renderCarritoFooter()}
+            </div>`;
     },
 
-    cerrarMontoLibre() {
-        const overlay = document.getElementById('monto-libre-overlay');
-        if (overlay) overlay.remove();
+    _renderItem(item) {
+        const enCarrito = this.carrito.find(c => c.id === item.id);
+        const agotado   = item.maneja_stock && item.stock_actual <= 0;
+
+        const stockTag  = item.maneja_stock
+            ? `<span class="mp-stock ${item.stock_actual > 0 ? 'mp-stock--ok' : 'mp-stock--agotado'}">
+                   ${item.stock_actual > 0 ? 'Stock: ' + item.stock_actual : 'Agotado'}
+               </span>`
+            : '';
+
+        const acciones = agotado
+            ? `<span class="mp-tag-agotado">Agotado</span>`
+            : enCarrito
+                ? `<div class="mp-item-en-carrito">
+                       <input type="number" min="1" max="${item.stock_actual || 99}"
+                           value="${enCarrito.cantidad}"
+                           data-cantidad-id="${item.id}">
+                       <button class="mp-btn-quitar" data-accion="quitar" data-id="${item.id}">
+                           <i class="ph ph-trash"></i>
+                       </button>
+                   </div>`
+                : `<button class="mp-btn-agregar" data-accion="agregar" data-id="${item.id}">
+                       <i class="ph ph-plus"></i> Agregar
+                   </button>`;
+
+        return `
+            <div class="mp-item" data-item-id="${item.id}">
+                <div class="mp-item-info">
+                    <span class="mp-item-nombre">${item.nombre}</span>
+                    ${item.descripcion ? `<small class="mp-item-desc">${item.descripcion}</small>` : ''}
+                    ${stockTag}
+                </div>
+                <div class="mp-item-acciones">
+                    <span class="mp-item-precio">S/ ${this._fmt(item.monto_base)}</span>
+                    ${acciones}
+                </div>
+            </div>`;
     },
 
-    preseleccionarServicio(codigo) {
-        if (!this.data) return;
-        const item = this.data.catalogo.find(c => c.codigo === codigo);
-        if (item) {
-            this.addServicio(item.id);
-        }
+    _renderCarritoFooter() {
+        const total = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+        const count = this.carrito.reduce((s, c) => s + c.cantidad, 0);
+        return `
+            <div class="mp-carrito-info">
+                <i class="ph ph-shopping-cart"></i>
+                <span>${count} item${count !== 1 ? 's' : ''}</span>
+                <strong>S/ ${this._fmt(total)}</strong>
+            </div>
+            <button class="mp-btn-pagar-carrito" data-accion="pagar-carrito">
+                Pagar selección <i class="ph ph-arrow-right"></i>
+            </button>`;
     },
 
-    /* ==========================================
-       TAB: HISTORIAL
-       ========================================== */
+    _filtrarCatalogo(cat) {
+        this.catFiltro = cat;
+        this._renderServicios();
+        this.switchTab('servicios');
+    },
 
-    renderHistorial() {
-        const container = document.getElementById('pagos-historial');
-        if (!container || !this.data) return;
-
+    /* ── TAB HISTORIAL ── */
+    _renderHistorial() {
+        const el = document.getElementById('mp-panel-historial');
+        if (!el) return;
         const { historial } = this.data;
 
-        if (!historial || historial.length === 0) {
-            container.innerHTML = `<div class="pagos-empty">
-                <i class="ph ph-receipt"></i>
-                <p>No tienes pagos registrados</p>
-            </div>`;
+        if (!historial?.length) {
+            el.innerHTML = `<div class="mp-empty"><p>Sin pagos registrados aún.</p></div>`;
             return;
         }
 
-        const estadoTexto = { approved: 'Aprobado', review: 'En revisión', rejected: 'Rechazado' };
-        const metodoIcono = { Yape: 'ph-device-mobile', Plin: 'ph-device-mobile', Transferencia: 'ph-bank', Efectivo: 'ph-money' };
-
-        container.innerHTML = `<div class="pagos-lista">
-            ${historial.map(p => `
-                <div class="pago-item">
-                    <div class="pago-info">
-                        <span class="pago-fecha">${p.fecha}</span>
-                        <span class="pago-concepto">${p.concepto || 'Pago'}</span>
-                        <span class="pago-metodo">
-                            <i class="ph ${metodoIcono[p.metodo] || 'ph-credit-card'}"></i>
-                            ${p.metodo || ''} ${p.operacion ? '· ' + p.operacion : ''}
-                        </span>
+        const rows = historial.map(p => {
+            const cfg = this._estadoCfg(p.estado);
+            return `
+                <div class="mp-historial-row">
+                    <div class="mp-historial-fecha">${p.fecha}</div>
+                    <div class="mp-historial-info">
+                        <span>${p.concepto || 'Pago'}</span>
+                        <small>${[p.metodo, p.operacion].filter(Boolean).join(' · ')}</small>
                     </div>
-                    <div class="pago-monto-estado">
-                        <span class="pago-monto">S/ ${this.fmt(p.monto)}</span>
-                        <span class="pago-estado ${p.estado}">${estadoTexto[p.estado] || p.estado}</span>
+                    <div class="mp-historial-right">
+                        <span class="mp-monto-sm">S/ ${this._fmt(p.monto)}</span>
+                        <span class="mp-badge mp-badge--${p.estado}">${cfg.label}</span>
                     </div>
-                </div>
-            `).join('')}
-        </div>`;
+                    ${p.estado === 'rejected' && p.rechazo_motivo ? `
+                        <div class="mp-rechazo-msg">
+                            <i class="ph ph-warning"></i> ${p.rechazo_motivo}
+                        </div>` : ''}
+                </div>`;
+        }).join('');
+
+        el.innerHTML = `<div class="mp-historial-lista">${rows}</div>`;
     },
 
-    /* ==========================================
-       FOOTER: CARRITO + BOTÓN PAGAR
-       ========================================== */
-
-    updateFooter() {
-        const footer = document.getElementById('pagos-footer');
-        if (!footer) return;
-
-        const totalDeudas = this.cart.deudas.reduce((sum, d) => sum + d.balance, 0);
-        const totalServicios = this.cart.servicios.reduce((sum, s) => sum + s.monto, 0);
-        const total = totalDeudas + totalServicios;
-        const itemCount = this.cart.deudas.length + this.cart.servicios.length;
-
-        if (itemCount === 0) {
-            footer.classList.remove('visible');
-            return;
-        }
-
-        footer.classList.add('visible');
-
-        // Cart chips
-        let chipsHtml = '';
-        this.cart.deudas.forEach(d => {
-            chipsHtml += `<div class="cart-chip">
-                ${d.concepto} · S/${this.fmt(d.balance)}
-                <button class="chip-remove" onclick="event.stopPropagation();ModalPagos.removeDeudaFromCart(${d.id})">
-                    <i class="ph ph-x-bold"></i>
-                </button>
-            </div>`;
+    // ─────────────────────────────────────────────────────────
+    //  CARRITO
+    // ─────────────────────────────────────────────────────────
+    _agregarAlCarrito(id) {
+        const item = this.data?.catalogo?.find(i => i.id === id);
+        if (!item || this.carrito.find(c => c.id === id)) return;
+        this.carrito.push({
+            id,
+            nombre: item.nombre,
+            precio: item.monto_base,
+            cantidad: 1,
         });
-        this.cart.servicios.forEach(s => {
-            chipsHtml += `<div class="cart-chip">
-                ${s.nombre}${s.cantidad > 1 ? ' x' + s.cantidad : ''} · S/${this.fmt(s.monto)}
-                <button class="chip-remove" onclick="event.stopPropagation();ModalPagos.removeServicio(${s.id})">
-                    <i class="ph ph-x-bold"></i>
-                </button>
-            </div>`;
-        });
-
-        footer.innerHTML = `
-            <div class="pagos-footer-cart">${chipsHtml}</div>
-            <div class="pagos-footer-summary">
-                <div class="pagos-footer-items">
-                    <strong>${itemCount}</strong> item${itemCount > 1 ? 's' : ''}
-                </div>
-                <div class="pagos-footer-total">
-                    <small>Total </small>S/ ${this.fmt(total)}
-                </div>
-            </div>
-            <button class="btn-pagar-footer" onclick="ModalPagos.checkout()">
-                <i class="ph ph-credit-card"></i>
-                Pagar S/ ${this.fmt(total)}
-            </button>
-        `;
+        this._renderServicios();
     },
 
-    updateBadges() {
-        if (!this.data) return;
-        // Badge de deudas pendientes
-        const tabDeudas = document.querySelector('.pagos-tab[data-tab="deudas"]');
-        if (tabDeudas && this.data.deudas?.length > 0) {
-            // Remove existing badge
-            const existing = tabDeudas.querySelector('.tab-badge');
-            if (existing) existing.remove();
-            const badge = document.createElement('span');
-            badge.className = 'tab-badge';
-            badge.textContent = this.data.deudas.length;
-            tabDeudas.appendChild(badge);
-        }
+    _quitarDelCarrito(id) {
+        this.carrito = this.carrito.filter(c => c.id !== id);
+        this._renderServicios();
     },
 
-    /* ==========================================
-       CHECKOUT — Integración con formulario de pago
-       ========================================== */
+    _setCantidad(id, qty) {
+        const item = this.carrito.find(c => c.id === id);
+        if (item) item.cantidad = Math.max(1, qty);
+        // Actualizar solo el footer sin re-renderizar todo
+        const footer = document.getElementById('mp-carrito-footer');
+        if (footer) footer.innerHTML = this._renderCarritoFooter();
+    },
 
-    checkout() {
-        const totalDeudas = this.cart.deudas.reduce((sum, d) => sum + d.balance, 0);
-        const totalServicios = this.cart.servicios.reduce((sum, s) => sum + s.monto, 0);
-        const total = totalDeudas + totalServicios;
-
-        if (total <= 0) return;
-
-        // Cerrar modal-pagos
-        Modal.close('modal-pagos');
-
-        // Preparar resumen para el formulario de pago
-        const items = [
-            ...this.cart.deudas.map(d => ({
-                tipo: 'deuda',
-                id: d.id,
-                concepto: d.concepto,
-                monto: d.balance
-            })),
-            ...this.cart.servicios.map(s => ({
-                tipo: 'servicio',
-                id: s.id,
-                codigo: s.codigo,
-                concepto: s.nombre,
-                monto: s.monto,
-                cantidad: s.cantidad
-            }))
-        ];
-
-        // Intentar usar AIFab (formulario de pago existente)
-        if (typeof AIFab !== 'undefined' && AIFab.openPagoFormPrellenado) {
+    // ─────────────────────────────────────────────────────────
+    //  ACCIONES DE PAGO
+    // ─────────────────────────────────────────────────────────
+    _pagarDeuda(id) {
+        const deuda    = this.data?.deudas?.find(d => d.id === id);
+        if (!deuda) return;
+        const ctx      = this._colegiadoCtx();
+        if (typeof AIFab !== 'undefined') {
             AIFab.openPagoFormPrellenado({
-                id: this.data.colegiado.id,
-                nombre: this.data.colegiado.nombre,
-                dni: this.data.colegiado.dni,
-                matricula: this.data.colegiado.matricula,
-                items: items,
-                monto_total: total,
-                deuda: this.data.resumen
+                ...ctx,
+                concepto: deuda.concepto + (deuda.periodo ? ' ' + deuda.periodo : ''),
+                monto_sugerido: deuda.balance,
+                debt_id: deuda.id,
             });
-        } else {
-            // Fallback: mostrar resumen con toast
-            const resumen = items.map(i => `${i.concepto}: S/${this.fmt(i.monto)}`).join(', ');
-            if (typeof Toast !== 'undefined') {
-                Toast.show(`Total a pagar: S/ ${this.fmt(total)} — ${resumen}`, 'info');
-            }
-            console.log('[ModalPagos] Checkout items:', items, 'Total:', total);
+        }
+        this._cerrar();
+    },
+
+    _pagarCarrito() {
+        if (!this.carrito.length) return;
+        const total   = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+        const concepto = this.carrito
+            .map(c => c.cantidad > 1 ? `${c.cantidad}x ${c.nombre}` : c.nombre)
+            .join(', ');
+        const ctx     = this._colegiadoCtx();
+        if (typeof AIFab !== 'undefined') {
+            AIFab.openPagoFormPrellenado({
+                ...ctx,
+                concepto,
+                monto_sugerido: total,
+                items_carrito: this.carrito.map(c => ({
+                    concepto_id: c.id,
+                    nombre: c.nombre,
+                    cantidad: c.cantidad,
+                    precio: c.precio,
+                })),
+            });
+        }
+        this._cerrar();
+    },
+
+    _abrirFraccionamiento() {
+        if (typeof Toast !== 'undefined') {
+            Toast.show(
+                'Funcionalidad de fraccionamiento próximamente. Contacta con administración.',
+                'info'
+            );
         }
     },
 
-    /* ==========================================
-       UTILIDADES
-       ========================================== */
-
-    fmt(n) {
-        if (!n && n !== 0) return '0.00';
-        return parseFloat(n).toFixed(2);
+    // ─────────────────────────────────────────────────────────
+    //  HELPERS
+    // ─────────────────────────────────────────────────────────
+    _cerrar() {
+        const modal = document.getElementById('modal-pagos');
+        if (!modal) return;
+        if (typeof Modal !== 'undefined') Modal.close('modal-pagos');
+        else { modal.close?.() || modal.classList.remove('open', 'active'); }
     },
 
-    getVencimientoClass(fechaStr) {
-        if (!fechaStr) return '';
-        const hoy = new Date();
-        const vence = new Date(fechaStr);
-        const dias = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
-        if (dias < 0) return 'vencida';
-        if (dias <= 7) return 'proxima';
-        return '';
+    _colegiadoCtx() {
+        // Prefiere datos del endpoint; fallback a APP_CONFIG
+        const col = this.data?.colegiado;
+        return {
+            id:        col?.id        ?? window.APP_CONFIG?.user?.id       ?? null,
+            nombre:    col?.nombre    ?? window.APP_CONFIG?.user?.name     ?? '',
+            matricula: col?.matricula ?? window.APP_CONFIG?.user?.matricula ?? '',
+            dni:       col?.dni       ?? '',
+            deuda:     this.data?.resumen ?? {},
+        };
     },
 
-    getVencimientoText(fechaStr) {
-        if (!fechaStr) return '';
-        const hoy = new Date();
-        const vence = new Date(fechaStr);
-        const dias = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
-        if (dias < 0) return `Vencida hace ${Math.abs(dias)}d`;
-        if (dias === 0) return 'Vence hoy';
-        if (dias <= 7) return `Vence en ${dias}d`;
-        return `Vence: ${vence.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}`;
+    _fmt(val) {
+        return (parseFloat(val) || 0)
+            .toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     },
 
-    async refresh() {
-        this.data = null;
-        this.cart = { deudas: [], servicios: [] };
-        await this.cargarDatos();
+    _fmtFecha(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch { return iso; }
     },
 
-    clearCart() {
-        this.cart = { deudas: [], servicios: [] };
-        this.renderAll();
-    }
+    _estadoCfg(estado) {
+        return {
+            approved: { label: 'Aprobado'    },
+            review:   { label: 'En revisión' },
+            rejected: { label: 'Rechazado'   },
+        }[estado] || { label: 'Pendiente' };
+    },
+
+    _mostrarLoading() {
+        ['mp-panel-deudas', 'mp-panel-servicios', 'mp-panel-historial'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = `
+                <div class="mp-loading">
+                    <div class="mp-spinner"></div>
+                    <span>Cargando...</span>
+                </div>`;
+        });
+    },
+
+    _mostrarError() {
+        ['mp-panel-deudas', 'mp-panel-servicios', 'mp-panel-historial'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = `
+                <div class="mp-error">
+                    <i class="ph ph-warning-circle"></i>
+                    <p>No se pudieron cargar los datos.</p>
+                    <button data-accion="reintentar" onclick="ModalPagos.refresh()">
+                        <i class="ph ph-arrow-clockwise"></i> Reintentar
+                    </button>
+                </div>`;
+        });
+    },
 };
 
-// Init on DOM ready
 document.addEventListener('DOMContentLoaded', () => ModalPagos.init());
 
-}
+} // end guard
