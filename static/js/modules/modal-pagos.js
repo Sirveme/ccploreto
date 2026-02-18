@@ -1,54 +1,449 @@
 /**
  * Modal Mis Pagos — Dashboard Colegiado CCPL
- * Adaptado a: GET /api/colegiado/mis-pagos
- *
- * Estructura de respuesta esperada:
- *   colegiado, resumen, deudas[], catalogo[], categorias[], historial[]
- *
- * Archivo: static/js/modules/modal-pagos.js
+ * GET /api/colegiado/mis-pagos
+ * v4 — auto-contenido, reconstruye el HTML del modal en open()
  */
 
 if (typeof window.ModalPagos === 'undefined') {
 
 window.ModalPagos = {
-    data:          null,
-    isLoading:     false,
-    carrito:       [],          // { id, nombre, precio, cantidad }
-    tabActiva:     'deudas',
-    catFiltro:     'todos',     // filtro activo en tab Servicios
+    data:      null,
+    isLoading: false,
+    carrito:   [],
+    tabActiva: 'deudas',
+    catFiltro: 'todos',
 
-    // ─────────────────────────────────────────────────────────
-    //  INIT
-    // ─────────────────────────────────────────────────────────
+    // ── INIT ─────────────────────────────────────────────────
     init() {
         this._injectStyles();
-
-        // Delegation desde document — funciona aunque el fragment cargue tarde (lazy)
+        // Delegation desde document — funciona con lazy loading
         document.addEventListener('click', e => {
-            // Solo actuar si el click está dentro de #modal-pagos
             if (!e.target.closest('#modal-pagos')) return;
-
-            const tab = e.target.closest('[data-pagos-tab]');
-            if (tab) { this.switchTab(tab.dataset.pagosTab); return; }
-
+            const tab   = e.target.closest('[data-pagos-tab]');
+            if (tab)   { this.switchTab(tab.dataset.pagosTab); return; }
             const accion = e.target.closest('[data-accion]');
             if (accion) { this._dispatch(accion); return; }
-
-            const pill = e.target.closest('[data-cat-filtro]');
-            if (pill) { this._filtrarCatalogo(pill.dataset.catFiltro); return; }
+            const pill  = e.target.closest('[data-cat-filtro]');
+            if (pill)  { this._filtrarCatalogo(pill.dataset.catFiltro); }
         });
-
         document.addEventListener('change', e => {
             if (!e.target.closest('#modal-pagos')) return;
             if (e.target.dataset.cantidadId) {
-                this._setCantidad(
-                    parseInt(e.target.dataset.cantidadId),
-                    parseInt(e.target.value) || 1
-                );
+                this._setCantidad(parseInt(e.target.dataset.cantidadId), parseInt(e.target.value) || 1);
             }
         });
     },
 
+    _dispatch(el) {
+        const accion = el.dataset.accion;
+        const id     = parseInt(el.dataset.id);
+        if (accion === 'agregar')       this._agregarAlCarrito(id);
+        if (accion === 'quitar')        this._quitarDelCarrito(id);
+        if (accion === 'pagar-carrito') this._pagarCarrito();
+        if (accion === 'pagar-deuda')   this._pagarDeuda(id);
+        if (accion === 'fraccionar')    this._abrirFraccionamiento();
+    },
+
+    // ── ABRIR ────────────────────────────────────────────────
+    async open() {
+        const modal = document.getElementById('modal-pagos');
+        if (!modal) return;
+
+        // Reconstruir HTML — no importa qué versión del fragment esté en el servidor
+        this._buildModalHTML(modal);
+
+        if (typeof Modal !== 'undefined') Modal.open('modal-pagos');
+        else modal.classList.add('open', 'active');
+
+        if (!this.data) await this._cargarDatos();
+        else { this._renderTodo(); this.switchTab(this.tabActiva); }
+    },
+
+    _buildModalHTML(modal) {
+        modal.innerHTML = `
+            <div class="modal-header">
+                <div style="display:flex;align-items:center;gap:.6rem">
+                    <i class="ph ph-credit-card" style="color:var(--color-primary,#f59e0b)"></i>
+                    <h3 class="modal-title">Mis Pagos</h3>
+                    <span id="mp-condicion-badge" class="mp-badge"></span>
+                </div>
+                <button class="modal-close" onclick="Modal.close('modal-pagos')">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding-bottom:0">
+                <div class="mp-resumen-header">
+                    <div class="mp-resumen-item mp-deuda">
+                        <label>Deuda pendiente</label>
+                        <strong>S/ <span id="mp-deuda-total">—</span></strong>
+                    </div>
+                    <div class="mp-resumen-item mp-revision">
+                        <label>En revisión</label>
+                        <strong>S/ <span id="mp-en-revision">—</span></strong>
+                    </div>
+                    <div class="mp-resumen-item mp-pagado">
+                        <label>Pagado (histórico)</label>
+                        <strong>S/ <span id="mp-total-pagado">—</span></strong>
+                    </div>
+                </div>
+                <div class="mp-tabs">
+                    <button data-pagos-tab="deudas" class="active">
+                        <i class="ph ph-receipt"></i><span>Deudas</span>
+                    </button>
+                    <button data-pagos-tab="servicios">
+                        <i class="ph ph-storefront"></i><span>Servicios</span>
+                    </button>
+                    <button data-pagos-tab="historial">
+                        <i class="ph ph-clock-counter-clockwise"></i><span>Historial</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding-top:.5rem;overflow-y:auto;max-height:62vh">
+                <div data-pagos-panel="deudas" class="active">
+                    <div id="mp-panel-deudas">
+                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando...</span></div>
+                    </div>
+                </div>
+                <div data-pagos-panel="servicios">
+                    <div id="mp-panel-servicios">
+                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando catálogo...</span></div>
+                    </div>
+                </div>
+                <div data-pagos-panel="historial">
+                    <div id="mp-panel-historial">
+                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando historial...</span></div>
+                    </div>
+                </div>
+            </div>`;
+    },
+
+    async _cargarDatos() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        try {
+            const res = await fetch('/api/colegiado/mis-pagos');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.data = await res.json();
+            this._renderTodo();
+            this.switchTab(this.tabActiva);
+        } catch (err) {
+            console.error('[ModalPagos]', err);
+            this._mostrarError();
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async refresh() {
+        this.data    = null;
+        this.carrito = [];
+        const modal  = document.getElementById('modal-pagos');
+        if (modal) this._buildModalHTML(modal);
+        await this._cargarDatos();
+    },
+
+    // ── TABS ─────────────────────────────────────────────────
+    switchTab(id) {
+        this.tabActiva = id;
+        document.querySelectorAll('[data-pagos-tab]').forEach(b =>
+            b.classList.toggle('active', b.dataset.pagosTab === id));
+        document.querySelectorAll('[data-pagos-panel]').forEach(p =>
+            p.classList.toggle('active', p.dataset.pagosPanel === id));
+    },
+
+    // ── RENDER ───────────────────────────────────────────────
+    _renderTodo() {
+        if (!this.data) return;
+        this._renderHeader();
+        this._renderDeudas();
+        this._renderServicios();
+        this._renderHistorial();
+    },
+
+    _renderHeader() {
+        const { resumen, colegiado } = this.data;
+        const badge = document.getElementById('mp-condicion-badge');
+        if (badge && colegiado) {
+            badge.textContent = colegiado.es_habil ? 'Hábil' : 'Inhábil';
+            badge.className   = `mp-badge mp-badge--${colegiado.es_habil ? 'habil' : 'inhabil'}`;
+        }
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = this._fmt(val); };
+        set('mp-deuda-total',  resumen.deuda_total);
+        set('mp-en-revision',  resumen.en_revision);
+        set('mp-total-pagado', resumen.total_pagado);
+    },
+
+    _renderDeudas() {
+        const el = document.getElementById('mp-panel-deudas');
+        if (!el) return;
+        const { deudas, resumen } = this.data;
+
+        if (!deudas?.length) {
+            el.innerHTML = `<div class="mp-empty">
+                <i class="ph ph-check-circle"></i>
+                <p>¡Sin deudas pendientes!</p>
+                <small>Estás al día con tus pagos.</small>
+            </div>`;
+            return;
+        }
+
+        const rows = deudas.map(d => `
+            <div class="mp-deuda-row">
+                <div class="mp-deuda-info">
+                    <span class="mp-deuda-concepto">${d.concepto}</span>
+                    <span class="mp-deuda-meta">${d.periodo || ''}${d.vencimiento ? ' · Vence: ' + this._fmtFecha(d.vencimiento) : ''}</span>
+                </div>
+                <div class="mp-deuda-right">
+                    <div class="mp-monto ${d.status === 'partial' ? 'mp-monto--parcial' : ''}">
+                        S/ ${this._fmt(d.balance)}
+                        ${d.monto_original && d.monto_original !== d.balance ? `<small>de S/ ${this._fmt(d.monto_original)}</small>` : ''}
+                    </div>
+                    <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}">
+                        <i class="ph ph-credit-card"></i> Pagar
+                    </button>
+                </div>
+            </div>`).join('');
+
+        let fBox = '';
+        if (resumen.deuda_total >= 500) {
+            const ini = (resumen.deuda_total * 0.20).toFixed(2);
+            fBox = `<div class="mp-fraccionar-box">
+                <i class="ph ph-calendar-blank"></i>
+                <div>
+                    <strong>¿Necesitas fraccionar tu deuda?</strong>
+                    <p>Deuda total S/ ${this._fmt(resumen.deuda_total)}. Pago inicial 20% (S/ ${ini}), desde S/ 100/mes hasta 12 cuotas.</p>
+                </div>
+                <button class="mp-btn-secundario" data-accion="fraccionar">Ver opciones</button>
+            </div>`;
+        }
+
+        el.innerHTML = `
+            <div class="mp-deudas-total">
+                <span>Deuda total</span>
+                <strong class="mp-monto-danger">S/ ${this._fmt(resumen.deuda_total)}</strong>
+            </div>
+            <div class="mp-deudas-lista">${rows}</div>
+            ${fBox}`;
+    },
+
+    _renderServicios() {
+        const el = document.getElementById('mp-panel-servicios');
+        if (!el) return;
+        const { catalogo, categorias } = this.data;
+
+        if (!catalogo?.length) {
+            el.innerHTML = `<div class="mp-empty"><i class="ph ph-storefront"></i><p>Sin servicios disponibles.</p></div>`;
+            return;
+        }
+
+        const pills = [
+            `<button class="mp-cat-pill ${this.catFiltro === 'todos' ? 'active' : ''}" data-cat-filtro="todos">
+                <i class="ph ph-squares-four"></i><span class="mp-cat-pill-label">Todos</span>
+                <span class="mp-cat-count">${catalogo.length}</span>
+             </button>`,
+            ...(categorias || []).map(cat => `
+                <button class="mp-cat-pill ${this.catFiltro === cat.key ? 'active' : ''}"
+                    data-cat-filtro="${cat.key}" style="--cat-color:${cat.color}">
+                    <i class="ph ${cat.icon}"></i>
+                    <span class="mp-cat-pill-label">${cat.label}</span>
+                    <span class="mp-cat-count">${cat.count}</span>
+                </button>`)
+        ].join('');
+
+        const filtrados = this.catFiltro === 'todos'
+            ? catalogo
+            : catalogo.filter(c => c.categoria === this.catFiltro);
+
+        let itemsHtml = '';
+        if (this.catFiltro === 'todos') {
+            const grupos = {};
+            filtrados.forEach(i => { if (!grupos[i.categoria]) grupos[i.categoria] = []; grupos[i.categoria].push(i); });
+            itemsHtml = Object.entries(grupos).map(([cat, items]) => {
+                const meta = (categorias || []).find(c => c.key === cat) || {};
+                return `<div class="mp-catalogo-grupo">
+                    <div class="mp-grupo-header" style="--cat-color:${meta.color || '#888'}">
+                        <i class="ph ${meta.icon || 'ph-circle'}"></i>${meta.label || cat}
+                    </div>
+                    ${items.map(i => this._renderItem(i)).join('')}
+                </div>`;
+            }).join('');
+        } else {
+            itemsHtml = `<div class="mp-catalogo-grupo">${filtrados.map(i => this._renderItem(i)).join('')}</div>`;
+        }
+
+        el.innerHTML = `
+            <div class="mp-cat-pills">${pills}</div>
+            <div>${itemsHtml}</div>
+            <div id="mp-carrito-footer" class="mp-carrito-footer ${this.carrito.length ? 'mp-carrito-footer--visible' : ''}">
+                ${this._renderCarritoFooter()}
+            </div>`;
+    },
+
+    _renderItem(item) {
+        const enCarrito = this.carrito.find(c => c.id === item.id);
+        const agotado   = item.maneja_stock && item.stock_actual <= 0;
+        const stock     = item.maneja_stock
+            ? `<span class="mp-stock ${item.stock_actual > 0 ? 'mp-stock--ok' : 'mp-stock--agotado'}">
+                   ${item.stock_actual > 0 ? 'Stock: ' + item.stock_actual : 'Agotado'}</span>` : '';
+        const acciones  = agotado ? `<span class="mp-tag-agotado">Agotado</span>` :
+            enCarrito ? `<div class="mp-item-en-carrito">
+                <input type="number" min="1" max="${item.stock_actual || 99}"
+                    value="${enCarrito.cantidad}" data-cantidad-id="${item.id}">
+                <button class="mp-btn-quitar" data-accion="quitar" data-id="${item.id}">
+                    <i class="ph ph-trash"></i></button>
+            </div>` :
+            `<button class="mp-btn-agregar" data-accion="agregar" data-id="${item.id}">
+                <i class="ph ph-plus"></i> Agregar</button>`;
+
+        return `<div class="mp-item">
+            <div class="mp-item-info">
+                <span class="mp-item-nombre">${item.nombre}</span>
+                ${item.descripcion ? `<small class="mp-item-desc">${item.descripcion}</small>` : ''}
+                ${stock}
+            </div>
+            <div class="mp-item-acciones">
+                <span class="mp-item-precio">S/ ${this._fmt(item.monto_base)}</span>
+                ${acciones}
+            </div>
+        </div>`;
+    },
+
+    _renderCarritoFooter() {
+        const total = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+        const count = this.carrito.reduce((s, c) => s + c.cantidad, 0);
+        return `<div class="mp-carrito-info">
+            <i class="ph ph-shopping-cart"></i>
+            <span>${count} item${count !== 1 ? 's' : ''}</span>
+            <strong>S/ ${this._fmt(total)}</strong>
+        </div>
+        <button class="mp-btn-pagar-carrito" data-accion="pagar-carrito">
+            Pagar selección <i class="ph ph-arrow-right"></i>
+        </button>`;
+    },
+
+    _filtrarCatalogo(cat) {
+        this.catFiltro = cat;
+        this._renderServicios();
+    },
+
+    _renderHistorial() {
+        const el = document.getElementById('mp-panel-historial');
+        if (!el) return;
+        const { historial } = this.data;
+
+        if (!historial?.length) {
+            el.innerHTML = `<div class="mp-empty"><i class="ph ph-clock-counter-clockwise"></i><p>Sin pagos registrados aún.</p></div>`;
+            return;
+        }
+
+        const cfg = { approved: 'Aprobado', review: 'En revisión', rejected: 'Rechazado' };
+        el.innerHTML = `<div class="mp-historial-lista">${historial.map(p => `
+            <div class="mp-historial-row">
+                <div class="mp-historial-fecha">${p.fecha}</div>
+                <div class="mp-historial-info">
+                    <span>${p.concepto || 'Pago'}</span>
+                    <small>${[p.metodo, p.operacion].filter(Boolean).join(' · ')}</small>
+                </div>
+                <div class="mp-historial-right">
+                    <span class="mp-monto-sm">S/ ${this._fmt(p.monto)}</span>
+                    <span class="mp-badge mp-badge--${p.estado}">${cfg[p.estado] || 'Pendiente'}</span>
+                </div>
+                ${p.estado === 'rejected' && p.rechazo_motivo
+                    ? `<div class="mp-rechazo-msg"><i class="ph ph-warning"></i> ${p.rechazo_motivo}</div>` : ''}
+            </div>`).join('')}</div>`;
+    },
+
+    // ── CARRITO ──────────────────────────────────────────────
+    _agregarAlCarrito(id) {
+        const item = this.data?.catalogo?.find(i => i.id === id);
+        if (!item || this.carrito.find(c => c.id === id)) return;
+        this.carrito.push({ id, nombre: item.nombre, precio: item.monto_base, cantidad: 1 });
+        this._renderServicios();
+    },
+
+    _quitarDelCarrito(id) {
+        this.carrito = this.carrito.filter(c => c.id !== id);
+        this._renderServicios();
+    },
+
+    _setCantidad(id, qty) {
+        const item = this.carrito.find(c => c.id === id);
+        if (item) item.cantidad = Math.max(1, qty);
+        const footer = document.getElementById('mp-carrito-footer');
+        if (footer) footer.innerHTML = this._renderCarritoFooter();
+    },
+
+    // ── ACCIONES PAGO ────────────────────────────────────────
+    _pagarDeuda(id) {
+        const deuda = this.data?.deudas?.find(d => d.id === id);
+        if (!deuda) return;
+        if (typeof AIFab !== 'undefined') {
+            AIFab.openPagoFormPrellenado({
+                ...this._colegiadoCtx(),
+                concepto: deuda.concepto + (deuda.periodo ? ' ' + deuda.periodo : ''),
+                monto_sugerido: deuda.balance,
+                debt_id: deuda.id,
+            });
+        }
+        this._cerrar();
+    },
+
+    _pagarCarrito() {
+        if (!this.carrito.length) return;
+        const total   = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+        const concepto = this.carrito.map(c => c.cantidad > 1 ? `${c.cantidad}x ${c.nombre}` : c.nombre).join(', ');
+        if (typeof AIFab !== 'undefined') {
+            AIFab.openPagoFormPrellenado({
+                ...this._colegiadoCtx(),
+                concepto, monto_sugerido: total,
+                items_carrito: this.carrito.map(c => ({ concepto_id: c.id, nombre: c.nombre, cantidad: c.cantidad, precio: c.precio })),
+            });
+        }
+        this._cerrar();
+    },
+
+    _abrirFraccionamiento() {
+        if (typeof Toast !== 'undefined')
+            Toast.show('Funcionalidad de fraccionamiento próximamente. Contacta con administración.', 'info');
+    },
+
+    _cerrar() {
+        if (typeof Modal !== 'undefined') Modal.close('modal-pagos');
+        else { const m = document.getElementById('modal-pagos'); if (m) m.classList.remove('open', 'active'); }
+    },
+
+    _colegiadoCtx() {
+        const col = this.data?.colegiado;
+        return {
+            id:        col?.id        ?? window.APP_CONFIG?.user?.id       ?? null,
+            nombre:    col?.nombre    ?? window.APP_CONFIG?.user?.name     ?? '',
+            matricula: col?.matricula ?? window.APP_CONFIG?.user?.matricula ?? '',
+            dni:       col?.dni       ?? '',
+            deuda:     this.data?.resumen ?? {},
+        };
+    },
+
+    _fmt(val) {
+        return (parseFloat(val) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+
+    _fmtFecha(iso) {
+        try { return new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); }
+        catch { return iso; }
+    },
+
+    _mostrarError() {
+        ['mp-panel-deudas', 'mp-panel-servicios', 'mp-panel-historial'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = `<div class="mp-error">
+                <i class="ph ph-warning-circle"></i>
+                <p>No se pudieron cargar los datos.</p>
+                <button onclick="ModalPagos.refresh()"><i class="ph ph-arrow-clockwise"></i> Reintentar</button>
+            </div>`;
+        });
+    },
+
+    // ── ESTILOS ──────────────────────────────────────────────
     _injectStyles() {
         if (document.getElementById('mp-styles')) return;
         const s = document.createElement('style');
@@ -150,470 +545,6 @@ window.ModalPagos = {
 .mp-cat-pill-label{display:none}
 }`;
         document.head.appendChild(s);
-    },
-
-    _dispatch(el) {
-        const accion = el.dataset.accion;
-        const id     = parseInt(el.dataset.id);
-        switch (accion) {
-            case 'agregar':        this._agregarAlCarrito(id);   break;
-            case 'quitar':         this._quitarDelCarrito(id);   break;
-            case 'pagar-carrito':  this._pagarCarrito();         break;
-            case 'pagar-deuda':    this._pagarDeuda(id);         break;
-            case 'fraccionar':     this._abrirFraccionamiento(); break;
-        }
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  ABRIR / CARGAR
-    // ─────────────────────────────────────────────────────────
-    async open() {
-        const modal = document.getElementById('modal-pagos');
-        if (!modal) return;
-        if (typeof Modal !== 'undefined') Modal.open('modal-pagos');
-        else { modal.showModal?.() || modal.classList.add('open'); }
-
-        if (!this.data) await this._cargarDatos();
-    },
-
-    async _cargarDatos() {
-        if (this.isLoading) return;
-        this.isLoading = true;
-        this._mostrarLoading();
-        try {
-            const res = await fetch('/api/colegiado/mis-pagos');
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            this.data = await res.json();
-            this._renderTodo();
-            this.switchTab(this.tabActiva);
-        } catch (err) {
-            console.error('[ModalPagos]', err);
-            this._mostrarError();
-        } finally {
-            this.isLoading = false;
-        }
-    },
-
-    async refresh() {
-        this.data    = null;
-        this.carrito = [];
-        await this._cargarDatos();
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  TABS
-    // ─────────────────────────────────────────────────────────
-    switchTab(id) {
-        this.tabActiva = id;
-        document.querySelectorAll('[data-pagos-tab]').forEach(b =>
-            b.classList.toggle('active', b.dataset.pagosTab === id)
-        );
-        document.querySelectorAll('[data-pagos-panel]').forEach(p =>
-            p.classList.toggle('active', p.dataset.pagosPanel === id)
-        );
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  RENDER PRINCIPAL
-    // ─────────────────────────────────────────────────────────
-    _renderTodo() {
-        if (!this.data) return;
-        this._renderHeader();
-        this._renderDeudas();
-        this._renderServicios();
-        this._renderHistorial();
-    },
-
-    /* ── Header: badge condición + KPIs ── */
-    _renderHeader() {
-        const { resumen, colegiado } = this.data;
-
-        // Badge condición (habil / inhabil / suspendido)
-        const badge = document.getElementById('mp-condicion-badge');
-        if (badge && colegiado) {
-            const condicion = colegiado.es_habil ? 'habil' : 'inhabil';
-            badge.textContent = colegiado.es_habil ? 'Hábil' : 'Inhábil';
-            badge.className   = `mp-badge mp-badge--${condicion}`;
-        }
-
-        const set = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = this._fmt(val);
-        };
-        set('mp-deuda-total',  resumen.deuda_total);
-        set('mp-en-revision',  resumen.en_revision);
-        set('mp-total-pagado', resumen.total_pagado);
-    },
-
-    /* ── TAB DEUDAS ── */
-    _renderDeudas() {
-        const el = document.getElementById('mp-panel-deudas');
-        if (!el) return;
-        const { deudas, resumen } = this.data;
-
-        if (!deudas?.length) {
-            el.innerHTML = `
-                <div class="mp-empty">
-                    <i class="ph ph-check-circle"></i>
-                    <p>¡Sin deudas pendientes!</p>
-                    <small>Estás al día con tus pagos.</small>
-                </div>`;
-            return;
-        }
-
-        const rows = deudas.map(d => `
-            <div class="mp-deuda-row">
-                <div class="mp-deuda-info">
-                    <span class="mp-deuda-concepto">${d.concepto}</span>
-                    <span class="mp-deuda-meta">
-                        ${d.periodo || ''}
-                        ${d.vencimiento ? ' · Vence: ' + this._fmtFecha(d.vencimiento) : ''}
-                    </span>
-                </div>
-                <div class="mp-deuda-right">
-                    <div class="mp-monto ${d.status === 'partial' ? 'mp-monto--parcial' : ''}">
-                        S/ ${this._fmt(d.balance)}
-                        ${d.monto_original && d.monto_original !== d.balance
-                            ? `<small>de S/ ${this._fmt(d.monto_original)}</small>` : ''}
-                    </div>
-                    <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}">
-                        <i class="ph ph-credit-card"></i> Pagar
-                    </button>
-                </div>
-            </div>`).join('');
-
-        // ¿Fraccionamiento disponible?
-        let fBox = '';
-        const deudaTotal = resumen.deuda_total;
-        if (deudaTotal >= 500) {
-            const inicial = (deudaTotal * 0.20).toFixed(2);
-            fBox = `
-                <div class="mp-fraccionar-box">
-                    <i class="ph ph-calendar-blank"></i>
-                    <div>
-                        <strong>¿Necesitas fraccionar tu deuda?</strong>
-                        <p>Deuda total S/ ${this._fmt(deudaTotal)}.
-                           Pago inicial 20% (S/ ${inicial}),
-                           desde S/ 100/mes hasta 12 cuotas.</p>
-                    </div>
-                    <button class="mp-btn-secundario" data-accion="fraccionar">
-                        Ver opciones
-                    </button>
-                </div>`;
-        }
-
-        el.innerHTML = `
-            <div class="mp-deudas-total">
-                <span>Deuda total</span>
-                <strong class="mp-monto-danger">S/ ${this._fmt(deudaTotal)}</strong>
-            </div>
-            <div class="mp-deudas-lista">${rows}</div>
-            ${fBox}`;
-    },
-
-    /* ── TAB SERVICIOS / CATÁLOGO ── */
-    _renderServicios() {
-        const el = document.getElementById('mp-panel-servicios');
-        if (!el) return;
-        const { catalogo, categorias } = this.data;
-
-        if (!catalogo?.length) {
-            el.innerHTML = `<div class="mp-empty"><p>Sin servicios disponibles.</p></div>`;
-            return;
-        }
-
-        // Pills de categoría
-        const pills = [
-            `<button class="mp-cat-pill ${this.catFiltro === 'todos' ? 'active' : ''}"
-                data-cat-filtro="todos">
-                <i class="ph ph-squares-four"></i> Todos
-                <span class="mp-cat-count">${catalogo.length}</span>
-             </button>`,
-            ...(categorias || []).map(cat => `
-                <button class="mp-cat-pill ${this.catFiltro === cat.key ? 'active' : ''}"
-                    data-cat-filtro="${cat.key}"
-                    style="--cat-color:${cat.color}">
-                    <i class="ph ${cat.icon}"></i>
-                    <span class="mp-cat-pill-label">${cat.label}</span>
-                    <span class="mp-cat-count">${cat.count}</span>
-                </button>`)
-        ].join('');
-
-        // Items (filtrados)
-        const filtrados = this.catFiltro === 'todos'
-            ? catalogo
-            : catalogo.filter(c => c.categoria === this.catFiltro);
-
-        // Agrupar por categoría si no hay filtro activo
-        let itemsHtml = '';
-        if (this.catFiltro === 'todos') {
-            const grupos = {};
-            filtrados.forEach(item => {
-                if (!grupos[item.categoria]) grupos[item.categoria] = [];
-                grupos[item.categoria].push(item);
-            });
-            itemsHtml = Object.entries(grupos).map(([cat, items]) => {
-                const meta = (categorias || []).find(c => c.key === cat) || {};
-                return `
-                    <div class="mp-catalogo-grupo">
-                        <div class="mp-grupo-header" style="--cat-color:${meta.color || '#888'}">
-                            <i class="ph ${meta.icon || 'ph-circle'}"></i>
-                            ${meta.label || cat}
-                        </div>
-                        ${items.map(i => this._renderItem(i)).join('')}
-                    </div>`;
-            }).join('');
-        } else {
-            itemsHtml = `<div class="mp-catalogo-grupo">
-                ${filtrados.map(i => this._renderItem(i)).join('')}
-            </div>`;
-        }
-
-        el.innerHTML = `
-            <div class="mp-cat-pills">${pills}</div>
-            <div id="mp-catalogo-items">${itemsHtml}</div>
-            <div id="mp-carrito-footer" class="mp-carrito-footer ${this.carrito.length ? 'mp-carrito-footer--visible' : ''}">
-                ${this._renderCarritoFooter()}
-            </div>`;
-    },
-
-    _renderItem(item) {
-        const enCarrito = this.carrito.find(c => c.id === item.id);
-        const agotado   = item.maneja_stock && item.stock_actual <= 0;
-
-        const stockTag  = item.maneja_stock
-            ? `<span class="mp-stock ${item.stock_actual > 0 ? 'mp-stock--ok' : 'mp-stock--agotado'}">
-                   ${item.stock_actual > 0 ? 'Stock: ' + item.stock_actual : 'Agotado'}
-               </span>`
-            : '';
-
-        const acciones = agotado
-            ? `<span class="mp-tag-agotado">Agotado</span>`
-            : enCarrito
-                ? `<div class="mp-item-en-carrito">
-                       <input type="number" min="1" max="${item.stock_actual || 99}"
-                           value="${enCarrito.cantidad}"
-                           data-cantidad-id="${item.id}">
-                       <button class="mp-btn-quitar" data-accion="quitar" data-id="${item.id}">
-                           <i class="ph ph-trash"></i>
-                       </button>
-                   </div>`
-                : `<button class="mp-btn-agregar" data-accion="agregar" data-id="${item.id}">
-                       <i class="ph ph-plus"></i> Agregar
-                   </button>`;
-
-        return `
-            <div class="mp-item" data-item-id="${item.id}">
-                <div class="mp-item-info">
-                    <span class="mp-item-nombre">${item.nombre}</span>
-                    ${item.descripcion ? `<small class="mp-item-desc">${item.descripcion}</small>` : ''}
-                    ${stockTag}
-                </div>
-                <div class="mp-item-acciones">
-                    <span class="mp-item-precio">S/ ${this._fmt(item.monto_base)}</span>
-                    ${acciones}
-                </div>
-            </div>`;
-    },
-
-    _renderCarritoFooter() {
-        const total = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-        const count = this.carrito.reduce((s, c) => s + c.cantidad, 0);
-        return `
-            <div class="mp-carrito-info">
-                <i class="ph ph-shopping-cart"></i>
-                <span>${count} item${count !== 1 ? 's' : ''}</span>
-                <strong>S/ ${this._fmt(total)}</strong>
-            </div>
-            <button class="mp-btn-pagar-carrito" data-accion="pagar-carrito">
-                Pagar selección <i class="ph ph-arrow-right"></i>
-            </button>`;
-    },
-
-    _filtrarCatalogo(cat) {
-        this.catFiltro = cat;
-        this._renderServicios();
-        this.switchTab('servicios');
-    },
-
-    /* ── TAB HISTORIAL ── */
-    _renderHistorial() {
-        const el = document.getElementById('mp-panel-historial');
-        if (!el) return;
-        const { historial } = this.data;
-
-        if (!historial?.length) {
-            el.innerHTML = `<div class="mp-empty"><p>Sin pagos registrados aún.</p></div>`;
-            return;
-        }
-
-        const rows = historial.map(p => {
-            const cfg = this._estadoCfg(p.estado);
-            return `
-                <div class="mp-historial-row">
-                    <div class="mp-historial-fecha">${p.fecha}</div>
-                    <div class="mp-historial-info">
-                        <span>${p.concepto || 'Pago'}</span>
-                        <small>${[p.metodo, p.operacion].filter(Boolean).join(' · ')}</small>
-                    </div>
-                    <div class="mp-historial-right">
-                        <span class="mp-monto-sm">S/ ${this._fmt(p.monto)}</span>
-                        <span class="mp-badge mp-badge--${p.estado}">${cfg.label}</span>
-                    </div>
-                    ${p.estado === 'rejected' && p.rechazo_motivo ? `
-                        <div class="mp-rechazo-msg">
-                            <i class="ph ph-warning"></i> ${p.rechazo_motivo}
-                        </div>` : ''}
-                </div>`;
-        }).join('');
-
-        el.innerHTML = `<div class="mp-historial-lista">${rows}</div>`;
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  CARRITO
-    // ─────────────────────────────────────────────────────────
-    _agregarAlCarrito(id) {
-        const item = this.data?.catalogo?.find(i => i.id === id);
-        if (!item || this.carrito.find(c => c.id === id)) return;
-        this.carrito.push({
-            id,
-            nombre: item.nombre,
-            precio: item.monto_base,
-            cantidad: 1,
-        });
-        this._renderServicios();
-    },
-
-    _quitarDelCarrito(id) {
-        this.carrito = this.carrito.filter(c => c.id !== id);
-        this._renderServicios();
-    },
-
-    _setCantidad(id, qty) {
-        const item = this.carrito.find(c => c.id === id);
-        if (item) item.cantidad = Math.max(1, qty);
-        // Actualizar solo el footer sin re-renderizar todo
-        const footer = document.getElementById('mp-carrito-footer');
-        if (footer) footer.innerHTML = this._renderCarritoFooter();
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  ACCIONES DE PAGO
-    // ─────────────────────────────────────────────────────────
-    _pagarDeuda(id) {
-        const deuda    = this.data?.deudas?.find(d => d.id === id);
-        if (!deuda) return;
-        const ctx      = this._colegiadoCtx();
-        if (typeof AIFab !== 'undefined') {
-            AIFab.openPagoFormPrellenado({
-                ...ctx,
-                concepto: deuda.concepto + (deuda.periodo ? ' ' + deuda.periodo : ''),
-                monto_sugerido: deuda.balance,
-                debt_id: deuda.id,
-            });
-        }
-        this._cerrar();
-    },
-
-    _pagarCarrito() {
-        if (!this.carrito.length) return;
-        const total   = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-        const concepto = this.carrito
-            .map(c => c.cantidad > 1 ? `${c.cantidad}x ${c.nombre}` : c.nombre)
-            .join(', ');
-        const ctx     = this._colegiadoCtx();
-        if (typeof AIFab !== 'undefined') {
-            AIFab.openPagoFormPrellenado({
-                ...ctx,
-                concepto,
-                monto_sugerido: total,
-                items_carrito: this.carrito.map(c => ({
-                    concepto_id: c.id,
-                    nombre: c.nombre,
-                    cantidad: c.cantidad,
-                    precio: c.precio,
-                })),
-            });
-        }
-        this._cerrar();
-    },
-
-    _abrirFraccionamiento() {
-        if (typeof Toast !== 'undefined') {
-            Toast.show(
-                'Funcionalidad de fraccionamiento próximamente. Contacta con administración.',
-                'info'
-            );
-        }
-    },
-
-    // ─────────────────────────────────────────────────────────
-    //  HELPERS
-    // ─────────────────────────────────────────────────────────
-    _cerrar() {
-        const modal = document.getElementById('modal-pagos');
-        if (!modal) return;
-        if (typeof Modal !== 'undefined') Modal.close('modal-pagos');
-        else { modal.close?.() || modal.classList.remove('open', 'active'); }
-    },
-
-    _colegiadoCtx() {
-        // Prefiere datos del endpoint; fallback a APP_CONFIG
-        const col = this.data?.colegiado;
-        return {
-            id:        col?.id        ?? window.APP_CONFIG?.user?.id       ?? null,
-            nombre:    col?.nombre    ?? window.APP_CONFIG?.user?.name     ?? '',
-            matricula: col?.matricula ?? window.APP_CONFIG?.user?.matricula ?? '',
-            dni:       col?.dni       ?? '',
-            deuda:     this.data?.resumen ?? {},
-        };
-    },
-
-    _fmt(val) {
-        return (parseFloat(val) || 0)
-            .toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    },
-
-    _fmtFecha(iso) {
-        if (!iso) return '';
-        try {
-            const d = new Date(iso);
-            return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
-        } catch { return iso; }
-    },
-
-    _estadoCfg(estado) {
-        return {
-            approved: { label: 'Aprobado'    },
-            review:   { label: 'En revisión' },
-            rejected: { label: 'Rechazado'   },
-        }[estado] || { label: 'Pendiente' };
-    },
-
-    _mostrarLoading() {
-        ['mp-panel-deudas', 'mp-panel-servicios', 'mp-panel-historial'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = `
-                <div class="mp-loading">
-                    <div class="mp-spinner"></div>
-                    <span>Cargando...</span>
-                </div>`;
-        });
-    },
-
-    _mostrarError() {
-        ['mp-panel-deudas', 'mp-panel-servicios', 'mp-panel-historial'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = `
-                <div class="mp-error">
-                    <i class="ph ph-warning-circle"></i>
-                    <p>No se pudieron cargar los datos.</p>
-                    <button data-accion="reintentar" onclick="ModalPagos.refresh()">
-                        <i class="ph ph-arrow-clockwise"></i> Reintentar
-                    </button>
-                </div>`;
-        });
     },
 };
 
