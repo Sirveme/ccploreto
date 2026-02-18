@@ -1,34 +1,82 @@
 {# Fragment: modal_pagos.html — Cargado lazy via /fragments/modal_pagos #}
-<dialog id="modal-pagos">
-    <div class="modal-header">
-        <h3 class="modal-title"><i class="ph ph-wallet" style="color:#fbbf24;"></i> Mis Pagos</h3>
-        <button class="modal-close" onclick="Modal.close('modal-pagos')"><i class="ph ph-x"></i></button>
-    </div>
-    <div class="modal-body" style="padding:16px;">
-        <!-- Tabs -->
-        <div class="pagos-tabs">
-            <button class="pagos-tab active" data-tab="resumen">
-                <i class="ph ph-chart-pie"></i> <span>Resumen</span>
-            </button>
-            <button class="pagos-tab" data-tab="historial">
-                <i class="ph ph-clock-counter-clockwise"></i> <span>Historial</span>
-            </button>
-            <button class="pagos-tab" data-tab="deudas">
-                <i class="ph ph-receipt"></i> <span>Deudas</span>
-            </button>
-        </div>
+<dialog id="modal-pagos" class="modal-dialog modal-lg">
 
-        <div id="pagos-resumen" class="pagos-tab-content active">
-            <div class="pagos-skeleton">
-                <div class="skeleton-item"></div>
-                <div class="skeleton-item"></div>
+    {# ── HEADER ── #}
+    <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:.6rem">
+            <i class="ph ph-credit-card" style="color:var(--color-primary,#f59e0b)"></i>
+            <h3 class="modal-title">Mis Pagos</h3>
+            <span id="mp-condicion-badge" class="mp-badge"></span>
+        </div>
+        <button class="modal-close" onclick="Modal.close('modal-pagos')">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+
+    {# ── KPIs + TABS (sin scroll) ── #}
+    <div class="modal-body" style="padding-bottom:0">
+
+        <div class="mp-resumen-header">
+            <div class="mp-resumen-item mp-deuda">
+                <label>Deuda pendiente</label>
+                <strong>S/ <span id="mp-deuda-total">—</span></strong>
+            </div>
+            <div class="mp-resumen-item mp-revision">
+                <label>En revisión</label>
+                <strong>S/ <span id="mp-en-revision">—</span></strong>
+            </div>
+            <div class="mp-resumen-item mp-pagado">
+                <label>Pagado (histórico)</label>
+                <strong>S/ <span id="mp-total-pagado">—</span></strong>
             </div>
         </div>
-        <div id="pagos-historial" class="pagos-tab-content">
-            <div class="pagos-empty"><i class="ph ph-receipt"></i><p>Cargando historial...</p></div>
-        </div>
-        <div id="pagos-deudas" class="pagos-tab-content">
-            <div class="pagos-empty"><i class="ph ph-list-checks"></i><p>Cargando deudas...</p></div>
+
+        <div class="mp-tabs">
+            <button data-pagos-tab="deudas" class="active">
+                <i class="ph ph-receipt"></i>
+                <span>Deudas</span>
+            </button>
+            <button data-pagos-tab="servicios">
+                <i class="ph ph-storefront"></i>
+                <span>Servicios</span>
+            </button>
+            <button data-pagos-tab="historial">
+                <i class="ph ph-clock-counter-clockwise"></i>
+                <span>Historial</span>
+            </button>
         </div>
     </div>
+
+    {# ── PANELS (con scroll) ── #}
+    <div class="modal-body" style="padding-top:.5rem;overflow-y:auto;max-height:62vh">
+
+        <div data-pagos-panel="deudas" class="active">
+            <div id="mp-panel-deudas">
+                <div class="mp-loading">
+                    <div class="mp-spinner"></div>
+                    <span>Cargando...</span>
+                </div>
+            </div>
+        </div>
+
+        <div data-pagos-panel="servicios">
+            <div id="mp-panel-servicios">
+                <div class="mp-loading">
+                    <div class="mp-spinner"></div>
+                    <span>Cargando catálogo...</span>
+                </div>
+            </div>
+        </div>
+
+        <div data-pagos-panel="historial">
+            <div id="mp-panel-historial">
+                <div class="mp-loading">
+                    <div class="mp-spinner"></div>
+                    <span>Cargando historial...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 </dialog>
