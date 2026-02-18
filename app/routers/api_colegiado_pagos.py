@@ -76,14 +76,14 @@ async def get_mis_pagos(
     )
     deuda_total = sum(d.balance for d in deudas_query.all()) if deudas_query.count() > 0 else 0
 
-    total_pagado = db.query(func.coalesce(func.sum(Payment.monto), 0)).filter(
+    total_pagado = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
         Payment.colegiado_id == colegiado.id,
-        Payment.estado == "approved"
+        Payment.status == "approved"
     ).scalar() or 0
 
-    en_revision = db.query(func.coalesce(func.sum(Payment.monto), 0)).filter(
+    en_revision = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
         Payment.colegiado_id == colegiado.id,
-        Payment.estado == "review"
+        Payment.status == "review"
     ).scalar() or 0
 
     resumen = {
@@ -91,7 +91,7 @@ async def get_mis_pagos(
         "total_pagado": float(total_pagado),
         "en_revision": float(en_revision),
         "cuotas_pendientes": deudas_query.filter(
-            Debt.concepto_cobro.has(es_cuota_mensual=True)
+            Debt.debt_type == "cuota_ordinaria"
         ).count()
     }
 
@@ -103,19 +103,15 @@ async def get_mis_pagos(
 
     deudas = []
     for d in deudas_raw:
-        concepto = db.query(ConceptoCobro).filter(
-            ConceptoCobro.id == d.concepto_cobro_id
-        ).first() if hasattr(d, 'concepto_cobro_id') and d.concepto_cobro_id else None
-
         deudas.append({
-            "id": d.id,
-            "concepto": concepto.nombre if concepto else (d.description or "Cuota"),
-            "concepto_corto": concepto.nombre_corto if concepto else "",
-            "periodo": d.period_label if hasattr(d, 'period_label') else "",
-            "vencimiento": d.due_date.isoformat() if d.due_date else None,
-            "monto_original": float(d.amount) if hasattr(d, 'amount') else float(d.balance),
-            "balance": float(d.balance),
-            "categoria": concepto.categoria if concepto else "cuotas",
+            "id":             d.id,
+            "concepto":       d.concept or "Cuota",
+            "concepto_corto": d.concept or "Cuota",
+            "periodo":        d.periodo or "",
+            "vencimiento":    d.due_date.isoformat() if d.due_date else None,
+            "monto_original": float(d.amount),
+            "balance":        float(d.balance),
+            "categoria":      d.debt_type or "cuotas",
         })
 
     # --- CATÁLOGO DE SERVICIOS ---
@@ -170,13 +166,14 @@ async def get_mis_pagos(
     historial = []
     for p in pagos_raw:
         historial.append({
-            "id": p.id,
-            "fecha": p.created_at.strftime("%d %b %Y") if p.created_at else "",
-            "concepto": p.concepto if hasattr(p, 'concepto') else "Pago",
-            "monto": float(p.monto),
-            "metodo": p.metodo_pago if hasattr(p, 'metodo_pago') else "",
-            "operacion": p.numero_operacion if hasattr(p, 'numero_operacion') else "",
-            "estado": p.estado,
+            "id":             p.id,
+            "fecha":          p.created_at.strftime("%d %b %Y") if p.created_at else "",
+            "concepto":       p.notes or "Pago",
+            "monto":          float(p.amount),
+            "metodo":         p.payment_method or "",
+            "operacion":      p.operation_code or "",
+            "estado":         p.status,
+            "rechazo_motivo": p.rejection_reason or None,
         })
 
     return {
