@@ -71,7 +71,7 @@ window.ModalPagos = {
                     <i class="ph ph-x"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding-bottom:0">
+            <div class="modal-body" style="padding-bottom:0;overflow:hidden">
                 <div class="mp-resumen-header">
                     <div class="mp-resumen-item mp-deuda">
                         <label>Deuda pendiente</label>
@@ -98,7 +98,7 @@ window.ModalPagos = {
                     </button>
                 </div>
             </div>
-            <div class="modal-body" style="padding-top:.5rem;overflow-y:auto;max-height:62vh">
+            <div class="modal-body" style="padding-top:.5rem;overflow-x:hidden;overflow-y:auto;max-height:62vh">
                 <div data-pagos-panel="deudas" class="active">
                     <div id="mp-panel-deudas">
                         <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando...</span></div>
@@ -471,7 +471,7 @@ window.ModalPagos = {
         const s = document.createElement('style');
         s.id = 'mp-styles';
         s.textContent = `
-.mp-tabs{display:flex;gap:0;border-bottom:2px solid var(--color-border,#2a2a3a);margin:0 -1.25rem;padding:0 1.25rem}
+.mp-tabs{display:flex;gap:0;border-bottom:2px solid var(--color-border,#2a2a3a);overflow-x:auto;scrollbar-width:none}
 [data-pagos-tab]{display:flex;align-items:center;gap:.4rem;padding:.65rem 1rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--color-text-muted,#999);font-size:.85rem;font-weight:500;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap}
 [data-pagos-tab]:hover{color:var(--color-text,#eee)}
 [data-pagos-tab].active{color:var(--color-primary,#f59e0b);border-bottom-color:var(--color-primary,#f59e0b)}
@@ -508,7 +508,7 @@ window.ModalPagos = {
 .mp-fraccionar-box strong{display:block;font-size:.84rem;color:var(--color-text,#eee)}
 .mp-fraccionar-box p{margin:.15rem 0 0;color:var(--color-text-muted,#999)}
 .mp-cat-pills{display:flex;gap:.45rem;overflow-x:auto;padding-bottom:.6rem;margin-bottom:.75rem;scrollbar-width:none}
-.mp-cat-pills::-webkit-scrollbar{display:none}
+.mp-cat-pills::-webkit-scrollbar{display:none}.mp-tabs::-webkit-scrollbar{display:none}
 .mp-cat-pill{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:999px;color:var(--color-text-muted,#999);font-size:.78rem;font-weight:500;white-space:nowrap;cursor:pointer;transition:all .15s}
 .mp-cat-pill:hover,.mp-cat-pill.active{border-color:var(--cat-color,#f59e0b);color:var(--cat-color,#f59e0b)}
 .mp-cat-pill.active{background:rgba(245,158,11,.1)}
@@ -528,7 +528,7 @@ window.ModalPagos = {
 .mp-item-precio{font-size:.9rem;font-weight:700;color:var(--color-primary,#f59e0b);white-space:nowrap}
 .mp-item-en-carrito{display:flex;align-items:center;gap:.4rem}
 .mp-item-en-carrito input{width:52px;padding:.25rem .4rem;background:var(--color-bg,#12121f);border:1px solid var(--color-border,#2a2a3a);color:var(--color-text,#eee);border-radius:6px;font-size:.82rem;text-align:center}
-.mp-carrito-footer{display:none;position:sticky;bottom:0;background:var(--color-bg-card,#1e1e2e);border-top:1px solid var(--color-border,#2a2a3a);margin:0 -1.25rem -1rem;padding:.75rem 1.25rem;justify-content:space-between;align-items:center;gap:.75rem;z-index:10}
+.mp-carrito-footer{display:none;position:sticky;bottom:0;background:var(--color-bg-card,#1e1e2e);border-top:1px solid var(--color-border,#2a2a3a);padding:.75rem 1rem;justify-content:space-between;align-items:center;gap:.75rem;z-index:10}
 .mp-carrito-footer--visible{display:flex}
 .mp-carrito-info{display:flex;align-items:center;gap:.6rem;font-size:.88rem;color:var(--color-text,#eee)}
 .mp-carrito-info i{font-size:1.1rem;color:#f59e0b}
