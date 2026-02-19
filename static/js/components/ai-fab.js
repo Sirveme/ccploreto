@@ -643,6 +643,13 @@ const AIFab = {
         container.innerHTML = `
             <form id="form-pago-rapido" onsubmit="window.AIFab.enviarPagoRapido(event)">
                 <input type="hidden" name="colegiado_id" value="${colegiado.id || ''}">
+                ${colegiado.deuda?.mes_hasta ? `<input type="hidden" name="meta_cuotas" value='${JSON.stringify({
+                    mes_desde:     colegiado.deuda.mes_desde     || 1,
+                    mes_hasta:     colegiado.deuda.mes_hasta,
+                    anio:          colegiado.deuda.anio          || new Date().getFullYear(),
+                    descuento_pct: colegiado.deuda.descuento_pct || 0,
+                    n_cuotas:      colegiado.deuda.cantidad_cuotas || 1,
+                })}'>` : ''}
                 
                 <!-- Header con avatar -->
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
@@ -751,6 +758,16 @@ const AIFab = {
                 
                 <!-- Resultado -->
                 <div id="pago-rapido-resultado"></div>
+
+                // Dentro del form, antes del botón submit:
+                ${colegiado.deuda?.mes_hasta ? `
+                <input type="hidden" name="meta_cuotas" value='${JSON.stringify({
+                    mes_desde:  colegiado.deuda.mes_desde,
+                    mes_hasta:  colegiado.deuda.mes_hasta,
+                    anio:       colegiado.deuda.anio,
+                    descuento_pct: colegiado.deuda.descuento_pct || 0,
+                    n_cuotas:   colegiado.deuda.cantidad_cuotas,
+                })}'>` : ''}
                 
                 <!-- Botón Submit -->
                 <button type="submit" id="btn-pago-rapido" 
