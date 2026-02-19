@@ -179,6 +179,55 @@ async def get_mis_pagos(
             "rechazo_motivo": p.rejection_reason or None,
         })
 
+    
+    # ── CUOTAS INFO (para tab Deudas de hábiles) ────────────────
+    from datetime import date as dt_date
+
+    hoy             = dt_date.today()
+    anio_actual     = hoy.year
+    mes_pagado      = getattr(colegiado, 'mes_pagado_hasta', 0)  or 0
+    anio_pagado     = getattr(colegiado, 'anio_pagado_hasta', anio_actual) or anio_actual
+    monto_cuota     = getattr(colegiado, 'monto_cuota_mensual', None)
+
+    # Si no hay monto en el colegiado, buscarlo en conceptos
+    if not monto_cuota:
+        cuota_concepto = db.query(ConceptoCobro).filter(
+            ConceptoCobro.organization_id == member.organization_id,
+            ConceptoCobro.es_cuota_mensual == True,
+            ConceptoCobro.activo == True,
+        ).first()
+        monto_cuota = float(cuota_concepto.monto_base) if cuota_concepto else 20.0
+
+    # Si el año pagado es anterior al actual, resetear mes a 0
+    if anio_pagado < anio_actual:
+        mes_pagado = 0
+        anio_pagado = anio_actual
+
+    cuotas_pendientes = 12 - mes_pagado
+
+    # Descuento por pronto pago
+    if hoy.month <= 2:
+        descuento_pct        = 0.20
+        ultimo_dia_mes       = 28 if hoy.year % 4 != 0 else 29  # febrero
+        descuento_valido_hasta = f"28 Feb {anio_actual}"
+    elif hoy.month == 3:
+        descuento_pct          = 0.10
+        descuento_valido_hasta = f"31 Mar {anio_actual}"
+    else:
+        descuento_pct          = 0.00
+        descuento_valido_hasta = None
+
+    cuotas_info = {
+        "mes_pagado_hasta":     mes_pagado,
+        "anio_pagado_hasta":    anio_actual,
+        "cuotas_pendientes":    cuotas_pendientes,
+        "monto_cuota":          monto_cuota,
+        "mes_inicio_pago":      mes_pagado + 1,
+        "descuento_pct":        descuento_pct,
+        "descuento_valido_hasta": descuento_valido_hasta,
+    } if cuotas_pendientes > 0 else None
+    
+    
     return {
         "colegiado": {
             "id":        colegiado.id,
@@ -187,6 +236,7 @@ async def get_mis_pagos(
             "dni":       getattr(colegiado, 'dni', '') or '',
             "condicion": getattr(colegiado, 'condicion', 'habil') or 'habil',
             "es_habil":  (getattr(colegiado, 'condicion', '') or '').lower() == 'habil',
+            "cuotas_info": cuotas_info,
         },
         "resumen": resumen,
         "deudas": deudas,

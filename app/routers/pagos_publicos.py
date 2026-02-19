@@ -150,6 +150,7 @@ async def registrar_pago(
     pagador_nombre: str = Form(None),
     pagador_documento: str = Form(None),
     notas: str = Form(None),
+    meta_cuotas: str = Form(None),   # JSON {mes_desde, mes_hasta, anio, n_cuotas}
     voucher: UploadFile = File(None),
     tipo_comprobante: str = Form("recibo"),       # ← NUEVO
     ruc_factura: str = Form(None),                 # ← NUEVO
@@ -214,7 +215,7 @@ async def registrar_pago(
         pagador_nombre=pagador_nombre if pagador_tipo != "titular" else None,
         pagador_documento=pagador_documento if pagador_tipo != "titular" else None,
         status="review",
-        notes=notas
+        notes=meta_cuotas or notas   # meta_cuotas tiene prioridad si viene de selector de cuotas
     )
     
     db.add(nuevo_pago)
