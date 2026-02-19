@@ -77,12 +77,12 @@ async def get_mis_pagos(
     deuda_total = sum(d.balance for d in deudas_query.all()) if deudas_query.count() > 0 else 0
 
     total_pagado = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
-        Payment.colegiado_id == colegiado.id,
+        or_(Payment.colegiado_id == colegiado.id, Payment.member_id == member.id),
         Payment.status == "approved"
     ).scalar() or 0
 
     en_revision = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
-        Payment.colegiado_id == colegiado.id,
+        or_(Payment.colegiado_id == colegiado.id, Payment.member_id == member.id),
         Payment.status == "review"
     ).scalar() or 0
 
@@ -160,7 +160,10 @@ async def get_mis_pagos(
 
     # --- HISTORIAL ---
     pagos_raw = db.query(Payment).filter(
-        Payment.colegiado_id == colegiado.id
+        or_(
+            Payment.colegiado_id == colegiado.id,
+            Payment.member_id == member.id,
+        )
     ).order_by(Payment.created_at.desc()).limit(30).all()
 
     historial = []
