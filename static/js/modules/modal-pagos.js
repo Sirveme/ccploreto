@@ -376,29 +376,51 @@ window.ModalPagos = {
     // ── ACCIONES PAGO ────────────────────────────────────────
     _pagarDeuda(id) {
         const deuda = this.data?.deudas?.find(d => d.id === id);
-        if (!deuda) return;
-        if (typeof AIFab !== 'undefined') {
-            AIFab.openPagoFormPrellenado({
-                ...this._colegiadoCtx(),
-                concepto: deuda.concepto + (deuda.periodo ? ' ' + deuda.periodo : ''),
-                monto_sugerido: deuda.balance,
-                debt_id: deuda.id,
-            });
-        }
+        if (!deuda || typeof AIFab === 'undefined') return;
+        const col = this.data?.colegiado;
+        const resumen = this.data?.resumen ?? {};
+        // Formato exacto que lee llenarFormularioPago() en ai-fab.js
+        AIFab.openPagoFormPrellenado({
+            id:        col?.id        ?? window.APP_CONFIG?.user?.id       ?? null,
+            nombre:    col?.nombre    ?? window.APP_CONFIG?.user?.name     ?? '',
+            matricula: col?.matricula ?? window.APP_CONFIG?.user?.matricula ?? '',
+            dni:       col?.dni       ?? '',
+            deuda: {
+                deuda_total:     deuda.balance,
+                total:           deuda.balance,
+                cantidad_cuotas: 1,
+                en_revision:     resumen.en_revision ?? 0,
+                debt_id:         deuda.id,
+                concepto:        deuda.concepto + (deuda.periodo ? ' ' + deuda.periodo : ''),
+            },
+        });
         this._cerrar();
     },
 
     _pagarCarrito() {
-        if (!this.carrito.length) return;
-        const total   = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
-        const concepto = this.carrito.map(c => c.cantidad > 1 ? `${c.cantidad}x ${c.nombre}` : c.nombre).join(', ');
-        if (typeof AIFab !== 'undefined') {
-            AIFab.openPagoFormPrellenado({
-                ...this._colegiadoCtx(),
-                concepto, monto_sugerido: total,
-                items_carrito: this.carrito.map(c => ({ concepto_id: c.id, nombre: c.nombre, cantidad: c.cantidad, precio: c.precio })),
-            });
-        }
+        if (!this.carrito.length || typeof AIFab === 'undefined') return;
+        const total    = this.carrito.reduce((s, c) => s + c.precio * c.cantidad, 0);
+        const concepto = this.carrito
+            .map(c => c.cantidad > 1 ? c.cantidad + 'x ' + c.nombre : c.nombre)
+            .join(', ');
+        const col     = this.data?.colegiado;
+        const resumen = this.data?.resumen ?? {};
+        AIFab.openPagoFormPrellenado({
+            id:        col?.id        ?? window.APP_CONFIG?.user?.id       ?? null,
+            nombre:    col?.nombre    ?? window.APP_CONFIG?.user?.name     ?? '',
+            matricula: col?.matricula ?? window.APP_CONFIG?.user?.matricula ?? '',
+            dni:       col?.dni       ?? '',
+            deuda: {
+                deuda_total:     total,
+                total:           total,
+                cantidad_cuotas: this.carrito.length,
+                en_revision:     resumen.en_revision ?? 0,
+                concepto,
+                items: this.carrito.map(c => ({
+                    concepto_id: c.id, nombre: c.nombre, cantidad: c.cantidad, precio: c.precio,
+                })),
+            },
+        });
         this._cerrar();
     },
 
