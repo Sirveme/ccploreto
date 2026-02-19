@@ -98,7 +98,7 @@ window.ModalPagos = {
                     </button>
                 </div>
             </div>
-            <div class="modal-body" style="padding-top:.5rem;overflow-x:hidden;overflow-y:auto;max-height:62vh">
+            <div class="modal-body" style="padding-top:.5rem;overflow-x:hidden;overflow-y:auto;min-height:320px;max-height:62vh">
                 <div data-pagos-panel="deudas" class="active">
                     <div id="mp-panel-deudas">
                         <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando...</span></div>
@@ -164,8 +164,10 @@ window.ModalPagos = {
         const { resumen, colegiado } = this.data;
         const badge = document.getElementById('mp-condicion-badge');
         if (badge && colegiado) {
-            badge.textContent = colegiado.es_habil ? 'Hábil' : 'Inhábil';
-            badge.className   = `mp-badge mp-badge--${colegiado.es_habil ? 'habil' : 'inhabil'}`;
+            const condicion = (colegiado.condicion || '').toLowerCase();
+            const esHabil   = condicion === 'habil' || colegiado.es_habil === true;
+            badge.textContent = esHabil ? 'Hábil' : (condicion || 'Inhábil');
+            badge.className   = 'mp-badge mp-badge--' + (esHabil ? 'habil' : condicion || 'inhabil');
         }
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = this._fmt(val); };
         set('mp-deuda-total',  resumen.deuda_total);
