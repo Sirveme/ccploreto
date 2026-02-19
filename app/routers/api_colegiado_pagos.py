@@ -9,7 +9,7 @@ Sirve catálogo, deudas pendientes e historial de pagos.
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
@@ -117,9 +117,9 @@ async def get_mis_pagos(
     # --- CATÁLOGO DE SERVICIOS ---
     # Solo items activos que NO generan deuda automática (son compras on-demand)
     conceptos = db.query(ConceptoCobro).filter(
-        ConceptoCobro.organization_id == colegiado.organization_id,
+        ConceptoCobro.organization_id == member.organization_id,
         ConceptoCobro.activo == True,
-        ConceptoCobro.genera_deuda == False,
+        or_(ConceptoCobro.genera_deuda == False, ConceptoCobro.genera_deuda == None),
     ).order_by(ConceptoCobro.orden).all()
 
     catalogo = []
