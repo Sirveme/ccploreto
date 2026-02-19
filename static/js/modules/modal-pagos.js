@@ -60,6 +60,7 @@ window.ModalPagos = {
     },
 
     _buildModalHTML(modal) {
+        modal.style.cssText = 'display:flex;flex-direction:column;padding:0;overflow:hidden';
         modal.innerHTML = `
             <div class="modal-header">
                 <div style="display:flex;align-items:center;gap:.6rem">
@@ -567,7 +568,9 @@ window.ModalPagos = {
 .mp-item{flex-wrap:wrap}
 .mp-item-acciones{width:100%;justify-content:flex-end}
 .mp-cat-pill-label{display:none}
-}`;
+}
+#modal-pagos{display:flex!important;flex-direction:column;overflow:hidden}
+#modal-pagos .modal-body:last-child{flex:1;overflow-y:auto;overflow-x:hidden}`;
         document.head.appendChild(s);
     },
 };
