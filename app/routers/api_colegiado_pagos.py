@@ -181,11 +181,12 @@ async def get_mis_pagos(
 
     return {
         "colegiado": {
-            "id": colegiado.id,
-            "nombre": colegiado.apellidos_nombres,
+            "id":        colegiado.id,
+            "nombre":    colegiado.apellidos_nombres,
             "matricula": colegiado.codigo_matricula,
-            "dni": colegiado.dni if hasattr(colegiado, 'dni') else "",
-            "es_habil": colegiado.es_habil if hasattr(colegiado, 'es_habil') else False,
+            "dni":       getattr(colegiado, 'dni', '') or '',
+            "condicion": getattr(colegiado, 'condicion', 'habil') or 'habil',
+            "es_habil":  (getattr(colegiado, 'condicion', '') or '').lower() == 'habil',
         },
         "resumen": resumen,
         "deudas": deudas,
