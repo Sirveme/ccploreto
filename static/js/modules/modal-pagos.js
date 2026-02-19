@@ -45,22 +45,30 @@ window.ModalPagos = {
     },
 
     // ── ABRIR ────────────────────────────────────────────────
-    async open() {
+    async open(tabInicial) {
         const modal = document.getElementById('modal-pagos');
-        if (!modal) return;
+        if (!modal || this._abriendo) return;
+        this._abriendo = true;
 
-        // Reconstruir HTML — no importa qué versión del fragment esté en el servidor
-        this._buildModalHTML(modal);
+        // Solo reconstruir si no tiene ya nuestra estructura
+        if (!document.getElementById('mp-panel-deudas')) {
+            this._buildModalHTML(modal);
+        }
 
         if (typeof Modal !== 'undefined') Modal.open('modal-pagos');
         else modal.classList.add('open', 'active');
 
+        if (tabInicial) this.tabActiva = tabInicial;
+
         if (!this.data) await this._cargarDatos();
         else { this._renderTodo(); this.switchTab(this.tabActiva); }
+
+        // Liberar flag con un pequeño delay para evitar doble-apertura
+        setTimeout(() => { this._abriendo = false; }, 500);
     },
 
     _buildModalHTML(modal) {
-        modal.style.cssText = 'display:flex;flex-direction:column;padding:0;overflow:hidden';
+        // Un solo modal-body — evita conflicto con el flex del modal system
         modal.innerHTML = `
             <div class="modal-header">
                 <div style="display:flex;align-items:center;gap:.6rem">
@@ -72,7 +80,7 @@ window.ModalPagos = {
                     <i class="ph ph-x"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding-bottom:0;overflow:hidden">
+            <div class="modal-body">
                 <div class="mp-resumen-header">
                     <div class="mp-resumen-item mp-deuda">
                         <label>Deuda pendiente</label>
@@ -87,6 +95,7 @@ window.ModalPagos = {
                         <strong>S/ <span id="mp-total-pagado">—</span></strong>
                     </div>
                 </div>
+
                 <div class="mp-tabs">
                     <button data-pagos-tab="deudas" class="active">
                         <i class="ph ph-receipt"></i><span>Deudas</span>
@@ -98,25 +107,27 @@ window.ModalPagos = {
                         <i class="ph ph-clock-counter-clockwise"></i><span>Historial</span>
                     </button>
                 </div>
-            </div>
-            <div class="modal-body" style="padding-top:.5rem;overflow-x:hidden;overflow-y:auto;min-height:320px;max-height:62vh">
-                <div data-pagos-panel="deudas" class="active">
-                    <div id="mp-panel-deudas">
-                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando...</span></div>
+
+                <div class="mp-panels">
+                    <div data-pagos-panel="deudas" class="active">
+                        <div id="mp-panel-deudas">
+                            <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando...</span></div>
+                        </div>
                     </div>
-                </div>
-                <div data-pagos-panel="servicios">
-                    <div id="mp-panel-servicios">
-                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando catálogo...</span></div>
+                    <div data-pagos-panel="servicios">
+                        <div id="mp-panel-servicios">
+                            <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando catálogo...</span></div>
+                        </div>
                     </div>
-                </div>
-                <div data-pagos-panel="historial">
-                    <div id="mp-panel-historial">
-                        <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando historial...</span></div>
+                    <div data-pagos-panel="historial">
+                        <div id="mp-panel-historial">
+                            <div class="mp-loading"><div class="mp-spinner"></div><span>Cargando historial...</span></div>
+                        </div>
                     </div>
                 </div>
             </div>`;
     },
+
 
     async _cargarDatos() {
         if (this.isLoading) return;
@@ -479,6 +490,7 @@ window.ModalPagos = {
 [data-pagos-tab]:hover{color:var(--color-text,#eee)}
 [data-pagos-tab].active{color:var(--color-primary,#f59e0b);border-bottom-color:var(--color-primary,#f59e0b)}
 [data-pagos-tab] i{font-size:1rem}
+.mp-panels{overflow-y:auto;overflow-x:hidden;min-height:300px;max-height:55vh}
 [data-pagos-panel]{display:none;padding:1rem 0}
 [data-pagos-panel].active{display:block}
 .mp-resumen-header{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.75rem}
@@ -569,8 +581,7 @@ window.ModalPagos = {
 .mp-item-acciones{width:100%;justify-content:flex-end}
 .mp-cat-pill-label{display:none}
 }
-#modal-pagos{display:flex!important;flex-direction:column;overflow:hidden}
-#modal-pagos .modal-body:last-child{flex:1;overflow-y:auto;overflow-x:hidden}`;
+`;
         document.head.appendChild(s);
     },
 };
