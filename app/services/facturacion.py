@@ -31,9 +31,9 @@ from app.models import (
     ConfiguracionFacturacion,
     Payment,
     Colegiado,
-    Debt,
     Organization
 )
+from app.models_debt_management import Debt
 
 logger = logging.getLogger(__name__)
 
