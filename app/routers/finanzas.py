@@ -470,7 +470,7 @@ async def ws_finanzas(websocket: WebSocket):
 
 
 
-@router.get("/api/caja/situacion/{colegiado_id}")
+@router.get("/situacion/{colegiado_id}")
 async def situacion_colegiado_caja(
     colegiado_id: int,
     db: Session = Depends(get_db),
