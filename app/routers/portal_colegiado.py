@@ -185,6 +185,9 @@ async def mi_deuda(
     """
     colegiado = _get_colegiado(member, db)
 
+    # DEBUG TEMPORAL — quitar después
+    print(f"[DEBUG] colegiado.id = {colegiado.id}")
+
     # ── Deudas pendientes o parciales ─────────────────────────────────────
     deudas_qs = (
         db.query(Debt)
@@ -196,6 +199,10 @@ async def mi_deuda(
         .order_by(Debt.periodo.asc())
         .all()
     )
+
+    # DEBUG TEMPORAL — quitar después
+    print(f"[DEBUG] deudas encontradas = {len(deudas_qs)}")
+    print(f"[DEBUG] total = {sum(float(d.balance or 0) for d in deudas_qs)}")
 
     total = sum(float(d.balance or 0) for d in deudas_qs)
 
