@@ -26,10 +26,11 @@ from fastapi.responses import StreamingResponse
 
 from app.database import get_db
 from app.models import (
-    Colegiado, Debt, Payment, Comprobante, ConceptoCobro,
+    Colegiado, Payment, Comprobante, ConceptoCobro,
     UsuarioAdmin, CentroCosto, Organization,
     ConfiguracionFacturacion
 )
+from app.models_debt_management import Debt
 
 from starlette.responses import StreamingResponse
 import httpx
