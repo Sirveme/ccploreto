@@ -481,13 +481,13 @@ const P = {
         const grupos = {}; // { '2025': { label, items: [], subtotal } }
 
         deudas.forEach(d => {
-            // Extraer año del periodo "MM/YYYY" o de vencimiento
+            // periodo puede ser '2024-01', '2024', '2007' etc. — extraer año
             let anio = '?';
             if (d.periodo) {
-                const m = d.periodo.match(/\d{4}/);
-                if (m) anio = m[0];
-            } else if (d.fecha_venc) {
-                anio = d.fecha_venc.slice(-4) || '?';
+                const m = d.periodo.match(/(\d{4})/);
+                if (m) anio = m[1];
+            } else if (d.due_date) {
+                anio = String(d.due_date).slice(0, 4);
             }
             if (!grupos[anio]) grupos[anio] = { items: [], subtotal: 0 };
             grupos[anio].items.push(d);
@@ -519,8 +519,8 @@ const P = {
                     <div class="dyear-body ${abierto ? 'open' : ''}" id="y${anio}">
                         ${g.items.map(d => `
                             <div class="drow">
-                                <div class="dconcept">${d.concepto}</div>
-                                <div class="ddate">${d.fecha_venc || d.periodo || ''}</div>
+                                <div class="dconcept">${d.concept || d.concepto || ''}</div>
+                                <div class="ddate">${d.period_label || d.periodo || ''}</div>
                                 <div class="damount" style="color:${parseFloat(d.balance) > 100 ? 'var(--red)' : 'var(--tx)'}">
                                     S/ ${this.fmt(d.balance)}
                                 </div>
