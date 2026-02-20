@@ -379,6 +379,9 @@ function selCol(col) {
     b.className = `badge badge-${col.habilitado ? 'ok' : 'no'}`;
     cargarDeudas(col.id);
     cambiarTab('deudas');
+
+    // ← AÑADIR ESTA LÍNEA:
+    if (!col.habilitado) cargarSituacion(col);
 }
 
 function limpiarCol() {
@@ -389,6 +392,9 @@ function limpiarCol() {
     carrito = carrito.filter(i => i.tipo !== 'deuda');
     renderCarrito();
     document.getElementById('searchInput').focus();
+
+    // ← AÑADIR ESTA LÍNEA:
+    limpiarSituacion();
 }
 
 
@@ -1285,4 +1291,264 @@ function verificarPagoDigital(monto, metodo, paymentId) {
 
 function reiniciarVerifCaja(monto, metodo, paymentId) {
     verificarPagoDigital(monto, metodo, paymentId);
+}
+
+
+
+/* =====================================================
+    FUNCIONES PARA QUE CAJE VEA DEUDAS DE INHÁBILES
+    Y PROPONGA FRACCIONAMIENTOS EN LOS PAGOS
+ ========================================================*/
+ /* ══════════════════════════════════════════════════
+   SITUACIÓN COLEGIADO INHÁBIL
+   ══════════════════════════════════════════════════ */
+
+let _situacion = null;   // cache del último fetch
+
+async function cargarSituacion(col) {
+    // Solo para inhábiles
+    if (col.habilitado) { limpiarSituacion(); return; }
+
+    try {
+        const r = await fetch(`/api/caja/situacion/${col.id}`);
+        if (!r.ok) return;
+        _situacion = await r.json();
+        renderSituacion(_situacion);
+    } catch (e) {
+        console.warn('[CAJA] Error cargando situación:', e);
+    }
+}
+
+function limpiarSituacion() {
+    _situacion = null;
+    const el = document.getElementById('panel-situacion');
+    if (el) el.remove();
+}
+
+function renderSituacion(data) {
+    // Quitar panel anterior si existe
+    limpiarSituacion();
+
+    const { deudas, total, califica_fraccionamiento, plan_activo, campana } = data;
+
+    // Agrupar por año
+    const grupos = {};
+    deudas.forEach(d => {
+        const m = (d.periodo || '').match(/(\d{4})/);
+        const anio = m ? m[1] : 'Sin año';
+        if (!grupos[anio]) grupos[anio] = { items: [], subtotal: 0 };
+        grupos[anio].items.push(d);
+        grupos[anio].subtotal += d.balance;
+    });
+    const anios = Object.keys(grupos).sort((a, b) => parseInt(b) - parseInt(a));
+
+    // Banner campaña
+    const campBanner = campana ? `
+        <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+                    border-radius:10px;padding:10px 14px;margin-bottom:12px;
+                    display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">🎯</span>
+            <div>
+                <div style="font-size:12px;font-weight:700;color:#f59e0b">${campana.nombre} — ${Math.round(campana.descuento_pct*100)}% dto.</div>
+                <div style="font-size:11px;color:#94a3b8">${campana.descripcion} · Hasta ${campana.fecha_fin}</div>
+            </div>
+        </div>` : '';
+
+    // Deuda por año
+    const deudaHTML = anios.map((anio, idx) => `
+        <div style="margin-bottom:6px;border:1px solid rgba(239,68,68,.15);border-radius:10px;overflow:hidden">
+            <div onclick="toggleSitAnio('sit-${anio}')"
+                 style="display:flex;align-items:center;justify-content:space-between;
+                        padding:10px 14px;cursor:pointer;background:rgba(239,68,68,.04)">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:13px;font-weight:700">${anio}</span>
+                    <span style="font-size:10px;color:#94a3b8;background:rgba(255,255,255,.06);
+                                 padding:2px 8px;border-radius:20px">
+                        ${grupos[anio].items.length} concepto${grupos[anio].items.length > 1 ? 's' : ''}
+                    </span>
+                </div>
+                <span style="font-size:13px;font-weight:700;color:${grupos[anio].subtotal > 100 ? '#f87171' : '#e2e8f0'}">
+                    S/ ${grupos[anio].subtotal.toFixed(2)}
+                </span>
+            </div>
+            <div id="sit-${anio}" style="display:${idx === 0 ? 'block' : 'none'}">
+                ${grupos[anio].items.map(d => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;
+                                padding:8px 14px;border-top:1px solid rgba(255,255,255,.04);
+                                font-size:12px">
+                        <div>
+                            <div style="font-weight:600;color:#e2e8f0">${d.concept}</div>
+                            <div style="color:#64748b">${d.period_label || d.periodo || ''}</div>
+                        </div>
+                        <div style="font-weight:700;color:#fca5a5">S/ ${d.balance.toFixed(2)}</div>
+                    </div>`).join('')}
+            </div>
+        </div>`).join('');
+
+    // Simulador de fraccionamiento (visible solo si califica)
+    const simHTML = califica_fraccionamiento ? `
+        <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);
+                    border-radius:10px;padding:14px;margin-top:14px">
+            <div style="font-size:12px;font-weight:700;color:#818cf8;margin-bottom:10px">
+                🧮 Simulador de Fraccionamiento
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.5">
+                Deuda total: <strong style="color:#e2e8f0">S/ ${total.toFixed(2)}</strong> ·
+                Inicial mínima: <strong style="color:#e2e8f0">S/ ${(total * 0.20).toFixed(2)}</strong>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                <div>
+                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:4px">
+                        Cuota inicial (S/)
+                    </label>
+                    <input type="number" id="sit-fracc-ini" 
+                           min="${(total * 0.20).toFixed(2)}" step="10"
+                           value="${(total * 0.20).toFixed(2)}"
+                           oninput="calcSitFracc(${total})"
+                           style="width:100%;padding:8px 10px;background:rgba(15,23,42,.6);
+                                  border:1px solid rgba(99,102,241,.3);border-radius:8px;
+                                  color:#fff;font-size:13px;font-weight:700">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:#64748b;display:block;margin-bottom:4px">
+                        N° cuotas (máx. 12)
+                    </label>
+                    <select id="sit-fracc-n" onchange="calcSitFracc(${total})"
+                            style="width:100%;padding:8px 10px;background:rgba(15,23,42,.6);
+                                   border:1px solid rgba(99,102,241,.3);border-radius:8px;
+                                   color:#fff;font-size:13px">
+                        ${[2,3,4,6,8,10,12].map(n => `<option value="${n}">${n} cuotas</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div id="sit-fracc-result" style="font-size:11px;color:#94a3b8;text-align:center"></div>
+        </div>` : (plan_activo ? `
+        <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);
+                    border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12px">
+            📋 <strong style="color:#60a5fa">Plan de fraccionamiento activo</strong>
+            <div style="color:#94a3b8;margin-top:4px">El colegiado tiene un plan vigente en curso.</div>
+        </div>` : '');
+
+    // Botón constancia
+    const constanciaBtn = `
+        <button onclick="agregarConstanciaCaja()"
+                style="width:100%;margin-top:14px;padding:10px;border:none;border-radius:10px;
+                       font-size:12px;font-weight:700;cursor:pointer;
+                       background:linear-gradient(135deg,#059669,#10b981);color:#fff;
+                       display:flex;align-items:center;justify-content:center;gap:8px">
+            📜 Agregar Constancia de Habilidad al cobro
+            <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px">S/ 10</span>
+        </button>`;
+
+    // Beneficios rápidos
+    const beneficios = `
+        <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
+            <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;
+                        letter-spacing:1px;margin-bottom:8px">Al regularizarse recupera</div>
+            <div style="display:grid;gap:6px">
+                ${['🎓 Capacitaciones gratuitas del colegio',
+                   '💼 Acceso a bolsa laboral exclusiva',
+                   '📜 Constancia de Habilidad inmediata (S/ 10)',
+                   '🔔 Alertas tributarias en su celular',
+                   '🤝 Respaldo legal del colegio'].map(b => `
+                    <div style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px">
+                        ${b}
+                    </div>`).join('')}
+            </div>
+        </div>`;
+
+    // Panel completo
+    const panel = document.createElement('div');
+    panel.id = 'panel-situacion';
+    panel.innerHTML = `
+        <div style="background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);
+                    border-radius:12px;padding:14px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:12px;font-weight:700;color:#f87171;text-transform:uppercase;
+                            letter-spacing:.5px">⚠ Colegiado Inhábil</div>
+                <div style="font-size:16px;font-weight:800;color:#f87171">S/ ${total.toFixed(2)}</div>
+            </div>
+
+            ${campBanner}
+
+            <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;
+                        letter-spacing:1px;margin-bottom:8px">Deuda por año</div>
+            ${deudaHTML}
+            ${simHTML}
+            ${constanciaBtn}
+            ${beneficios}
+        </div>`;
+
+    // Insertar ANTES del panel de deudas existente
+    const panelDeudas = document.getElementById('panelDeudas');
+    panelDeudas.insertBefore(panel, panelDeudas.firstChild);
+
+    // Calcular resultado inicial del simulador
+    if (califica_fraccionamiento) calcSitFracc(total);
+}
+
+function toggleSitAnio(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function calcSitFracc(total) {
+    const ini = parseFloat(document.getElementById('sit-fracc-ini')?.value || 0);
+    const n   = parseInt(document.getElementById('sit-fracc-n')?.value || 3);
+    const res = document.getElementById('sit-fracc-result');
+    if (!res) return;
+
+    const minIni = total * 0.20;
+    if (ini < minIni) {
+        res.innerHTML = `<span style="color:#f59e0b">⚠ Mínimo S/ ${minIni.toFixed(2)}</span>`;
+        return;
+    }
+    const saldo = total - ini;
+    const cuota = saldo / n;
+    if (cuota < 100) {
+        res.innerHTML = `<span style="color:#f59e0b">⚠ Cuota mensual mínima S/ 100 — reduce el número de cuotas</span>`;
+        return;
+    }
+    res.innerHTML = `
+        <div style="background:rgba(99,102,241,.08);border-radius:8px;padding:10px;text-align:left;margin-top:6px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+                <div>
+                    <div style="font-size:10px;color:#64748b">Inicial</div>
+                    <div style="font-size:14px;font-weight:800;color:#818cf8">S/ ${ini.toFixed(2)}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b">x${n} cuotas</div>
+                    <div style="font-size:14px;font-weight:800;color:#818cf8">S/ ${cuota.toFixed(2)}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b">Total</div>
+                    <div style="font-size:14px;font-weight:800;color:#e2e8f0">S/ ${total.toFixed(2)}</div>
+                </div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#4ade80;text-align:center">
+                ✓ Al pagar la inicial → hábil inmediatamente
+            </div>
+        </div>`;
+}
+
+async function agregarConstanciaCaja() {
+    // Buscar concepto "Constancia de Habilidad" en el catálogo ya cargado
+    const conc = conceptosDisp.find(c =>
+        c.nombre?.toLowerCase().includes('constancia') ||
+        c.nombre?.toLowerCase().includes('habilidad')
+    );
+    if (conc) {
+        agregarConcepto(conc);   // función existente de caja.js
+        toast('Constancia de Habilidad agregada al cobro — S/ 10', 'ok');
+    } else {
+        // Fallback: agregar como ítem libre
+        carrito.push({
+            tipo:        'concepto',
+            concepto_id: null,
+            descripcion: 'Constancia de Habilidad Profesional',
+            monto:       10.00,
+        });
+        renderCarrito();
+        toast('Constancia S/ 10 agregada al cobro', 'ok');
+    }
 }
