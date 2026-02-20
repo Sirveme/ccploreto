@@ -1311,7 +1311,7 @@ async function cargarSituacion(col) {
     if (col.habilitado) { limpiarSituacion(); return; }
 
     try {
-        const r = await fetch(`/api/caja/situacion/${col.id}`);
+        const r = await fetch(`/api/finanzas/situacion/${col.id}`);
         if (!r.ok) return;
         _situacion = await r.json();
         renderSituacion(_situacion);
@@ -1585,7 +1585,7 @@ async function abrirModalInhabil(col) {
     document.body.style.overflow = 'hidden';
 
     try {
-        const r = await fetch(`/api/caja/situacion/${col.id}`);
+        const r = await fetch(`/api/finanzas/situacion/${col.id}`);
         if (!r.ok) throw new Error(r.status);
         _modalSit = await r.json();
         document.getElementById('modal-inhabil-inner').innerHTML = _renderModal(_modalSit);
