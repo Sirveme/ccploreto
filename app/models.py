@@ -308,31 +308,6 @@ class Pet(Base):
     owner = relationship("Member")
 
 
-class Debt(Base):
-    __tablename__ = "debts"
-    id = Column(Integer, primary_key=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"))
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=True)  # Para condominios
-    colegiado_id = Column(Integer, ForeignKey("colegiados.id"), nullable=True)  # Para colegios profesionales
-    
-    concept = Column(String)
-    periodo = Column(String, nullable=True)  # '2024-01', '2024-02'
-    amount = Column(Float)
-    balance = Column(Float)
-    status = Column(String, default="pending")  # pending, partial, paid
-    due_date = Column(DateTime(timezone=True), nullable=True)
-    attachment_url = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    debt_type = Column(String(30), default="cuota_ordinaria")
-    notes = Column(Text, nullable=True)
-    
-    # Relaciones
-    member = relationship("Member")
-    colegiado = relationship("Colegiado", foreign_keys=[colegiado_id])
-    organization = relationship("Organization")
-
-
 # MÓDULO SOCIAL
 class Reaction(Base):
     __tablename__ = "reactions"
