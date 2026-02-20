@@ -5,7 +5,7 @@ app/routers/finanzas.py
 Endpoints para el dashboard de Finanzas.
 Incluye: resumen, cajas, autorizaciones, fraccionamiento, config, reportes.
 """
-
+from datetime import date as dt_date
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional
@@ -469,13 +469,11 @@ async def ws_finanzas(websocket: WebSocket):
 
 
 
-from datetime import date as dt_date
 
 @router.get("/api/caja/situacion/{colegiado_id}")
 async def situacion_colegiado_caja(
     colegiado_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user),   # auth de caja/admin
 ):
     """
     Devuelve la situación financiera completa de un colegiado.
