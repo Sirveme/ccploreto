@@ -650,6 +650,12 @@ const AIFab = {
                     descuento_pct: colegiado.deuda.descuento_pct || 0,
                     n_cuotas:      colegiado.deuda.cantidad_cuotas || 1,
                 })}'>` : ''}
+
+                // Añadir esto DESPUÉS del bloque meta_cuotas existente:
+                ${colegiado.deuda?.fraccionamiento_id != null ? `<input type="hidden" name="meta_fracc" value='${JSON.stringify({
+                    fraccionamiento_id: colegiado.deuda.fraccionamiento_id,
+                    numero_cuota:       colegiado.deuda.numero_cuota ?? 0,
+                })}'>` : ''}
                 
                 <!-- Header con avatar -->
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
@@ -759,16 +765,6 @@ const AIFab = {
                 <!-- Resultado -->
                 <div id="pago-rapido-resultado"></div>
 
-                // Dentro del form, antes del botón submit:
-                ${colegiado.deuda?.mes_hasta ? `
-                <input type="hidden" name="meta_cuotas" value='${JSON.stringify({
-                    mes_desde:  colegiado.deuda.mes_desde,
-                    mes_hasta:  colegiado.deuda.mes_hasta,
-                    anio:       colegiado.deuda.anio,
-                    descuento_pct: colegiado.deuda.descuento_pct || 0,
-                    n_cuotas:   colegiado.deuda.cantidad_cuotas,
-                })}'>` : ''}
-                
                 <!-- Botón Submit -->
                 <button type="submit" id="btn-pago-rapido" 
                         style="width: 100%; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);"
