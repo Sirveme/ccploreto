@@ -381,10 +381,11 @@ function selCol(col) {
     cambiarTab('deudas');
 
     // ← AÑADIR ESTA LÍNEA:
-    if (!col.habilitado) cargarSituacion(col);
+    if (!col.habilitado) setTimeout(() => abrirModalInhabil(col), 200);
 }
 
 function limpiarCol() {
+    cerrarModalInhabil();
     colActual = null; deudasDisp = [];
     document.getElementById('colCard').classList.remove('active');
     document.getElementById('panelDeudas').innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Busca un colegiado</div><div class="empty-desc">DNI, matrícula o nombre</div></div>';
@@ -1551,4 +1552,634 @@ async function agregarConstanciaCaja() {
         renderCarrito();
         toast('Constancia S/ 10 agregada al cobro', 'ok');
     }
+}
+
+
+/* =====================================================
+    INICIALIZACIÓN de
+ ========================================================*/
+let _modalSit = null;   // datos de situación cargados
+
+/* ── ABRIR MODAL ─────────────────────────────────────────────────── */
+async function abrirModalInhabil(col) {
+    // Crear backdrop + modal si no existe
+    let bg = document.getElementById('modal-inhabil-bg');
+    if (!bg) {
+        bg = document.createElement('div');
+        bg.id = 'modal-inhabil-bg';
+        bg.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);
+            z-index:1500;display:flex;align-items:flex-start;justify-content:center;
+            padding:16px;overflow-y:auto;backdrop-filter:blur(4px)`;
+        bg.innerHTML = `<div id="modal-inhabil-box" style="
+            background:#0f1117;border:1px solid rgba(239,68,68,.2);
+            border-radius:20px;width:100%;max-width:680px;
+            box-shadow:0 30px 80px rgba(0,0,0,.8);overflow:hidden;
+            margin:auto;position:relative">
+            <div id="modal-inhabil-inner"></div>
+        </div>`;
+        bg.addEventListener('click', e => { if (e.target === bg) cerrarModalInhabil(); });
+        document.body.appendChild(bg);
+    }
+    document.getElementById('modal-inhabil-inner').innerHTML = _loadingHTML();
+    bg.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    try {
+        const r = await fetch(`/api/caja/situacion/${col.id}`);
+        if (!r.ok) throw new Error(r.status);
+        _modalSit = await r.json();
+        document.getElementById('modal-inhabil-inner').innerHTML = _renderModal(_modalSit);
+        _initSimulador(_modalSit.total);
+        _startNotifAnim();
+    } catch(e) {
+        document.getElementById('modal-inhabil-inner').innerHTML =
+            `<div style="padding:40px;text-align:center;color:#94a3b8">
+                ❌ Error cargando situación. Usa la lista de deudas normal.
+             </div>`;
+    }
+}
+
+function cerrarModalInhabil() {
+    const bg = document.getElementById('modal-inhabil-bg');
+    if (bg) bg.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+/* ── TEMPLATE PRINCIPAL ──────────────────────────────────────────── */
+function _renderModal(data) {
+    const { colegiado: col, deudas, total, califica_fraccionamiento, plan_activo, campana } = data;
+
+    // Agrupar deudas por año
+    const grupos = {};
+    deudas.forEach(d => {
+        const m = (d.periodo||'').match(/(\d{4})/);
+        const anio = m ? m[1] : 'Sin año';
+        if (!grupos[anio]) grupos[anio] = { items:[], subtotal:0 };
+        grupos[anio].items.push(d);
+        grupos[anio].subtotal += d.balance;
+    });
+    const anios = Object.keys(grupos).sort((a,b) => parseInt(b)-parseInt(a));
+    const aniosMas3 = anios.length > 3;
+
+    return `
+    <!-- HEADER -->
+    <div style="background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(239,68,68,.04));
+                border-bottom:1px solid rgba(239,68,68,.15);padding:20px 24px;
+                display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;background:linear-gradient(135deg,#dc2626,#ef4444);
+                        border-radius:14px;display:flex;align-items:center;justify-content:center;
+                        font-size:20px;font-weight:800;color:#fff;flex-shrink:0">
+                ${col.nombre.split(' ').slice(0,2).map(n=>n[0]).join('')}
+            </div>
+            <div>
+                <div style="font-size:15px;font-weight:800;color:#fff">${col.nombre}</div>
+                <div style="font-size:12px;color:#94a3b8">Mat. ${col.matricula} · 
+                    <span style="background:#dc2626;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">INHÁBIL</span>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:right">
+            <div style="font-size:24px;font-weight:900;color:#f87171">S/ ${total.toFixed(2)}</div>
+            <div style="font-size:11px;color:#64748b">${deudas.length} deuda${deudas.length!==1?'s':''} pendiente${deudas.length!==1?'s':''}</div>
+        </div>
+        <button onclick="cerrarModalInhabil()" style="position:absolute;top:14px;right:14px;
+            background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;
+            line-height:1;padding:4px">✕</button>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.06)">
+        ${['deuda','fracc','beneficios'].map((t,i) => `
+        <button onclick="_tabModal('${t}')" id="mtab-${t}"
+            style="flex:1;padding:12px;border:none;background:none;cursor:pointer;
+                   font-size:12px;font-weight:700;color:${i===0?'#e2e8f0':'#64748b'};
+                   border-bottom:2px solid ${i===0?'#ef4444':'transparent'};transition:all .2s">
+            ${t==='deuda'?'📋 Deuda':''}${t==='fracc'?'🧮 Fraccionamiento':''}${t==='beneficios'?'⭐ Beneficios':''}
+        </button>`).join('')}
+    </div>
+
+    <!-- BODY -->
+    <div style="padding:20px;max-height:60vh;overflow-y:auto" id="modal-tab-body">
+
+        <!-- TAB: DEUDA -->
+        <div id="mtab-body-deuda">
+            ${campana ? `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+                border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+                <span style="font-size:20px">🎯</span>
+                <div><div style="font-size:12px;font-weight:700;color:#f59e0b">${campana.nombre} — ${Math.round(campana.descuento_pct*100)}% dto.</div>
+                <div style="font-size:11px;color:#94a3b8">${campana.descripcion} · Hasta ${campana.fecha_fin}</div></div>
+            </div>` : ''}
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">
+                    Deuda consolidada por año
+                </div>
+                <button onclick="_selTodasModal()" style="font-size:11px;color:#60a5fa;background:none;border:none;cursor:pointer;font-weight:600">
+                    ☑ Seleccionar todas
+                </button>
+            </div>
+
+            ${anios.map((anio,idx) => `
+            <div style="margin-bottom:8px;border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden">
+                <div onclick="_toggleAnioModal('manio-${anio}')"
+                     style="display:flex;align-items:center;justify-content:space-between;
+                            padding:10px 14px;cursor:pointer;background:rgba(255,255,255,.02);
+                            user-select:none">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:13px;font-weight:700;color:#e2e8f0">${anio}</span>
+                        <span style="font-size:10px;color:#64748b;background:rgba(255,255,255,.06);
+                                     padding:2px 8px;border-radius:20px">
+                            ${grupos[anio].items.length} concepto${grupos[anio].items.length>1?'s':''}
+                        </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:13px;font-weight:700;
+                            color:${grupos[anio].subtotal>100?'#f87171':'#e2e8f0'}">
+                            S/ ${grupos[anio].subtotal.toFixed(2)}
+                        </span>
+                        <span id="manio-arrow-${anio}" style="color:#64748b;font-size:12px">
+                            ${idx<3?'▼':'▶'}
+                        </span>
+                    </div>
+                </div>
+                <div id="manio-${anio}" style="display:${idx<3?'block':'none'}">
+                    ${grupos[anio].items.map(d => `
+                    <div onclick="_togDeudaModal(${d.id})" id="mdeuda-${d.id}"
+                         style="display:flex;align-items:center;gap:10px;
+                                padding:9px 14px;border-top:1px solid rgba(255,255,255,.04);
+                                cursor:pointer;transition:background .15s">
+                        <div id="mchk-${d.id}" style="width:18px;height:18px;border-radius:5px;
+                             border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;
+                             justify-content:center;font-size:11px;transition:all .15s"></div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:12px;font-weight:600;color:#e2e8f0;
+                                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                                ${d.concept}
+                            </div>
+                            <div style="font-size:10px;color:#64748b">${d.period_label||d.periodo||''}</div>
+                        </div>
+                        <div style="font-size:13px;font-weight:700;color:#fca5a5;flex-shrink:0">
+                            S/ ${d.balance.toFixed(2)}
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`).join('')}
+
+            <!-- Botones de acción deuda -->
+            <div style="display:grid;gap:8px;margin-top:16px">
+                <button onclick="_agregarSeleccionadasAlCarrito()" style="padding:13px;border:none;border-radius:12px;
+                    font-size:13px;font-weight:700;cursor:pointer;
+                    background:linear-gradient(135deg,#059669,#10b981);color:#fff;
+                    display:flex;align-items:center;justify-content:center;gap:8px">
+                    🛒 Agregar deudas seleccionadas al carrito de caja
+                </button>
+                <button onclick="_agregarConstanciaModal()" style="padding:11px;border:none;border-radius:12px;
+                    font-size:12px;font-weight:700;cursor:pointer;
+                    background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);color:#4ade80;
+                    display:flex;align-items:center;justify-content:center;gap:8px">
+                    📜 + Constancia de Habilidad
+                    <span style="background:rgba(16,185,129,.2);padding:2px 8px;border-radius:20px">S/ 10</span>
+                </button>
+                <!-- Pago online — preparado para Izipay -->
+                <button onclick="_pagoOnlineModal()" style="padding:11px;border:1px dashed rgba(99,102,241,.3);
+                    border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;
+                    background:rgba(99,102,241,.05);color:#818cf8;
+                    display:flex;align-items:center;justify-content:center;gap:8px">
+                    💳 Pago online (Yape / Plin / Tarjeta)
+                    <span style="font-size:10px;background:rgba(99,102,241,.15);padding:2px 8px;border-radius:20px">
+                        Próximamente — Izipay
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB: FRACCIONAMIENTO -->
+        <div id="mtab-body-fracc" style="display:none">
+            ${plan_activo ? `
+            <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
+                        border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+                <div style="font-size:20px;margin-bottom:8px">📋</div>
+                <div style="font-size:14px;font-weight:700;color:#60a5fa">Plan de fraccionamiento activo</div>
+                <div style="font-size:12px;color:#94a3b8;margin-top:4px">
+                    El colegiado tiene un plan vigente en curso. Puede pagar la siguiente cuota en caja.
+                </div>
+            </div>` : ''}
+
+            ${califica_fraccionamiento ? `
+            <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);
+                        border-radius:12px;padding:18px;margin-bottom:16px">
+                <div style="font-size:13px;font-weight:700;color:#818cf8;margin-bottom:4px">
+                    🧮 Simulador de Plan de Pago
+                </div>
+                <div style="font-size:11px;color:#94a3b8;margin-bottom:16px">
+                    Deuda total: <strong style="color:#e2e8f0">S/ ${total.toFixed(2)}</strong> ·
+                    Inicial mínima (20%): <strong style="color:#e2e8f0">S/ ${(total*.2).toFixed(2)}</strong>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+                    <div>
+                        <label style="font-size:10px;color:#64748b;display:block;margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+                            Cuota inicial (S/)
+                        </label>
+                        <input type="number" id="msim-ini"
+                            min="${(total*.2).toFixed(2)}" step="10"
+                            value="${(total*.2).toFixed(2)}"
+                            oninput="_calcSim(${total})"
+                            style="width:100%;padding:10px 12px;background:#1e2535;
+                                   border:1px solid rgba(99,102,241,.3);border-radius:10px;
+                                   color:#fff;font-size:15px;font-weight:700;font-family:inherit">
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#64748b;display:block;margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+                            N° de cuotas
+                        </label>
+                        <select id="msim-n" oninput="_calcSim(${total})"
+                            style="width:100%;padding:10px 12px;background:#1e2535;
+                                   border:1px solid rgba(99,102,241,.3);border-radius:10px;
+                                   color:#fff;font-size:14px;font-family:inherit">
+                            ${[2,3,4,6,8,10,12].map(n=>`<option value="${n}">${n} cuotas mensuales</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <div id="msim-result"></div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+                    <button onclick="_imprimirPlanFracc(${total})"
+                        style="padding:11px;border:1px solid rgba(99,102,241,.3);border-radius:10px;
+                               font-size:12px;font-weight:700;cursor:pointer;
+                               background:rgba(99,102,241,.08);color:#818cf8">
+                        🖨️ Imprimir plan
+                    </button>
+                    <button onclick="_compartirPlanFracc(${total})"
+                        style="padding:11px;border:1px solid rgba(16,185,129,.3);border-radius:10px;
+                               font-size:12px;font-weight:700;cursor:pointer;
+                               background:rgba(16,185,129,.08);color:#4ade80">
+                        📤 Compartir plan
+                    </button>
+                </div>
+            </div>` : `
+            <div style="text-align:center;padding:30px;color:#64748b">
+                <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+                <div style="font-size:13px">Deuda mínima para fraccionar: S/ 500</div>
+                <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
+            </div>`}
+
+            <!-- Reglamento -->
+            <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+                        border-radius:10px;padding:14px">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
+                            letter-spacing:1px;margin-bottom:10px">Condiciones del plan</div>
+                ${[
+                    ['✅','Deuda mínima: S/ 500'],
+                    ['📌','Cuota inicial mínima: 20% de la deuda total'],
+                    ['📌','Cuota mensual mínima: S/ 100'],
+                    ['📌','Máximo 12 cuotas mensuales'],
+                    ['⭐','Al pagar la inicial: habilidad inmediata'],
+                    ['⚠️','2 cuotas impagas consecutivas: pérdida del plan'],
+                ].map(([ico,txt])=>`
+                    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11px;color:#94a3b8">
+                        <span>${ico}</span><span>${txt}</span>
+                    </div>`).join('')}
+            </div>
+        </div>
+
+        <!-- TAB: BENEFICIOS -->
+        <div id="mtab-body-beneficios" style="display:none">
+            <div style="text-align:center;margin-bottom:20px">
+                <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px">
+                    Al regularizarse, ${col.nombre.split(' ')[0]} recupera:
+                </div>
+                <div style="font-size:12px;color:#64748b">Beneficios exclusivos para colegiados hábiles</div>
+            </div>
+
+            <!-- Notificaciones animadas -->
+            <div style="background:#0a0d16;border-radius:16px;padding:14px;margin-bottom:18px;min-height:120px">
+                <div style="font-size:10px;color:#334155;text-align:center;margin-bottom:8px;
+                            text-transform:uppercase;letter-spacing:1px;font-weight:700">
+                    Vista previa de notificaciones
+                </div>
+                <div id="modal-notifs-wrap" style="position:relative;min-height:80px;display:flex;align-items:center">
+                    ${[
+                        ['⚠️','Vencimiento mañana','Declaración tributaria de "Panadería Camilo" vence el 20/02'],
+                        ['🎓','GRATIS para ti','Conferencia 3h: Reforma Tributaria 2026 — hoy 6pm'],
+                        ['💼','Convocatoria abierta','Contadores para proyecto minero en Loreto — toda edad'],
+                        ['✅','Tu constancia está lista','Constancia de Habilidad disponible. Toca para descargar PDF.'],
+                        ['🚨','Aviso laboral URGENTE','Estudio contable requiere tributarista — incorporación inmediata'],
+                    ].map((n,i)=>`
+                    <div class="modal-notif" data-idx="${i}"
+                         style="position:absolute;inset:0;display:flex;align-items:center;gap:10px;
+                                background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+                                border-radius:12px;padding:12px;opacity:0;transition:opacity .5s ease">
+                        <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
+                                    background:rgba(255,255,255,.06);display:flex;align-items:center;
+                                    justify-content:center;font-size:18px">${n[0]}</div>
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px">${n[1]}</div>
+                            <div style="font-size:11px;color:#64748b;line-height:1.3">${n[2]}</div>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>
+
+            <!-- Beneficios lista -->
+            <div style="display:grid;gap:8px">
+                ${[
+                    ['#f59e0b','ph-calendar-check','Alertas tributarias personalizadas','Vencimientos de tus clientes directo al celular'],
+                    ['#818cf8','ph-graduation-cap','Capacitaciones gratuitas','Conferencias y talleres exclusivos para hábiles'],
+                    ['#4ade80','ph-briefcase','Bolsa laboral exclusiva','Empleos y proyectos disponibles solo para ti'],
+                    ['#f87171','ph-certificate','Constancia de Habilidad en minutos','PDF oficial al instante · S/ 10'],
+                    ['#60a5fa','ph-shield-check','Respaldo legal del colegio','Representación ante organismos reguladores'],
+                ].map(([color,ico,title,desc])=>`
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.02);
+                            border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px 14px">
+                    <div style="width:38px;height:38px;border-radius:10px;background:${color}18;
+                                display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="ph ${ico}" style="font-size:20px;color:${color}"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;font-weight:700;color:#e2e8f0">${title}</div>
+                        <div style="font-size:11px;color:#64748b">${desc}</div>
+                    </div>
+                </div>`).join('')}
+            </div>
+        </div>
+
+    </div><!-- /body -->
+    `;
+}
+
+/* ── TABS ────────────────────────────────────────────────────────── */
+function _tabModal(tab) {
+    ['deuda','fracc','beneficios'].forEach(t => {
+        const btn  = document.getElementById(`mtab-${t}`);
+        const body = document.getElementById(`mtab-body-${t}`);
+        const active = t === tab;
+        if (btn)  { btn.style.color = active ? '#e2e8f0' : '#64748b'; btn.style.borderBottomColor = active ? '#ef4444' : 'transparent'; }
+        if (body) body.style.display = active ? 'block' : 'none';
+    });
+    if (tab === 'beneficios') _startNotifAnim();
+    if (tab === 'fracc' && _modalSit) _calcSim(_modalSit.total);
+}
+
+/* ── SIMULADOR ───────────────────────────────────────────────────── */
+function _calcSim(total) {
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || 0);
+    const n   = parseInt(document.getElementById('msim-n')?.value || 3);
+    const res = document.getElementById('msim-result');
+    if (!res) return;
+
+    const minIni = total * 0.20;
+    if (ini < minIni) {
+        res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
+            ⚠ Mínimo S/ ${minIni.toFixed(2)}</div>`;
+        return;
+    }
+    const saldo = total - ini;
+    const cuota = saldo / n;
+    if (cuota < 100) {
+        res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
+            ⚠ Cuota mínima S/ 100 — reduce el número de cuotas</div>`;
+        return;
+    }
+
+    // Generar cronograma
+    const hoy = new Date();
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const cuotas = [];
+    for (let i = 1; i <= n; i++) {
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        cuotas.push({ num: i, fecha: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: cuota });
+    }
+
+    res.innerHTML = `
+        <div style="background:rgba(99,102,241,.08);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;
+                        padding:14px;border-bottom:1px solid rgba(255,255,255,.06)">
+                <div>
+                    <div style="font-size:10px;color:#64748b">Inicial hoy</div>
+                    <div style="font-size:18px;font-weight:800;color:#818cf8">S/ ${ini.toFixed(2)}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b">x${n} cuotas de</div>
+                    <div style="font-size:18px;font-weight:800;color:#818cf8">S/ ${cuota.toFixed(2)}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b">Total</div>
+                    <div style="font-size:18px;font-weight:800;color:#e2e8f0">S/ ${total.toFixed(2)}</div>
+                </div>
+            </div>
+            <div style="padding:12px 14px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;
+                            letter-spacing:1px;margin-bottom:8px">Cronograma de cuotas</div>
+                ${cuotas.map(c=>`
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:20px;height:20px;background:rgba(99,102,241,.2);
+                                     border-radius:50%;display:inline-flex;align-items:center;
+                                     justify-content:center;font-size:10px;font-weight:700;color:#818cf8">
+                            ${c.num}
+                        </span>
+                        <span style="color:#94a3b8">${c.fecha}</span>
+                    </div>
+                    <span style="font-weight:700;color:#e2e8f0">S/ ${c.monto.toFixed(2)}</span>
+                </div>`).join('')}
+            </div>
+            <div style="padding:10px 14px;background:rgba(74,222,128,.06);
+                        border-top:1px solid rgba(74,222,128,.1);font-size:11px;color:#4ade80;text-align:center">
+                ⭐ Pagando la inicial hoy → habilidad inmediata · Constancia disponible al instante
+            </div>
+        </div>`;
+}
+
+/* ── IMPRIMIR / COMPARTIR PLAN ────────────────────────────────────── */
+function _imprimirPlanFracc(total) {
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || total*0.2);
+    const n   = parseInt(document.getElementById('msim-n')?.value || 3);
+    if (!_modalSit) return;
+    const col = _modalSit.colegiado;
+    const cuota = (total - ini) / n;
+    const hoy = new Date();
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    const cuotas = [];
+    for (let i = 1; i <= n; i++) {
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        cuotas.push({ num: i, mes: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: cuota.toFixed(2) });
+    }
+
+    const w = window.open('', '_blank', 'width=600,height=700');
+    w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><title>Plan de Fraccionamiento</title>
+    <style>
+        body{font-family:Arial,sans-serif;padding:30px;color:#111;max-width:560px;margin:auto}
+        h2{color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px}
+        .info{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:16px 0}
+        table{width:100%;border-collapse:collapse;margin-top:14px}
+        th{background:#1e3a5f;color:#fff;padding:8px 12px;text-align:left;font-size:12px}
+        td{padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:13px}
+        .total{font-weight:700;font-size:16px;color:#1e3a5f}
+        .footer{margin-top:24px;font-size:11px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px}
+        @media print{button{display:none}}
+    </style></head><body>
+    <h2>📋 Propuesta de Plan de Fraccionamiento</h2>
+    <div class="info">
+        <strong>${col.nombre}</strong><br>
+        Matrícula: ${col.matricula}<br>
+        Deuda total: <strong>S/ ${total.toFixed(2)}</strong><br>
+        Fecha: ${hoy.toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}
+    </div>
+    <table>
+        <tr><th>#</th><th>Vencimiento</th><th>Monto</th></tr>
+        <tr><td><strong>0</strong></td><td><strong>Inicial — hoy</strong></td><td><strong>S/ ${ini.toFixed(2)}</strong></td></tr>
+        ${cuotas.map(c=>`<tr><td>${c.num}</td><td>${c.mes} (día 15)</td><td>S/ ${c.monto}</td></tr>`).join('')}
+        <tr style="background:#f8fafc"><td colspan="2" class="total">TOTAL</td><td class="total">S/ ${total.toFixed(2)}</td></tr>
+    </table>
+    <div style="margin-top:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px;font-size:12px">
+        ✅ Al pagar la cuota inicial, el colegiado recupera su condición de <strong>HÁBIL</strong> de forma inmediata.
+    </div>
+    <div class="footer">
+        Colegio de Contadores Públicos de Loreto · Propuesta sujeta a aprobación del Consejo Directivo<br>
+        Máx. 12 cuotas · Cuota mínima S/ 100 · Vigencia del plan: 30 días
+    </div>
+    <br><button onclick="window.print()" style="padding:10px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ Imprimir</button>
+    </body></html>`);
+    w.document.close();
+}
+
+function _compartirPlanFracc(total) {
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || total*0.2);
+    const n   = parseInt(document.getElementById('msim-n')?.value || 3);
+    const cuota = ((total - ini) / n).toFixed(2);
+    const col = _modalSit?.colegiado;
+    const texto = `📋 *Propuesta de Fraccionamiento CCPL*\n\n` +
+        `Colegiado: ${col?.nombre}\nDeuda total: S/ ${total.toFixed(2)}\n\n` +
+        `✅ Cuota inicial: S/ ${ini.toFixed(2)}\n` +
+        `📅 ${n} cuotas mensuales de S/ ${cuota}\n\n` +
+        `Al pagar la inicial recuperas tu habilidad de inmediato.\n` +
+        `Mayor info: CCPL Oficina Principal.`;
+    if (navigator.share) {
+        navigator.share({ title: 'Plan de Fraccionamiento CCPL', text: texto });
+    } else {
+        navigator.clipboard.writeText(texto);
+        toast('Plan copiado al portapapeles — pega en WhatsApp', 'ok');
+    }
+}
+
+/* ── SELECCIÓN DE DEUDAS ─────────────────────────────────────────── */
+const _deudaSel = new Set();
+
+function _togDeudaModal(id) {
+    const row = document.getElementById(`mdeuda-${id}`);
+    const chk = document.getElementById(`mchk-${id}`);
+    if (_deudaSel.has(id)) {
+        _deudaSel.delete(id);
+        if (chk) { chk.style.background=''; chk.style.borderColor='#334155'; chk.textContent=''; }
+        if (row) row.style.background='';
+    } else {
+        _deudaSel.add(id);
+        if (chk) { chk.style.background='#059669'; chk.style.borderColor='#059669'; chk.textContent='✓'; }
+        if (row) row.style.background='rgba(5,150,105,.06)';
+    }
+}
+
+function _selTodasModal() {
+    if (!_modalSit) return;
+    _modalSit.deudas.forEach(d => {
+        _deudaSel.add(d.id);
+        const chk = document.getElementById(`mchk-${d.id}`);
+        const row = document.getElementById(`mdeuda-${d.id}`);
+        if (chk) { chk.style.background='#059669'; chk.style.borderColor='#059669'; chk.textContent='✓'; }
+        if (row) row.style.background='rgba(5,150,105,.06)';
+    });
+}
+
+function _agregarSeleccionadasAlCarrito() {
+    if (!_modalSit || _deudaSel.size === 0) {
+        toast('Selecciona al menos una deuda', 'warn'); return;
+    }
+    let agregadas = 0;
+    _modalSit.deudas.forEach(d => {
+        if (!_deudaSel.has(d.id)) return;
+        // No duplicar si ya está en el carrito
+        if (carrito.some(i => i.tipo==='deuda' && i.deuda_id===d.id)) return;
+        carrito.push({
+            tipo: 'deuda', deuda_id: d.id,
+            descripcion: `${d.concept} ${d.period_label||d.periodo||''}`.trim(),
+            monto: d.balance,
+        });
+        agregadas++;
+    });
+    renderCarrito();
+    toast(`${agregadas} deuda${agregadas!==1?'s':''} agregada${agregadas!==1?'s':''} al carrito`, 'ok');
+    cerrarModalInhabil();
+}
+
+function _agregarConstanciaModal() {
+    const conc = conceptosDisp.find(c =>
+        (c.nombre||'').toLowerCase().includes('constancia') ||
+        (c.nombre||'').toLowerCase().includes('habilidad')
+    );
+    if (conc) {
+        agregarConcepto(conc);
+    } else {
+        carrito.push({ tipo:'concepto', concepto_id:null,
+            descripcion:'Constancia de Habilidad Profesional', monto:10.00 });
+        renderCarrito();
+    }
+    toast('Constancia de Habilidad S/ 10 agregada al carrito', 'ok');
+}
+
+function _pagoOnlineModal() {
+    toast('Integración Izipay pendiente de credenciales — usa pago presencial', 'warn');
+    // TODO: window.open(urlIzipay, '_blank');
+}
+
+/* ── TOGGLE AÑO ──────────────────────────────────────────────────── */
+function _toggleAnioModal(id) {
+    const el  = document.getElementById(id);
+    const anio = id.replace('manio-','');
+    const arr = document.getElementById(`manio-arrow-${anio}`);
+    if (!el) return;
+    const open = el.style.display === 'none';
+    el.style.display = open ? 'block' : 'none';
+    if (arr) arr.textContent = open ? '▼' : '▶';
+}
+
+/* ── ANIMACIÓN NOTIFICACIONES ────────────────────────────────────── */
+let _notifTimer = null;
+let _notifIdx = 0;
+
+function _startNotifAnim() {
+    clearInterval(_notifTimer);
+    const items = document.querySelectorAll('.modal-notif');
+    if (!items.length) return;
+    items.forEach(el => { el.style.opacity = '0'; });
+    _notifIdx = 0;
+    const show = () => {
+        items.forEach(el => { el.style.opacity = '0'; });
+        const cur = items[_notifIdx % items.length];
+        if (cur) cur.style.opacity = '1';
+        _notifIdx++;
+    };
+    show();
+    _notifTimer = setInterval(show, 3200);
+}
+
+function _initSimulador(total) {
+    // Calcular resultado inicial si ya está en tab fracc
+    setTimeout(() => _calcSim(total), 100);
+}
+
+/* ── LOADING SKELETON ────────────────────────────────────────────── */
+function _loadingHTML() {
+    return `<div style="padding:40px;text-align:center">
+        <div style="width:40px;height:40px;border:3px solid rgba(239,68,68,.2);
+                    border-top-color:#ef4444;border-radius:50%;
+                    animation:spin .8s linear infinite;margin:0 auto 12px"></div>
+        <div style="color:#64748b;font-size:13px">Cargando situación del colegiado…</div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>`;
 }
