@@ -662,7 +662,7 @@ const P = {
         btn.disabled  = true;
         btn.innerHTML = '<i class="ph ph-circle-notch" style="animation:spin 1s linear infinite"></i> Procesando...';
         try {
-            const r = await fetch('/api/finanzas/fraccionamiento/crear', {
+            const r = await fetch('/api/portal/fraccionamiento/crear', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
