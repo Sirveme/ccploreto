@@ -466,3 +466,100 @@ async def ws_finanzas(websocket: WebSocket):
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         notifier.disconnect(websocket)
+
+
+
+from datetime import date as dt_date
+
+@router.get("/api/caja/situacion/{colegiado_id}")
+async def situacion_colegiado_caja(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),   # auth de caja/admin
+):
+    """
+    Devuelve la situación financiera completa de un colegiado.
+    Usado por el panel de orientación en Caja cuando el colegiado es inhábil.
+    Mismo payload que /api/portal/mi-deuda pero accesible por el cajero.
+    """
+    from app.models import Colegiado
+    from app.models_debt_management import Debt, Fraccionamiento
+
+    col = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not col:
+        raise HTTPException(404, "Colegiado no encontrado")
+
+    # Deudas pendientes
+    deudas_qs = (
+        db.query(Debt)
+        .filter(
+            Debt.colegiado_id == colegiado_id,
+            Debt.status.in_(["pending", "partial"]),
+            Debt.estado_gestion.in_(["vigente", "en_cobranza", "fraccionada"]),
+        )
+        .order_by(Debt.periodo.asc())
+        .all()
+    )
+
+    total = round(sum(float(d.balance or 0) for d in deudas_qs), 2)
+
+    deudas_list = [
+        {
+            "id":             d.id,
+            "concept":        d.concept,
+            "period_label":   d.period_label or d.periodo,
+            "periodo":        d.periodo,
+            "debt_type":      d.debt_type,
+            "balance":        float(d.balance or 0),
+            "status":         d.status,
+            "estado_gestion": d.estado_gestion,
+            "due_date":       d.due_date.isoformat() if d.due_date else None,
+        }
+        for d in deudas_qs
+    ]
+
+    # Plan activo
+    plan_activo = (
+        db.query(Fraccionamiento)
+        .filter(
+            Fraccionamiento.colegiado_id == colegiado_id,
+            Fraccionamiento.estado == "activo",
+        )
+        .first()
+    )
+    califica_fracc = (total >= 500.0) and (plan_activo is None)
+
+    # Campaña activa
+    hoy = dt_date.today()
+    if hoy.month <= 2:
+        campana = {
+            "nombre": "Campaña Febrero",
+            "descripcion": "20% de descuento en cuotas ordinarias",
+            "descuento_pct": 0.20,
+            "fecha_fin": f"28 Feb {hoy.year}",
+        }
+    elif hoy.month == 3:
+        campana = {
+            "nombre": "Campaña Marzo",
+            "descripcion": "10% de descuento en cuotas ordinarias",
+            "descuento_pct": 0.10,
+            "fecha_fin": f"31 Mar {hoy.year}",
+        }
+    else:
+        campana = None
+
+    return {
+        "colegiado": {
+            "id":          col.id,
+            "nombre":      col.apellidos_nombres,
+            "matricula":   col.codigo_matricula,
+            "condicion":   col.condicion,
+            "habilitado":  col.condicion in ("habil", "vitalicio"),
+        },
+        "deudas":                   deudas_list,
+        "total":                    total,
+        "cantidad":                 len(deudas_list),
+        "califica_fraccionamiento": califica_fracc,
+        "plan_activo":              plan_activo is not None,
+        "campana":                  campana,
+    }
