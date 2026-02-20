@@ -174,7 +174,7 @@ from datetime import date as dt_date
 from app.models_debt_management import Debt, Fraccionamiento, EstadoFraccionamiento
 
 
-@router.get("/api/portal/mi-deuda")
+@router.get("/mi-deuda")
 async def mi_deuda(
     member: Member = Depends(get_current_member),
     db: Session = Depends(get_db),
@@ -265,7 +265,7 @@ async def mi_deuda(
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
-@router.post("/api/finanzas/fraccionamiento/crear")
+@router.post("/fraccionamiento/crear")
 async def crear_fraccionamiento(
     data: FraccionamientoRequest,
     member: Member = Depends(get_current_member),
