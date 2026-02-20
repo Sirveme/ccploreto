@@ -14,7 +14,8 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models import Payment, Debt, Colegiado, Member, Comprobante
+from app.models import Payment, Colegiado, Member, Comprobante
+from app.models_debt_management import Debt
 # from app.services.facturacion import emitir_comprobante_automatico
 # from app.services.certificados import generar_certificado_habilidad
 

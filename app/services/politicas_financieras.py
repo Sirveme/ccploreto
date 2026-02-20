@@ -573,7 +573,7 @@ def verificar_habilidades_vencidas(db, organization_id: int) -> dict:
 
 def proxima_cuota_fraccionamiento(db, colegiado_id: int) -> Optional[date]:
     """Obtiene la fecha de la próxima cuota pendiente de fraccionamiento."""
-    from app.models import Debt
+    from app.models_debt_management import Debt
 
     cuota = db.query(Debt).filter(
         Debt.colegiado_id == colegiado_id,

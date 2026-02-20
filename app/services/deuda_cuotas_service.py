@@ -17,9 +17,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
 from app.models import (
-    Colegiado, Payment, ConceptoCobro, Debt, DebtAction,
-    Organization
+    Colegiado, Payment, ConceptoCobro, Organization
 )
+from app.models_debt_management import Debt, DebtAction
 
 PERU_TZ = timezone(timedelta(hours=-5))
 
