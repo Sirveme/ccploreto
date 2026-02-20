@@ -2183,3 +2183,307 @@ function _loadingHTML() {
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>`;
 }
+
+
+/* ── CARRITO DE FRACCIONAMIENTO ────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   MEJORAS AL MODAL INHÁBIL — CAJA
+   
+   INTEGRACIÓN: Pegar al final del modal_inactivo_caja.js existente
+   (reemplaza o complementa las funciones duplicadas)
+   
+   NUEVAS FEATURES:
+   1. Botón flotante "👁 Situación" — reabre modal sin rebuscar
+   2. Fraccionamiento → carrito con resumen completo
+   3. Historial de últimas 3 consultas (sessionStorage)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. BOTÓN FLOTANTE "VER SITUACIÓN" ───────────────────────────
+   Aparece junto al badge INHÁBIL cuando hay un colegiado inhábil activo.
+   Permite reabrir el modal sin volver a buscar.
+   ─────────────────────────────────────────────────────────────── */
+
+function _crearBotonSituacion(col) {
+    // Remover botón anterior si existe
+    const prev = document.getElementById('btn-sit-flotante');
+    if (prev) prev.remove();
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-sit-flotante';
+    btn.innerHTML = `<span style="font-size:14px">📋</span> Ver situación completa`;
+    btn.style.cssText = `
+        display:inline-flex;align-items:center;gap:6px;
+        margin-left:8px;padding:5px 12px;
+        background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);
+        color:#f87171;border-radius:20px;font-size:11px;font-weight:700;
+        cursor:pointer;transition:all .2s;vertical-align:middle;
+        font-family:inherit;
+    `;
+    btn.onmouseenter = () => { btn.style.background='rgba(239,68,68,.25)'; };
+    btn.onmouseleave = () => { btn.style.background='rgba(239,68,68,.15)'; };
+    btn.onclick = () => abrirModalInhabil(col);
+
+    // Insertar después del badge INHÁBIL
+    const badge = document.getElementById('colBadge');
+    if (badge && badge.parentNode) {
+        badge.parentNode.insertBefore(btn, badge.nextSibling);
+    }
+}
+
+function _removerBotonSituacion() {
+    const btn = document.getElementById('btn-sit-flotante');
+    if (btn) btn.remove();
+}
+
+/* ── PARCHAR selCol y limpiarCol para manejar el botón flotante ── */
+// Guardamos referencias a las funciones originales
+const _selColOriginal = window.selCol;
+const _limpiarColOriginal = window.limpiarCol;
+
+window.selCol = function(col) {
+    _selColOriginal(col);
+    if (!col.habilitado) {
+        _crearBotonSituacion(col);
+        _guardarEnHistorial(col);
+    } else {
+        _removerBotonSituacion();
+    }
+};
+
+window.limpiarCol = function() {
+    _limpiarColOriginal();
+    _removerBotonSituacion();
+    cerrarModalInhabil();
+};
+
+
+/* ── 2. HISTORIAL ÚLTIMAS 3 CONSULTAS ────────────────────────────
+   Guardado en sessionStorage. Botón flotante en esquina.
+   ─────────────────────────────────────────────────────────────── */
+
+function _guardarEnHistorial(col) {
+    let hist = JSON.parse(sessionStorage.getItem('caja_inactivos_hist') || '[]');
+    // Evitar duplicados
+    hist = hist.filter(c => c.id !== col.id);
+    hist.unshift({
+        id: col.id,
+        nombre: col.apellidos_nombres,
+        matricula: col.codigo_matricula,
+        deuda: col.total_deuda,
+        ts: Date.now()
+    });
+    hist = hist.slice(0, 3); // máx 3
+    sessionStorage.setItem('caja_inactivos_hist', JSON.stringify(hist));
+    _actualizarBtnHistorial();
+}
+
+function _actualizarBtnHistorial() {
+    let btn = document.getElementById('btn-hist-inactivos');
+    const hist = JSON.parse(sessionStorage.getItem('caja_inactivos_hist') || '[]');
+    if (!hist.length) return;
+
+    if (!btn) {
+        btn = document.createElement('div');
+        btn.id = 'btn-hist-inactivos';
+        btn.style.cssText = `
+            position:fixed;bottom:80px;right:16px;z-index:1400;
+            background:#1e2535;border:1px solid rgba(239,68,68,.3);
+            border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5);
+            min-width:220px;
+        `;
+        document.body.appendChild(btn);
+    }
+
+    btn.innerHTML = `
+        <div style="padding:10px 14px;background:rgba(239,68,68,.08);
+                    border-bottom:1px solid rgba(239,68,68,.15);
+                    display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;font-weight:700;color:#f87171;
+                         text-transform:uppercase;letter-spacing:.5px">
+                ⏱ Consultas recientes
+            </span>
+            <button onclick="document.getElementById('btn-hist-inactivos').style.display='none'"
+                style="background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0">✕</button>
+        </div>
+        ${hist.map(c => `
+        <div onclick="_reabrirDesdeHistorial(${c.id})"
+             style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);
+                    transition:background .15s;display:flex;align-items:center;gap:10px"
+             onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+             onmouseleave="this.style.background=''">
+            <div style="width:32px;height:32px;background:rgba(239,68,68,.15);border-radius:10px;
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:11px;font-weight:800;color:#f87171;flex-shrink:0">
+                ${c.nombre.split(' ').slice(0,2).map(n=>n[0]).join('')}
+            </div>
+            <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:#e2e8f0;
+                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    ${c.nombre.split(' ').slice(0,3).join(' ')}
+                </div>
+                <div style="font-size:10px;color:#64748b">
+                    Mat. ${c.matricula} · S/ ${c.deuda.toFixed(2)}
+                </div>
+            </div>
+            <span style="font-size:10px;color:#ef4444;background:rgba(239,68,68,.1);
+                         padding:2px 6px;border-radius:10px;font-weight:700;flex-shrink:0">
+                INHÁBIL
+            </span>
+        </div>`).join('')}
+    `;
+}
+
+async function _reabrirDesdeHistorial(colId) {
+    // Abrir modal directamente con el ID
+    const fakeCol = { id: colId, habilitado: false };
+    abrirModalInhabil(fakeCol);
+}
+
+// Inicializar historial al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(_actualizarBtnHistorial, 500);
+});
+
+
+/* ── 3. FRACCIONAMIENTO → CARRITO ────────────────────────────────
+   Reemplaza la función _renderModal para agregar botón de fracc al carrito
+   ─────────────────────────────────────────────────────────────── */
+
+// Sobreescribir el botón de acción de fraccionamiento en el tab
+// Inyectado después de que el modal está renderizado
+
+const _tabModalOriginal = window._tabModal;
+window._tabModal = function(tab) {
+    _tabModalOriginal(tab);
+    if (tab === 'fracc') {
+        // Añadir botón "Cobrar inicial ahora" si no existe
+        setTimeout(() => _inyectarBotonCobroFracc(), 100);
+    }
+};
+
+function _inyectarBotonCobroFracc() {
+    if (document.getElementById('btn-cobrar-fracc-ini')) return;
+    const simResult = document.getElementById('msim-result');
+    if (!simResult || !_modalSit?.califica_fraccionamiento) return;
+
+    const btnDiv = document.createElement('div');
+    btnDiv.id = 'btn-cobrar-fracc-ini';
+    btnDiv.style.cssText = 'margin-top:14px;display:grid;gap:8px';
+    btnDiv.innerHTML = `
+        <button onclick="_agregarFraccAlCarrito()"
+            style="padding:13px;border:none;border-radius:12px;font-size:13px;
+                   font-weight:700;cursor:pointer;width:100%;
+                   background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;
+                   display:flex;align-items:center;justify-content:center;gap:8px;
+                   font-family:inherit">
+            🛒 Cobrar cuota inicial ahora
+            <span style="font-size:11px;background:rgba(255,255,255,.2);
+                         padding:2px 8px;border-radius:20px">
+                Pasa a hábil al instante
+            </span>
+        </button>
+        <div style="font-size:10px;color:#64748b;text-align:center">
+            El plan de cuotas queda registrado · Se le notificará cada vencimiento
+        </div>
+    `;
+    simResult.parentNode.appendChild(btnDiv);
+}
+
+function _agregarFraccAlCarrito() {
+    if (!_modalSit) return;
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || 0);
+    const n   = parseInt(document.getElementById('msim-n')?.value || 3);
+    const total = _modalSit.total;
+    const col = _modalSit.colegiado;
+
+    if (ini < total * 0.20) {
+        toast('Cuota inicial insuficiente — mínimo 20%', 'err'); return;
+    }
+
+    const cuota = (total - ini) / n;
+    if (cuota < 100) {
+        toast('Cuota mensual mínima S/ 100 — reduce el número de cuotas', 'err'); return;
+    }
+
+    // Calcular fechas de vencimiento
+    const hoy = new Date();
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const cuotas = [];
+    for (let i = 1; i <= n; i++) {
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        cuotas.push(`${meses[d.getMonth()]} ${d.getFullYear()}: S/ ${cuota.toFixed(2)}`);
+    }
+
+    // Añadir al carrito como un ítem especial de fraccionamiento
+    // Verificar si ya hay una cuota inicial en el carrito
+    const existeFracc = carrito.some(i => i.tipo === 'fraccionamiento');
+    if (existeFracc) {
+        toast('Ya hay una cuota inicial en el carrito', 'warn'); return;
+    }
+
+    carrito.push({
+        tipo: 'fraccionamiento',
+        concepto_id: null,
+        descripcion: `Fraccionamiento — Cuota Inicial (${n} cuotas de S/ ${cuota.toFixed(2)})`,
+        monto: ini,
+        _fracc_meta: {
+            colegiado_id: col.id,
+            cuota_ini: ini,
+            n_cuotas: n,
+            monto_cuota: cuota,
+            total: total,
+            cronograma: cuotas
+        }
+    });
+
+    renderCarrito();
+    toast(`Cuota inicial S/ ${ini.toFixed(2)} agregada · ${n} cuotas de S/ ${cuota.toFixed(2)}`, 'ok');
+    cerrarModalInhabil();
+
+    // Mostrar resumen del plan en el carrito
+    setTimeout(() => _mostrarResumenFraccEnCarrito(ini, n, cuota, cuotas), 300);
+}
+
+function _mostrarResumenFraccEnCarrito(ini, n, cuota, cronograma) {
+    // Agregar un bloque informativo debajo del carrito
+    const cartBody = document.getElementById('cartBody');
+    if (!cartBody) return;
+
+    const existing = document.getElementById('fracc-resumen-carrito');
+    if (existing) existing.remove();
+
+    const div = document.createElement('div');
+    div.id = 'fracc-resumen-carrito';
+    div.style.cssText = `
+        margin:8px 12px;padding:12px;
+        background:rgba(124,58,237,.06);
+        border:1px solid rgba(124,58,237,.15);
+        border-radius:10px;font-size:11px;
+    `;
+    div.innerHTML = `
+        <div style="font-weight:700;color:#8b5cf6;margin-bottom:8px">
+            📅 Plan de cuotas restantes
+        </div>
+        ${cronograma.map((c,i) => `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;
+                    border-bottom:1px solid rgba(255,255,255,.04);color:#94a3b8">
+            <span>Cuota ${i+1}</span>
+            <span style="font-weight:600;color:#e2e8f0">${c}</span>
+        </div>`).join('')}
+        <div style="margin-top:8px;font-size:10px;color:#4ade80">
+            ✓ Al cobrar la inicial → habilidad inmediata
+        </div>
+    `;
+    cartBody.appendChild(div);
+}
+
+// Limpiar resumen fraccionamiento cuando se limpia el carrito
+const _renderCarritoOrig = window.renderCarrito;
+window.renderCarrito = function() {
+    _renderCarritoOrig();
+    // Si no hay fraccionamiento en carrito, quitar resumen
+    if (!carrito.some(i => i.tipo === 'fraccionamiento')) {
+        const r = document.getElementById('fracc-resumen-carrito');
+        if (r) r.remove();
+    }
+};
