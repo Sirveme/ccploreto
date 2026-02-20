@@ -325,9 +325,13 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
             <div class="abtn-icon" style="background:rgba(99,102,241,.1);color:var(--glow2)"><i class="ph ph-calculator"></i></div>
             <div class="abtn-text"><h4>Fraccionar mi deuda</h4><p>Cuota inicial + desde S/ 100/mes · máx. 12 cuotas</p></div>
         </div>
-        <div class="abtn pay-btn reveal" onclick="P.togglePay()">
-            <div class="abtn-icon" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ph ph-credit-card"></i></div>
-            <div class="abtn-text"><h4>Pagar ahora</h4><p>Transferencia, Yape o Plin</p></div>
+        <div class="abtn pay-btn reveal" onclick="P.togglePayOnline()">
+            <div class="abtn-icon" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ph ph-lightning"></i></div>
+            <div class="abtn-text"><h4>Pagar en línea</h4><p>Yape · Plin · Tarjeta — activa habilidad al instante</p></div>
+        </div>
+        <div class="abtn reveal" style="grid-column:1/-1" onclick="P.togglePayOffline()">
+            <div class="abtn-icon" style="background:rgba(245,158,11,.1);color:var(--warm)"><i class="ph ph-upload-simple"></i></div>
+            <div class="abtn-text"><h4>Reportar pago realizado</h4><p>Transferencia · Yape · Plin — adjunta tu voucher</p></div>
         </div>
     </div>
 
@@ -371,25 +375,210 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
         </div>
     </div>
 
-    <!-- Panel Pago Directo -->
-    <div class="ppanel" id="ppanel">
+    <!-- ── PANEL: PAGO EN LÍNEA ── -->
+    <div class="ppanel" id="ppanel-online">
         <div class="ptop">
-            <h4><i class="ph ph-credit-card"></i> Cuentas para pagar</h4>
-            <button onclick="P.togglePay()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:20px;line-height:1"><i class="ph ph-x"></i></button>
+            <h4><i class="ph ph-lightning"></i> Pago en línea — Activación inmediata</h4>
+            <button onclick="P.togglePayOnline()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:20px;line-height:1"><i class="ph ph-x"></i></button>
         </div>
         <div class="pbody">
-            <p style="font-size:12px;color:var(--tx2);margin-bottom:14px">
-                Indica tu número de colegiatura o DNI como referencia al transferir.
-            </p>
-            <div id="pay-accounts"></div>
-            <div class="pmethod-row">
-                <div class="pmethod" style="color:var(--purple)"><span>📲</span> Yape</div>
-                <div class="pmethod" style="color:var(--cyan)"><span>📲</span> Plin</div>
+            <!-- Constancia incluida -->
+            <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+                <i class="ph ph-certificate" style="font-size:22px;color:var(--green);flex-shrink:0"></i>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--green2)">Constancia de habilidad incluida</div>
+                    <div style="font-size:11px;color:var(--tx2)">Se emite automáticamente al confirmar tu pago</div>
+                </div>
             </div>
-            <p style="font-size:11px;color:var(--tx3);margin-top:12px;line-height:1.6">
-                Tu pago será verificado automáticamente. Transferencias pueden tomar hasta 24h.
+
+            <!-- Métodos Izipay -->
+            <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Elige tu método</div>
+            <div style="display:grid;gap:10px">
+                <button onclick="P.pagarIzipay('yape')" style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg2);border:1px solid rgba(123,63,228,.3);border-radius:12px;cursor:pointer;transition:all .2s;width:100%" onmouseover="this.style.borderColor='#7b3fe4';this.style.background='rgba(123,63,228,.06)'" onmouseout="this.style.borderColor='rgba(123,63,228,.3)';this.style.background='var(--bg2)'">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#7b3fe4,#5b21b6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💜</div>
+                    <div style="text-align:left"><div style="font-size:14px;font-weight:700;color:var(--tx)">Yape</div><div style="font-size:11px;color:var(--tx2)">Pago con código QR · Sin comisión extra</div></div>
+                    <i class="ph ph-arrow-right" style="margin-left:auto;color:var(--tx3)"></i>
+                </button>
+                <button onclick="P.pagarIzipay('plin')" style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg2);border:1px solid rgba(6,182,212,.3);border-radius:12px;cursor:pointer;transition:all .2s;width:100%" onmouseover="this.style.borderColor='#06b6d4';this.style.background='rgba(6,182,212,.06)'" onmouseout="this.style.borderColor='rgba(6,182,212,.3)';this.style.background='var(--bg2)'">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#06b6d4,#0284c7);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💚</div>
+                    <div style="text-align:left"><div style="font-size:14px;font-weight:700;color:var(--tx)">Plin</div><div style="font-size:11px;color:var(--tx2)">Pago con código QR · Sin comisión extra</div></div>
+                    <i class="ph ph-arrow-right" style="margin-left:auto;color:var(--tx3)"></i>
+                </button>
+                <button onclick="P.pagarIzipay('card')" style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg2);border:1px solid rgba(245,158,11,.3);border-radius:12px;cursor:pointer;transition:all .2s;width:100%" onmouseover="this.style.borderColor='#f59e0b';this.style.background='rgba(245,158,11,.06)'" onmouseout="this.style.borderColor='rgba(245,158,11,.3)';this.style.background='var(--bg2)'">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💳</div>
+                    <div style="text-align:left"><div style="font-size:14px;font-weight:700;color:var(--tx)">Tarjeta de crédito / débito</div><div style="font-size:11px;color:var(--tx2)">Visa, Mastercard · Procesado por Izipay</div></div>
+                    <i class="ph ph-arrow-right" style="margin-left:auto;color:var(--tx3)"></i>
+                </button>
+            </div>
+            <!-- Contenedor del iframe/redirect de Izipay -->
+            <div id="izipay-container" style="margin-top:14px"></div>
+            <p style="font-size:10px;color:var(--tx3);margin-top:12px;text-align:center">
+                <i class="ph ph-lock-simple"></i> Pagos procesados con cifrado SSL · Izipay Perú
             </p>
         </div>
+    </div>
+
+    <!-- ── PANEL: REPORTAR PAGO OFFLINE ── -->
+    <div class="ppanel" id="ppanel-offline" style="border-color:rgba(245,158,11,.15)">
+        <div class="ptop" style="background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.1)">
+            <h4 style="color:var(--warm)"><i class="ph ph-upload-simple"></i> Reportar pago realizado</h4>
+            <button onclick="P.togglePayOffline()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:20px;line-height:1"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="pbody">
+            <!-- Aviso tiempo de validación -->
+            <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px">
+                <i class="ph ph-clock" style="font-size:20px;color:var(--warm);flex-shrink:0;margin-top:1px"></i>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--warm)">Validación en hasta 24h</div>
+                    <div style="font-size:11px;color:var(--tx2);line-height:1.5">Al aprobar tu pago recibirás tu Constancia de Habilidad automáticamente en la app.</div>
+                </div>
+            </div>
+
+            <form id="form-pago-offline" onsubmit="P.enviarPagoOffline(event)">
+                <!-- DNI pre-cargado -->
+                <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">DNI / N° Colegiatura</label>
+                    <input type="text" id="off-dni" name="referencia" readonly
+                        style="width:100%;padding:11px 14px;background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.2);border-radius:10px;color:var(--tx);font-size:14px;font-weight:700;font-family:monospace">
+                </div>
+
+                <!-- Concepto -->
+                <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">¿Qué estás pagando?</label>
+                    <select name="concepto_pago" style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:13px;font-family:var(--ff)">
+                        <option value="deuda_total">Deuda total</option>
+                        <option value="cuota_parcial">Cuota parcial</option>
+                        <option value="cuota_fraccionamiento">Cuota de fraccionamiento</option>
+                        <option value="constancia">Solo constancia de habilidad</option>
+                    </select>
+                </div>
+
+                <!-- Monto y operación -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Monto (S/)</label>
+                        <input type="number" name="monto" step="0.01" min="1" placeholder="0.00" required
+                            style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:15px;font-weight:700;font-family:var(--ff)">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">N° Operación</label>
+                        <input type="text" name="numero_operacion" placeholder="Opcional"
+                            style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:13px;font-family:monospace">
+                    </div>
+                </div>
+
+                <!-- Método -->
+                <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Método usado</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;background:var(--bg2);border:2px solid var(--bd);border-radius:10px;cursor:pointer;font-size:11px;font-weight:600;color:var(--tx2);transition:all .2s" id="moff-yape">
+                            <input type="radio" name="metodo" value="Yape" style="display:none" onchange="P._selMetodoOff('moff-yape')"> 💜 Yape
+                        </label>
+                        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;background:var(--bg2);border:2px solid var(--bd);border-radius:10px;cursor:pointer;font-size:11px;font-weight:600;color:var(--tx2);transition:all .2s" id="moff-plin">
+                            <input type="radio" name="metodo" value="Plin" style="display:none" onchange="P._selMetodoOff('moff-plin')"> 💚 Plin
+                        </label>
+                        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;background:var(--bg2);border:2px solid var(--bd);border-radius:10px;cursor:pointer;font-size:11px;font-weight:600;color:var(--tx2);transition:all .2s" id="moff-trans">
+                            <input type="radio" name="metodo" value="Transferencia" style="display:none" onchange="P._selMetodoOff('moff-trans')"> 🏦 Transf.
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Voucher -->
+                <div style="margin-bottom:14px">
+                    <label style="display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Voucher / Captura</label>
+                    <label style="display:flex;align-items:center;gap:10px;padding:12px 15px;background:var(--bg2);border:1px dashed rgba(245,158,11,.3);border-radius:10px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--warm)'" onmouseout="this.style.borderColor='rgba(245,158,11,.3)'">
+                        <input type="file" name="voucher" accept="image/*" style="display:none" onchange="document.getElementById('off-voucher-txt').textContent=this.files[0]?.name||'Adjuntar voucher'">
+                        <i class="ph ph-camera" style="font-size:20px;color:var(--warm)"></i>
+                        <span id="off-voucher-txt" style="font-size:12px;color:var(--tx2)">Adjuntar voucher (recomendado)</span>
+                    </label>
+                </div>
+
+                <!-- Constancia -->
+                <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                        <input type="checkbox" name="requiere_constancia" value="1" style="width:18px;height:18px;accent-color:var(--green)">
+                        <div>
+                            <div style="font-size:13px;font-weight:700">📜 Solicitar Constancia de Habilidad</div>
+                            <div style="font-size:11px;color:var(--tx2)">Se emite al validar tu pago (hasta 24h)</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="off-resultado"></div>
+                <button type="submit" style="width:100%;padding:14px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--warm),#f97316);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <i class="ph ph-paper-plane-tilt"></i> Enviar reporte de pago
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECCIÓN PWA — INSTALA LA APP (PERSUASIVA)
+     ══════════════════════════════════════════════════════════ -->
+<section class="section" id="instala-app" style="padding-top:20px">
+    <div class="stag blue"><i class="ph ph-device-mobile"></i> App gratuita</div>
+    <h2 class="stitle">Instala la app y<br>nunca pierdas un aviso</h2>
+    <p class="sdesc">
+        Recibe tu Constancia de Habilidad directamente en tu celular, alertas de vencimiento y novedades del colegio — sin abrir el navegador.
+    </p>
+
+    <!-- Video demo -->
+    <div style="border-radius:20px;overflow:hidden;background:var(--sf);border:1px solid var(--bd2);margin-bottom:24px;position:relative">
+        <video id="pwa-demo-video"
+            style="width:100%;display:block;max-height:340px;object-fit:cover"
+            autoplay muted loop playsinline
+            poster="">
+            <!-- Reemplaza src con la URL de tu video -->
+            <source src="" type="video/mp4">
+        </video>
+        <!-- Overlay si no hay video aún -->
+        <div id="video-placeholder" style="position:absolute;inset:0;background:linear-gradient(135deg,var(--sf),var(--sf2));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px">
+            <i class="ph ph-play-circle" style="font-size:56px;color:var(--glow);opacity:.6"></i>
+            <p style="color:var(--tx2);font-size:13px;text-align:center">Video demostrativo de la app<br><span style="color:var(--tx3);font-size:11px">(próximamente)</span></p>
+        </div>
+    </div>
+
+    <!-- Beneficios de instalar -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px">
+            <i class="ph ph-bell-ringing" style="font-size:24px;color:var(--glow);display:block;margin-bottom:8px"></i>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Alertas push</div>
+            <div style="font-size:11px;color:var(--tx2)">Aviso cuando tu pago sea aprobado</div>
+        </div>
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px">
+            <i class="ph ph-certificate" style="font-size:24px;color:var(--green);display:block;margin-bottom:8px"></i>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Constancia al instante</div>
+            <div style="font-size:11px;color:var(--tx2)">Descárgala sin abrir el navegador</div>
+        </div>
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px">
+            <i class="ph ph-wifi-slash" style="font-size:24px;color:var(--warm);display:block;margin-bottom:8px"></i>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Funciona offline</div>
+            <div style="font-size:11px;color:var(--tx2)">Consulta tu estado sin internet</div>
+        </div>
+        <div style="background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px">
+            <i class="ph ph-lock-simple" style="font-size:24px;color:var(--purple);display:block;margin-bottom:8px"></i>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Acceso seguro</div>
+            <div style="font-size:11px;color:var(--tx2)">Tu sesión protegida siempre</div>
+        </div>
+    </div>
+
+    <!-- Botón de instalación grande -->
+    <div id="pwa-install-section">
+        <button id="btn-install-big" onclick="P.installPWA()"
+            style="width:100%;padding:18px;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--glow),var(--glow2));color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 30px rgba(59,130,246,.35);animation:pulse-ring 2.5s infinite;margin-bottom:10px">
+            <i class="ph ph-download-simple" style="font-size:22px"></i> Instalar app gratis
+        </button>
+        <p style="text-align:center;font-size:11px;color:var(--tx3)">
+            <i class="ph ph-info"></i> Sin tienda de apps · Directo desde el navegador · 0 MB descargados
+        </p>
+    </div>
+
+    <!-- Fallback si ya está instalada o no soporta PWA -->
+    <div id="pwa-installed-msg" style="display:none;text-align:center;padding:16px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);border-radius:12px">
+        <i class="ph ph-check-circle" style="font-size:28px;color:var(--green)"></i>
+        <p style="font-size:13px;font-weight:700;color:var(--green2);margin-top:6px">¡App instalada!</p>
+        <p style="font-size:11px;color:var(--tx2)">Búscala en tu pantalla de inicio</p>
     </div>
 </section>
 
@@ -437,6 +626,12 @@ const P = {
             this.loadDeuda();
             this.loadStats();
             this.initPWA();
+        // Ocultar placeholder de video si hay src
+        const vid = document.getElementById('pwa-demo-video');
+        const src = vid?.querySelector('source')?.src;
+        if (src && !src.endsWith('/')) {
+            document.getElementById('video-placeholder').style.display = 'none';
+        }
             this.initWS();
         } catch(e) { console.error('[Portal]', e); }
     },
@@ -647,12 +842,97 @@ const P = {
             document.getElementById('ppanel').classList.remove('open');
         }
     },
-    togglePay() {
-        const p = document.getElementById('ppanel');
-        p.classList.toggle('open');
-        if (p.classList.contains('open')) {
-            document.getElementById('fpanel').classList.remove('open');
+    togglePayOnline() {
+        const p  = document.getElementById('ppanel-online');
+        const po = document.getElementById('ppanel-offline');
+        const fp = document.getElementById('fpanel');
+        const open = p.classList.toggle('open');
+        if (open) { po.classList.remove('open'); fp.classList.remove('open'); }
+        if (open) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+
+    togglePayOffline() {
+        const p  = document.getElementById('ppanel-offline');
+        const po = document.getElementById('ppanel-online');
+        const fp = document.getElementById('fpanel');
+        const open = p.classList.toggle('open');
+        if (open) { po.classList.remove('open'); fp.classList.remove('open'); }
+        // Pre-cargar DNI + matrícula
+        if (open && this.col) {
+            const ref = document.getElementById('off-dni');
+            if (ref) ref.value = `${this.col.dni || ''} / ${this.col.matricula || ''}`;
         }
+        if (open) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+
+    _selMetodoOff(activeId) {
+        ['moff-yape','moff-plin','moff-trans'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.borderColor   = id === activeId ? 'var(--glow)' : 'var(--bd)';
+            el.style.background    = id === activeId ? 'rgba(59,130,246,.08)' : 'var(--bg2)';
+            el.style.color         = id === activeId ? 'var(--tx)' : 'var(--tx2)';
+        });
+    },
+
+    pagarIzipay(metodo) {
+        // Placeholder — integrar con SDK Izipay cuando esté disponible
+        // metodo: 'yape' | 'plin' | 'card'
+        const c = document.getElementById('izipay-container');
+        c.innerHTML = `
+            <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:12px;padding:20px;text-align:center">
+                <i class="ph ph-spinner ph-spin" style="font-size:28px;color:var(--glow)"></i>
+                <p style="margin:10px 0 4px;font-size:13px;font-weight:700">Conectando con Izipay…</p>
+                <p style="font-size:11px;color:var(--tx2)">Integración de pasarela pendiente de configuración</p>
+            </div>`;
+        // TODO: llamar a /api/portal/pago-online/iniciar con { metodo, monto: this.total }
+    },
+
+    async enviarPagoOffline(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn  = form.querySelector('[type=submit]');
+        const res  = document.getElementById('off-resultado');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Enviando…';
+        try {
+            const fd = new FormData(form);
+            fd.append('colegiado_id', this.col?.id || '');
+            const r = await fetch('/pagos/registrar', { method: 'POST', body: fd });
+            if (r.ok) {
+                res.innerHTML = `<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">
+                    <i class="ph ph-check-circle" style="font-size:28px;color:var(--green)"></i>
+                    <p style="font-size:13px;font-weight:700;color:var(--green2);margin:6px 0 2px">¡Reporte enviado!</p>
+                    <p style="font-size:11px;color:var(--tx2)">Tu pago será validado en hasta 24h. Recibirás una notificación.</p>
+                </div>`;
+                form.reset();
+            } else {
+                const html = await r.text();
+                res.innerHTML = html;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar reporte de pago';
+            }
+        } catch(err) {
+            res.innerHTML = `<p style="color:var(--red);font-size:12px">❌ Error de conexión. Intenta de nuevo.</p>`;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar reporte de pago';
+        }
+    },
+
+    // Activa el panel de pago con instrucciones específicas para la cuota inicial
+    _activarPanelPagoFracc(plan) {
+        const ptop = document.querySelector('.ptop h4');
+        if (ptop) ptop.innerHTML = `<i class="ph ph-credit-card"></i> Pagar cuota inicial · S/ ${this.fmt(plan.cuota_inicial)}`;
+
+        // Añadir nota de referencia con número de solicitud
+        const pbody = document.querySelector('.pbody p');
+        if (pbody) pbody.innerHTML = `
+            Indica <strong>${this.col?.numero_colegiatura || 'tu N° de colegiatura'}</strong>
+            y el código <strong>${plan.numero_solicitud}</strong> como referencia al transferir.
+        `;
+
+        document.getElementById('ppanel').classList.add('open');
+        document.getElementById('ppanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
 
     async solicitarF() {
@@ -674,9 +954,16 @@ const P = {
             });
             const d = await r.json();
             if (d.success) {
+                // Guardar datos del plan para el formulario de pago
+                this.planActivo = {
+                    fraccionamiento_id: d.fraccionamiento_id,
+                    numero_cuota:       0,                       // cuota inicial
+                    monto:              d.cuota_inicial,
+                    numero_solicitud:   d.numero_solicitud,
+                };
                 this.toggleFracc();
-                this.loadDeuda();
-                this._showToast('¡Fraccionamiento aprobado! Realiza tu pago inicial para reactivarte.', 'success');
+                this._activarPanelPagoFracc(d);
+                this._showToast(`Plan ${d.numero_solicitud} creado. ¡Realiza el pago inicial para reactivarte!`, 'success');
             } else {
                 this._showToast(d.detail || d.mensaje || 'Error al procesar', 'error');
             }
@@ -771,6 +1058,18 @@ const P = {
             document.getElementById('btn-install').style.display = 'flex';
             document.getElementById('pwa-banner').classList.add('visible');
         });
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwa-install-section').style.display = 'none';
+            document.getElementById('pwa-installed-msg').style.display  = 'block';
+            document.getElementById('pwa-banner').classList.remove('visible');
+            document.getElementById('btn-install').style.display = 'none';
+        });
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            const s = document.getElementById('pwa-install-section');
+            const m = document.getElementById('pwa-installed-msg');
+            if (s) s.style.display = 'none';
+            if (m) m.style.display = 'block';
+        }
     },
     async installPWA() {
         if (!this.dp) return;
@@ -779,6 +1078,8 @@ const P = {
         if (r.outcome === 'accepted') {
             document.getElementById('btn-install').style.display = 'none';
             document.getElementById('pwa-banner').classList.remove('visible');
+            document.getElementById('pwa-install-section').style.display = 'none';
+            document.getElementById('pwa-installed-msg').style.display  = 'block';
         }
         this.dp = null;
     },
