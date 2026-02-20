@@ -9,7 +9,7 @@ from datetime import date as dt_date, datetime, timezone, timedelta
 from sqlalchemy import and_
 
 from app.models_debt_management import Debt, Fraccionamiento, EstadoFraccionamiento, FraccionamientoCuota
-from app.models import Colegiado, Member, ConceptoCobro, Debt, Organization
+from app.models import Colegiado, Member, ConceptoCobro, Organization
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session

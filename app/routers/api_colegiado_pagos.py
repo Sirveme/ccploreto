@@ -14,7 +14,8 @@ from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
 from app.routers.dashboard import get_current_member
-from app.models import Member, Colegiado, Debt, Payment, Comprobante, ConceptoCobro
+from app.models import Member, Colegiado, Payment, Comprobante, ConceptoCobro
+from app.models_debt_management import Debt
 
 router = APIRouter(prefix="/api/colegiado", tags=["Colegiado Pagos"])
 

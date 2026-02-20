@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Payment, Colegiado, Debt, Organization, Comprobante, SesionCaja
+from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja
+from app.models_debt_management import Debt
 
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
 

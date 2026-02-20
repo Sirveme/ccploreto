@@ -10,7 +10,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
 from app.database import get_db
-from app.models import Member, Debt, Payment, Device
+from app.models import Member, Payment, Device
+from app.models_debt_management import Debt
 from app.routers.dashboard import get_current_member
 # IMPORTANTE: Importamos el gestor de websockets
 from app.routers.ws import manager 

@@ -14,7 +14,8 @@ from typing import Optional
 import json
 
 from app.database import get_db
-from app.models import Organization, Member, Colegiado, Payment, Debt
+from app.models import Organization, Member, Colegiado, Payment
+from app.models_debt_management import Debt
 # from app.utils.gcs import upload_to_gcs  # Si usas Google Cloud Storage
 
 router = APIRouter(prefix="/api/admin", tags=["admin-config"])

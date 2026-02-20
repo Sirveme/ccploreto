@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Body, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Device, Member, AccessLog, MemberRole, PanicLog, Debt, Payment, Bulletin, AuditLog, User
+from app.models import Device, Member, AccessLog, MemberRole, PanicLog,Payment, Bulletin, AuditLog, User
+from app.models_debt_management import Debt
 from app.routers.dashboard import get_current_member
 from app.core.actions import get_allowed_actions, get_action_ui
 from openai import OpenAI

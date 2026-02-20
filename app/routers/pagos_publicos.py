@@ -16,7 +16,8 @@ import base64
 import os
 
 from app.database import get_db
-from app.models import Colegiado, Debt, Payment, Organization
+from app.models import Colegiado, Payment, Organization
+from app.models_debt_management import Debt
 from app.routers.ws import manager
 from app.services.emitir_certificado_service import emitir_certificado_automatico
 

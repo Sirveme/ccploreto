@@ -3,7 +3,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Member, Bulletin, Organization, User, Colegiado, Debt, Payment
+from app.models import Member, Bulletin, Organization, User, Colegiado, Payment
+from app.models_debt_management import Debt
 from sqlalchemy import func
 from jose import jwt, JWTError
 from app.config import SECRET_KEY 

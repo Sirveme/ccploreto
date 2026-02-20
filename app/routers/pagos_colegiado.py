@@ -12,7 +12,8 @@ from jose import jwt, JWTError
 import os
 
 from app.database import get_db
-from app.models import Payment, Debt, Colegiado, Member
+from app.models import Payment, Colegiado, Member
+from app.models_debt_management import Debt
 
 router = APIRouter(prefix="/api/colegiado", tags=["colegiado"])
 
