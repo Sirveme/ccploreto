@@ -20,6 +20,7 @@ from app.models import Colegiado, Payment, Organization
 from app.models_debt_management import Debt
 from app.routers.ws import manager
 from app.services.emitir_certificado_service import emitir_certificado_automatico
+from app.services.deuda_cuotas_service import calcular_deuda_total as _svc_deuda_total
 
 import io
 from fastapi.responses import StreamingResponse
@@ -39,28 +40,63 @@ def get_org_finanzas_config(org: dict, key: str, default=None):
 
 
 def calcular_deuda_total(db: Session, colegiado_id: int) -> dict:
-    """Calcula la deuda total y detalle de un colegiado"""
-    deudas = db.query(Debt).filter(
-        Debt.colegiado_id == colegiado_id,
-        Debt.status.in_(["pending", "partial"])
-    ).order_by(Debt.due_date.asc(), Debt.created_at.asc()).all()
+    """
+    Calcula la deuda total de un colegiado.
+    Combina cuotas ordinarias INFERIDAS (no están en debts) 
+    + obligaciones REGISTRADAS (multas, extraordinarias, eventos).
+    """
+    from app.models import Colegiado as _Colegiado
+    colegiado = db.query(_Colegiado).filter(_Colegiado.id == colegiado_id).first()
+    if not colegiado:
+        return {"total": 0, "cantidad_cuotas": 0, "detalle": []}
     
-    total = sum(d.balance for d in deudas)
+    resultado = _svc_deuda_total(colegiado_id, colegiado.organization_id, db)
+    
+    # Mapear al formato que ya usa el endpoint /deuda/{identificador}
+    cuotas = resultado.get("cuotas", {})
+    obligaciones = resultado.get("obligaciones", [])
+    resumen = resultado.get("resumen", {})
+    
+    detalle = []
+    
+    # Cuotas ordinarias pendientes (inferidas)
+    for p in cuotas.get("periodos_pendientes", []):
+        detalle.append({
+            "id": None,
+            "concepto": f"Cuota Ordinaria {p['label_full']}",
+            "periodo": p["periodo"],
+            "monto_original": p["monto"],
+            "saldo": p["monto"],
+            "vencimiento": p.get("vencimiento"),
+            "tipo": "cuota_ordinaria",
+            "vencido": p["vencido"],
+            "dias_mora": p["dias_mora"],
+        })
+    
+    # Obligaciones registradas (multas, extraordinarias, etc.)
+    for o in obligaciones:
+        detalle.append({
+            "id": o["id"],
+            "concepto": o["concepto"],
+            "periodo": o["periodo"],
+            "monto_original": o["monto_original"],
+            "saldo": o["balance"],
+            "vencimiento": o["vencimiento"],
+            "tipo": o["categoria"],
+            "vencido": True,  # Si está en pending/partial, está vencida
+            "dias_mora": 0,
+        })
     
     return {
-        "total": total,
-        "cantidad_cuotas": len(deudas),
-        "detalle": [
-            {
-                "id": d.id,
-                "concepto": d.concept,
-                "periodo": d.periodo,
-                "monto_original": d.amount,
-                "saldo": d.balance,
-                "vencimiento": d.due_date.strftime("%d/%m/%Y") if d.due_date else None
-            }
-            for d in deudas
-        ]
+        "total": resumen.get("deuda_total", 0),
+        "deuda_cuotas": resumen.get("deuda_cuotas", 0),
+        "deuda_otras": resumen.get("deuda_otras", 0),
+        "cantidad_cuotas": resumen.get("cuotas_pendientes", 0),
+        "ultimo_pago_cuota": resumen.get("ultimo_pago_cuota"),
+        "fraccionamiento": resultado.get("fraccionamiento"),
+        "detalle": detalle,
+        # Mantener compatibilidad con código anterior
+        "cantidad_cuotas_legacy": len(detalle),
     }
 
 
