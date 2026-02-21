@@ -245,12 +245,12 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 .char-bubble::before{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%);border:8px solid transparent;border-bottom-color:rgba(99,102,241,.25);border-top:none}
 
 /* ── PHONE MOCKUP V2 ── */
-.mock-phone-v2{width:220px;min-height:460px;background:linear-gradient(180deg,#0d111e 0%,#0a0d16 100%);border-radius:36px;border:8px solid #1e2535;box-shadow:0 24px 64px rgba(0,0,0,.8),inset 0 0 0 1px rgba(255,255,255,.06),0 0 0 1px rgba(0,0,0,.5);overflow:hidden;flex-shrink:0;display:flex;flex-direction:column}
+.mock-phone-v2{width:220px;height:460px;max-height:460px;background:linear-gradient(180deg,#0d111e 0%,#0a0d16 100%);border-radius:36px;border:8px solid #1e2535;box-shadow:0 24px 64px rgba(0,0,0,.8),inset 0 0 0 1px rgba(255,255,255,.06),0 0 0 1px rgba(0,0,0,.5);overflow:hidden;flex-shrink:0;display:flex;flex-direction:column}
 .mpv2-notch{height:28px;background:#0d111e;display:flex;justify-content:center;align-items:center;padding-top:6px}
 .mpv2-notch-pill{width:64px;height:11px;background:#1e2535;border-radius:20px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .mpv2-status{display:flex;justify-content:space-between;padding:2px 16px 6px;font-size:10px;font-weight:600;color:rgba(255,255,255,.6)}
 .mpv2-appbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.06)}
-.mpv2-screen-body{flex:1;padding:12px 10px 8px;display:flex;flex-direction:column;gap:8px}
+.mpv2-screen-body{height:200px;overflow:hidden;padding:12px 10px 8px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
 .mpv2-dash-card{background:linear-gradient(135deg,rgba(99,102,241,.25) 0%,rgba(59,130,246,.15) 100%);border:1px solid rgba(99,102,241,.3);border-radius:12px;padding:12px;position:relative;overflow:hidden}
 .mpv2-dash-card::before{content:'';position:absolute;top:-20px;right:-20px;width:64px;height:64px;border-radius:50%;background:rgba(99,102,241,.12)}
 .mpv2-dash-label{font-size:8px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
@@ -260,7 +260,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 .mpv2-qbtn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:3px}
 .mpv2-qbtn-icon{font-size:14px}
 .mpv2-qbtn-label{font-size:7px;color:rgba(255,255,255,.5);font-weight:600;text-align:center;line-height:1.2}
-.mpv2-notifs{padding:10px;position:relative;height:120px;transition:height .3s ease}
+.mpv2-notifs{padding:10px;position:relative;height:116px;flex-shrink:0;transition:height .3s ease;overflow:hidden}
 .mpv2-notif{display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px 12px;opacity:0;transform:translateY(-14px) scale(.97);transition:opacity .45s ease,transform .45s ease;position:absolute;left:10px;right:10px;box-sizing:border-box}
 .mpv2-notif.show{opacity:1;transform:translateY(0) scale(1)}
 .mpv2-notif.hide{opacity:0;transform:translateY(14px) scale(.96)}
