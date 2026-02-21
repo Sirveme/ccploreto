@@ -61,36 +61,46 @@ def obtener_meses_pagados(
     db: Session
 ) -> Set[str]:
     """
-    Retorna set de periodos pagados (aprobados) para cuotas ordinarias.
-    Busca en payments por concepto_cobro_id = CUOT-ORD o por debt_type.
+    Determina qué periodos YYYY-MM ya fueron pagados.
+    
+    Estrategia (en orden de prioridad):
+    1. Payment → related_debt_id → Debt.periodo (vínculo directo)
+    2. Payment.notes con patrón YYYY-MM (pagos manuales de caja sin deuda vinculada)
     """
-    # Buscar el concepto_cobro_id de cuota ordinaria
-    cuot_ord = db.query(ConceptoCobro).filter(
-        ConceptoCobro.organization_id == organization_id,
-        ConceptoCobro.codigo == 'CUOT-ORD'
-    ).first()
-
+    import re
     pagados = set()
 
-    if cuot_ord:
-        # Pagos vinculados al concepto CUOT-ORD
-        rows = db.query(Payment.periodo).filter(
+    # Estrategia 1: via deuda vinculada
+    rows = (
+        db.query(Debt.periodo)
+        .join(Payment, Payment.related_debt_id == Debt.id)
+        .filter(
             Payment.colegiado_id == colegiado_id,
-            Payment.concepto_cobro_id == cuot_ord.id,
-            Payment.estado == 'approved'
-        ).distinct().all()
-        pagados.update(r[0] for r in rows if r[0])
+            Payment.status == 'approved',
+            Debt.debt_type == 'cuota_ordinaria',
+            Debt.periodo.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    pagados.update(r[0] for r in rows if r[0] and re.match(r'^\d{4}-\d{2}$', r[0]))
 
-    # También buscar pagos con debt_type='cuota_ordinaria' (legacy)
-    rows2 = db.query(Payment.periodo).filter(
-        Payment.colegiado_id == colegiado_id,
-        Payment.estado == 'approved'
-    ).distinct().all()
-    # Filtrar los que parecen cuota ordinaria por periodo format YYYY-MM
-    import re
+    # Estrategia 2: notas de caja con periodos
+    # Ej: "[CAJA] Cuota Ordinaria 2024-03 y 2024-04"
+    rows2 = (
+        db.query(Payment.notes)
+        .filter(
+            Payment.colegiado_id == colegiado_id,
+            Payment.status == 'approved',
+            Payment.related_debt_id.is_(None),
+            Payment.notes.isnot(None),
+        )
+        .all()
+    )
     for r in rows2:
-        if r[0] and re.match(r'^\d{4}-\d{2}$', r[0]):
-            pagados.add(r[0])
+        if r[0]:
+            encontrados = re.findall(r'\b(\d{4}-\d{2})\b', r[0])
+            pagados.update(encontrados)
 
     return pagados
 
@@ -299,7 +309,7 @@ def calcular_deuda_total(
     monto_otras = sum(o['balance'] for o in obligaciones)
 
     # 3. Fraccionamientos activos
-    from app.models.debt_management import Fraccionamiento
+    from app.models_debt_management import Fraccionamiento
     fracc = db.query(Fraccionamiento).filter(
         Fraccionamiento.colegiado_id == colegiado_id,
         Fraccionamiento.organization_id == organization_id,
