@@ -16,10 +16,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja
+from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja, Member
 from app.models_debt_management import Debt
 
+from fastapi.templating import Jinja2Templates
+from app.routers.dashboard import get_current_member  # igual que en finance.py
+
+templates = Jinja2Templates(directory="app/templates")
+
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
+router_views = APIRouter(prefix="/finanzas", tags=["finanzas-views"])
 
 TZ_PERU = timezone(timedelta(hours=-5))
 
@@ -561,3 +567,40 @@ async def situacion_colegiado_caja(
         "plan_activo":              plan_activo is not None,
         "campana":                  campana,
     }
+
+
+@router_views.get("/dashboard")
+async def dashboard_finanzas_view(
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    # Verificar rol
+    if member.role not in ("admin", "director_finanzas", "superadmin"):
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    # Buscar si este directivo también es colegiado
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.member_id == member.id,
+        Colegiado.organization_id == member.organization_id,
+    ).first()
+
+    return templates.TemplateResponse("pages/finanzas/dashboard.html", {
+        "request": request,
+        "current_user": member,
+        "colegiado": colegiado,
+    })
+
+@router_views.get("/mi-portal-colegiado")
+async def redirigir_portal_colegiado(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Redirige al directivo a su vista de colegiado."""
+    from fastapi.responses import RedirectResponse
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.member_id == member.id
+    ).first()
+    if not colegiado:
+        raise HTTPException(status_code=404, detail="No estás registrado como colegiado")
+    return RedirectResponse(url="/dashboard", status_code=302)
