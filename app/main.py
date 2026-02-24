@@ -306,6 +306,6 @@ async def portal_inactivo_page(request: Request):
      return templates.TemplateResponse("portal_inactivo.html", {"request": request})
 
 
-app.get("/finanzas/guia")
+@app.get("/finanzas/guia")
 async def guia_finanzas(request: Request):
     return templates.TemplateResponse("pages/finanzas/guia.html", {"request": request})
