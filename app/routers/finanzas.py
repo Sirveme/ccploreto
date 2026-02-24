@@ -569,8 +569,24 @@ async def situacion_colegiado_caja(
     }
 
 
-@router_views.get("/dashboard")
+@router_views.get("/finanzas/dashboard")
 async def dashboard_finanzas_view(
+    request: Request,
+    db: Session = Depends(get_db),
+    # member: Member = Depends(get_current_member),  # ← comentado temporalmente
+):
+    # Colegiado en None mientras no hay auth
+    colegiado = None
+
+    return templates.TemplateResponse("pages/finanzas/dashboard.html", {
+        "request": request,
+        "current_user": None,
+        "colegiado": colegiado,
+    })
+
+
+@router_views.get("/dashboard2")
+async def dashboard_finanzas_view2(
     request: Request,
     db: Session = Depends(get_db),
     member: Member = Depends(get_current_member),
