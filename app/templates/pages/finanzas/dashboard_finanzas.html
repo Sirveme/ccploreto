@@ -648,21 +648,23 @@ body::before {
   <!-- Agregar ANTES del cierre </nav> del sidebar, 
      encima de .sidebar-user -->
 
-     {% if colegiado %}
+     <!--{% if colegiado %} -->
         <div class="sidebar-switch">
         <a href="/dashboard" class="switch-btn" title="Ver mi portal como Colegiado">
             <div class="switch-avatar">
             <!-- Iniciales del directivo, las mismas del login -->
-            <span>{{ current_user.initials or 'CO' }}</span>
+            <!--<span>{{ current_user.initials or 'CO' }}</span> -->
+                <span>A.A.</span>
             </div>
             <div class="switch-info">
             <span class="switch-label">Mi portal Colegiado</span>
-            <span class="switch-mat">Mat. {{ colegiado.codigo_matricula or '—' }}</span>
+            <!--<span class="switch-mat">Mat. {{ colegiado.codigo_matricula or '—' }}</span>-->
+            <span class="switch-mat">Mat. 10-0637</span>
             </div>
             <span class="switch-arrow">↗</span>
         </a>
         </div>
-    {% endif %}
+    <!--{% endif %} -->
 
   <div class="sidebar-user">
     <div class="user-avatar">DF</div>
