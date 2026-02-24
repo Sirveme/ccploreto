@@ -165,12 +165,12 @@ app.include_router(caja_page_router)
 app.include_router(reportes_router)
 app.include_router(conciliacion_router)
 app.include_router(finanzas_router)
+app.include_router(finanzas_views) 
 app.websocket("/ws/finanzas")(ws_finanzas)
 app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
-app.include_router(finanzas.router)        # /api/finanzas/...  ← ya existe
-app.include_router(finanzas.router_views)  # /finanzas/...      ← agregar esto
+
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
