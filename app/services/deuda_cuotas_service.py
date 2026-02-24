@@ -154,117 +154,63 @@ def obtener_monto_cuota(
     return cuot_ord.monto_base if cuot_ord else 20.0
 
 
-def calcular_deuda_cuotas(
-    colegiado_id: int,
-    organization_id: int,
-    db: Session,
-    hasta: Optional[date] = None
-) -> Dict:
+def calcular_deuda_cuotas(colegiado_id, organization_id, db, hasta=None):
     """
-    Calcula la deuda de cuotas ordinarias de un colegiado.
-    
-    Retorna:
-    {
-        'periodos_obligados': ['2024-01', '2024-02', ...],
-        'periodos_pagados': {'2024-01', '2024-03'},
-        'periodos_exceptuados': {'2024-02'},
-        'periodos_pendientes': [
-            {'periodo': '2024-04', 'label': 'Abr 2024', 'monto': 20.0, 'vencido': True, 'dias_mora': 300},
-            ...
-        ],
-        'total_cuotas_pendientes': 8,
-        'monto_total': 160.0,
-        'monto_cuota_mensual': 20.0,
-        'desde': '2023-06',
-        'ultimo_pago': '2024-03',
-    }
+    Con la nueva arquitectura las cuotas ordinarias históricas YA ESTÁN en debts.
+    Este servicio solo maneja los meses desde el último registro hasta hoy
+    (cuotas que aún no se han generado en el sistema).
     """
+    from datetime import datetime, timezone, timedelta
+
     colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
     if not colegiado:
         return {'error': 'Colegiado no encontrado'}
 
-    # Determinar desde cuándo debe cuotas
-    fecha_desde = getattr(colegiado, 'fecha_colegiatura', None)
-    if not fecha_desde:
-        # Fallback: usar created_at del colegiado
-        if colegiado.created_at:
-            fecha_desde = colegiado.created_at.date() if hasattr(colegiado.created_at, 'date') else colegiado.created_at
-        else:
-            fecha_desde = date(2020, 1, 1)  # Default conservador
-
-    # Determinar hasta cuándo
-    if not hasta:
-        hoy = datetime.now(PERU_TZ).date()
-        # Solo hasta el mes actual (no generar deuda futura)
-        hasta = hoy
-
-    # No generar deuda para fallecidos, retirados, vitalicios
     condicion = getattr(colegiado, 'condicion', 'habil')
     if condicion in ('fallecido', 'retirado', 'vitalicio'):
-        fecha_baja = getattr(colegiado, 'fecha_baja', None)
-        if fecha_baja:
-            hasta = min(hasta, fecha_baja)
-        else:
-            return {
-                'periodos_pendientes': [],
-                'total_cuotas_pendientes': 0,
-                'monto_total': 0,
-                'condicion': condicion,
-                'nota': f'Colegiado {condicion} — sin obligación vigente'
-            }
+        return {
+            'periodos_pendientes': [],
+            'total_cuotas_pendientes': 0,
+            'monto_total': 0,
+            'condicion': condicion,
+        }
 
-    # 1. Generar meses obligados
-    periodos_obligados = generar_periodos(fecha_desde, hasta)
+    # Las cuotas ordinarias históricas ya están en debts (importadas del Excel)
+    # Solo consultar directamente
+    deudas_cuotas = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.organization_id == organization_id,
+        Debt.debt_type == 'cuota_ordinaria',
+        Debt.status.in_(['pending', 'partial']),
+        Debt.estado_gestion.in_(['vigente', 'en_cobranza']),
+    ).order_by(Debt.periodo).all()
 
-    # 2. Obtener meses pagados
-    pagados = obtener_meses_pagados(colegiado_id, organization_id, db)
-
-    # 3. Obtener meses exceptuados
-    exceptuados = obtener_meses_exceptuados(colegiado_id, organization_id, db)
-
-    # 4. Calcular pendientes
+    hoy = datetime.now(timezone(timedelta(hours=-5))).date()
     monto_cuota = obtener_monto_cuota(organization_id, '', db)
-    hoy = datetime.now(PERU_TZ).date()
 
     pendientes = []
-    for per in periodos_obligados:
-        if per in pagados or per in exceptuados:
-            continue
-
-        anio, mes = int(per[:4]), int(per[5:7])
-        # Fecha de vencimiento: último día del mes
-        if mes == 12:
-            venc = date(anio + 1, 1, 1) - timedelta(days=1)
-        else:
-            venc = date(anio, mes + 1, 1) - timedelta(days=1)
-
-        vencido = hoy > venc
-        dias_mora = (hoy - venc).days if vencido else 0
+    for d in deudas_cuotas:
+        anio, mes = int(d.periodo[:4]), int(d.periodo[5:7])
+        vencido = True  # Si está en pending y es histórico, está vencido
+        dias_mora = (hoy - d.due_date.date()).days if d.due_date else 0
 
         pendientes.append({
-            'periodo': per,
-            'label': f"{MESES_LABEL.get(mes, '')} {anio}",
-            'label_full': f"{MESES_LABEL_FULL.get(mes, '')} {anio}",
-            'monto': monto_cuota,
+            'periodo': d.periodo,
+            'label': f"{MESES_LABEL.get(mes,'')} {anio}",
+            'label_full': f"{MESES_LABEL_FULL.get(mes,'')} {anio}",
+            'monto': d.balance,
             'vencido': vencido,
-            'dias_mora': dias_mora,
-            'vencimiento': venc.isoformat(),
+            'dias_mora': max(0, dias_mora),
+            'vencimiento': d.due_date.date().isoformat() if d.due_date else None,
+            'debt_id': d.id,
         })
 
-    # Último pago
-    ultimo_pago = max(pagados) if pagados else None
-
     return {
-        'periodos_obligados_count': len(periodos_obligados),
-        'periodos_pagados': sorted(pagados),
-        'periodos_exceptuados': sorted(exceptuados),
         'periodos_pendientes': pendientes,
         'total_cuotas_pendientes': len(pendientes),
-        'monto_total': round(len(pendientes) * monto_cuota, 2),
+        'monto_total': round(sum(p['monto'] for p in pendientes), 2),
         'monto_cuota_mensual': monto_cuota,
-        'desde': periodos_obligados[0] if periodos_obligados else None,
-        'ultimo_pago': ultimo_pago,
-        'fecha_colegiatura': fecha_desde.isoformat() if fecha_desde else None,
+        'fecha_colegiatura': getattr(colegiado, 'fecha_colegiatura', None),
     }
 
 
