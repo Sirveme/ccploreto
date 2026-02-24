@@ -150,11 +150,11 @@ app.include_router(public.router)
 app.include_router(pagos_publicos.router)
 app.include_router(colegiado.router)
 app.include_router(router)
-#app.include_router(api_colegiado_router)
+
 app.include_router(router_landing)
 app.include_router(avisos.router)
-app.include_router(avisos.router_sunat)  # Para consulta de RUC
-app.include_router(verificacion.router)  # Público, sin prefijo de API
+app.include_router(avisos.router_sunat)
+app.include_router(verificacion.router)
 app.include_router(admin_config_router)
 app.include_router(admin_views_router)
 app.include_router(pagos_colegiado.router)
