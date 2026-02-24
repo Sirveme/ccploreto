@@ -585,7 +585,7 @@ async def dashboard_finanzas_view(
         Colegiado.organization_id == member.organization_id,
     ).first()
 
-    return templates.TemplateResponse("pages/finanzas/dashboard.html", {
+    return templates.TemplateResponse("pages/finanzas/dashboard_finanzas.html", {
         "request": request,
         "current_user": member,
         "colegiado": colegiado,
