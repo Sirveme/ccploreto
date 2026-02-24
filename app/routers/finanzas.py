@@ -569,7 +569,7 @@ async def situacion_colegiado_caja(
     }
 
 
-@router_views.get("/finanzas/dashboard")
+@router_views.get("/dashboard")
 async def dashboard_finanzas_view(
     request: Request,
     db: Session = Depends(get_db),
@@ -584,7 +584,7 @@ async def dashboard_finanzas_view(
         "colegiado": colegiado,
     })
 
-
+"""
 @router_views.get("/dashboard2")
 async def dashboard_finanzas_view2(
     request: Request,
@@ -606,7 +606,7 @@ async def dashboard_finanzas_view2(
         "current_user": member,
         "colegiado": colegiado,
     })
-
+"""
 @router_views.get("/mi-portal-colegiado")
 async def redirigir_portal_colegiado(
     member: Member = Depends(get_current_member),
