@@ -14,7 +14,7 @@ from .database import engine, SessionLocal
 from .models import Organization
 from .config import redis_client, DEFAULT_THEME, THEMES, SECRET_KEY
 # Importamos todos los routers
-from .routers import auth, dashboard, ws, api, admin, security, pets, finance, services, partners, directory, public, pagos_publicos, colegiado, avisos, verificacion
+from .routers import auth, dashboard, ws, api, admin, security, pets, finanzas, services, partners, directory, public, pagos_publicos, colegiado, avisos, verificacion
 
 from app.routers import pagos_colegiado
 
@@ -143,7 +143,6 @@ app.include_router(api.router)
 app.include_router(admin.router)
 app.include_router(security.router)
 app.include_router(pets.router)
-app.include_router(finance.router)
 app.include_router(services.router)
 app.include_router(partners.router)
 app.include_router(directory.router)
@@ -170,7 +169,8 @@ app.websocket("/ws/finanzas")(ws_finanzas)
 app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
-app.include_router(finanzas_views)
+app.include_router(finanzas.router)        # /api/finanzas/...  ← ya existe
+app.include_router(finanzas.router_views)  # /finanzas/...      ← agregar esto
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
