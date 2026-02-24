@@ -171,6 +171,10 @@ app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
 
+# Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
+for route in app.routes:
+    if "finanzas" in str(route.path):
+        print(f"RUTA REGISTRADA: {route.path}")
 
 # --- RUTAS BASE ---
 @app.get("/service-worker.js")
@@ -300,3 +304,8 @@ async def portal_inactivo_page(request: Request):
      if not token:
          return RedirectResponse(url="/")
      return templates.TemplateResponse("portal_inactivo.html", {"request": request})
+
+
+app.get("/finanzas/guia")
+async def guia_finanzas(request: Request):
+    return templates.TemplateResponse("pages/finanzas/guia.html", {"request": request})
