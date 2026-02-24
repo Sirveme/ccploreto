@@ -578,7 +578,7 @@ async def dashboard_finanzas_view(
     # Colegiado en None mientras no hay auth
     colegiado = None
 
-    return templates.TemplateResponse("pages/finanzas/dashboard.html", {
+    return templates.TemplateResponse("pages/finanzas/dashboard_finanzas.html", {
         "request": request,
         "current_user": None,
         "colegiado": colegiado,
