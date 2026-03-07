@@ -1,1074 +1,1219 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Colegio de Contadores Públicos de Loreto - 60 Años</title>
-    <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
-    <!-- Componentes de Voz -->
-    <link rel="stylesheet" href="/static/css/components/voice-assistant.css">
-    <link rel="stylesheet" href="/static/css/components/search-results.css">
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Google Material Symbols — coloreable via CSS -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════
+   TOKENS
+════════════════════════════════════════════ */
+:root {
+  --verde:    #1b4d35;
+  --verde2:   #256847;
+  --verde3:   #2e7d52;
+  --verde-lt: #e8f5ee;
+  --oro:      #c9a84c;
+  --oro2:     #e8c96a;
+  --crema:    #faf8f4;
+  --gris:     #f2f4f2;
+  --txt:      #1a2e22;
+  --txt2:     #5a7060;
+  --borde:    #d8e8dc;
+  --sombra:   0 2px 16px rgba(27,77,53,.1);
+  --radio:    10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Source Sans 3',sans-serif;background:var(--crema);color:var(--txt);overflow-x:hidden}
+img{max-width:100%;display:block}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
+
+/* Material icon helper */
+.mi{font-family:'Material Symbols Outlined';font-style:normal;font-size:24px;line-height:1;
+    -webkit-font-smoothing:antialiased;user-select:none;vertical-align:middle}
+.mi.sm{font-size:18px} .mi.lg{font-size:32px} .mi.xl{font-size:40px}
+
+/* ════════════════════════════════════════════
+   HEADER
+════════════════════════════════════════════ */
+.header{position:sticky;top:0;z-index:100;background:var(--verde);box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.header-inner{display:flex;align-items:center;padding:10px 16px;gap:12px;max-width:1200px;margin:0 auto}
+.header-logo{display:flex;align-items:center;gap:10px;flex:1}
+.logo-mark{width:42px;height:42px;flex-shrink:0;background:var(--oro);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--verde);
+  line-height:1.1;text-align:center;padding:2px}
+.header-title{color:white}
+.header-title strong{display:block;font-size:13px;font-weight:700;line-height:1.2}
+.header-title span{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.5px}
+.header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-verificar{background:transparent;border:1.5px solid rgba(255,255,255,.35);
+  color:rgba(255,255,255,.85);padding:7px 12px;border-radius:6px;
+  font-size:12px;font-weight:600;letter-spacing:.3px;display:none}
+.btn-acceder{background:var(--oro);color:var(--verde);border:none;
+  padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:.3px}
+.btn-burger{background:rgba(255,255,255,.1);border:none;
+  width:38px;height:38px;border-radius:6px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.btn-burger span{display:block;width:20px;height:2px;background:white;border-radius:2px;transition:.3s}
+.desktop-nav{display:none;background:var(--verde2);border-top:1px solid rgba(255,255,255,.1)}
+.desktop-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;padding:0 16px}
+.desktop-nav a{color:rgba(255,255,255,.7);font-size:13px;font-weight:500;
+  padding:10px 14px;transition:.2s;border-bottom:3px solid transparent;display:flex;align-items:center;gap:5px}
+.desktop-nav a:hover{color:white;background:rgba(255,255,255,.06)}
+.desktop-nav a.active{color:var(--oro2);border-bottom-color:var(--oro2)}
+.desktop-nav .dns{flex:1}
+
+/* Barra verificar habilidad (desplegable) */
+.verify-bar{background:var(--verde3);overflow:hidden;max-height:0;transition:max-height .4s ease}
+.verify-bar.open{max-height:80px}
+.verify-bar-inner{max-width:600px;margin:0 auto;padding:10px 16px;display:flex;gap:8px}
+.verify-input{flex:1;padding:10px 14px;border-radius:6px;border:2px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.1);color:white;font-size:14px;font-family:inherit}
+.verify-input::placeholder{color:rgba(255,255,255,.5)}
+.verify-input:focus{outline:none;border-color:var(--oro);background:rgba(255,255,255,.15)}
+.btn-consultar{background:var(--oro);color:var(--verde);border:none;
+  padding:10px 20px;border-radius:6px;font-size:13px;font-weight:700}
+
+/* ════════════════════════════════════════════
+   HERO + CARRUSEL
+════════════════════════════════════════════ */
+.hero{position:relative;overflow:hidden;background:var(--verde)}
+.hero-deco{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+.leaf-deco{position:absolute;opacity:.1}
+.leaf-tl{top:-30px;left:-30px;width:200px;transform:rotate(-10deg)}
+.leaf-br{bottom:-20px;right:-20px;width:160px;transform:rotate(165deg)}
+
+.carousel-wrap{position:relative}
+.carousel-viewport{overflow:hidden;aspect-ratio:16/9;max-height:480px}
+@media(max-width:600px){.carousel-viewport{aspect-ratio:4/3;max-height:320px}}
+.carousel-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1);height:100%}
+.carousel-slide{flex:0 0 100%;position:relative;overflow:hidden}
+.carousel-slide img{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 6s ease}
+.carousel-slide.active img{transform:scale(1)}
+.slide-overlay{position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(15,40,25,.85) 0%,rgba(15,40,25,.2) 60%,transparent 100%);
+  display:flex;align-items:flex-end;padding:24px 20px}
+.slide-content{color:white;max-width:580px}
+.slide-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--oro2);margin-bottom:6px}
+.slide-content h2{font-family:'Playfair Display',serif;font-size:clamp(20px,5vw,34px);
+  line-height:1.2;margin-bottom:8px}
+.slide-content p{font-size:14px;color:rgba(255,255,255,.75);margin-bottom:14px}
+.slide-btn{display:inline-flex;align-items:center;gap:6px;background:var(--oro);
+  color:var(--verde);padding:9px 20px;border-radius:6px;font-size:13px;font-weight:700;border:none}
+.carousel-ctrl{position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(255,255,255,.15);backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2);color:white;
+  width:36px;height:36px;border-radius:50%;font-size:20px;z-index:5;
+  display:flex;align-items:center;justify-content:center}
+.carousel-ctrl.prev{left:10px}.carousel-ctrl.next{right:10px}
+.carousel-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;gap:6px;z-index:5}
+.cdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);border:none;transition:.3s}
+.cdot.active{background:var(--oro);width:20px;border-radius:4px}
+
+/* ════════════════════════════════════════════
+   ACCIONES RÁPIDAS
+════════════════════════════════════════════ */
+.acciones-strip{background:var(--verde2)}
+.acciones-grid{display:grid;grid-template-columns:repeat(4,1fr);max-width:1200px;margin:0 auto}
+.accion-item{display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:14px 8px;border:none;background:transparent;color:white;
+  border-right:1px solid rgba(255,255,255,.1);transition:background .2s;cursor:pointer}
+.accion-item:last-child{border-right:none}
+.accion-item:hover{background:rgba(255,255,255,.09)}
+.ai-icon-wrap{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center}
+.ai-icon-wrap .mi{font-size:20px;color:var(--oro2)}
+.ai-label{font-size:11px;font-weight:600;letter-spacing:.3px;text-align:center;line-height:1.2}
+
+/* ════════════════════════════════════════════
+   SECCIONES — estructura modular
+   Cada sección tiene id + class="page-section"
+   para poder reordenar o agregar nuevas fácilmente
+════════════════════════════════════════════ */
+.page-section{padding:48px 16px}
+.page-section-alt{padding:48px 16px;background:var(--gris)}
+.page-section-dark{padding:48px 16px;background:var(--verde)}
+.section-inner{max-width:1200px;margin:0 auto}
+
+.sec-eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--verde3);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.sec-eyebrow .mi{font-size:16px;color:var(--verde3)}
+.sec-eyebrow::after{content:'';flex:1;height:1px;background:var(--borde);max-width:120px}
+.sec-title{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,30px);
+  color:var(--verde);margin-bottom:6px}
+.sec-sub{font-size:15px;color:var(--txt2);margin-bottom:28px}
+
+.sec-eyebrow-lt{color:var(--oro2)}
+.sec-eyebrow-lt::after{background:rgba(255,255,255,.15)}
+.sec-title-lt{color:white}
+.sec-sub-lt{color:rgba(255,255,255,.55)}
+
+/* ════════════════════════════════════════════
+   VIDEOS
+════════════════════════════════════════════ */
+.video-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:680px}
+@media(max-width:400px){.video-grid{grid-template-columns:1fr}}
+.video-thumb{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;
+  aspect-ratio:16/9;background:#0d2b1e;border:2px solid rgba(201,168,76,.25);
+  transition:transform .2s,box-shadow .2s}
+.video-thumb:hover{transform:scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.vt-img{width:100%;height:100%;object-fit:cover;opacity:.65;transition:opacity .3s}
+.video-thumb:hover .vt-img{opacity:.85}
+.vt-overlay{position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(10,30,18,.9) 0%,transparent 60%);
+  opacity:.8;transition:opacity .3s}
+.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:48px;height:48px;border-radius:50%;background:var(--oro);
+  display:flex;align-items:center;justify-content:center;transition:transform .2s;
+  box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.play-btn .mi{color:var(--verde);font-size:24px;margin-left:2px}
+.video-thumb:hover .play-btn{transform:translate(-50%,-50%) scale(1.12)}
+.vt-caption{position:absolute;bottom:0;left:0;right:0;padding:8px 10px}
+.vt-title{font-size:12px;font-weight:700;color:white;line-height:1.3}
+.vt-dur{font-size:10px;color:var(--oro2);margin-top:2px}
+
+/* ════════════════════════════════════════════
+   CAPACITACIÓN — estilo YouTube cards
+════════════════════════════════════════════ */
+.cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.cap-card{background:#1e1e1e;border-radius:10px;overflow:hidden;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;border:1px solid rgba(255,255,255,.06)}
+.cap-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.cap-card-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0d2b1e}
+.cap-card-thumb img{width:100%;height:100%;object-fit:cover;opacity:.8;transition:opacity .2s}
+.cap-card:hover .cap-card-thumb img{opacity:1}
+.cap-thumb-overlay{position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 60%)}
+.cap-badge{position:absolute;top:8px;left:8px;
+  background:var(--oro);color:var(--verde);font-size:9px;font-weight:700;
+  padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase}
+.cap-live{background:#e53935}
+.cap-dur{position:absolute;bottom:6px;right:8px;
+  background:rgba(0,0,0,.7);color:white;font-size:10px;font-weight:600;
+  padding:2px 6px;border-radius:3px}
+.cap-card-body{padding:12px 14px 14px;display:flex;gap:10px}
+.cap-canal-icon{width:34px;height:34px;flex-shrink:0;border-radius:50%;
+  background:var(--verde3);display:flex;align-items:center;justify-content:center}
+.cap-canal-icon .mi{font-size:18px;color:white}
+.cap-info{flex:1;min-width:0}
+.cap-titulo{font-size:13px;font-weight:700;color:white;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px}
+.cap-meta{font-size:11px;color:#888;display:flex;align-items:center;gap:6px}
+.cap-meta .mi{font-size:13px;color:#666}
+.cap-actions{display:flex;align-items:center;gap:6px;margin-top:8px}
+.cap-action-btn{background:rgba(255,255,255,.07);border:none;color:#aaa;
+  padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
+  display:flex;align-items:center;gap:4px;transition:.15s}
+.cap-action-btn .mi{font-size:14px}
+.cap-action-btn:hover{background:rgba(255,255,255,.12);color:white}
+
+/* ════════════════════════════════════════════
+   CONVENIOS
+════════════════════════════════════════════ */
+.tabs-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.tab-btn{background:white;border:1.5px solid var(--borde);color:var(--txt2);
+  padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;transition:.2s}
+.tab-btn.active{background:var(--verde);border-color:var(--verde);color:white}
+.conv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.conv-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
+  padding:18px 16px;box-shadow:var(--sombra);transition:transform .15s,box-shadow .15s;display:none}
+.conv-card.visible{display:block}
+.conv-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(27,77,53,.12)}
+.conv-icon-wrap{width:44px;height:44px;border-radius:10px;background:var(--verde-lt);
+  display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.conv-icon-wrap .mi{font-size:22px;color:var(--verde3)}
+.conv-card h3{font-size:15px;font-weight:700;color:var(--verde);margin-bottom:2px}
+.conv-sector{font-size:11px;font-weight:600;color:var(--txt2);letter-spacing:.5px;
+  text-transform:uppercase;margin-bottom:6px}
+.conv-beneficio{background:var(--verde-lt);color:var(--verde2);font-size:12px;font-weight:700;
+  padding:4px 10px;border-radius:4px;display:inline-flex;align-items:center;gap:5px;margin-bottom:10px}
+.conv-beneficio .mi{font-size:14px}
+.conv-info{font-size:12px;color:var(--txt2);display:flex;flex-direction:column;gap:4px}
+.conv-info span{display:flex;align-items:center;gap:5px}
+.conv-info .mi{font-size:14px;color:var(--verde3)}
+
+/* ════════════════════════════════════════════
+   AMBIENTES
+════════════════════════════════════════════ */
+.amb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.amb-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
+  overflow:hidden;box-shadow:var(--sombra);transition:transform .15s}
+.amb-card:hover{transform:translateY(-3px)}
+.amb-top{background:linear-gradient(135deg,var(--verde),var(--verde3));padding:22px 16px;text-align:center}
+.amb-icon-wrap{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.amb-icon-wrap .mi{font-size:30px;color:white}
+.amb-name{font-size:16px;font-weight:700;color:white}
+.amb-prices{display:flex;gap:12px;justify-content:center;margin-top:8px}
+.amb-price{text-align:center}
+.amb-price-amt{font-size:20px;font-weight:700;color:var(--oro2)}
+.amb-price-amt span{font-size:12px;font-weight:400;color:rgba(255,255,255,.6)}
+.amb-price-label{font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:rgba(255,255,255,.5)}
+.amb-body{padding:14px 16px}
+.amb-horario{font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.8}
+.amb-horario-row{display:flex;align-items:center;gap:5px}
+.amb-horario-row .mi{font-size:14px;color:var(--verde3)}
+.btn-reservar{width:100%;background:var(--verde);color:white;border:none;
+  padding:10px;border-radius:6px;font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-reservar .mi{font-size:18px}
+
+.pagos-strip{background:white;border-radius:var(--radio);border:1px solid var(--borde);padding:18px 20px}
+.pagos-strip h3{font-size:14px;font-weight:700;color:var(--verde);margin-bottom:12px;
+  display:flex;align-items:center;gap:6px}
+.pagos-strip h3 .mi{color:var(--verde3)}
+.pagos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.pago-item{background:var(--verde-lt);border-radius:8px;padding:12px 14px;
+  display:flex;align-items:center;gap:8px}
+.pago-item .mi{font-size:20px;color:var(--verde3)}
+.pago-item-info strong{font-size:13px;color:var(--verde);display:block}
+.pago-item-info span{font-size:12px;color:var(--txt2)}
+
+/* ════════════════════════════════════════════
+   COMUNICADOS
+════════════════════════════════════════════ */
+.com-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.com-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
+  padding:18px 16px;box-shadow:var(--sombra);display:flex;flex-direction:column;gap:6px;
+  transition:transform .15s}
+.com-card:hover{transform:translateY(-2px)}
+.com-fecha{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--txt2);text-transform:uppercase}
+.com-card h3{font-size:14px;font-weight:700;color:var(--verde)}
+.com-card p{font-size:13px;color:var(--txt2);flex:1}
+.com-mas{font-size:12px;font-weight:700;color:var(--verde3);margin-top:4px;
+  display:flex;align-items:center;gap:4px}
+.com-mas .mi{font-size:14px}
+
+/* ════════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════════ */
+footer{background:var(--verde);color:white;padding:40px 16px 80px}
+.footer-inner{max-width:1200px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:28px}
+footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--oro2);margin-bottom:12px}
+.footer-links{display:flex;flex-direction:column;gap:8px}
+.footer-links a,.footer-links span{font-size:13px;color:rgba(255,255,255,.6)}
+.footer-links a:hover{color:var(--oro2)}
+.footer-social{display:flex;gap:10px;margin-top:14px}
+.footer-social a{width:34px;height:34px;background:rgba(255,255,255,.1);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;transition:.2s}
+.footer-social a:hover{background:var(--oro)}
+.footer-social svg{width:16px;height:16px;fill:rgba(255,255,255,.75)}
+.footer-bottom{grid-column:1/-1;border-top:1px solid rgba(255,255,255,.1);
+  padding-top:20px;font-size:12px;color:rgba(255,255,255,.4);
+  display:flex;flex-direction:column;gap:5px}
+.footer-bottom a{color:var(--oro2)}
+.footer-dev{display:flex;align-items:center;gap:6px;margin-top:4px}
+.footer-dev .mi{font-size:15px;color:var(--oro2)}
+
+/* ════════════════════════════════════════════
+   BOTTOM NAV
+════════════════════════════════════════════ */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--verde);
+  border-top:1px solid rgba(255,255,255,.12);
+  display:grid;grid-template-columns:repeat(5,1fr);
+  padding-bottom:env(safe-area-inset-bottom,0)}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:10px 4px;color:rgba(255,255,255,.55);font-size:10px;font-weight:600;
+  background:none;border:none;transition:color .2s}
+.bnav-item .mi{font-size:22px}
+.bnav-item.primary{color:var(--oro2)}
+.bnav-item:hover{color:white}
+.bnav-item.primary:hover{color:var(--oro)}
+
+/* ════════════════════════════════════════════
+   DRAWER
+════════════════════════════════════════════ */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.drawer-overlay.open{opacity:1;pointer-events:all}
+.drawer{position:fixed;top:0;left:-280px;bottom:0;width:280px;background:var(--verde);
+  z-index:301;transition:left .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:0 0 40px}
+.drawer.open{left:0}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
+  border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:8px}
+.drawer-logo{font-family:'Playfair Display',serif;font-size:14px;color:white;line-height:1.4;flex:1}
+.drawer-logo span{color:var(--oro2)}
+.drawer-close{background:rgba(255,255,255,.1);border:none;color:white;
+  width:32px;height:32px;border-radius:50%;font-size:18px;flex-shrink:0}
+.drawer-nav a{display:flex;align-items:center;gap:10px;padding:12px 20px;
+  color:rgba(255,255,255,.75);font-size:14px;font-weight:500;transition:.15s;
+  border-left:3px solid transparent}
+.drawer-nav a .mi{font-size:18px;color:rgba(255,255,255,.45)}
+.drawer-nav a:hover{background:rgba(255,255,255,.07);color:white;border-left-color:var(--oro)}
+.drawer-nav a:hover .mi{color:var(--oro2)}
+.drawer-sec{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:rgba(255,255,255,.3);padding:14px 20px 4px}
+.btn-acceder-d{margin:14px 20px 0;background:var(--oro);color:var(--verde);border:none;
+  padding:12px;border-radius:8px;font-size:14px;font-weight:700;width:calc(100% - 40px);
+  display:flex;align-items:center;justify-content:center;gap:6px}
+
+/* ════════════════════════════════════════════
+   MODALES
+════════════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:white;border-radius:14px;overflow:hidden;
+  width:100%;max-width:480px;position:relative}
+.modal-close{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.08);
+  border:none;width:32px;height:32px;border-radius:50%;font-size:18px;color:#666}
+
+/* Modal verificar habilidad */
+.modal-hab-head{background:var(--verde);padding:20px;text-align:center}
+.modal-hab-head h3{font-size:16px;font-weight:700;color:white;margin-bottom:2px}
+.modal-hab-head p{font-size:12px;color:rgba(255,255,255,.6)}
+.modal-hab-body{padding:24px}
+.hab-status{text-align:center;padding:16px;border-radius:10px;margin-bottom:16px}
+.hab-status.habil{background:#e8f5e9;border:2px solid #4caf50}
+.hab-status.inhabil{background:#fce4ec;border:2px solid #e57373}
+.hab-status-icon .mi{font-size:40px}
+.hab-status.habil .hab-status-icon .mi{color:#388e3c}
+.hab-status.inhabil .hab-status-icon .mi{color:#c62828}
+.hab-status-label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:6px}
+.hab-status.habil .hab-status-label{color:#388e3c}
+.hab-status.inhabil .hab-status-label{color:#c62828}
+.hab-name{font-size:18px;font-weight:700;color:var(--verde);margin-top:4px}
+.hab-mat{font-size:13px;color:var(--txt2);margin-top:2px}
+.hab-web{margin-top:14px;padding:12px;background:var(--verde-lt);border-radius:8px;
+  display:flex;align-items:center;gap:10px}
+.hab-web-photo{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--verde3)}
+.hab-web-info a{font-size:13px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px}
+.hab-web-info a .mi{font-size:14px}
+.hab-web-info span{font-size:11px;color:var(--txt2)}
+
+/* Modal video */
+.vid-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:400;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.vid-modal-overlay.open{display:flex}
+.vid-modal{background:#0d1f15;border-radius:12px;overflow:hidden;width:100%;max-width:760px;position:relative}
+.vid-modal-close{position:absolute;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.6);
+  border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:18px}
+.vid-modal-title{padding:14px 18px;background:var(--verde);font-size:14px;font-weight:700;color:white}
+.vid-modal-title span{font-size:11px;color:var(--oro2);display:block;margin-top:2px}
+.vid-container{position:relative;padding-bottom:56.25%;background:#000}
+.vid-container iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+.vid-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:14px;gap:12px}
+.vid-placeholder .mi{font-size:48px;opacity:.3;color:white}
+
+/* ════════════════════════════════════════════
+   DESKTOP RESPONSIVE
+════════════════════════════════════════════ */
+@media(min-width:768px){
+  .btn-burger{display:none}
+  .btn-verificar{display:flex;align-items:center;gap:5px}
+  .desktop-nav{display:block}
+  .bottom-nav{display:none}
+  footer{padding-bottom:40px}
+  .acciones-grid{grid-template-columns:repeat(5,1fr)}
+  .cap-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+}
+</style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container-header">
-            <div class="logo-wrapper">
-                <img src="/static/img/logo-ccpl.png" alt="CCPL Logo" class="logo">
-            </div>
-            <nav class="nav-top">
-                <button class="btn-menu" id="menuBtn">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-                <a href="#" class="btn-comunicado pulse">NUEVO COMUNICADO</a>
-                <a href="/login/" class="btn-acceder">ACCEDER</a>
-            </nav>
-        </div>
-    </header>
 
-    <!-- Menú Lateral Épico -->
-    <div class="side-menu" id="sideMenu">
-        <div class="side-menu-overlay"></div>
-        <div class="side-menu-content">
-            <button class="side-menu-close" id="closeSideMenu">&times;</button>
-            <div class="side-menu-header">
-                <img src="/static/img/logo-ccpl.png" alt="CCPL" class="side-logo">
-                <h3>Menú Principal</h3>
-            </div>
-            <nav class="side-nav">
-                <a href="/" class="side-nav-item active">
-                    <span class="item-icon">🏠</span>
-                    <span class="item-text">Inicio</span>
-                </a>
-                <a href="/institucional/" class="side-nav-item">
-                    <span class="item-icon">🏛️</span>
-                    <span class="item-text">Institucional</span>
-                </a>
-                <a href="/colegiados/" class="side-nav-item premium">
-                    <span class="item-icon">👥</span>
-                    <span class="item-text">Colegiados</span>
-                    <span class="badge">Importante</span>
-                </a>
-                <a href="/capacitacion/" class="side-nav-item">
-                    <span class="item-icon">📚</span>
-                    <span class="item-text">Capacitación</span>
-                </a>
-                <a href="/comite-electoral/" class="side-nav-item">
-                    <span class="item-icon">🗳️</span>
-                    <span class="item-text">Comité Electoral</span>
-                </a>
-                <a href="/galeria/" class="side-nav-item">
-                    <span class="item-icon">📸</span>
-                    <span class="item-text">Galería de Imágenes</span>
-                </a>
-                <a href="/reglamento/" class="side-nav-item">
-                    <span class="item-icon">📋</span>
-                    <span class="item-text">Reglamento Interno</span>
-                </a>
-                <a href="/eventos/" class="side-nav-item">
-                    <span class="item-icon">📅</span>
-                    <span class="item-text">Eventos del Año</span>
-                </a>
-                <a href="#actualizar-datos" class="side-nav-item premium">
-                    <span class="item-icon">✏️</span>
-                    <span class="item-text">Actualiza tus datos</span>
-                    <span class="badge pulse-badge">Permanente</span>
-                </a>
-            </nav>
-            <div class="side-menu-footer">
-                <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" class="social-link">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                </a>
-                <a href="https://wa.me/51979169813" target="_blank" class="social-link">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                </a>
-            </div>
-        </div>
+<!-- ══ HEADER ══════════════════════════════════════ -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <div class="logo-mark">CC<br>PL</div>
+      <div class="header-title">
+        <strong>Contadores Públicos de Loreto</strong>
+        <span>60 AÑOS · IQUITOS, PERÚ</span>
+      </div>
     </div>
-
-    <!-- Hero Section - Glassmorphism -->
-    <section class="hero hero-glass">
-        <canvas id="particlesCanvas"></canvas>
-        <div class="orbs-container">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-            <div class="orb orb-3"></div>
-        </div>
-        <div class="glass-shapes">
-            <div class="glass-shape glass-shape-1"></div>
-            <div class="glass-shape glass-shape-2"></div>
-            <div class="glass-shape glass-shape-3"></div>
-        </div>
-        <div class="golden-particles">
-            <div class="golden-particle gp-1"></div>
-            <div class="golden-particle gp-2"></div>
-            <div class="golden-particle gp-3"></div>
-            <div class="golden-particle gp-4"></div>
-            <div class="golden-particle gp-5"></div>
-            <div class="golden-particle gp-6"></div>
-        </div>
-        <div class="fauna-container">
-            <div class="bufeo bufeo-1"></div>
-            <div class="bufeo bufeo-2"></div>
-            <div class="tortuga tortuga-1"></div>
-            <div class="tortuga tortuga-2"></div>
-        </div>
-        <div class="leaves-container">
-            <div class="leaf leaf-1"></div>
-            <div class="leaf leaf-2"></div>
-            <div class="leaf leaf-3"></div>
-            <div class="leaf leaf-4"></div>
-            <div class="leaf leaf-5"></div>
-        </div>
-        <div class="hero-content">
-            <div class="glass-card">
-                <div class="badge-60">60 AÑOS</div>
-                <h1 class="hero-title">
-                    <span class="title-line">Colegio de Contadores</span>
-                    <span class="title-line">Públicos de Loreto</span>
-                </h1>
-                <p class="hero-subtitle">SIRVIENDO A LA REGIÓN</p>
-                <button class="btn-hero" id="btnReactivaHero">Reactiva tu matrícula</button>
-                <div class="scroll-indicator">
-                    <span>Desliza</span>
-                    <div class="scroll-arrow"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Stats Section -->
-    <!-- CARRUSEL INSTITUCIONAL -->
-    <section class="carousel-section">
-        <div class="carousel-container">
-            
-            <!-- Pista Deslizante -->
-            <div id="carousel-track" class="carousel-track">
-                
-                <!-- SLIDE 1: CONSEJO DIRECTIVO -->
-                <div class="carousel-slide">
-                    <img src="/static/img/ccploreto-directiva-2026-2027.jpg" alt="Directiva actual">
-                    <div class="slide-overlay">
-                        <div class="slide-content">
-                            <div class="slide-text">
-                                <h3>Gestión 2026-2027</h3>
-                                <p>Liderazgo y compromiso con el desarrollo regional.</p>
-                            </div>
-                            <button class="slide-btn" onclick="abrirModal('directivosModal')">
-                                Ver Directiva <i class="ph ph-users-three"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SLIDE 2: RESERVAS -->
-                <div class="carousel-slide">
-                    <img src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=1000" alt="Historia">
-                    <div class="slide-overlay">
-                        <div class="slide-content">
-                            <div class="slide-text">
-                                <h3>Nuestros Ambientes</h3>
-                                <p>Auditorio, lozas deportivas y espacios para eventos.</p>
-                            </div>
-                            <button class="slide-btn" onclick="abrirModal('reservaModal')">
-                                Reservar Ahora <i class="ph ph-calendar-check"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SLIDE 3: CAPACITACIONES -->
-                <div class="carousel-slide">
-                    <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1000" alt="Cursos">
-                    <div class="slide-overlay">
-                        <div class="slide-content">
-                            <div class="slide-text">
-                                <h3>Capacitación Continua</h3>
-                                <p>Actualización tributaria y financiera permanente.</p>
-                            </div>
-                            <button class="slide-btn" onclick="abrirModal('modal-capacitacion')">
-                                Ver Cursos <i class="ph ph-graduation-cap"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Controles -->
-            <button class="carousel-control prev" onclick="moveSlide(-1)">&#10094;</button>
-            <button class="carousel-control next" onclick="moveSlide(1)">&#10095;</button>
-
-            <!-- Indicadores -->
-            <div class="carousel-dots">
-                <span class="dot active" onclick="goToSlide(0)"></span>
-                <span class="dot" onclick="goToSlide(1)"></span>
-                <span class="dot" onclick="goToSlide(2)"></span>
-            </div>
-
-        </div>
-    </section>
-
-    <!-- Placeholder para el modal de capacitaciones (si no existe aún) -->
-    <!-- MODAL CAPACITACIONES (Estilo Agenda/Lista) -->
-    <!-- MODAL CAPACITACIONES (Integrado) -->
-    <!-- MODAL CAPACITACIONES (Estilo Premier League / Match Day) -->
-    <div id="modal-capacitacion" class="modal">
-        
-        <!-- Overlay -->
-        <div class="modal-overlay" onclick="document.getElementById('modal-capacitacion').classList.remove('active'); document.body.style.overflow = '';"></div>
-
-        <!-- Contenido -->
-        <div class="modal-content bg-[#1e1e1e] text-white p-0 rounded-xl w-full max-w-md shadow-2xl relative overflow-hidden mx-auto mt-20">
-            
-            <!-- HEADER FLOTANTE -->
-            <div class="flex justify-between items-center p-4 absolute top-0 left-0 w-full z-20">
-                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Agenda Académica</span>
-                <!-- Botón Cerrar (Corregido: z-index alto y color blanco explícito) -->
-                <button onclick="document.getElementById('modal-capacitacion').classList.remove('active'); document.body.style.overflow = '';" 
-                        class="bg-black/50 hover:bg-white hover:text-black text-white rounded-full p-2 transition-all backdrop-blur-sm">
-                    <i class="ph ph-x text-xl"></i>
-                </button>
-            </div>
-
-            <!-- LISTA DE EVENTOS (Con Padding superior para no tapar el header) -->
-            <div class="pt-14 pb-4 px-4 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                
-                <!-- TARJETA 1: EN VIVO (Estilo Leeds vs Arsenal) -->
-                <!-- Fondo gris oscuro (#2b2b2b) -->
-                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
-                    
-                    <!-- Lado Izquierdo (Azul) -->
-                    <div class="w-1/3 relative bg-gradient-to-r from-blue-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <i class="ph ph-presentation-chart text-3xl text-blue-400 mb-1 drop-shadow-md"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Cierre Contable</span>
-                        <!-- Decoración de borde inclinado (Simulado con borde) -->
-                        <div class="absolute right-0 top-0 h-full w-4 bg-gradient-to-l from-[#2b2b2b] to-transparent"></div>
-                    </div>
-
-                    <!-- Centro (Hora) -->
-                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
-                        <span class="text-2xl font-bold text-white tracking-tighter">18:00</span>
-                        <span class="text-[10px] text-gray-400 font-medium">HOY, 29 Ene</span>
-                        <span class="mt-1 text-[9px] bg-red-600 text-white px-2 rounded-full animate-pulse">EN VIVO</span>
-                    </div>
-
-                    <!-- Lado Derecho (Rojo) -->
-                    <div class="w-1/3 relative bg-gradient-to-l from-red-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <div class="absolute left-0 top-0 h-full w-4 bg-gradient-to-r from-[#2b2b2b] to-transparent"></div>
-                        <i class="ph ph-chalkboard-teacher text-3xl text-red-400 mb-1 drop-shadow-md"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Dr. Juan Pérez</span>
-                    </div>
-                </div>
-
-                <!-- TARJETA 2: FUTURO (Estilo Brighton vs Everton) -->
-                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
-                    
-                    <!-- Lado Izquierdo (Indigo) -->
-                    <div class="w-1/3 relative bg-gradient-to-r from-indigo-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <i class="ph ph-calculator text-3xl text-indigo-400 mb-1"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">NIIF Pymes</span>
-                    </div>
-
-                    <!-- Centro -->
-                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
-                        <span class="text-2xl font-bold text-white tracking-tighter">10:00</span>
-                        <span class="text-[10px] text-gray-400 font-medium">31 Ene.</span>
-                        <span class="mt-1 text-[9px] text-yellow-500 font-bold">S/ 50.00</span>
-                    </div>
-
-                    <!-- Lado Derecho (Azul) -->
-                    <div class="w-1/3 relative bg-gradient-to-l from-blue-800 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <i class="ph ph-video-camera text-3xl text-blue-400 mb-1"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Virtual (Zoom)</span>
-                    </div>
-                </div>
-
-                <!-- TARJETA 3: PRESENCIAL (Estilo Wolves) -->
-                <div class="bg-[#2b2b2b] rounded-lg overflow-hidden flex items-stretch h-24 relative hover:scale-[1.02] transition-transform cursor-pointer group">
-                    
-                    <!-- Lado Izquierdo (Naranja) -->
-                    <div class="w-1/3 relative bg-gradient-to-r from-orange-900 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <i class="ph ph-gavel text-3xl text-orange-400 mb-1"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Peritaje</span>
-                    </div>
-
-                    <!-- Centro -->
-                    <div class="w-1/3 flex flex-col items-center justify-center z-10">
-                        <span class="text-2xl font-bold text-white tracking-tighter">16:00</span>
-                        <span class="text-[10px] text-gray-400 font-medium">05 Feb.</span>
-                    </div>
-
-                    <!-- Lado Derecho (Gris) -->
-                    <div class="w-1/3 relative bg-gradient-to-l from-slate-700 to-[#2b2b2b] flex flex-col items-center justify-center p-2">
-                        <i class="ph ph-buildings text-3xl text-slate-400 mb-1"></i>
-                        <span class="text-[10px] font-bold text-center leading-tight text-gray-300">Auditorio CCP</span>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Footer -->
-            <div class="p-4 text-center border-t border-white/10">
-                <a href="#" class="text-blue-400 text-sm font-bold hover:text-blue-300">Ver programación completa</a>
-            </div>
-        </div>
+    <div class="header-actions">
+      <button class="btn-verificar" onclick="toggleVerify()">
+        <span class="mi sm">verified_user</span> Verificar
+      </button>
+      <a href="/login/" class="btn-acceder">Ingresar</a>
+      <button class="btn-burger" id="menuBtn">
+        <span></span><span></span><span></span>
+      </button>
     </div>
+  </div>
+  <!-- Nav desktop -->
+  <nav class="desktop-nav">
+    <div class="desktop-nav-inner">
+      <a href="/" class="active"><span class="mi sm">home</span> Inicio</a>
+      <a href="/institucional/"><span class="mi sm">account_balance</span> Institucional</a>
+      <a href="#capacitacion"><span class="mi sm">school</span> Capacitación</a>
+      <a href="#convenios"><span class="mi sm">handshake</span> Convenios</a>
+      <a href="#ambientes"><span class="mi sm">sports</span> Ambientes</a>
+      <a href="#eventos"><span class="mi sm">event</span> Eventos</a>
+      <a href="#galeria"><span class="mi sm">photo_library</span> Galería</a>
+      <span class="dns"></span>
+      <a href="#" onclick="toggleVerify();return false" style="color:var(--oro2)">
+        <span class="mi sm">search</span> Verificar Habilidad
+      </a>
+      <a href="/login/" style="color:var(--oro2);font-weight:700">
+        <span class="mi sm">login</span> Acceso Colegiados
+      </a>
+    </div>
+  </nav>
+  <!-- Barra de búsqueda verificar -->
+  <div class="verify-bar" id="verifyBar">
+    <div class="verify-bar-inner">
+      <input class="verify-input" id="verifyInput" type="text"
+             placeholder="DNI o Apellidos y Nombres del colegiado"
+             onkeydown="if(event.key==='Enter')consultarHabilidad()">
+      <button class="btn-consultar" onclick="consultarHabilidad()">
+        <span class="mi sm">search</span> Consultar
+      </button>
+    </div>
+  </div>
+</header>
 
-    <!-- ─────────────────────────────────────────────────────────────
-     CAMBIO 3: REEMPLAZAR la sección de videos completa
-     Buscar: <section class="videos-section">...</section>
-     ───────────────────────────────────────────────────────────── -->
-    <!-- Videos Section -->
-    <section class="videos-section">
-        <div class="container">
-            <h2 class="section-title">Nuestra Labor en Video</h2>
-            <div class="videos-grid">
-                <!-- Video 1: Horizontal 16:9 -->
-                <div class="video-container video-horizontal">
-                    <div class="video-wrapper">
-                        <iframe src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen data-video-url=""></iframe>
-                        <div class="video-placeholder">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                            <p>Haz clic para cargar video</p>
-                        </div>
-                    </div>
-                    <h3>60 Años de Trayectoria</h3>
-                </div>
-                <!-- Video 2: Vertical 9:16 -->
-                <div class="video-container video-vertical">
-                    <div class="video-wrapper">
-                        <iframe src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen data-video-url=""></iframe>
-                        <div class="video-placeholder">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                    </div>
-                    <h3>Eventos y Capacitaciones</h3>
-                </div>
-                <!-- Video 3: Vertical 9:16 -->
-                <div class="video-container video-vertical">
-                    <div class="video-wrapper">
-                        <iframe src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen data-video-url=""></iframe>
-                        <div class="video-placeholder">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                    </div>
-                    <h3>Testimonios</h3>
-                </div>
+<!-- ══ CARRUSEL HERO ════════════════════════════════ -->
+<section class="hero" id="inicio">
+  <!-- Hojas amazónicas decorativas -->
+  <div class="hero-deco">
+    <svg class="leaf-deco leaf-tl" viewBox="0 0 200 300" fill="none">
+      <path d="M100 280C20 200-20 100 60 20 80 0 120 0 140 20 200 80 180 200 100 280Z" fill="#c9a84c"/>
+      <path d="M100 280C100 200 100 80 100 20" stroke="#1b4d35" stroke-width="3" opacity=".5"/>
+      <path d="M100 180C70 160 50 130 70 100" stroke="#1b4d35" stroke-width="1.5" opacity=".4"/>
+      <path d="M100 180C130 160 150 130 130 100" stroke="#1b4d35" stroke-width="1.5" opacity=".4"/>
+    </svg>
+    <svg class="leaf-deco leaf-br" viewBox="0 0 200 300" fill="none">
+      <path d="M100 280C20 200-20 100 60 20 80 0 120 0 140 20 200 80 180 200 100 280Z" fill="#c9a84c"/>
+      <path d="M100 280C100 200 100 80 100 20" stroke="#1b4d35" stroke-width="3" opacity=".4"/>
+    </svg>
+  </div>
+  <div class="carousel-wrap">
+    <div class="carousel-viewport">
+      <div class="carousel-track" id="carTrack">
+        <div class="carousel-slide active">
+          <img src="/static/img/ccploreto-directiva-2026-2027.jpg"
+               onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'" alt="Directiva">
+          <div class="slide-overlay">
+            <div class="slide-content">
+              <div class="slide-label">Gestión 2026 · 2027</div>
+              <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
+              <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía peruana</p>
+              <button class="slide-btn"><span class="mi sm">groups</span> Conocer la Directiva</button>
             </div>
+          </div>
         </div>
-    </section>
-
-    <!-- Convenios Section -->
-    <section class="convenios-section">
-        <div class="container">
-            <h2 class="section-title">Convenios Institucionales</h2>
-            <div class="convenios-tabs">
-                <button class="tab-btn active" data-category="salud">Salud</button>
-                <button class="tab-btn" data-category="educacion">Educación</button>
-                <button class="tab-btn" data-category="servicios">Servicios</button>
-                <button class="tab-btn" data-category="todos">Todos</button>
+        <div class="carousel-slide">
+          <img src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200&q=80" alt="Ambientes">
+          <div class="slide-overlay">
+            <div class="slide-content">
+              <div class="slide-label">Ambientes e Instalaciones</div>
+              <h2>Espacios deportivos y auditorio para la comunidad</h2>
+              <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
+              <button class="slide-btn" onclick="document.getElementById('ambientes').scrollIntoView({behavior:'smooth'})"><span class="mi sm">sports</span> Ver ambientes</button>
             </div>
-            <div class="convenios-grid" id="conveniosGrid">
-                <!-- Salud -->
-                <div class="convenio-card" data-category="salud">
-                    <div class="convenio-icon">🏥</div>
-                    <h3>Clínica Emanuel</h3>
-                    <p class="sector">Salud</p>
-                    <p class="beneficio">15% desc. en consultas y análisis</p>
-                    <div class="convenio-info">
-                        <span>📍 Jr. Próspero 123</span>
-                        <span>📞 065-123456</span>
-                        <span>🕐 Lun-Sáb 8am-8pm</span>
-                    </div>
-                </div>
-                <div class="convenio-card" data-category="salud">
-                    <div class="convenio-icon">🦷</div>
-                    <h3>Vidas Dent</h3>
-                    <p class="sector">Odontología</p>
-                    <p class="beneficio">20% desc. en tratamientos</p>
-                    <div class="convenio-info">
-                        <span>📍 Av. Abelardo 456</span>
-                        <span>📞 065-234567</span>
-                        <span>🕐 Lun-Vie 9am-7pm</span>
-                    </div>
-                </div>
-                <div class="convenio-card" data-category="salud">
-                    <div class="convenio-icon">👁️</div>
-                    <h3>Eyes Solution</h3>
-                    <p class="sector">Oftalmología</p>
-                    <p class="beneficio">10% desc. en lentes y consultas</p>
-                    <div class="convenio-info">
-                        <span>📍 Jr. Lima 789</span>
-                        <span>📞 065-345678</span>
-                        <span>🕐 Lun-Sáb 8am-6pm</span>
-                    </div>
-                </div>
-                <div class="convenio-card" data-category="salud">
-                    <div class="convenio-icon">🏥</div>
-                    <h3>Clínica Ana Stahl</h3>
-                    <p class="sector">Salud General</p>
-                    <p class="beneficio">15% desc. en servicios médicos</p>
-                    <div class="convenio-info">
-                        <span>📍 Av. La Marina 321</span>
-                        <span>📞 065-456789</span>
-                        <span>🕐 24 horas</span>
-                    </div>
-                </div>
-                <!-- Educación -->
-                <div class="convenio-card" data-category="educacion">
-                    <div class="convenio-icon">🎓</div>
-                    <h3>PUCP</h3>
-                    <p class="sector">Universidad</p>
-                    <p class="beneficio">Descuentos en diplomados</p>
-                    <div class="convenio-info">
-                        <span>📍 Virtual/Presencial</span>
-                        <span>📞 01-6262000</span>
-                        <span>🕐 Consultar programación</span>
-                    </div>
-                </div>
-                <div class="convenio-card" data-category="educacion">
-                    <div class="convenio-icon">🏫</div>
-                    <h3>Academia Intensity</h3>
-                    <p class="sector">Preparación</p>
-                    <p class="beneficio">10% desc. en cursos</p>
-                    <div class="convenio-info">
-                        <span>📍 Jr. Nauta 567</span>
-                        <span>📞 065-567890</span>
-                        <span>🕐 Lun-Sáb 3pm-9pm</span>
-                    </div>
-                </div>
-                <!-- Servicios -->
-                <div class="convenio-card" data-category="servicios">
-                    <div class="convenio-icon">💻</div>
-                    <h3>DS-CONT</h3>
-                    <p class="sector">Software Contable</p>
-                    <p class="beneficio">Precios especiales</p>
-                    <div class="convenio-info">
-                        <span>📍 Virtual</span>
-                        <span>📞 965-123456</span>
-                        <span>🕐 Soporte 24/7</span>
-                    </div>
-                </div>
-                <div class="convenio-card" data-category="servicios">
-                    <div class="convenio-icon">⛽</div>
-                    <h3>Loreto Perú</h3>
-                    <p class="sector">Combustible</p>
-                    <p class="beneficio">5% desc. en gasolina</p>
-                    <div class="convenio-info">
-                        <span>📍 Av. Quiñones</span>
-                        <span>📞 065-678901</span>
-                        <span>🕐 24 horas</span>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
-    </section>
-
-    <!-- Alquiler Section -->
-    <section class="alquiler-section">
-        <div class="container">
-            <h2 class="section-title">Alquiler de Ambientes</h2>
-            <div class="alquiler-grid">
-                <div class="alquiler-card">
-                    <div class="alquiler-icon">🏊</div>
-                    <h3>Piscina</h3>
-                    <div class="precio">S/ 50<span>/hora</span></div>
-                    <ul class="horarios">
-                        <li>🕐 Lun-Vie: 6am-8pm</li>
-                        <li>🕐 Sáb-Dom: 7am-7pm</li>
-                    </ul>
-                    <button class="btn-reservar" data-ambiente="piscina">Reservar</button>
-                </div>
-                <div class="alquiler-card">
-                    <div class="alquiler-icon">⚽</div>
-                    <h3>Cancha de Fútbol</h3>
-                    <div class="precio">S/ 40<span>/hora</span></div>
-                    <ul class="horarios">
-                        <li>🕐 Lun-Vie: 5am-10pm</li>
-                        <li>🕐 Sáb-Dom: 6am-10pm</li>
-                    </ul>
-                    <button class="btn-reservar" data-ambiente="futbol">Reservar</button>
-                </div>
-                <div class="alquiler-card">
-                    <div class="alquiler-icon">🏐</div>
-                    <h3>Cancha de Vóley</h3>
-                    <div class="precio">S/ 35<span>/hora</span></div>
-                    <ul class="horarios">
-                        <li>🕐 Lun-Vie: 5am-10pm</li>
-                        <li>🕐 Sáb-Dom: 6am-10pm</li>
-                    </ul>
-                    <button class="btn-reservar" data-ambiente="voley">Reservar</button>
-                </div>
+        <div class="carousel-slide">
+          <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&q=80" alt="Capacitación">
+          <div class="slide-overlay">
+            <div class="slide-content">
+              <div class="slide-label">Capacitación Continua</div>
+              <h2>Actualización tributaria y financiera permanente</h2>
+              <p>Cursos, diplomados y talleres para mantener tu competencia profesional al día</p>
+              <button class="slide-btn" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})"><span class="mi sm">school</span> Ver agenda</button>
             </div>
-            <div class="payment-info">
-                <h3>Métodos de Pago</h3>
-                <div class="payment-grid">
-                    <div class="payment-card">
-                        <strong>💳 Yape/Plin</strong>
-                        <p>979 169 813</p>
-                    </div>
-                    <div class="payment-card">
-                        <strong>🏦 BCP</strong>
-                        <p>N° 123-4567890-1-23</p>
-                    </div>
-                    <div class="payment-card">
-                        <strong>🏦 Banco de la Nación</strong>
-                        <p>N° 00-987-654321</p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
-    </section>
+      </div>
+    </div>
+    <button class="carousel-ctrl prev" onclick="carMove(-1)">&#8249;</button>
+    <button class="carousel-ctrl next" onclick="carMove(1)">&#8250;</button>
+    <div class="carousel-dots" id="carDots">
+      <button class="cdot active"></button>
+      <button class="cdot"></button>
+      <button class="cdot"></button>
+    </div>
+  </div>
+</section>
 
-    <!-- Comunicados Section -->
-    <section class="comunicados-section">
-        <div class="container">
-            <h2 class="section-title">Últimos Comunicados</h2>
-            <div class="comunicados-grid">
-                <a href="/comunicado/comunicado-008-2025-ce/" class="comunicado-card">
-                    <div class="comunicado-fecha">15 Ene 2025</div>
-                    <h3>Comunicado N° 008-2025-CE</h3>
-                    <p>Proceso Electoral 2025 - Cronograma actualizado</p>
-                    <span class="read-more">Leer más →</span>
-                </a>
-                <a href="/comunicado/comunicado-007-2025-ce/" class="comunicado-card">
-                    <div class="comunicado-fecha">12 Ene 2025</div>
-                    <h3>Comunicado N° 007-2025-CE</h3>
-                    <p>Inscripción de listas para elecciones</p>
-                    <span class="read-more">Leer más →</span>
-                </a>
-                <a href="/comunicado/comunicado-n-006-2025/" class="comunicado-card">
-                    <div class="comunicado-fecha">08 Ene 2025</div>
-                    <h3>Comunicado N° 006-2025</h3>
-                    <p>Convocatoria a Asamblea General</p>
-                    <span class="read-more">Leer más →</span>
-                </a>
-            </div>
+<!-- ══ ACCIONES RÁPIDAS ═════════════════════════════ -->
+<div class="acciones-strip">
+  <div class="acciones-grid">
+    <button class="accion-item" onclick="location.href='/login/'">
+      <div class="ai-icon-wrap"><span class="mi">login</span></div>
+      <span class="ai-label">Acceso<br>Colegiado</span>
+    </button>
+    <button class="accion-item" onclick="toggleVerify()">
+      <div class="ai-icon-wrap"><span class="mi">verified_user</span></div>
+      <span class="ai-label">Verificar<br>Habilidad</span>
+    </button>
+    <button class="accion-item" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})">
+      <div class="ai-icon-wrap"><span class="mi">school</span></div>
+      <span class="ai-label">Capacitación</span>
+    </button>
+    <button class="accion-item" onclick="document.getElementById('convenios').scrollIntoView({behavior:'smooth'})">
+      <div class="ai-icon-wrap"><span class="mi">handshake</span></div>
+      <span class="ai-label">Convenios</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══ SECCIÓN: VIDEOS ══════════════════════════════ -->
+<section class="page-section-dark" id="videos">
+  <div class="section-inner">
+    <div class="sec-eyebrow sec-eyebrow-lt">
+      <span class="mi">play_circle</span><span>Guías del sistema</span>
+    </div>
+    <h2 class="sec-title sec-title-lt">Aprende a usar el portal en minutos</h2>
+    <p class="sec-sub sec-sub-lt">Videos cortos con todo lo que necesitas saber sobre los nuevos servicios</p>
+    <div class="video-grid">
+      <div class="video-thumb" onclick="openVideo('VIDEO_URL_1','Cómo iniciar sesión y ver tu deuda')">
+        <img class="vt-img" src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=70" alt="">
+        <div class="vt-overlay"></div>
+        <div class="play-btn"><span class="mi">play_arrow</span></div>
+        <div class="vt-caption">
+          <div class="vt-title">Cómo iniciar sesión y ver tu deuda</div>
+          <div class="vt-dur">▶ 2 min</div>
         </div>
-    </section>
-
-        <!-- ============================================
-         FOOTER INSTITUCIONAL (Nuevo)
-         ============================================ -->
-    <footer class="footer-institucional">
-        <div class="footer-inner">
-            <div>
-                <h4>Contacto</h4>
-                <div class="footer-links">
-                    <span>Calle Echenique 451, Iquitos</span>
-                    <span>(065) 24-2821</span>
-                    <span>979 169 813</span>
-                    <span>colegiocontadoresp.loreto@gmail.com</span>
-                </div>
-                <div class="footer-social">
-                    <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener" aria-label="Facebook">
-                        <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    </a>
-                    <a href="https://wa.me/51979169813" target="_blank" rel="noopener" aria-label="WhatsApp">
-                        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                    </a>
-                </div>
-            </div>
-
-            <div>
-                <h4>Accesos</h4>
-                <div class="footer-links">
-                    <a href="/consulta/habilidad">Consultar Constancia de Habilidad</a>
-                    <a href="/institucional/">Institucional</a>
-                    <a href="/capacitacion/">Capacitación</a>
-                    <a href="/galeria/">Galería</a>
-                    <a href="/login/">Acceso Colegiados</a>
-                </div>
-            </div>
-
-            <div>
-                <h4>Legal</h4>
-                <div class="footer-links">
-                    <a href="/politica-privacidad/">Política de Privacidad</a>
-                    <a href="/terminos/">Términos y Condiciones</a>
-                    <a href="/libro-reclamaciones/">Libro de Reclamaciones</a>
-                </div>
-            </div>
-
-            <div class="footer-bottom">
-                <p>&copy; 2026 Colegio de Contadores Públicos de Loreto. Todos los derechos reservados.</p>
-                <p>Plataforma desarrollada por <a href="https://duilio.store" target="_blank" rel="noopener">Perú Sistemas PRO E.I.R.L.</a> &amp; <a href="https://sigcosystems.com/" target="_blank" rel="noopener">Sigcosystems</a></p>
-                <a href="/politica-privacidad/" class="sello-proteccion">
-                    <div class="sello-icono">
-                        <i class="ph ph-shield-check"></i>
-                    </div>
-                    <div class="sello-texto">
-                        <strong>Datos Protegidos</strong>
-                        Ley N° 29733 · Encargado inscrito ante la ANPDP
-                    </div>
-                </a>
-            </div>
+      </div>
+      <div class="video-thumb" onclick="openVideo('VIDEO_URL_2','Obtener tu Constancia de Habilidad')">
+        <img class="vt-img" src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=70" alt="">
+        <div class="vt-overlay"></div>
+        <div class="play-btn"><span class="mi">play_arrow</span></div>
+        <div class="vt-caption">
+          <div class="vt-title">Obtener tu Constancia de Habilidad</div>
+          <div class="vt-dur">▶ 1:30 min</div>
         </div>
-    </footer>
+      </div>
+      <div class="video-thumb" onclick="openVideo('VIDEO_URL_3','Cómo pagar tus cuotas en línea')">
+        <img class="vt-img" src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&q=70" alt="">
+        <div class="vt-overlay"></div>
+        <div class="play-btn"><span class="mi">play_arrow</span></div>
+        <div class="vt-caption">
+          <div class="vt-title">Cómo pagar tus cuotas en línea</div>
+          <div class="vt-dur">▶ 2:30 min</div>
+        </div>
+      </div>
+      <div class="video-thumb" onclick="openVideo('VIDEO_URL_4','Actualizar tus datos personales')">
+        <img class="vt-img" src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=70" alt="">
+        <div class="vt-overlay"></div>
+        <div class="play-btn"><span class="mi">play_arrow</span></div>
+        <div class="vt-caption">
+          <div class="vt-title">Actualizar tus datos personales</div>
+          <div class="vt-dur">▶ 1:45 min</div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px">* Videos disponibles a partir del lanzamiento del sistema.</p>
+  </div>
+</section>
 
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-        <button class="nav-item" data-modal="directivos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-            <span>Directivos</span>
-        </button>
-        <button class="nav-item" data-modal="transparencia">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-            <span>Transparencia</span>
-        </button>
-        <button class="nav-item nav-item-primary" id="reactivateBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            <span>Reactivarse</span>
-        </button>
-        <a href="/consulta/habilidad" class="nav-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                <path d="M9 12l2 2 4-4"></path>
-            </svg>
-            <span>Constancia</span>
+<!-- ══ SECCIÓN: CAPACITACIÓN ════════════════════════ -->
+<section class="page-section-dark" id="capacitacion" style="background:#111;padding-top:0;padding-bottom:40px">
+  <div class="section-inner">
+    <div class="sec-eyebrow sec-eyebrow-lt" style="padding-top:40px">
+      <span class="mi">school</span><span>Agenda académica</span>
+    </div>
+    <h2 class="sec-title sec-title-lt">Capacitación Continua</h2>
+    <p class="sec-sub sec-sub-lt">Selecciona un curso para ver el detalle completo</p>
+    <div class="cap-grid">
+
+      <!-- Tarjeta EN VIVO -->
+      <div class="cap-card" onclick="location.href='/capacitacion/'">
+        <div class="cap-card-thumb">
+          <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=70" alt="">
+          <div class="cap-thumb-overlay"></div>
+          <span class="cap-badge cap-live">🔴 En vivo</span>
+          <span class="cap-dur">HOY 18:00</span>
+        </div>
+        <div class="cap-card-body">
+          <div class="cap-canal-icon"><span class="mi">calculate</span></div>
+          <div class="cap-info">
+            <div class="cap-titulo">Cierre Contable y Estados Financieros 2025</div>
+            <div class="cap-meta"><span class="mi">calendar_month</span> Hoy, 07 Mar · 18:00 hrs</div>
+            <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+            <div class="cap-actions">
+              <button class="cap-action-btn"><span class="mi">thumb_up</span> 24</button>
+              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjeta próximo -->
+      <div class="cap-card" onclick="location.href='/capacitacion/'">
+        <div class="cap-card-thumb">
+          <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=70" alt="">
+          <div class="cap-thumb-overlay"></div>
+          <span class="cap-badge">Próximo</span>
+          <span class="cap-dur">S/ 50</span>
+        </div>
+        <div class="cap-card-body">
+          <div class="cap-canal-icon"><span class="mi">trending_up</span></div>
+          <div class="cap-info">
+            <div class="cap-titulo">NIIF para Pymes — Aplicación Práctica 2026</div>
+            <div class="cap-meta"><span class="mi">calendar_month</span> 31 Mar · 10:00 hrs</div>
+            <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+            <div class="cap-actions">
+              <button class="cap-action-btn"><span class="mi">thumb_up</span> 18</button>
+              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjeta próximo -->
+      <div class="cap-card" onclick="location.href='/capacitacion/'">
+        <div class="cap-card-thumb">
+          <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=70" alt="">
+          <div class="cap-thumb-overlay"></div>
+          <span class="cap-badge">Próximo</span>
+          <span class="cap-dur">S/ 80</span>
+        </div>
+        <div class="cap-card-body">
+          <div class="cap-canal-icon"><span class="mi">gavel</span></div>
+          <div class="cap-info">
+            <div class="cap-titulo">Peritaje Contable y Aspectos Legales</div>
+            <div class="cap-meta"><span class="mi">calendar_month</span> 05 Abr · 16:00 hrs</div>
+            <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+            <div class="cap-actions">
+              <button class="cap-action-btn"><span class="mi">thumb_up</span> 12</button>
+              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjeta próximo -->
+      <div class="cap-card" onclick="location.href='/capacitacion/'">
+        <div class="cap-card-thumb">
+          <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=70" alt="">
+          <div class="cap-thumb-overlay"></div>
+          <span class="cap-badge">Próximo</span>
+          <span class="cap-dur">S/ 60</span>
+        </div>
+        <div class="cap-card-body">
+          <div class="cap-canal-icon"><span class="mi">receipt_long</span></div>
+          <div class="cap-info">
+            <div class="cap-titulo">Tributación Digital y Facturación Electrónica</div>
+            <div class="cap-meta"><span class="mi">calendar_month</span> 12 Abr · 09:00 hrs</div>
+            <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+            <div class="cap-actions">
+              <button class="cap-action-btn"><span class="mi">thumb_up</span> 31</button>
+              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECCIÓN: CONVENIOS ═══════════════════════════ -->
+<section class="page-section" id="convenios">
+  <div class="section-inner">
+    <div class="sec-eyebrow"><span class="mi">handshake</span><span>Beneficios exclusivos</span></div>
+    <h2 class="sec-title">Convenios Institucionales</h2>
+    <p class="sec-sub">Descuentos vigentes para colegiados hábiles · Datos desde la base institucional</p>
+    <div class="tabs-row" id="convTabs">
+      <button class="tab-btn active" data-cat="salud">Salud</button>
+      <button class="tab-btn" data-cat="educacion">Educación</button>
+      <button class="tab-btn" data-cat="servicios">Servicios</button>
+      <button class="tab-btn" data-cat="todos">Ver todos</button>
+    </div>
+    <div class="conv-grid" id="convGrid">
+      <div class="conv-card visible" data-cat="salud">
+        <div class="conv-icon-wrap"><span class="mi">local_hospital</span></div>
+        <h3>Clínica Emanuel</h3>
+        <div class="conv-sector">Salud General</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en consultas y análisis</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Jr. Próspero 123, Iquitos</span>
+          <span><span class="mi">phone</span> 065-123456</span>
+          <span><span class="mi">schedule</span> Lun-Sáb 8am–8pm</span>
+        </div>
+      </div>
+      <div class="conv-card visible" data-cat="salud">
+        <div class="conv-icon-wrap"><span class="mi">dentistry</span></div>
+        <h3>Vidas Dent</h3>
+        <div class="conv-sector">Odontología</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 20% desc. en tratamientos</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Av. Abelardo 456</span>
+          <span><span class="mi">phone</span> 065-234567</span>
+          <span><span class="mi">schedule</span> Lun-Vie 9am–7pm</span>
+        </div>
+      </div>
+      <div class="conv-card visible" data-cat="salud">
+        <div class="conv-icon-wrap"><span class="mi">visibility</span></div>
+        <h3>Eyes Solution</h3>
+        <div class="conv-sector">Oftalmología</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en lentes y consultas</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Jr. Lima 789</span>
+          <span><span class="mi">phone</span> 065-345678</span>
+          <span><span class="mi">schedule</span> Lun-Sáb 8am–6pm</span>
+        </div>
+      </div>
+      <div class="conv-card visible" data-cat="salud">
+        <div class="conv-icon-wrap"><span class="mi">medical_services</span></div>
+        <h3>Clínica Ana Stahl</h3>
+        <div class="conv-sector">Salud General</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en servicios médicos</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Av. La Marina 321</span>
+          <span><span class="mi">phone</span> 065-456789</span>
+          <span><span class="mi">schedule</span> 24 horas</span>
+        </div>
+      </div>
+      <div class="conv-card" data-cat="educacion">
+        <div class="conv-icon-wrap"><span class="mi">school</span></div>
+        <h3>PUCP</h3>
+        <div class="conv-sector">Universidad</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> Descuentos en diplomados</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Virtual / Presencial Lima</span>
+          <span><span class="mi">phone</span> 01-6262000</span>
+        </div>
+      </div>
+      <div class="conv-card" data-cat="educacion">
+        <div class="conv-icon-wrap"><span class="mi">menu_book</span></div>
+        <h3>Academia Intensity</h3>
+        <div class="conv-sector">Preparación</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en cursos</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Jr. Nauta 567</span>
+          <span><span class="mi">phone</span> 065-567890</span>
+          <span><span class="mi">schedule</span> Lun-Sáb 3pm–9pm</span>
+        </div>
+      </div>
+      <div class="conv-card" data-cat="servicios">
+        <div class="conv-icon-wrap"><span class="mi">computer</span></div>
+        <h3>DS-CONT</h3>
+        <div class="conv-sector">Software Contable</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> Precios especiales</span>
+        <div class="conv-info">
+          <span><span class="mi">cloud</span> Virtual</span>
+          <span><span class="mi">phone</span> 965-123456</span>
+          <span><span class="mi">support_agent</span> Soporte 24/7</span>
+        </div>
+      </div>
+      <div class="conv-card" data-cat="servicios">
+        <div class="conv-icon-wrap"><span class="mi">local_gas_station</span></div>
+        <h3>Loreto Perú</h3>
+        <div class="conv-sector">Combustible</div>
+        <span class="conv-beneficio"><span class="mi">sell</span> 5% desc. en gasolina</span>
+        <div class="conv-info">
+          <span><span class="mi">location_on</span> Av. Quiñones</span>
+          <span><span class="mi">phone</span> 065-678901</span>
+          <span><span class="mi">schedule</span> 24 horas</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECCIÓN: AMBIENTES ═══════════════════════════ -->
+<section class="page-section-alt" id="ambientes">
+  <div class="section-inner">
+    <div class="sec-eyebrow"><span class="mi">stadium</span><span>Instalaciones CCPL</span></div>
+    <h2 class="sec-title">Alquiler de Ambientes</h2>
+    <p class="sec-sub">Precios diferenciados · Disponibilidad en tiempo real · Reserva desde aquí</p>
+    <div class="amb-grid">
+      <div class="amb-card">
+        <div class="amb-top">
+          <div class="amb-icon-wrap"><span class="mi xl">pool</span></div>
+          <div class="amb-name">Piscina</div>
+          <div class="amb-prices">
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 30 <span>/hr</span></div>
+              <div class="amb-price-label">Colegiado hábil</div>
+            </div>
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 50 <span>/hr</span></div>
+              <div class="amb-price-label">Público general</div>
+            </div>
+          </div>
+        </div>
+        <div class="amb-body">
+          <div class="amb-horario">
+            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 6am – 8pm</div>
+            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 7am – 7pm</div>
+          </div>
+          <button class="btn-reservar" onclick="abrirReserva('Piscina')">
+            <span class="mi">event_available</span> Verificar disponibilidad
+          </button>
+        </div>
+      </div>
+      <div class="amb-card">
+        <div class="amb-top">
+          <div class="amb-icon-wrap"><span class="mi xl">sports_soccer</span></div>
+          <div class="amb-name">Cancha de Fútbol</div>
+          <div class="amb-prices">
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 25 <span>/hr</span></div>
+              <div class="amb-price-label">Colegiado hábil</div>
+            </div>
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 40 <span>/hr</span></div>
+              <div class="amb-price-label">Público general</div>
+            </div>
+          </div>
+        </div>
+        <div class="amb-body">
+          <div class="amb-horario">
+            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
+            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
+          </div>
+          <button class="btn-reservar" onclick="abrirReserva('Cancha de Fútbol')">
+            <span class="mi">event_available</span> Verificar disponibilidad
+          </button>
+        </div>
+      </div>
+      <div class="amb-card">
+        <div class="amb-top">
+          <div class="amb-icon-wrap"><span class="mi xl">sports_volleyball</span></div>
+          <div class="amb-name">Cancha de Vóley</div>
+          <div class="amb-prices">
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 20 <span>/hr</span></div>
+              <div class="amb-price-label">Colegiado hábil</div>
+            </div>
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 35 <span>/hr</span></div>
+              <div class="amb-price-label">Público general</div>
+            </div>
+          </div>
+        </div>
+        <div class="amb-body">
+          <div class="amb-horario">
+            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
+            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
+          </div>
+          <button class="btn-reservar" onclick="abrirReserva('Cancha de Vóley')">
+            <span class="mi">event_available</span> Verificar disponibilidad
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="pagos-strip">
+      <h3><span class="mi">payment</span> Métodos de Pago</h3>
+      <div class="pagos-grid">
+        <div class="pago-item">
+          <span class="mi">smartphone</span>
+          <div class="pago-item-info"><strong>Yape / Plin</strong><span>979 169 813</span></div>
+        </div>
+        <div class="pago-item">
+          <span class="mi">account_balance</span>
+          <div class="pago-item-info"><strong>BCP</strong><span>N° 123-4567890-1-23</span></div>
+        </div>
+        <div class="pago-item">
+          <span class="mi">account_balance</span>
+          <div class="pago-item-info"><strong>Banco de la Nación</strong><span>N° 00-987-654321</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECCIÓN: EVENTOS (placeholder) ══════════════ -->
+<section class="page-section" id="eventos">
+  <div class="section-inner">
+    <div class="sec-eyebrow"><span class="mi">event</span><span>Agenda institucional</span></div>
+    <h2 class="sec-title">Eventos del Año</h2>
+    <p class="sec-sub">Próximamente — sección en desarrollo</p>
+    <div style="background:var(--verde-lt);border-radius:10px;padding:32px;text-align:center;color:var(--txt2)">
+      <span class="mi" style="font-size:48px;color:var(--borde)">event</span>
+      <p style="margin-top:12px;font-size:14px">Esta sección se habilitará próximamente con el calendario de eventos 2026</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECCIÓN: GALERÍA (placeholder) ═══════════════ -->
+<section class="page-section-alt" id="galeria">
+  <div class="section-inner">
+    <div class="sec-eyebrow"><span class="mi">photo_library</span><span>Galería institucional</span></div>
+    <h2 class="sec-title">Galería de Imágenes</h2>
+    <p class="sec-sub">Próximamente — sección en desarrollo</p>
+    <div style="background:white;border-radius:10px;padding:32px;text-align:center;color:var(--txt2);border:1px solid var(--borde)">
+      <span class="mi" style="font-size:48px;color:var(--borde)">photo_library</span>
+      <p style="margin-top:12px;font-size:14px">Galería fotográfica de eventos y actividades institucionales</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECCIÓN: COMUNICADOS ═════════════════════════ -->
+<section class="page-section" id="comunicados">
+  <div class="section-inner">
+    <div class="sec-eyebrow"><span class="mi">campaign</span><span>Noticias oficiales</span></div>
+    <h2 class="sec-title">Últimos Comunicados</h2>
+    <p class="sec-sub">Para descargar o compartir documentos debes identificarte como colegiado hábil</p>
+    <div class="com-grid">
+      <a href="/comunicado/comunicado-008-2025-ce/" class="com-card">
+        <div class="com-fecha">15 Ene 2026</div>
+        <h3>Comunicado N° 008-2026</h3>
+        <p>Proceso Electoral 2026 — Cronograma actualizado y lista de candidatos habilitados</p>
+        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+      </a>
+      <a href="/comunicado/comunicado-007-2025-ce/" class="com-card">
+        <div class="com-fecha">12 Ene 2026</div>
+        <h3>Comunicado N° 007-2026</h3>
+        <p>Inscripción de listas para elecciones del Consejo Directivo 2026-2027</p>
+        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+      </a>
+      <a href="/comunicado/comunicado-n-006-2025/" class="com-card">
+        <div class="com-fecha">08 Ene 2026</div>
+        <h3>Comunicado N° 006-2026</h3>
+        <p>Convocatoria a Asamblea General Ordinaria — Agenda y puntos a tratar</p>
+        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <h4>Contacto</h4>
+      <div class="footer-links">
+        <span>📍 Calle Echenique 451, Iquitos — Loreto</span>
+        <span>📞 (065) 24-2821</span>
+        <span>📱 979 169 813</span>
+        <span>✉ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="45262635292a3720312a052228242c296b262a28">[email&#160;protected]</a></span>
+      </div>
+      <div class="footer-social">
+        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
         </a>
-        <button class="nav-item" id="consultasBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-            </svg>
-            <span>Consultas</span>
-        </button>
-    </nav>
-
-
-    <!-- Modal Reactivación -->
-    <div class="modal" id="reactivacionModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content modal-reactivacion">
-            <button class="modal-close-btn">&times;</button>
-            <h2 class="modal-title">Reactiva tu Colegiatura</h2>
-            <div class="tabs-container">
-                <div class="tabs">
-                    <button class="tab active" data-tab="beneficios">Beneficios</button>
-                    <button class="tab" data-tab="requisitos">Requisitos</button>
-                    <button class="tab" data-tab="pagar">Pagar</button>
-                </div>
-                <div class="tab-content active" id="beneficios">
-                    <h3>🎁 Beneficios Especiales por 60 Aniversario</h3>
-                    <div class="beneficio-item">
-                        <div class="beneficio-icon">✅</div>
-                        <div>
-                            <h4>Condonación del 50% de deuda</h4>
-                            <p>Si te reactivas antes del 31 de Marzo 2025</p>
-                        </div>
-                    </div>
-                    <div class="beneficio-item">
-                        <div class="beneficio-icon">✅</div>
-                        <div>
-                            <h4>Facilidades de pago hasta 12 cuotas</h4>
-                            <p>Sin intereses adicionales</p>
-                        </div>
-                    </div>
-                    <div class="beneficio-item">
-                        <div class="beneficio-icon">✅</div>
-                        <div>
-                            <h4>Acceso inmediato a todos los convenios</h4>
-                            <p>19 convenios vigentes en salud, educación y servicios</p>
-                        </div>
-                    </div>
-                    <div class="plazo-especial">
-                        <h4>⏰ Plazos de Campaña:</h4>
-                        <ul>
-                            <li><strong>Hasta 31 Marzo:</strong> 50% condonación</li>
-                            <li><strong>Hasta 30 Junio:</strong> 30% condonación</li>
-                            <li><strong>Hasta 30 Sept:</strong> 15% condonación</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="tab-content" id="requisitos">
-                    <h3>📋 Requisitos para Reactivación</h3>
-                    <ol class="requisitos-list">
-                        <li>Solicitud de reactivación dirigida al Decano</li>
-                        <li>Copia de DNI vigente</li>
-                        <li>Constancia de habilidad (se solicita en el Colegio)</li>
-                        <li>Declaración jurada de no tener deudas pendientes con otras instituciones</li>
-                        <li>Pago de cuota de reactivación (consultar monto según antigüedad)</li>
-                    </ol>
-                    <div class="nota-importante">
-                        <strong>💡 Nota:</strong> Todos los documentos pueden ser presentados de forma presencial o digital vía WhatsApp al 979 169 813
-                    </div>
-                </div>
-                <div class="tab-content" id="pagar">
-                    <div id="formulario-pago-container" class="text-center py-8">
-                        <div class="loader-bar"></div>
-                        <p class="text-slate-400 text-sm mt-2">Cargando formulario...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <a href="https://wa.me/51979169813" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        </a>
+      </div>
     </div>
-
-    <!-- Modal Consultas -->
-    <div class="modal" id="consultasModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content modal-consultas">
-            <button class="modal-close-btn">&times;</button>
-            <div class="consultas-header">
-                <div class="mic-icon">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"></path>
-                        <path d="M19 11a7 7 0 0 1-14 0M12 19v4M8 23h8"></path>
-                    </svg>
-                </div>
-                <h2>¿Qué deseas consultar?</h2>
-                <p class="subtitle">Toca el micrófono o escribe tu consulta</p>
-            </div>
-            <div class="search-input-wrapper">
-                <input type="text" class="search-input" placeholder="Ej: Estado de mi colegiatura, requisitos para reactivarme...">
-                <button class="voice-btn" id="voiceBtn">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"></path>
-                    </svg>
-                </button>
-            </div>
-            <div class="quick-queries">
-                <button class="query-chip">Estado de colegiatura</button>
-                <button class="query-chip">Requisitos para colegiarse</button>
-                <button class="query-chip">Alquiler de ambientes</button>
-                <button class="query-chip">Próximos eventos</button>
-                <button class="query-chip">Comunicados recientes</button>
-                <button class="query-chip">Directivos actuales</button>
-            </div>
-        </div>
+    <div>
+      <h4>Accesos</h4>
+      <div class="footer-links">
+        <a href="/consulta/habilidad">Consultar Habilidad</a>
+        <a href="/institucional/">Institucional</a>
+        <a href="#capacitacion">Capacitación</a>
+        <a href="#galeria">Galería</a>
+        <a href="/login/">Acceso Colegiados</a>
+      </div>
     </div>
-
-    <!-- Modal Directivos -->
-    <div class="modal" id="directivosModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content modal-directivos">
-            <button class="modal-close-btn">&times;</button>
-            <h2 class="modal-title">Consejo Directivo 2026-2027</h2>
-            <br><br>
-            <div class="directivos-grid">
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Decano</p>
-                    <a href="/consejo-directivo/#decano" class="ver-mas">Ver más →</a>
-                </div>
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Vice Decano</p>
-                    <a href="/consejo-directivo/#vicedecano" class="ver-mas">Ver más →</a>
-                </div>
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Director Secretario</p>
-                    <a href="/consejo-directivo/#secretario" class="ver-mas">Ver más →</a>
-                </div>
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Director Tesorero</p>
-                    <a href="/consejo-directivo/#tesorero" class="ver-mas">Ver más →</a>
-                </div>
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Vocal 1</p>
-                    <a href="/consejo-directivo/#vocal1" class="ver-mas">Ver más →</a>
-                </div>
-                <div class="directivo-card">
-                    <div class="directivo-photo" style="background-image: url('https://via.placeholder.com/150')"></div>
-                    <h3>CPCC Nombre Apellido</h3>
-                    <p class="cargo">Vocal 2</p>
-                    <a href="/consejo-directivo/#vocal2" class="ver-mas">Ver más →</a>
-                </div>
-            </div>
-        </div>
+    <div>
+      <h4>Legal</h4>
+      <div class="footer-links">
+        <a href="/politica-privacidad/">Política de Privacidad</a>
+        <a href="/terminos/">Términos y Condiciones</a>
+        <a href="/libro-reclamaciones/">Libro de Reclamaciones</a>
+      </div>
     </div>
-
-    <!-- Modal Transparencia -->
-    <div class="modal" id="transparenciaModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content modal-transparencia">
-            <button class="modal-close-btn">&times;</button>
-            <h2 class="modal-title">Portal de Transparencia</h2>
-            <div class="tabs-container">
-                <div class="tabs">
-                    <button class="tab active" data-tab="indicadores">Indicadores Clave</button>
-                    <button class="tab" data-tab="resultados">Resultados Anuales</button>
-                    <button class="tab" data-tab="estadisticas">Estadísticas</button>
-                </div>
-                <div class="tab-content active" id="indicadores">
-                    <h3>📊 Indicadores de Gestión 2024</h3>
-                    <div class="indicadores-grid">
-                        <div class="indicador-card">
-                            <div class="indicador-icon">💰</div>
-                            <h4>Financieros</h4>
-                            <div class="indicador-valor">S/ 1.2M</div>
-                            <p class="indicador-desc">Ingresos totales</p>
-                            <div class="indicador-trend positive">+15% vs 2023</div>
-                        </div>
-                        <div class="indicador-card">
-                            <div class="indicador-icon">👥</div>
-                            <h4>Operativos</h4>
-                            <div class="indicador-valor">42%</div>
-                            <p class="indicador-desc">Tasa de colegiados activos</p>
-                            <div class="indicador-trend negative">-3% vs objetivo</div>
-                        </div>
-                        <div class="indicador-card">
-                            <div class="indicador-icon">📚</div>
-                            <h4>Capacitación</h4>
-                            <div class="indicador-valor">156</div>
-                            <p class="indicador-desc">Eventos realizados</p>
-                            <div class="indicador-trend positive">+24% vs 2023</div>
-                        </div>
-                        <div class="indicador-card">
-                            <div class="indicador-icon">🤝</div>
-                            <h4>Convenios</h4>
-                            <div class="indicador-valor">19</div>
-                            <p class="indicador-desc">Convenios activos</p>
-                            <div class="indicador-trend positive">+4 nuevos</div>
-                        </div>
-                    </div>
-                    <div class="meta-principal">
-                        <h4>🎯 Meta 2025: Recuperar 650 colegiados inactivos</h4>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: 18%">
-                                <span>117 reactivados (18%)</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-content" id="resultados">
-                    <h3>📈 Resultados Anuales</h3>
-                    <div class="table-responsive">
-                        <table class="tabla-resultados">
-                            <thead>
-                                <tr>
-                                    <th>Año</th>
-                                    <th>Ingresos</th>
-                                    <th>Egresos</th>
-                                    <th>Colegiados</th>
-                                    <th>Eventos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>2024</td>
-                                    <td>S/ 1,200,000</td>
-                                    <td>S/ 980,000</td>
-                                    <td>950</td>
-                                    <td>156</td>
-                                </tr>
-                                <tr>
-                                    <td>2023</td>
-                                    <td>S/ 1,045,000</td>
-                                    <td>S/ 890,000</td>
-                                    <td>920</td>
-                                    <td>126</td>
-                                </tr>
-                                <tr>
-                                    <td>2022</td>
-                                    <td>S/ 950,000</td>
-                                    <td>S/ 820,000</td>
-                                    <td>895</td>
-                                    <td>98</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <a href="/transparencia/" class="btn-ver-completo">Ver Informe Completo</a>
-                </div>
-                <div class="tab-content" id="estadisticas">
-                    <h3>📊 Estadísticas Mensuales 2024</h3>
-                    <div class="estadisticas-mensuales">
-                        <div class="chart-placeholder">
-                            <p>Gráfico de nuevos colegiados por mes</p>
-                            <div class="mini-chart">
-                                <div class="bar" style="height: 60%"></div>
-                                <div class="bar" style="height: 45%"></div>
-                                <div class="bar" style="height: 70%"></div>
-                                <div class="bar" style="height: 55%"></div>
-                                <div class="bar" style="height: 80%"></div>
-                                <div class="bar" style="height: 50%"></div>
-                                <div class="bar" style="height: 65%"></div>
-                                <div class="bar" style="height: 75%"></div>
-                                <div class="bar" style="height: 60%"></div>
-                                <div class="bar" style="height: 85%"></div>
-                                <div class="bar" style="height: 70%"></div>
-                                <div class="bar" style="height: 90%"></div>
-                            </div>
-                        </div>
-                        <div class="stats-summary">
-                            <h4>Resumen Estadístico</h4>
-                            <ul>
-                                <li><strong>Promedio mensual:</strong> 8 nuevos colegiados</li>
-                                <li><strong>Mejor mes:</strong> Diciembre (15 nuevos)</li>
-                                <li><strong>Tasa de retención:</strong> 92%</li>
-                                <li><strong>Participación en eventos:</strong> 68%</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 Colegio de Contadores Públicos de Loreto. Todos los derechos reservados.</p>
+      <div class="footer-dev">
+        <span class="mi">code</span>
+        <span>Plataforma desarrollada por
+          <a href="https://duilio.store" target="_blank">Duilio Restuccia</a> ·
+          <a href="https://duilio.store" target="_blank">Perú Sistemas PRO</a>
+        </span>
+      </div>
     </div>
+  </div>
+</footer>
 
-    <!-- Modal Reserva -->
-    <div class="modal" id="reservaModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content modal-reserva">
-            <button class="modal-close-btn">&times;</button>
-            <h2 class="modal-title">Reservar Ambiente</h2>
-            <div class="reserva-form">
-                <div class="form-group">
-                    <label>Ambiente:</label>
-                    <select id="ambienteSelect">
-                        <option value="piscina">Piscina - S/ 50/hora</option>
-                        <option value="futbol">Cancha de Fútbol - S/ 40/hora</option>
-                        <option value="voley">Cancha de Vóley - S/ 35/hora</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Fecha:</label>
-                    <input type="date" id="fechaReserva">
-                </div>
-                <div class="form-group">
-                    <label>Hora de inicio:</label>
-                    <select id="horaInicio">
-                        <option value="06:00">06:00</option>
-                        <option value="07:00">07:00</option>
-                        <option value="08:00">08:00</option>
-                        <option value="09:00">09:00</option>
-                        <option value="10:00">10:00</option>
-                        <option value="11:00">11:00</option>
-                        <option value="12:00">12:00</option>
-                        <option value="13:00">13:00</option>
-                        <option value="14:00">14:00</option>
-                        <option value="15:00">15:00</option>
-                        <option value="16:00">16:00</option>
-                        <option value="17:00">17:00</option>
-                        <option value="18:00">18:00</option>
-                        <option value="19:00">19:00</option>
-                        <option value="20:00">20:00</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Duración (horas):</label>
-                    <input type="number" id="duracion" min="1" max="4" value="1">
-                </div>
-                <div class="total-reserva">
-                    <h3>Total: <span id="totalReserva">S/ 50</span></h3>
-                </div>
-                <div class="calendario-semanal">
-                    <h4>Disponibilidad esta semana:</h4>
-                    <div class="semana-grid">
-                        <div class="dia-item disponible">Lun 20</div>
-                        <div class="dia-item ocupado">Mar 21</div>
-                        <div class="dia-item disponible">Mié 22</div>
-                        <div class="dia-item disponible">Jue 23</div>
-                        <div class="dia-item parcial">Vie 24</div>
-                        <div class="dia-item disponible">Sáb 25</div>
-                        <div class="dia-item disponible">Dom 26</div>
-                    </div>
-                    <div class="leyenda">
-                        <span><div class="dot disponible"></div> Disponible</span>
-                        <span><div class="dot parcial"></div> Parcial</span>
-                        <span><div class="dot ocupado"></div> Ocupado</span>
-                    </div>
-                </div>
-                <button class="btn-confirmar-reserva">Confirmar Reserva</button>
-            </div>
-        </div>
+<!-- ══ BOTTOM NAV ════════════════════════════════════ -->
+<nav class="bottom-nav">
+  <button class="bnav-item" onclick="openDrawer()">
+    <span class="mi">menu</span>Menú
+  </button>
+  <button class="bnav-item" onclick="toggleVerify()">
+    <span class="mi">verified_user</span>Verificar
+  </button>
+  <a href="/login/" class="bnav-item primary">
+    <span class="mi">login</span>Ingresar
+  </a>
+  <a href="#convenios" class="bnav-item">
+    <span class="mi">handshake</span>Convenios
+  </a>
+  <a href="#ambientes" class="bnav-item">
+    <span class="mi">stadium</span>Ambientes
+  </a>
+</nav>
+
+<!-- ══ DRAWER ════════════════════════════════════════ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-logo">Colegio de Contadores<br><span>Públicos de Loreto</span></div>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <nav class="drawer-nav">
+    <a href="/"><span class="mi">home</span> Inicio</a>
+    <a href="/institucional/"><span class="mi">account_balance</span> Institucional</a>
+    <a href="#capacitacion" onclick="closeDrawer()"><span class="mi">school</span> Capacitación</a>
+    <div class="drawer-sec">Servicios</div>
+    <a href="#convenios" onclick="closeDrawer()"><span class="mi">handshake</span> Convenios</a>
+    <a href="#ambientes" onclick="closeDrawer()"><span class="mi">stadium</span> Ambientes</a>
+    <a href="#videos" onclick="closeDrawer()"><span class="mi">play_circle</span> Videos del sistema</a>
+    <div class="drawer-sec">Institucional</div>
+    <a href="#eventos" onclick="closeDrawer()"><span class="mi">event</span> Eventos</a>
+    <a href="#galeria" onclick="closeDrawer()"><span class="mi">photo_library</span> Galería</a>
+    <a href="#comunicados" onclick="closeDrawer()"><span class="mi">campaign</span> Comunicados</a>
+    <div class="drawer-sec">Consultas</div>
+    <a href="/comite-electoral/"><span class="mi">how_to_vote</span> Comité Electoral</a>
+    <a href="/colegiados/"><span class="mi">badge</span> Colegiados</a>
+    <a href="/reglamento/"><span class="mi">gavel</span> Reglamento Interno</a>
+    <a href="/transparencia/"><span class="mi">folder_open</span> Transparencia</a>
+    <button class="btn-acceder-d" onclick="location.href='/login/'">
+      <span class="mi">login</span> Acceso Colegiados
+    </button>
+  </nav>
+</div>
+
+<!-- ══ MODAL: VERIFICAR HABILIDAD ═══════════════════ -->
+<div class="modal-overlay" id="modalHab">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModalHab()">×</button>
+    <div class="modal-hab-head">
+      <h3 id="habNombre">Nombre del Contador</h3>
+      <p id="habMatricula">Matrícula · DNI</p>
     </div>
+    <div class="modal-hab-body">
+      <div class="hab-status habil" id="habStatus">
+        <div class="hab-status-icon"><span class="mi">verified</span></div>
+        <div class="hab-status-label" id="habLabel">HÁBIL</div>
+      </div>
+      <!-- Sitio web del colegiado (si autorizó publicación) -->
+      <div class="hab-web" id="habWeb" style="display:none">
+        <img class="hab-web-photo" id="habFoto" src="" alt="Foto">
+        <div class="hab-web-info">
+          <span id="habEspecialidad">Contador Público</span>
+          <a href="#" id="habUrl" target="_blank">
+            <span class="mi">open_in_new</span> Ver perfil profesional
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <!-- 1. Módulos de Voz (PRIMERO) -->
-    <script src="/static/js/modules/voice-assistant.js"></script>
-    <script src="/static/js/modules/search-engine.js"></script>
-    
-    <!-- 2. Script principal del sitio -->
-    <script src="/static/js/sites/ccp-loreto.js"></script>
-    
-    <!-- 3. Lógica del Carrusel (encapsulada para evitar conflictos) -->
-    <script>
-    (function() {
-        // Esperar a que el DOM esté listo
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initCarousel);
-        } else {
-            initCarousel();
-        }
-        
-        function initCarousel() {
-            const track = document.getElementById('carousel-track');
-            if (!track) return;
-            
-            let currentSlide = 0;
-            const slides = track.children;
-            const totalSlides = slides.length;
-            const dots = document.querySelectorAll('.dot');
-            let autoPlayInterval;
-            
-            function updateCarousel() {
-                track.style.transform = `translateX(-${currentSlide * 100}%)`;
-                dots.forEach((dot, index) => {
-                    if (index === currentSlide) {
-                        dot.classList.remove('bg-white/50');
-                        dot.classList.add('bg-yellow-500', 'scale-125');
-                    } else {
-                        dot.classList.add('bg-white/50');
-                        dot.classList.remove('bg-yellow-500', 'scale-125');
-                    }
-                });
-            }
-            
-            function moveSlide(direction) {
-                currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
-                updateCarousel();
-                resetTimer();
-            }
-            
-            function goToSlide(index) {
-                currentSlide = index;
-                updateCarousel();
-                resetTimer();
-            }
-            
-            function startTimer() {
-                autoPlayInterval = setInterval(() => moveSlide(1), 5000);
-            }
-            
-            function resetTimer() {
-                clearInterval(autoPlayInterval);
-                startTimer();
-            }
-            
-            // Exponer funciones globalmente para los botones onclick
-            window.moveSlide = moveSlide;
-            window.goToSlide = goToSlide;
-            
-            // Iniciar
-            updateCarousel();
-            startTimer();
-        }
-    })();
-    </script>
-</body>
-</html>
+<!-- ══ MODAL: VIDEO ══════════════════════════════════ -->
+<div class="vid-modal-overlay" id="vidModal">
+  <div class="vid-modal">
+    <button class="vid-modal-close" onclick="closeVideo()">×</button>
+    <div class="vid-modal-title" id="vidTitle">Título<span>CCPL · Guías del sistema</span></div>
+    <div class="vid-container" id="vidContainer">
+      <div class="vid-placeholder">
+        <span class="mi">play_circle</span>
+        <span>Video próximamente disponible</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+/* ── Carrusel ────────────────────────────── */
+let ci=0;
+const cSlides=document.querySelectorAll('.carousel-slide');
+const cDots=document.querySelectorAll('.cdot');
+function carGo(n){
+  cSlides[ci].classList.remove('active');cDots[ci].classList.remove('active');
+  ci=(n+cSlides.length)%cSlides.length;
+  cSlides[ci].classList.add('active');cDots[ci].classList.add('active');
+  document.getElementById('carTrack').style.transform=`translateX(-${ci*100}%)`;
+}
+function carMove(d){carGo(ci+d)}
+cDots.forEach((d,i)=>d.addEventListener('click',()=>carGo(i)));
+setInterval(()=>carMove(1),5000);
+
+/* ── Verificar habilidad ─────────────────── */
+function toggleVerify(){
+  const bar=document.getElementById('verifyBar');
+  bar.classList.toggle('open');
+  if(bar.classList.contains('open'))document.getElementById('verifyInput').focus();
+}
+async function consultarHabilidad(){
+  const q=document.getElementById('verifyInput').value.trim();
+  if(!q)return;
+  // Llamada real: GET /api/publico/colegiado/habilidad?q=...
+  // Por ahora simulación de respuesta
+  const demo={nombre:'PÉREZ TORRES, JUAN CARLOS',matricula:'10-0245',dni:'12345678',
+    condicion:'habil',autorizo_web:false,foto:'',url_web:''};
+  mostrarResultadoHabilidad(demo);
+}
+function mostrarResultadoHabilidad(d){
+  const st=document.getElementById('habStatus');
+  document.getElementById('habNombre').textContent=d.nombre;
+  document.getElementById('habMatricula').textContent=`Matrícula ${d.matricula} · DNI ${d.dni}`;
+  const es=d.condicion==='habil'||d.condicion==='vitalicio';
+  st.className='hab-status '+(es?'habil':'inhabil');
+  st.querySelector('.mi').textContent=es?'verified':'cancel';
+  document.getElementById('habLabel').textContent=es?'HÁBIL':'INHÁBIL';
+  const wb=document.getElementById('habWeb');
+  if(d.autorizo_web&&d.url_web){
+    document.getElementById('habFoto').src=d.foto||'/static/img/default-avatar.png';
+    document.getElementById('habUrl').href=d.url_web;
+    document.getElementById('habEspecialidad').textContent=d.especialidad||'Contador Público';
+    wb.style.display='flex';
+  } else { wb.style.display='none'; }
+  document.getElementById('modalHab').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModalHab(){
+  document.getElementById('modalHab').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+/* ── Convenios tabs ──────────────────────── */
+document.querySelectorAll('#convTabs .tab-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#convTabs .tab-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');const cat=b.dataset.cat;
+    document.querySelectorAll('#convGrid .conv-card').forEach(c=>{
+      c.classList.toggle('visible',cat==='todos'||c.dataset.cat===cat);
+    });
+  });
+});
+
+/* ── Ambientes ───────────────────────────── */
+function abrirReserva(ambiente){
+  // TODO: conectar con modal de disponibilidad desde BD
+  alert(`Próximamente: reserva de "${ambiente}" con calendario de disponibilidad en tiempo real.`);
+}
+
+/* ── Drawer ──────────────────────────────── */
+function openDrawer(){
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.getElementById('menuBtn').addEventListener('click',openDrawer);
+
+/* ── Modal video ─────────────────────────── */
+function openVideo(url,title){
+  document.getElementById('vidTitle').childNodes[0].textContent=title+' ';
+  const cont=document.getElementById('vidContainer');
+  document.getElementById('vidModal').classList.add('open');
+  document.body.style.overflow='hidden';
+  if(url&&!url.startsWith('VIDEO_URL')){
+    cont.innerHTML=`<iframe src="${url}" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
+  } else {
+    cont.innerHTML=`<div class="vid-placeholder"><span class="mi">play_circle</span><span style="color:rgba(255,255,255,.4);font-size:14px">Video próximamente disponible</span></div>`;
+  }
+}
+function closeVideo(){
+  document.getElementById('vidModal').classList.remove('open');
+  document.getElementById('vidContainer').innerHTML='';
+  document.body.style.overflow='';
+}
+document.getEle
