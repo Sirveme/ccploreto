@@ -89,11 +89,12 @@ button{cursor:pointer;font-family:inherit}
 .leaf-tl{top:-30px;left:-30px;width:200px;transform:rotate(-10deg)}
 .leaf-br{bottom:-20px;right:-20px;width:160px;transform:rotate(165deg)}
 
-.carousel-wrap{position:relative}
-.carousel-viewport{overflow:hidden;aspect-ratio:16/9;max-height:480px}
-@media(max-width:600px){.carousel-viewport{aspect-ratio:4/3;max-height:320px}}
-.carousel-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1);height:100%}
-.carousel-slide{flex:0 0 100%;position:relative;overflow:hidden}
+.carousel-wrap{position:relative;width:100%}
+.carousel-viewport{overflow:hidden;width:100%;height:0;padding-bottom:56.25%;max-height:480px;position:relative}
+@media(max-width:600px){.carousel-viewport{padding-bottom:75%;max-height:320px}}
+.carousel-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1);
+  position:absolute;top:0;left:0;width:100%;height:100%}
+.carousel-slide{flex:0 0 100%;min-width:100%;position:relative;overflow:hidden;height:100%}
 .carousel-slide img{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 6s ease}
 .carousel-slide.active img{transform:scale(1)}
 .slide-overlay{position:absolute;inset:0;
@@ -115,8 +116,8 @@ button{cursor:pointer;font-family:inherit}
 .carousel-ctrl.prev{left:10px}.carousel-ctrl.next{right:10px}
 .carousel-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
   display:flex;gap:6px;z-index:5}
-.cdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);border:none;transition:.3s}
-.cdot.active{background:var(--oro);width:20px;border-radius:4px}
+.car-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);border:none;transition:.3s}
+.car-dot.car-dot-active{background:var(--oro);width:20px;border-radius:4px}
 
 /* ════════════════════════════════════════════
    ACCIONES RÁPIDAS
@@ -159,7 +160,8 @@ button{cursor:pointer;font-family:inherit}
 /* ════════════════════════════════════════════
    VIDEOS
 ════════════════════════════════════════════ */
-.video-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:680px}
+.video-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  max-width:760px;margin:0 auto}
 @media(max-width:400px){.video-grid{grid-template-columns:1fr}}
 .video-thumb{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;
   aspect-ratio:16/9;background:#0d2b1e;border:2px solid rgba(201,168,76,.25);
@@ -532,9 +534,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
     <button class="carousel-ctrl prev" onclick="carMove(-1)">&#8249;</button>
     <button class="carousel-ctrl next" onclick="carMove(1)">&#8250;</button>
     <div class="carousel-dots" id="carDots">
-      <button class="cdot active"></button>
-      <button class="cdot"></button>
-      <button class="cdot"></button>
+      <button class="car-dot car-dot-active"></button>
+      <button class="car-dot"></button>
+      <button class="car-dot"></button>
     </div>
   </div>
 </section>
@@ -563,8 +565,8 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
 
 <!-- ══ SECCIÓN: VIDEOS ══════════════════════════════ -->
 <section class="page-section-dark" id="videos">
-  <div class="section-inner">
-    <div class="sec-eyebrow sec-eyebrow-lt">
+  <div class="section-inner" style="text-align:center">
+    <div class="sec-eyebrow sec-eyebrow-lt" style="justify-content:center;text-align:left">
       <span class="mi">play_circle</span><span>Guías del sistema</span>
     </div>
     <h2 class="sec-title sec-title-lt">Aprende a usar el portal en minutos</h2>
@@ -607,7 +609,7 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
         </div>
       </div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px">* Videos disponibles a partir del lanzamiento del sistema.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px;text-align:left">* Videos disponibles a partir del lanzamiento del sistema.</p>
   </div>
 </section>
 
@@ -899,6 +901,31 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
           </button>
         </div>
       </div>
+      <div class="amb-card">
+        <div class="amb-top">
+          <div class="amb-icon-wrap"><span class="mi xl">mic</span></div>
+          <div class="amb-name">Auditorio</div>
+          <div class="amb-prices">
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 80 <span>/hr</span></div>
+              <div class="amb-price-label">Colegiado hábil</div>
+            </div>
+            <div class="amb-price">
+              <div class="amb-price-amt">S/ 120 <span>/hr</span></div>
+              <div class="amb-price-label">Público general</div>
+            </div>
+          </div>
+        </div>
+        <div class="amb-body">
+          <div class="amb-horario">
+            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 8am – 9pm</div>
+            <div class="amb-horario-row"><span class="mi">event_seat</span> Aforo: 80 personas</div>
+          </div>
+          <button class="btn-reservar" onclick="abrirReserva('Auditorio')">
+            <span class="mi">event_available</span> Verificar disponibilidad
+          </button>
+        </div>
+      </div>
     </div>
     <div class="pagos-strip">
       <h3><span class="mi">payment</span> Métodos de Pago</h3>
@@ -1018,8 +1045,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       <div class="footer-dev">
         <span class="mi">code</span>
         <span>Plataforma desarrollada por
-          <a href="https://duilio.store" target="_blank">Duilio Restuccia</a> ·
-          <a href="https://duilio.store" target="_blank">Perú Sistemas PRO</a>
+          <a href="https://www.sigcosystems.com" target="_blank">SigcoSystems</a>
+          &amp;
+          <a href="https://www.duilio.store" target="_blank">Duilio Restuccia · Perú Sistemas PRO</a>
         </span>
       </div>
     </div>
@@ -1118,18 +1146,44 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 /* ── Carrusel ────────────────────────────── */
-let ci=0;
-const cSlides=document.querySelectorAll('.carousel-slide');
-const cDots=document.querySelectorAll('.cdot');
-function carGo(n){
-  cSlides[ci].classList.remove('active');cDots[ci].classList.remove('active');
-  ci=(n+cSlides.length)%cSlides.length;
-  cSlides[ci].classList.add('active');cDots[ci].classList.add('active');
-  document.getElementById('carTrack').style.transform=`translateX(-${ci*100}%)`;
-}
-function carMove(d){carGo(ci+d)}
-cDots.forEach((d,i)=>d.addEventListener('click',()=>carGo(i)));
-setInterval(()=>carMove(1),5000);
+(function(){
+  let ci = 0;
+  const track  = document.getElementById('carTrack');
+  const slides = track.querySelectorAll('.carousel-slide');
+  const dots   = document.querySelectorAll('.car-dot');
+  let timer;
+
+  function goTo(n){
+    slides[ci].classList.remove('active');
+    dots[ci].classList.remove('car-dot-active');
+    ci = (n + slides.length) % slides.length;
+    slides[ci].classList.add('active');
+    dots[ci].classList.add('car-dot-active');
+    track.style.transform = 'translateX(-' + (ci * 100) + '%)';
+  }
+  function next(){ goTo(ci + 1); }
+  function prev(){ goTo(ci - 1); }
+
+  // Botones prev/next
+  document.querySelector('.carousel-ctrl.prev').addEventListener('click', function(){ clearInterval(timer); prev(); timer = setInterval(next, 5000); });
+  document.querySelector('.carousel-ctrl.next').addEventListener('click', function(){ clearInterval(timer); next(); timer = setInterval(next, 5000); });
+
+  // Dots
+  dots.forEach(function(d, i){
+    d.addEventListener('click', function(){ clearInterval(timer); goTo(i); timer = setInterval(next, 5000); });
+  });
+
+  // Swipe táctil
+  var touchX = 0;
+  track.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive:true});
+  track.addEventListener('touchend',   function(e){
+    var dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx) > 40){ clearInterval(timer); dx < 0 ? next() : prev(); timer = setInterval(next, 5000); }
+  }, {passive:true});
+
+  timer = setInterval(next, 5000);
+  window.carMove = function(d){ clearInterval(timer); goTo(ci+d); timer = setInterval(next,5000); };
+})();
 
 /* ── Verificar habilidad ─────────────────── */
 function toggleVerify(){
