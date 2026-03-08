@@ -701,6 +701,64 @@
   </div>
 </div>
 
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL UNIVERSAL — agregar al ccp-loreto.html
+     justo antes de los <script> al final del body
+
+     USO desde cualquier botón/link:
+       onclick="abrirPartial('institucional', 'Institucional')"
+       onclick="abrirPartial('transparencia', 'Transparencia')"
+═══════════════════════════════════════════════════════ -->
+
+<!-- Modal Universal de Partials -->
+<div class="modal-overlay" id="modalPartial" style="align-items:flex-end;padding:0">
+  <div id="modalPartialBox" style="
+    background:white;
+    border-radius:20px 20px 0 0;
+    width:100%;
+    max-width:680px;
+    margin:0 auto;
+    max-height:92vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  ">
+    <!-- Header del modal -->
+    <div id="modalPartialHead" style="
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px 14px;
+      border-bottom:1px solid #e8f0eb;
+      background:white;
+      flex-shrink:0;
+    ">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="modalPartialIcon" class="mi" style="color:#1b4d35;font-size:22px">info</span>
+        <span id="modalPartialTitle" style="font-size:16px;font-weight:700;color:#1b4d35;font-family:'Playfair Display',serif">
+          Cargando...
+        </span>
+      </div>
+      <button onclick="cerrarPartial()" style="
+        background:#f2f4f2; border:none;
+        width:32px; height:32px; border-radius:50%;
+        font-size:18px; color:#5a7060; cursor:pointer;
+        display:flex; align-items:center; justify-content:center;
+      ">×</button>
+    </div>
+    <!-- Contenido dinámico -->
+    <div id="modalPartialContent" style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch">
+      <!-- Se inyecta aquí via fetch() -->
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal universal (del modal-partial-snippet.html) -->
+<div class="modal-overlay" id="modalPartial" ...>...</div>
+
+
 <!-- ══ SCRIPTS ═════════════════════════════════════════
      ORDEN IMPORTANTE:
      1. ccp-loreto.js  → carrusel, drawer, openModal/closeModal (globals)
@@ -709,11 +767,13 @@
      4. ambientes.js   → abrirReserva
      5. videos.js      → openVideo, closeVideo
 ══════════════════════════════════════════════════════ -->
-<script src="/static/js/sites/ccp-loreto.js"></script>
-<script src="/static/js/sections/verificar.js"></script>
-<script src="/static/js/sections/convenios.js"></script>
-<script src="/static/js/sections/ambientes.js"></script>
-<script src="/static/js/sections/videos.js"></script>
+<!-- ══ SCRIPTS ══════════════════════════════════════ -->
+<script src="/static/js/sites/ccp-loreto.js"></script>   <!-- 1. globals base -->
+<script src="/static/js/sections/verificar.js"></script>  <!-- 2. toggleVerify -->
+<script src="/static/js/sections/partials.js"></script>   <!-- 3. abrirPartial -->
+<script src="/static/js/sections/convenios.js"></script>  <!-- 4. tabs -->
+<script src="/static/js/sections/ambientes.js"></script>  <!-- 5. abrirReserva -->
+<script src="/static/js/sections/videos.js"></script>     <!-- 6. openVideo -->
 
 </body>
 </html>
