@@ -35,6 +35,8 @@ from app.routers.fragments import router as fragments_router
 from app.routers.api_colegiado_pagos import router as api_colegiado_pagos_router
 from app.routers import consulta
 
+from app.routers.partials import router_partials
+
 app = FastAPI(title="Multi-Tenant SaaS")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -172,6 +174,7 @@ app.websocket("/ws/finanzas")(ws_finanzas)
 app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
+app.include_router(router_partials)
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
 for route in app.routes:
