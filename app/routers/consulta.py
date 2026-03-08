@@ -10,9 +10,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from app.database import get_db
 from app.models import Colegiado
-from app.templates import templates   # ajusta según tu proyecto
+from fastapi.templating import Jinja2Templates          # ← reemplaza la línea mala
+
+templates = Jinja2Templates(directory="app/templates")  # ← agregar esta
 
 router = APIRouter(prefix="/consulta", tags=["Público"])
+
 
 
 # ─────────────────────────────────────────────────────────────
