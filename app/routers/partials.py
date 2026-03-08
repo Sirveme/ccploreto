@@ -1,5 +1,5 @@
-# ── Agregar en app/routers/public.py (o crear app/routers/partials.py)
-# Sirve los fragmentos HTML que el modal carga via fetch()
+# app/routers/partials.py
+# Sirve todos los fragmentos HTML que el modal carga via fetch()
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -8,26 +8,31 @@ from fastapi.templating import Jinja2Templates
 router_partials = APIRouter(prefix="/partials", tags=["Partials"])
 templates = Jinja2Templates(directory="app/templates")
 
+PARTIALS = [
+    "institucional",
+    "transparencia",
+    "consejo_directivo",
+    "contacto",
+    "directorio",
+    "comite_electoral",
+    "publicaciones",
+    "constancia",
+    "pagos",
+    "alertas_tributarias",
+]
 
-@router_partials.get("/institucional", response_class=HTMLResponse)
-async def partial_institucional(request: Request):
-    return templates.TemplateResponse(
-        "partials/institucional.html",
-        {"request": request}
-    )
+for _key in PARTIALS:
+    def _make_route(key):
+        @router_partials.get(f"/{key}", response_class=HTMLResponse)
+        async def _route(request: Request, _k=key):
+            return templates.TemplateResponse(
+                f"partials/{_k}.html", {"request": request}
+            )
+        _route.__name__ = f"partial_{key}"
+        return _route
+    _make_route(_key)
 
 
-@router_partials.get("/transparencia", response_class=HTMLResponse)
-async def partial_transparencia(request: Request):
-    return templates.TemplateResponse(
-        "partials/transparencia.html",
-        {"request": request}
-    )
-
-
-# ── Agregar en main.py ─────────────────────────────────────────────────
-# from app.routers.public import router_partials   (si lo pones en public.py)
-# o:
+# ── Agregar en main.py ──────────────────────────────────────────
 # from app.routers.partials import router_partials
-#
 # app.include_router(router_partials)
