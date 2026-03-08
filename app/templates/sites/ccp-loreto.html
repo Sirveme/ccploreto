@@ -18,12 +18,10 @@
 </head>
 <body>
 
-<!-- ══ HEADER ══════════════════════════════════════ -->
 
+<!-- ══ HEADER ══════════════════════════════════════════════════ -->
 <header class="header">
   <div class="header-inner">
-
-    <!-- Logo -->
     <div class="header-logo">
       <div class="logo-mark">CC<br>PL</div>
       <div class="header-title">
@@ -31,8 +29,7 @@
         <span>60 AÑOS · IQUITOS, PERÚ</span>
       </div>
     </div>
-
-    <!-- Acciones (mobile) -->
+    <!-- Solo visible en mobile — ocultar en desktop via CSS -->
     <div class="header-actions">
       <button class="btn-verificar" onclick="toggleVerify()">
         <span class="mi sm">verified_user</span> Verificar
@@ -44,14 +41,11 @@
     </div>
   </div>
 
-  <!-- ── Nav desktop ──────────────────────────────────────── -->
+  <!-- Nav desktop -->
   <nav class="desktop-nav">
     <div class="desktop-nav-inner">
 
-      <!-- Inicio -->
-      <a href="/" class="active">
-        <span class="mi sm">home</span> Inicio
-      </a>
+      <a href="/" class="active"><span class="mi sm">home</span> Inicio</a>
 
       <!-- Institución ▾ -->
       <div class="dns-group" id="nav-institucion">
@@ -64,14 +58,14 @@
           <a href="#" onclick="navToggle('institucion');abrirPartial('institucional')">
             <span class="mi">info</span> Institucional
           </a>
-          <a href="https://ccploreto.org.pe/consejo-directivo/" target="_blank" rel="noopener">
+          <a href="#" onclick="navToggle('institucion');abrirPartial('consejo_directivo')">
             <span class="mi">groups</span> Consejo Directivo
           </a>
           <a href="#" onclick="navToggle('institucion');abrirPartial('transparencia')">
             <span class="mi">folder_open</span> Transparencia
           </a>
           <div class="dns-drop-sep"></div>
-          <a href="#contacto" onclick="navToggle('institucion')">
+          <a href="#" onclick="navToggle('institucion');abrirPartial('contacto')">
             <span class="mi">contact_phone</span> Contacto
           </a>
         </div>
@@ -85,13 +79,10 @@
         </button>
         <div class="dns-drop">
           <div class="dns-drop-header">Acceso y verificación</div>
-          <a href="#colegiados-info" onclick="navToggle('colegiados')">
-            <span class="mi">verified_user</span> ¿Hábil o No Hábil?
-          </a>
           <a href="#" onclick="navToggle('colegiados');toggleVerify()">
             <span class="mi">search</span> Consultar Habilidad
           </a>
-          <a href="/directorio" onclick="navToggle('colegiados')">
+          <a href="#" onclick="navToggle('colegiados');abrirPartial('directorio')">
             <span class="mi">contact_page</span> Directorio Profesional
             <span class="dns-badge">Nuevo</span>
           </a>
@@ -127,10 +118,10 @@
             <span class="mi">photo_library</span> Galería
           </a>
           <div class="dns-drop-sep"></div>
-          <a href="/comite-electoral/" onclick="navToggle('comunidad')">
+          <a href="#" onclick="navToggle('comunidad');abrirPartial('comite_electoral')">
             <span class="mi">how_to_vote</span> Comité Electoral
           </a>
-          <a href="/publicaciones/" onclick="navToggle('comunidad')">
+          <a href="#" onclick="navToggle('comunidad');abrirPartial('publicaciones')">
             <span class="mi">menu_book</span> Publicaciones
           </a>
         </div>
@@ -147,36 +138,34 @@
           <a href="#ambientes" onclick="navToggle('servicios')">
             <span class="mi">stadium</span> Alquiler de Ambientes
           </a>
-          <a href="/verificar/ccpl" onclick="navToggle('servicios')">
+          <a href="#" onclick="navToggle('servicios');abrirPartial('constancia')">
             <span class="mi">verified</span> Constancia de Habilidad
+            <span class="dns-badge">Pronto</span>
           </a>
           <div class="dns-drop-sep"></div>
-          <a href="#" onclick="navToggle('servicios');alert('Pagos Online — próximamente')">
+          <a href="#" onclick="navToggle('servicios');abrirPartial('pagos')">
             <span class="mi">payments</span> Pagos Online
-            <span class="dns-badge">Pronto</span>
           </a>
-          <a href="#" onclick="navToggle('servicios');alert('Alertas Tributarias — próximamente')">
+          <a href="#" onclick="navToggle('servicios');abrirPartial('alertas_tributarias')">
             <span class="mi">notifications_active</span> Alertas Tributarias
-            <span class="dns-badge">Pronto</span>
           </a>
         </div>
       </div>
 
-      <!-- Directorio — botón destacado -->
-      <a href="/directorio" class="dns-directorio">
+      <!-- Directorio — botón persistente -->
+      <a href="#" onclick="abrirPartial('directorio')" class="dns-directorio">
         <span class="mi sm">contact_page</span> Directorio
       </a>
 
       <span class="dns"></span>
 
-      <!-- Verificar + Ingresar -->
-      <button class="btn-verificar" style="display:flex" onclick="toggleVerify()">
+      <!-- Verificar + Ingresar (solo desktop) -->
+      <button class="btn-verificar" onclick="toggleVerify()">
         <span class="mi sm">search</span> Verificar
       </button>
       <a href="/login/" class="btn-acceder" style="margin-left:8px">
         <span class="mi sm">login</span> Ingresar
       </a>
-
     </div>
   </nav>
 
@@ -207,10 +196,10 @@
     <span class="mi">login</span>
     <span>Ingresar</span>
   </a>
-  <a href="/directorio" class="bnav-item">
+  <button class="bnav-item" onclick="abrirPartial('directorio')">
     <span class="mi">contact_page</span>
     <span>Directorio</span>
-  </a>
+  </button>
   <button class="bnav-item" onclick="openDrawer()">
     <span class="mi">menu</span>
     <span>Menú</span>
@@ -771,120 +760,77 @@
 
 
 <!-- ══ DRAWER (panel lateral) ══════════════════════════════════ -->
+
+<!-- ══ DRAWER ══════════════════════════════════════════════════ -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="drawer">
-
   <div class="drawer-head">
-    <div class="drawer-logo">
-      Colegio de Contadores<br><span>Públicos de Loreto</span>
-    </div>
+    <div class="drawer-logo">Colegio de Contadores<br><span>Públicos de Loreto</span></div>
     <button class="drawer-close" onclick="closeDrawer()">×</button>
   </div>
-
   <nav class="drawer-nav">
 
-    <!-- Inicio -->
     <a href="/"><span class="mi">home</span> Inicio</a>
-
-    <!-- Verificar habilidad -->
     <a href="#" onclick="closeDrawer();setTimeout(toggleVerify,300)">
       <span class="mi">verified_user</span> Verificar Habilidad
     </a>
-
-    <!-- Directorio -->
-    <a href="/directorio" onclick="closeDrawer()">
+    <a href="#" onclick="closeDrawer();abrirPartial('directorio')">
       <span class="mi">contact_page</span> Directorio Profesional
     </a>
 
-    <!-- Grupo: Institución -->
+    <!-- Institución -->
     <div class="drawer-group">
       <button class="drawer-group-btn" onclick="drawerGrupo(this)">
         Institución <span class="mi">expand_more</span>
       </button>
       <div class="drawer-group-body">
-        <a href="#" onclick="closeDrawer();abrirPartial('institucional')">
-          <span class="mi">info</span> Institucional
-        </a>
-        <a href="https://ccploreto.org.pe/consejo-directivo/" target="_blank" rel="noopener">
-          <span class="mi">groups</span> Consejo Directivo
-        </a>
-        <a href="#" onclick="closeDrawer();abrirPartial('transparencia')">
-          <span class="mi">folder_open</span> Transparencia
-        </a>
-        <a href="#contacto" onclick="closeDrawer()">
-          <span class="mi">contact_phone</span> Contacto
-        </a>
+        <a href="#" onclick="closeDrawer();abrirPartial('institucional')"><span class="mi">info</span> Institucional</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('consejo_directivo')"><span class="mi">groups</span> Consejo Directivo</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('transparencia')"><span class="mi">folder_open</span> Transparencia</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('contacto')"><span class="mi">contact_phone</span> Contacto</a>
       </div>
     </div>
 
-    <!-- Grupo: Colegiados -->
+    <!-- Colegiados -->
     <div class="drawer-group">
       <button class="drawer-group-btn" onclick="drawerGrupo(this)">
         Colegiados <span class="mi">expand_more</span>
       </button>
       <div class="drawer-group-body">
-        <a href="#colegiados-info" onclick="closeDrawer()">
-          <span class="mi">verified_user</span> ¿Hábil o No Hábil?
-        </a>
-        <a href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REQUISITO-COLEGIADO-ACT.-2024.pdf"
-           target="_blank" rel="noopener">
-          <span class="mi">school</span> Colegiarse
-        </a>
-        <a href="/login/" onclick="closeDrawer()">
-          <span class="mi">login</span> Acceso Colegiados
-        </a>
+        <a href="#" onclick="closeDrawer();abrirPartial('directorio')"><span class="mi">contact_page</span> Directorio Profesional</a>
+        <a href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REQUISITO-COLEGIADO-ACT.-2024.pdf" target="_blank" rel="noopener"><span class="mi">school</span> Colegiarse</a>
+        <a href="/login/" onclick="closeDrawer()"><span class="mi">login</span> Acceso Colegiados</a>
       </div>
     </div>
 
-    <!-- Grupo: Comunidad -->
+    <!-- Comunidad -->
     <div class="drawer-group">
       <button class="drawer-group-btn" onclick="drawerGrupo(this)">
         Comunidad <span class="mi">expand_more</span>
       </button>
       <div class="drawer-group-body">
-        <a href="#comunicados" onclick="closeDrawer()">
-          <span class="mi">campaign</span> Comunicados
-        </a>
-        <a href="#capacitacion" onclick="closeDrawer()">
-          <span class="mi">school</span> Capacitaciones
-        </a>
-        <a href="#convenios" onclick="closeDrawer()">
-          <span class="mi">handshake</span> Convenios
-        </a>
-        <a href="#galeria" onclick="closeDrawer()">
-          <span class="mi">photo_library</span> Galería
-        </a>
-        <a href="/comite-electoral/" onclick="closeDrawer()">
-          <span class="mi">how_to_vote</span> Comité Electoral
-        </a>
-        <a href="/publicaciones/" onclick="closeDrawer()">
-          <span class="mi">menu_book</span> Publicaciones
-        </a>
+        <a href="#comunicados" onclick="closeDrawer()"><span class="mi">campaign</span> Comunicados</a>
+        <a href="#capacitacion" onclick="closeDrawer()"><span class="mi">school</span> Capacitaciones</a>
+        <a href="#convenios" onclick="closeDrawer()"><span class="mi">handshake</span> Convenios</a>
+        <a href="#galeria" onclick="closeDrawer()"><span class="mi">photo_library</span> Galería</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('comite_electoral')"><span class="mi">how_to_vote</span> Comité Electoral</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('publicaciones')"><span class="mi">menu_book</span> Publicaciones</a>
       </div>
     </div>
 
-    <!-- Grupo: Servicios -->
+    <!-- Servicios -->
     <div class="drawer-group">
       <button class="drawer-group-btn" onclick="drawerGrupo(this)">
         Servicios <span class="mi">expand_more</span>
       </button>
       <div class="drawer-group-body">
-        <a href="#ambientes" onclick="closeDrawer()">
-          <span class="mi">stadium</span> Alquiler de Ambientes
-        </a>
-        <a href="/verificar/ccpl" onclick="closeDrawer()">
-          <span class="mi">verified</span> Constancia de Habilidad
-        </a>
-        <a href="#" onclick="closeDrawer()">
-          <span class="mi">payments</span> Pagos Online
-        </a>
-        <a href="#" onclick="closeDrawer()">
-          <span class="mi">notifications_active</span> Alertas Tributarias
-        </a>
+        <a href="#ambientes" onclick="closeDrawer()"><span class="mi">stadium</span> Alquiler de Ambientes</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('constancia')"><span class="mi">verified</span> Constancia de Habilidad</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('pagos')"><span class="mi">payments</span> Pagos Online</a>
+        <a href="#" onclick="closeDrawer();abrirPartial('alertas_tributarias')"><span class="mi">notifications_active</span> Alertas Tributarias</a>
       </div>
     </div>
 
-    <!-- Acceso destacado -->
     <button class="btn-acceder-d" onclick="location.href='/login/'">
       <span class="mi">login</span> Acceso Colegiados
     </button>
