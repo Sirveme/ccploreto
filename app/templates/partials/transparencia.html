@@ -1,0 +1,481 @@
+<!-- ═══════════════════════════════════════════════════════
+     PARTIAL: transparencia
+     Ruta: app/templates/partials/transparencia.html
+     Se carga via fetch() en el modal universal del landing
+═══════════════════════════════════════════════════════ -->
+<style>
+.transp-wrap { font-family: 'Source Sans 3', sans-serif; color: #1a2e22; }
+
+.transp-hero {
+  background: linear-gradient(135deg, #1b4d35 0%, #256847 100%);
+  padding: 28px 24px 24px; position: relative; overflow: hidden;
+}
+.transp-hero::before {
+  content: ''; position: absolute; bottom: -30px; left: -30px;
+  width: 140px; height: 140px; border-radius: 50%;
+  background: rgba(201,168,76,.1);
+}
+.transp-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(201,168,76,.8); margin-bottom: 6px;
+}
+.transp-hero h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 700; color: white; margin: 0 0 8px;
+}
+.transp-hero p { font-size: 13px; color: rgba(255,255,255,.65); margin: 0; }
+
+/* Cuerpo */
+.transp-body { padding: 20px 16px; }
+
+/* Acordeón de año */
+.transp-year {
+  border: 1px solid #d8e8dc; border-radius: 10px;
+  margin-bottom: 10px; overflow: hidden;
+}
+.transp-year-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; background: white; cursor: pointer;
+  border: none; width: 100%; text-align: left; transition: background .2s;
+}
+.transp-year-hdr:hover { background: #f0f8f4; }
+.transp-year-hdr.open  { background: #1b4d35; }
+.transp-year-title {
+  display: flex; align-items: center; gap: 10px;
+}
+.transp-year-title .mi { font-size: 20px; color: #2e7d52; }
+.transp-year-hdr.open .transp-year-title .mi { color: #c9a84c; }
+.transp-year-label {
+  font-size: 15px; font-weight: 700; color: #1b4d35;
+}
+.transp-year-hdr.open .transp-year-label { color: white; }
+.transp-year-count {
+  font-size: 11px; color: #5a7060; margin-top: 1px;
+}
+.transp-year-hdr.open .transp-year-count { color: rgba(255,255,255,.55); }
+.transp-caret {
+  font-size: 18px; color: #5a7060; transition: transform .3s;
+}
+.transp-year-hdr.open .transp-caret { transform: rotate(180deg); color: rgba(255,255,255,.6); }
+
+.transp-year-body {
+  max-height: 0; overflow: hidden; transition: max-height .35s ease;
+  background: #faf8f4;
+}
+.transp-year-body.open { max-height: 2000px; }
+
+/* Item de reporte */
+.transp-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid #eef4ee;
+}
+.transp-item:last-child { border-bottom: none; }
+.transp-item-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: #e8f5ee; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.transp-item-icon .mi { font-size: 18px; color: #2e7d52; }
+.transp-item-info { flex: 1; min-width: 0; }
+.transp-item-title {
+  font-size: 13px; font-weight: 600; color: #1a2e22;
+  line-height: 1.3; margin-bottom: 2px;
+}
+.transp-item-meta { font-size: 11px; color: #5a7060; }
+.transp-btn-dl {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px;
+  background: #1b4d35; color: white; border: none;
+  padding: 7px 12px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; text-decoration: none;
+  transition: background .2s; white-space: nowrap;
+}
+.transp-btn-dl:hover { background: #256847; }
+.transp-btn-dl .mi  { font-size: 14px; }
+
+/* Nota al pie */
+.transp-nota {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  background: #e8f5ee; border-radius: 8px;
+  font-size: 12px; color: #5a7060;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.transp-nota .mi { font-size: 15px; color: #2e7d52; flex-shrink: 0; margin-top: 1px; }
+</style>
+
+<div class="transp-wrap">
+
+  <div class="transp-hero">
+    <div class="transp-eyebrow">Gestión transparente</div>
+    <h2>Transparencia Institucional</h2>
+    <p>Reportes de ingresos y egresos de la gestión del Consejo Directivo</p>
+  </div>
+
+  <div class="transp-body">
+
+    <!-- ── Gestión 2026-2027 ── -->
+    <div class="transp-year">
+      <button class="transp-year-hdr open" onclick="transpToggle(this)">
+        <div class="transp-year-title">
+          <span class="mi">folder_open</span>
+          <div>
+            <div class="transp-year-label">Gestión 2026 – 2027</div>
+            <div class="transp-year-count">Reportes en curso</div>
+          </div>
+        </div>
+        <span class="mi transp-caret">expand_more</span>
+      </button>
+      <div class="transp-year-body open">
+        <!-- Se irán agregando cuando estén disponibles -->
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">hourglass_empty</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reportes de la gestión 2026-2027</div>
+            <div class="transp-item-meta">Se publicarán a medida que estén disponibles</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Gestión 2024-2025 ── -->
+    <div class="transp-year">
+      <button class="transp-year-hdr" onclick="transpToggle(this)">
+        <div class="transp-year-title">
+          <span class="mi">folder</span>
+          <div>
+            <div class="transp-year-label">Gestión 2024 – 2025</div>
+            <div class="transp-year-count">18 documentos</div>
+          </div>
+        </div>
+        <span class="mi transp-caret">expand_more</span>
+      </button>
+      <div class="transp-year-body">
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Enero 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/04/01-ENERO-2024.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Febrero 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/04/02-FEBRERO-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Marzo 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/04/03-MARZO-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Abril 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/05/04-ABRIL-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Mayo 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/10/05-MAYO-REPORTE-DE-INGRESOS-Y-EGRESOS-EJECUCION-PRESUPUESTAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Junio 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/10/06-REPORTE-DE-INGRESOS-Y-EGRESOS-JUNIO-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Julio 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2024/10/07-JULIO-OFICIAL-REPORTE-DE-INGRESOS-EGRESOS-EJECUCION-PRESUPUESTAL-JULIO-2024.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Agosto 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/01/08-AGOSTO-REPORTE-DE-INGRESO-Y-EGRESOS-EJECUCION-PRESUPUESTAL-AGOSTO-2024.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Setiembre 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/01/09-SETIEMBRE-REPORTE-DE-INGRESOS-Y-EGRESOS-SETIEMBRE-2024.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Octubre 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/02/102024-PRESUPUESTO-OCTUBRE-2024-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Noviembre 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/02/112024-PRESUPUESTO-NOVIEMBRE-2024-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Diciembre 2024</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/02/122024-REPORTE-DE-INGRESO-Y-EGRESO-DICIEMBRE-2024-OFICIAL.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">event_note</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Informe Fiesta del Contador 2024</div>
+            <div class="transp-item-meta">PDF · Informe de evento</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/03/20250124-INFORME-FIESTA-DEL-CONTADOR-COMISION.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">event_note</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Informe Bingazo 2024</div>
+            <div class="transp-item-meta">PDF · Informe de evento</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/03/20250124-INFORME-BINGO-COMISION.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">groups</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Asamblea General Ordinaria — Diciembre 2024</div>
+            <div class="transp-item-meta">PDF · Presupuesto 2025</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/03/20241214-PRESUPUESTO-2025-OFICIAL-copia.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">card_giftcard</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Rendición Kit Navideño 2024</div>
+            <div class="transp-item-meta">PDF · Rendición de cuentas</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/03/RENDICION-DE-KIT-NAVIDENO.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Enero 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/20252304-04-038-REPORTE-DE-CASTO-DE-ENERO-2025-2.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Febrero 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/20252304-04-039-REPORTE-DE-GASTO-DE-FEBRERO-DEL-2025-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Marzo 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REPORTE-DE-INGRESO-Y-EGRESO-MES-DE-MARZO-2025-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Abril 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REPORTE-DE-INGRESO-Y-EGRESO-MES-DE-ABRIL-2025-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Mayo 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REPORTE-DE-INGRESOS-Y-EGRESOS-MAYO-2025-1-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Junio 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REPORTE-DE-INGRESOS-Y-EGRESOS-JUNIO-2025-1-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Julio 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/11/REPORTE-INGRESO-Y-EGRESO-JULIO-2025.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Agosto 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/11/REPORTE-DE-INGRESO-Y-EGRESO-MES-DE-AGOSTO-DEL-2025-.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Setiembre 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/12/Reporte-de-ingresos-y-egresos-Setiembre-2025-.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">description</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Reporte de Ingresos y Egresos — Octubre 2025</div>
+            <div class="transp-item-meta">PDF · Reporte mensual</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/12/Reporte-de-ingresos-y-egresos-Octubre-2025.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">event_note</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Rendición Bingazo del Contador 2025</div>
+            <div class="transp-item-meta">PDF · Rendición de cuentas</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/10/RENDICION-DEL-BINGAZO-DEL-CONTADOR-2025-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+        <div class="transp-item">
+          <div class="transp-item-icon"><span class="mi">event_note</span></div>
+          <div class="transp-item-info">
+            <div class="transp-item-title">Informe Fiesta de Gala — Día del Contador 2025</div>
+            <div class="transp-item-meta">PDF · Informe de evento</div>
+          </div>
+          <a class="transp-btn-dl" href="https://ccploreto.org.pe/wp-content/uploads/2025/10/INFORME-DE-FIESTA-DE-GALA-DIA-DEL-CONTADOR-1.pdf" target="_blank" rel="noopener">
+            <span class="mi">download</span> PDF
+          </a>
+        </div>
+
+      </div>
+    </div><!-- /gestión 2024-2025 -->
+
+    <div class="transp-nota">
+      <span class="mi">info</span>
+      <span>Los documentos enlazan al sitio oficial del CCPL. Los reportes se actualizan mensualmente conforme la directiva los aprueba y publica.</span>
+    </div>
+
+  </div><!-- /transp-body -->
+
+</div>
+
+<script>
+function transpToggle(btn) {
+  var body = btn.nextElementSibling;
+  var open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+</script>

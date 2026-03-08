@@ -1,0 +1,235 @@
+<!-- ═══════════════════════════════════════════════════════
+     PARTIAL: institucional
+     Ruta: app/templates/partials/institucional.html
+     Se carga via fetch() en el modal universal del landing
+     NO incluye <html>, <head>, <body>, header ni footer
+═══════════════════════════════════════════════════════ -->
+<style>
+.inst-wrap { font-family: 'Source Sans 3', sans-serif; color: #1a2e22; }
+
+/* Hero interno */
+.inst-hero {
+  background: linear-gradient(135deg, #1b4d35 0%, #2e7d52 100%);
+  padding: 28px 24px 24px;
+  position: relative; overflow: hidden;
+}
+.inst-hero::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: rgba(201,168,76,.12);
+}
+.inst-hero-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(201,168,76,.8);
+  margin-bottom: 6px;
+}
+.inst-hero h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 700; color: white;
+  line-height: 1.25; margin: 0;
+}
+
+/* Tabs de navegación interna */
+.inst-tabs {
+  display: flex; overflow-x: auto; gap: 0;
+  background: #f2f4f2; border-bottom: 2px solid #d8e8dc;
+  scrollbar-width: none;
+}
+.inst-tabs::-webkit-scrollbar { display: none; }
+.inst-tab {
+  flex-shrink: 0; padding: 12px 18px;
+  font-size: 13px; font-weight: 600; color: #5a7060;
+  background: none; border: none; border-bottom: 3px solid transparent;
+  cursor: pointer; white-space: nowrap; transition: .2s;
+  margin-bottom: -2px;
+}
+.inst-tab.active { color: #1b4d35; border-bottom-color: #c9a84c; }
+
+/* Cuerpo de cada tab */
+.inst-panel { display: none; padding: 24px; }
+.inst-panel.active { display: block; }
+
+/* Historia */
+.inst-foto {
+  width: 100%; border-radius: 10px; margin-bottom: 16px;
+  object-fit: cover; max-height: 200px;
+}
+.inst-texto {
+  font-size: 14px; line-height: 1.8; color: #3a5040;
+  margin-bottom: 20px;
+}
+.inst-texto strong { color: #1b4d35; }
+
+/* Cards de Visión/Misión */
+.inst-cards { display: grid; gap: 14px; margin-bottom: 20px; }
+@media (min-width: 520px) { .inst-cards { grid-template-columns: 1fr 1fr; } }
+
+.inst-card {
+  background: #e8f5ee; border-radius: 10px;
+  padding: 18px 16px; border-left: 4px solid #1b4d35;
+}
+.inst-card h4 {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #c9a84c; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.inst-card h4 .mi { font-size: 15px; color: #2e7d52; }
+.inst-card p { font-size: 13px; line-height: 1.7; color: #3a5040; margin: 0; }
+
+/* Marco legal */
+.inst-ley {
+  background: white; border: 1px solid #d8e8dc;
+  border-radius: 10px; padding: 16px;
+  margin-bottom: 12px; display: flex; gap: 12px;
+}
+.inst-ley-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: #1b4d35; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.inst-ley-icon .mi { font-size: 20px; color: #c9a84c; }
+.inst-ley h4 { font-size: 13px; font-weight: 700; color: #1b4d35; margin-bottom: 4px; }
+.inst-ley p  { font-size: 12px; color: #5a7060; margin: 0; line-height: 1.6; }
+
+/* Gestión */
+.inst-gestion-list { list-style: none; padding: 0; margin: 0 0 20px; }
+.inst-gestion-list li {
+  padding: 10px 0; border-bottom: 1px solid #e8f5ee;
+  font-size: 14px; color: #3a5040; display: flex; gap: 10px; align-items: flex-start;
+}
+.inst-gestion-list li::before {
+  content: '✓'; color: #2e7d52; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+
+/* Colegiatura CTA */
+.inst-cta {
+  background: linear-gradient(135deg, #1b4d35, #256847);
+  border-radius: 12px; padding: 20px; text-align: center; margin-top: 8px;
+}
+.inst-cta h3 { font-size: 16px; font-weight: 700; color: white; margin-bottom: 6px; }
+.inst-cta p  { font-size: 13px; color: rgba(255,255,255,.7); margin-bottom: 14px; }
+.inst-cta a {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #c9a84c; color: #1b4d35;
+  padding: 10px 22px; border-radius: 6px;
+  font-size: 13px; font-weight: 700; text-decoration: none;
+}
+</style>
+
+<div class="inst-wrap">
+
+  <!-- Hero -->
+  <div class="inst-hero">
+    <div class="inst-hero-eyebrow">60 años · Iquitos, Perú</div>
+    <h2>Colegio de Contadores<br>Públicos de Loreto</h2>
+  </div>
+
+  <!-- Tabs -->
+  <div class="inst-tabs">
+    <button class="inst-tab active" onclick="instTab('historia',this)">Historia</button>
+    <button class="inst-tab" onclick="instTab('mision',this)">Visión y Misión</button>
+    <button class="inst-tab" onclick="instTab('legal',this)">Marco Legal</button>
+    <button class="inst-tab" onclick="instTab('gestion',this)">Gestión Actual</button>
+  </div>
+
+  <!-- Panel: Historia -->
+  <div class="inst-panel active" id="inst-historia">
+    <img class="inst-foto"
+         src="https://ccploreto.org.pe/wp-content/uploads/2024/03/historia.webp"
+         alt="Historia del CCPL"
+         onerror="this.style.display='none'">
+    <p class="inst-texto">
+      Fueron <strong>12 profesionales</strong> los que una tarde, a la puesta del rojo sol que pinta en su ocaso
+      el paisaje de la ciudad de Iquitos, compartiendo una oficina ubicada en el Jirón Lima — hoy Jirón Próspero —
+      convocados por el espíritu del colega <strong>Dante Favarato</strong>, se juntaron para darle nacimiento
+      a una nueva institución amparada en la <strong>Ley 13253</strong>.
+    </p>
+    <p class="inst-texto">
+      A esa convocatoria concurrieron entusiastas: Manuel Zegarra Tuesta, Dante Favarato Minazza,
+      José Delgado Linares, José Eguren Hidalgo, Luis Leandro García del Río, Leonidas Miranda Porras,
+      Alberto Rengifo Linares, Juana Trávano Rojas, María Cruzado de Florián, Carlos Fonseca Castillo,
+      Héctor Cuadros Linares, Alfonso Tong García, Antonio Peña Santillán y Sergio García Ruíz.
+    </p>
+    <p class="inst-texto" style="font-style:italic;border-left:3px solid #c9a84c;padding-left:12px;color:#5a7060">
+      Hoy, <strong style="color:#1b4d35">más de 60 años después</strong>, el CCPL representa a los contadores
+      públicos colegiados de la Amazonía peruana, con autonomía y reconocimiento institucional pleno.
+    </p>
+  </div>
+
+  <!-- Panel: Visión y Misión -->
+  <div class="inst-panel" id="inst-mision">
+    <div class="inst-cards">
+      <div class="inst-card">
+        <h4><span class="mi">visibility</span> Visión</h4>
+        <p>Ser una institución en la que las actividades y servicios promovidos estén centrados en sus miembros vigentes y de futuras generaciones, velando por el prestigio de la profesión contable.</p>
+      </div>
+      <div class="inst-card">
+        <h4><span class="mi">flag</span> Misión</h4>
+        <p>Representar a los Contadores Públicos Colegiados de la región y velar por el prestigio, desarrollo y competencias de la profesión, dentro de estrictos criterios éticos y legales.</p>
+      </div>
+    </div>
+    <div class="inst-cta">
+      <h3>¿Por qué colegiarte?</h3>
+      <p>Beneficios, descuentos, reconocimiento social y oportunidades de crecimiento profesional.</p>
+      <a href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REQUISITO-COLEGIADO-ACT.-2024.pdf"
+         target="_blank" rel="noopener">
+        <span class="mi" style="font-size:16px">download</span> Requisitos de colegiatura
+      </a>
+    </div>
+  </div>
+
+  <!-- Panel: Marco Legal -->
+  <div class="inst-panel" id="inst-legal">
+    <div class="inst-ley">
+      <div class="inst-ley-icon"><span class="mi">gavel</span></div>
+      <div>
+        <h4>Ley N° 28951</h4>
+        <p>Ley de Actualización de la Ley N° 13253 — Profesionalización del Contador Público y creación de los Colegios de Contadores Públicos. Otorga autonomía y representatividad plena.</p>
+      </div>
+    </div>
+    <div class="inst-ley">
+      <div class="inst-ley-icon"><span class="mi">balance</span></div>
+      <div>
+        <h4>Decreto Ley N° 25873</h4>
+        <p>Establece el libre ejercicio de las profesiones universitarias liberales en todo el territorio nacional.</p>
+      </div>
+    </div>
+    <div class="inst-ley">
+      <div class="inst-ley-icon"><span class="mi">account_balance</span></div>
+      <div>
+        <h4>Personería de Derecho Público Interno</h4>
+        <p>Institución autónoma sin fines de lucro, con representatividad legal ante organismos públicos y privados de la región Loreto.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel: Gestión Actual -->
+  <div class="inst-panel" id="inst-gestion">
+    <p class="inst-texto">
+      Nuestra gestión está al servicio de los colegas buscando su bienestar, transparencia e integración.
+    </p>
+    <ul class="inst-gestion-list">
+      <li>Implementar y mejorar las instalaciones del Colegio de Contadores.</li>
+      <li>Organizar conferencias y capacitaciones de actualización profesional continua.</li>
+      <li>Fortalecer convenios con entidades de salud, educación y servicios.</li>
+      <li>Modernizar los sistemas de gestión y atención al colegiado.</li>
+      <li>Promover la transparencia en la gestión institucional.</li>
+      <li>Buscar el bienestar integral del contador público loretano.</li>
+    </ul>
+    <img class="inst-foto"
+         src="https://ccploreto.org.pe/wp-content/uploads/2024/03/institucional-1024x683.webp"
+         alt="Instalaciones CCPL"
+         onerror="this.style.display='none'">
+  </div>
+
+</div>
+
+<script>
+function instTab(id, btn) {
+  document.querySelectorAll('.inst-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.inst-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('inst-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
