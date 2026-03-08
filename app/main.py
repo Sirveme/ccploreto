@@ -33,6 +33,7 @@ from app.routers.finanzas import router_views as finanzas_views
 from app.routers.portal_colegiado import router as portal_router
 from app.routers.fragments import router as fragments_router
 from app.routers.api_colegiado_pagos import router as api_colegiado_pagos_router
+from app.routers import consulta
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
@@ -155,6 +156,7 @@ app.include_router(router_landing)
 app.include_router(avisos.router)
 app.include_router(avisos.router_sunat)
 app.include_router(verificacion.router)
+app.include_router(consulta.router)
 app.include_router(admin_config_router)
 app.include_router(admin_views_router)
 app.include_router(pagos_colegiado.router)
