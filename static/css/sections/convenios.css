@@ -1,0 +1,32 @@
+/* convenios.css */
+.tabs-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.tab-btn {
+  background: white; border: 1.5px solid var(--borde); color: var(--txt2);
+  padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; transition: .2s;
+}
+.tab-btn.active { background: var(--verde); border-color: var(--verde); color: white; }
+
+.conv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 14px; }
+.conv-card {
+  background: white; border-radius: var(--radio); border: 1px solid var(--borde);
+  padding: 18px 16px; box-shadow: var(--sombra); display: none;
+  transition: transform .15s, box-shadow .15s;
+}
+.conv-card.visible { display: block; }
+.conv-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(27,77,53,.12); }
+
+.conv-icon-wrap {
+  width: 44px; height: 44px; border-radius: 10px; background: var(--verde-lt);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+}
+.conv-icon-wrap .mi { font-size: 22px; color: var(--verde3); }
+.conv-card h3    { font-size: 15px; font-weight: 700; color: var(--verde); margin-bottom: 2px; }
+.conv-sector     { font-size: 11px; font-weight: 600; color: var(--txt2); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+.conv-beneficio  {
+  background: var(--verde-lt); color: var(--verde2); font-size: 12px; font-weight: 700;
+  padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 10px;
+}
+.conv-beneficio .mi { font-size: 14px; }
+.conv-info       { font-size: 12px; color: var(--txt2); display: flex; flex-direction: column; gap: 4px; }
+.conv-info span  { display: flex; align-items: center; gap: 5px; }
+.conv-info .mi   { font-size: 14px; color: var(--verde3); }

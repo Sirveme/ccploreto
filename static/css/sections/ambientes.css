@@ -1,0 +1,42 @@
+/* ambientes.css */
+.amb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 14px; margin-bottom: 24px; }
+.amb-card {
+  background: white; border-radius: var(--radio); border: 1px solid var(--borde);
+  overflow: hidden; box-shadow: var(--sombra); transition: transform .15s;
+}
+.amb-card:hover { transform: translateY(-3px); }
+
+.amb-top { background: linear-gradient(135deg, var(--verde), var(--verde3)); padding: 22px 16px; text-align: center; }
+.amb-icon-wrap {
+  width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.15);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;
+}
+.amb-icon-wrap .mi { font-size: 30px; color: white; }
+.amb-name { font-size: 16px; font-weight: 700; color: white; }
+
+.amb-prices { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+.amb-price  { text-align: center; }
+.amb-price-amt   { font-size: 20px; font-weight: 700; color: var(--oro2); }
+.amb-price-amt span { font-size: 12px; font-weight: 400; color: rgba(255,255,255,.6); }
+.amb-price-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: rgba(255,255,255,.5); }
+
+.amb-body { padding: 14px 16px; }
+.amb-horario { font-size: 12px; color: var(--txt2); margin-bottom: 12px; line-height: 1.8; }
+.amb-horario-row { display: flex; align-items: center; gap: 5px; }
+.amb-horario-row .mi { font-size: 14px; color: var(--verde3); }
+
+.btn-reservar {
+  width: 100%; background: var(--verde); color: white; border: none;
+  padding: 10px; border-radius: 6px; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-reservar .mi { font-size: 18px; }
+
+.pagos-strip { background: white; border-radius: var(--radio); border: 1px solid var(--borde); padding: 18px 20px; }
+.pagos-strip h3 { font-size: 14px; font-weight: 700; color: var(--verde); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.pagos-strip h3 .mi { color: var(--verde3); }
+.pagos-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 10px; }
+.pago-item   { background: var(--verde-lt); border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; }
+.pago-item .mi { font-size: 20px; color: var(--verde3); }
+.pago-item-info strong { font-size: 13px; color: var(--verde); display: block; }
+.pago-item-info span   { font-size: 12px; color: var(--txt2); }

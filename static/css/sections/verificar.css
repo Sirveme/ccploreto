@@ -1,0 +1,26 @@
+/* verificar.css */
+.modal-hab-head { background: var(--verde); padding: 20px; text-align: center; }
+.modal-hab-head h3 { font-size: 16px; font-weight: 700; color: white; margin-bottom: 2px; }
+.modal-hab-head p  { font-size: 12px; color: rgba(255,255,255,.6); }
+.modal-hab-body { padding: 24px; }
+
+.hab-status { text-align: center; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+.hab-status.habil   { background: #e8f5e9; border: 2px solid #4caf50; }
+.hab-status.inhabil { background: #fce4ec; border: 2px solid #e57373; }
+.hab-status-icon .mi { font-size: 40px; }
+.hab-status.habil   .hab-status-icon .mi { color: #388e3c; }
+.hab-status.inhabil .hab-status-icon .mi { color: #c62828; }
+.hab-status-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-top: 6px; }
+.hab-status.habil   .hab-status-label { color: #388e3c; }
+.hab-status.inhabil .hab-status-label { color: #c62828; }
+.hab-name { font-size: 18px; font-weight: 700; color: var(--verde); margin-top: 4px; }
+.hab-mat  { font-size: 13px; color: var(--txt2); margin-top: 2px; }
+
+.hab-web {
+  margin-top: 14px; padding: 12px; background: var(--verde-lt);
+  border-radius: 8px; align-items: center; gap: 10px;
+}
+.hab-web-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--verde3); }
+.hab-web-info a { font-size: 13px; font-weight: 700; color: var(--verde3); display: flex; align-items: center; gap: 4px; }
+.hab-web-info a .mi { font-size: 14px; }
+.hab-web-info span { font-size: 11px; color: var(--txt2); }
