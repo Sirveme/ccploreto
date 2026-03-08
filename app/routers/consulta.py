@@ -40,18 +40,15 @@ async def buscar_colegiado_autocomplete(
 ):
     org = request.state.org
     if not org:
-        return {"resultados": [], "total": 0, "tipo": "error"}
+        return {"resultados": [], "total": 0}
 
     q = q.strip()
-    if not q:
-        return {"resultados": [], "total": 0, "tipo": "vacio"}
-
     es_dni = q.isdigit()
 
     if es_dni and len(q) < 5:
-        return {"resultados": [], "total": 0, "tipo": "dni", "mensaje": "Ingrese al menos 5 dígitos"}
+        return {"resultados": [], "total": 0, "tipo": "dni"}
     if not es_dni and len(q) < 3:
-        return {"resultados": [], "total": 0, "tipo": "apellidos", "mensaje": "Ingrese al menos 3 letras"}
+        return {"resultados": [], "total": 0, "tipo": "apellidos"}
 
     try:
         if es_dni:
@@ -59,7 +56,7 @@ async def buscar_colegiado_autocomplete(
                 db.query(Colegiado)
                 .filter(
                     Colegiado.organization_id == org["id"],
-                    Colegiado.dni.ilike(f"{q}%")          # empieza con los dígitos
+                    Colegiado.dni.ilike(f"{q}%")
                 )
                 .order_by(Colegiado.apellidos_nombres)
                 .limit(10)
@@ -71,16 +68,15 @@ async def buscar_colegiado_autocomplete(
                 .filter(
                     Colegiado.organization_id == org["id"],
                     Colegiado.apellidos_nombres.isnot(None),
-                    Colegiado.apellidos_nombres.ilike(f"%{q}%")   # contiene el texto
+                    Colegiado.apellidos_nombres.ilike(f"%{q}%")
                 )
                 .order_by(Colegiado.apellidos_nombres)
                 .limit(10)
                 .all()
             )
     except Exception as e:
-        # Log para debug — quitar en producción
-        print(f"ERROR buscar_colegiado: {e}")
-        return {"resultados": [], "total": 0, "tipo": "error", "mensaje": str(e)}
+        print(f"ERROR /buscar: {e}")
+        return {"resultados": [], "total": 0, "error": str(e)}
 
     condicion_map = {
         "habil":      ("HÁBIL",    True),
@@ -102,12 +98,7 @@ async def buscar_colegiado_autocomplete(
             "es_habil":          es_habil,
         })
 
-    return {
-        "resultados": resultados,
-        "total": len(resultados),
-        "tipo": "dni" if es_dni else "apellidos",
-    }
-
+    return {"resultados": resultados, "total": len(resultados)}
 
 
 # ─────────────────────────────────────────────────────────────
