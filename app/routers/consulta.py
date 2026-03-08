@@ -24,7 +24,7 @@ router = APIRouter(prefix="/consulta", tags=["Público"])
 @router.get("/habilidad/buscar")
 async def buscar_colegiado_autocomplete(
     request: Request,
-    q: str,
+    q: str = "",
     db: Session = Depends(get_db)
 ):
     org = request.state.org
@@ -33,16 +33,17 @@ async def buscar_colegiado_autocomplete(
 
     q = q.strip()
 
-    # Detectar si es DNI (solo dígitos) o apellidos (texto)
+    # Detectar criterio: solo dígitos → DNI, cualquier letra → apellidos
     es_dni = q.isdigit()
 
-    # Validar longitud mínima según criterio
+    # Validar longitud mínima
     if es_dni and len(q) < 5:
-        return {"resultados": [], "tipo": "dni", "mensaje": "Ingrese al menos 5 dígitos"}
+        return {"resultados": [], "tipo": "dni",      "total": 0}
     if not es_dni and len(q) < 3:
-        return {"resultados": [], "tipo": "apellidos", "mensaje": "Ingrese al menos 3 letras"}
+        return {"resultados": [], "tipo": "apellidos", "total": 0}
 
-    query = db.query(
+    # ── Query base ────────────────────────────────────────────────────────
+    base = db.query(
         Colegiado.codigo_matricula,
         Colegiado.apellidos_nombres,
         Colegiado.dni,
@@ -52,18 +53,30 @@ async def buscar_colegiado_autocomplete(
     )
 
     if es_dni:
-        # Búsqueda por DNI: starts with
-        query = query.filter(Colegiado.dni.like(f"{q}%"))
+        # DNI: empieza con los dígitos escritos
+        resultados_raw = (
+            base
+            .filter(Colegiado.dni.ilike(f"{q}%"))
+            .order_by(Colegiado.apellidos_nombres)
+            .limit(10)
+            .all()
+        )
     else:
-        # Búsqueda por apellidos: insensible a mayúsculas/tildes
-        # unaccent requiere la extensión en Postgres; si no la tienes usa ilike simple
-        q_norm = q.upper()
-        query = query.filter(
-            func.upper(Colegiado.apellidos_nombres).like(f"%{q_norm}%")
+        # Apellidos: contiene el texto, insensible a mayúsculas
+        # ilike es nativo de SQLAlchemy/Postgres — no necesita func.upper()
+        # Filtramos solo registros donde apellidos_nombres no es NULL
+        resultados_raw = (
+            base
+            .filter(
+                Colegiado.apellidos_nombres.isnot(None),
+                Colegiado.apellidos_nombres.ilike(f"%{q}%")
+            )
+            .order_by(Colegiado.apellidos_nombres)
+            .limit(10)
+            .all()
         )
 
-    resultados_raw = query.order_by(Colegiado.apellidos_nombres).limit(10).all()
-
+    # ── Mapeo de condición ────────────────────────────────────────────────
     condicion_map = {
         "habil":      ("HÁBIL",    True),
         "vitalicio":  ("HÁBIL",    True),
@@ -74,8 +87,8 @@ async def buscar_colegiado_autocomplete(
 
     resultados = []
     for r in resultados_raw:
-        condicion = (r.condicion or "inhabil").lower()
-        condicion_texto, es_habil = condicion_map.get(condicion, ("NO HÁBIL", False))
+        cond = (r.condicion or "inhabil").lower()
+        condicion_texto, es_habil = condicion_map.get(cond, ("NO HÁBIL", False))
         resultados.append({
             "codigo_matricula":  r.codigo_matricula,
             "apellidos_nombres": r.apellidos_nombres,
@@ -86,9 +99,10 @@ async def buscar_colegiado_autocomplete(
 
     return {
         "resultados": resultados,
-        "tipo": "dni" if es_dni else "apellidos",
-        "total": len(resultados)
+        "tipo":  "dni" if es_dni else "apellidos",
+        "total": len(resultados),
     }
+
 
 
 # ─────────────────────────────────────────────────────────────
