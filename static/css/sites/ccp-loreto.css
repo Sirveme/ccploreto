@@ -322,3 +322,11 @@ footer h4 { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-trans
   footer { padding-bottom: 40px; }
   .acciones-grid { grid-template-columns: repeat(5,1fr); }
 }
+
+
+/* Ocultar dos opciones/botones que se repiten */
+/* En ccp-loreto.css — agregar */
+@media (min-width: 768px) {
+  .header-actions .btn-verificar,
+  .header-actions .btn-acceder { display: none; }
+}
