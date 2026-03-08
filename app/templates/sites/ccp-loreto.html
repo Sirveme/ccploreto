@@ -4,424 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<!-- Google Material Symbols — coloreable via CSS -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
-<style>
-/* ════════════════════════════════════════════
-   TOKENS
-════════════════════════════════════════════ */
-:root {
-  --verde:    #1b4d35;
-  --verde2:   #256847;
-  --verde3:   #2e7d52;
-  --verde-lt: #e8f5ee;
-  --oro:      #c9a84c;
-  --oro2:     #e8c96a;
-  --crema:    #faf8f4;
-  --gris:     #f2f4f2;
-  --txt:      #1a2e22;
-  --txt2:     #5a7060;
-  --borde:    #d8e8dc;
-  --sombra:   0 2px 16px rgba(27,77,53,.1);
-  --radio:    10px;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:'Source Sans 3',sans-serif;background:var(--crema);color:var(--txt);overflow-x:hidden}
-img{max-width:100%;display:block}
-a{text-decoration:none;color:inherit}
-button{cursor:pointer;font-family:inherit}
 
-/* Material icon helper */
-.mi{font-family:'Material Symbols Outlined';font-style:normal;font-size:24px;line-height:1;
-    -webkit-font-smoothing:antialiased;user-select:none;vertical-align:middle}
-.mi.sm{font-size:18px} .mi.lg{font-size:32px} .mi.xl{font-size:40px}
+<!-- Base: tokens, header, hero, footer, layout -->
+<link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
+<!-- Secciones -->
+<link rel="stylesheet" href="/static/css/sections/verificar.css">
+<link rel="stylesheet" href="/static/css/sections/convenios.css">
+<link rel="stylesheet" href="/static/css/sections/ambientes.css">
+<link rel="stylesheet" href="/static/css/sections/videos-capacitacion.css">
 
-/* ════════════════════════════════════════════
-   HEADER
-════════════════════════════════════════════ */
-.header{position:sticky;top:0;z-index:100;background:var(--verde);box-shadow:0 2px 12px rgba(0,0,0,.2)}
-.header-inner{display:flex;align-items:center;padding:10px 16px;gap:12px;max-width:1200px;margin:0 auto}
-.header-logo{display:flex;align-items:center;gap:10px;flex:1}
-.logo-mark{width:42px;height:42px;flex-shrink:0;background:var(--oro);border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--verde);
-  line-height:1.1;text-align:center;padding:2px}
-.header-title{color:white}
-.header-title strong{display:block;font-size:13px;font-weight:700;line-height:1.2}
-.header-title span{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.5px}
-.header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.btn-verificar{background:transparent;border:1.5px solid rgba(255,255,255,.35);
-  color:rgba(255,255,255,.85);padding:7px 12px;border-radius:6px;
-  font-size:12px;font-weight:600;letter-spacing:.3px;display:none}
-.btn-acceder{background:var(--oro);color:var(--verde);border:none;
-  padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:.3px}
-.btn-burger{background:rgba(255,255,255,.1);border:none;
-  width:38px;height:38px;border-radius:6px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
-.btn-burger span{display:block;width:20px;height:2px;background:white;border-radius:2px;transition:.3s}
-.desktop-nav{display:none;background:var(--verde2);border-top:1px solid rgba(255,255,255,.1)}
-.desktop-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;padding:0 16px}
-.desktop-nav a{color:rgba(255,255,255,.7);font-size:13px;font-weight:500;
-  padding:10px 14px;transition:.2s;border-bottom:3px solid transparent;display:flex;align-items:center;gap:5px}
-.desktop-nav a:hover{color:white;background:rgba(255,255,255,.06)}
-.desktop-nav a.active{color:var(--oro2);border-bottom-color:var(--oro2)}
-.desktop-nav .dns{flex:1}
-
-/* Barra verificar habilidad (desplegable) */
-.verify-bar{background:var(--verde3);overflow:hidden;max-height:0;transition:max-height .4s ease}
-.verify-bar.open{max-height:80px}
-.verify-bar-inner{max-width:600px;margin:0 auto;padding:10px 16px;display:flex;gap:8px}
-.verify-input{flex:1;padding:10px 14px;border-radius:6px;border:2px solid rgba(255,255,255,.3);
-  background:rgba(255,255,255,.1);color:white;font-size:14px;font-family:inherit}
-.verify-input::placeholder{color:rgba(255,255,255,.5)}
-.verify-input:focus{outline:none;border-color:var(--oro);background:rgba(255,255,255,.15)}
-.btn-consultar{background:var(--oro);color:var(--verde);border:none;
-  padding:10px 20px;border-radius:6px;font-size:13px;font-weight:700}
-
-/* ════════════════════════════════════════════
-   HERO + CARRUSEL
-════════════════════════════════════════════ */
-.hero{position:relative;overflow:hidden;background:var(--verde)}
-.hero-deco{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden}
-.leaf-deco{position:absolute;opacity:.1}
-.leaf-tl{top:-30px;left:-30px;width:200px;transform:rotate(-10deg)}
-.leaf-br{bottom:-20px;right:-20px;width:160px;transform:rotate(165deg)}
-
-.carousel-wrap{position:relative;width:100%}
-.carousel-viewport{overflow:hidden;width:100%;height:0;padding-bottom:56.25%;max-height:480px;position:relative}
-@media(max-width:600px){.carousel-viewport{padding-bottom:75%;max-height:320px}}
-.carousel-track{display:flex;transition:transform .5s cubic-bezier(.4,0,.2,1);
-  position:absolute;top:0;left:0;width:100%;height:100%}
-.carousel-slide{flex:0 0 100%;min-width:100%;position:relative;overflow:hidden;height:100%}
-.carousel-slide img{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 6s ease}
-.carousel-slide.active img{transform:scale(1)}
-.slide-overlay{position:absolute;inset:0;
-  background:linear-gradient(to top,rgba(15,40,25,.85) 0%,rgba(15,40,25,.2) 60%,transparent 100%);
-  display:flex;align-items:flex-end;padding:24px 20px}
-.slide-content{color:white;max-width:580px}
-.slide-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-  color:var(--oro2);margin-bottom:6px}
-.slide-content h2{font-family:'Playfair Display',serif;font-size:clamp(20px,5vw,34px);
-  line-height:1.2;margin-bottom:8px}
-.slide-content p{font-size:14px;color:rgba(255,255,255,.75);margin-bottom:14px}
-.slide-btn{display:inline-flex;align-items:center;gap:6px;background:var(--oro);
-  color:var(--verde);padding:9px 20px;border-radius:6px;font-size:13px;font-weight:700;border:none}
-.carousel-ctrl{position:absolute;top:50%;transform:translateY(-50%);
-  background:rgba(255,255,255,.15);backdrop-filter:blur(4px);
-  border:1px solid rgba(255,255,255,.2);color:white;
-  width:36px;height:36px;border-radius:50%;font-size:20px;z-index:5;
-  display:flex;align-items:center;justify-content:center}
-.carousel-ctrl.prev{left:10px}.carousel-ctrl.next{right:10px}
-.carousel-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-  display:flex;gap:6px;z-index:5}
-.car-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);border:none;transition:.3s}
-.car-dot.car-dot-active{background:var(--oro);width:20px;border-radius:4px}
-
-/* ════════════════════════════════════════════
-   ACCIONES RÁPIDAS
-════════════════════════════════════════════ */
-.acciones-strip{background:var(--verde2)}
-.acciones-grid{display:grid;grid-template-columns:repeat(4,1fr);max-width:1200px;margin:0 auto}
-.accion-item{display:flex;flex-direction:column;align-items:center;gap:5px;
-  padding:14px 8px;border:none;background:transparent;color:white;
-  border-right:1px solid rgba(255,255,255,.1);transition:background .2s;cursor:pointer}
-.accion-item:last-child{border-right:none}
-.accion-item:hover{background:rgba(255,255,255,.09)}
-.ai-icon-wrap{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.12);
-  display:flex;align-items:center;justify-content:center}
-.ai-icon-wrap .mi{font-size:20px;color:var(--oro2)}
-.ai-label{font-size:11px;font-weight:600;letter-spacing:.3px;text-align:center;line-height:1.2}
-
-/* ════════════════════════════════════════════
-   SECCIONES — estructura modular
-   Cada sección tiene id + class="page-section"
-   para poder reordenar o agregar nuevas fácilmente
-════════════════════════════════════════════ */
-.page-section{padding:48px 16px}
-.page-section-alt{padding:48px 16px;background:var(--gris)}
-.page-section-dark{padding:48px 16px;background:var(--verde)}
-.section-inner{max-width:1200px;margin:0 auto}
-
-.sec-eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-  color:var(--verde3);margin-bottom:6px;display:flex;align-items:center;gap:8px}
-.sec-eyebrow .mi{font-size:16px;color:var(--verde3)}
-.sec-eyebrow::after{content:'';flex:1;height:1px;background:var(--borde);max-width:120px}
-.sec-title{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,30px);
-  color:var(--verde);margin-bottom:6px}
-.sec-sub{font-size:15px;color:var(--txt2);margin-bottom:28px}
-
-.sec-eyebrow-lt{color:var(--oro2)}
-.sec-eyebrow-lt::after{background:rgba(255,255,255,.15)}
-.sec-title-lt{color:white}
-.sec-sub-lt{color:rgba(255,255,255,.55)}
-
-/* ════════════════════════════════════════════
-   VIDEOS
-════════════════════════════════════════════ */
-.video-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  max-width:760px;margin:0 auto}
-@media(max-width:400px){.video-grid{grid-template-columns:1fr}}
-.video-thumb{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;
-  aspect-ratio:16/9;background:#0d2b1e;border:2px solid rgba(201,168,76,.25);
-  transition:transform .2s,box-shadow .2s}
-.video-thumb:hover{transform:scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.4)}
-.vt-img{width:100%;height:100%;object-fit:cover;opacity:.65;transition:opacity .3s}
-.video-thumb:hover .vt-img{opacity:.85}
-.vt-overlay{position:absolute;inset:0;
-  background:linear-gradient(to top,rgba(10,30,18,.9) 0%,transparent 60%);
-  opacity:.8;transition:opacity .3s}
-.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:48px;height:48px;border-radius:50%;background:var(--oro);
-  display:flex;align-items:center;justify-content:center;transition:transform .2s;
-  box-shadow:0 4px 16px rgba(0,0,0,.4)}
-.play-btn .mi{color:var(--verde);font-size:24px;margin-left:2px}
-.video-thumb:hover .play-btn{transform:translate(-50%,-50%) scale(1.12)}
-.vt-caption{position:absolute;bottom:0;left:0;right:0;padding:8px 10px}
-.vt-title{font-size:12px;font-weight:700;color:white;line-height:1.3}
-.vt-dur{font-size:10px;color:var(--oro2);margin-top:2px}
-
-/* ════════════════════════════════════════════
-   CAPACITACIÓN — estilo YouTube cards
-════════════════════════════════════════════ */
-.cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.cap-card{background:#1e1e1e;border-radius:10px;overflow:hidden;cursor:pointer;
-  transition:transform .15s,box-shadow .15s;border:1px solid rgba(255,255,255,.06)}
-.cap-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
-.cap-card-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0d2b1e}
-.cap-card-thumb img{width:100%;height:100%;object-fit:cover;opacity:.8;transition:opacity .2s}
-.cap-card:hover .cap-card-thumb img{opacity:1}
-.cap-thumb-overlay{position:absolute;inset:0;
-  background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 60%)}
-.cap-badge{position:absolute;top:8px;left:8px;
-  background:var(--oro);color:var(--verde);font-size:9px;font-weight:700;
-  padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase}
-.cap-live{background:#e53935}
-.cap-dur{position:absolute;bottom:6px;right:8px;
-  background:rgba(0,0,0,.7);color:white;font-size:10px;font-weight:600;
-  padding:2px 6px;border-radius:3px}
-.cap-card-body{padding:12px 14px 14px;display:flex;gap:10px}
-.cap-canal-icon{width:34px;height:34px;flex-shrink:0;border-radius:50%;
-  background:var(--verde3);display:flex;align-items:center;justify-content:center}
-.cap-canal-icon .mi{font-size:18px;color:white}
-.cap-info{flex:1;min-width:0}
-.cap-titulo{font-size:13px;font-weight:700;color:white;line-height:1.4;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px}
-.cap-meta{font-size:11px;color:#888;display:flex;align-items:center;gap:6px}
-.cap-meta .mi{font-size:13px;color:#666}
-.cap-actions{display:flex;align-items:center;gap:6px;margin-top:8px}
-.cap-action-btn{background:rgba(255,255,255,.07);border:none;color:#aaa;
-  padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
-  display:flex;align-items:center;gap:4px;transition:.15s}
-.cap-action-btn .mi{font-size:14px}
-.cap-action-btn:hover{background:rgba(255,255,255,.12);color:white}
-
-/* ════════════════════════════════════════════
-   CONVENIOS
-════════════════════════════════════════════ */
-.tabs-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.tab-btn{background:white;border:1.5px solid var(--borde);color:var(--txt2);
-  padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;transition:.2s}
-.tab-btn.active{background:var(--verde);border-color:var(--verde);color:white}
-.conv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-.conv-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
-  padding:18px 16px;box-shadow:var(--sombra);transition:transform .15s,box-shadow .15s;display:none}
-.conv-card.visible{display:block}
-.conv-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(27,77,53,.12)}
-.conv-icon-wrap{width:44px;height:44px;border-radius:10px;background:var(--verde-lt);
-  display:flex;align-items:center;justify-content:center;margin-bottom:12px}
-.conv-icon-wrap .mi{font-size:22px;color:var(--verde3)}
-.conv-card h3{font-size:15px;font-weight:700;color:var(--verde);margin-bottom:2px}
-.conv-sector{font-size:11px;font-weight:600;color:var(--txt2);letter-spacing:.5px;
-  text-transform:uppercase;margin-bottom:6px}
-.conv-beneficio{background:var(--verde-lt);color:var(--verde2);font-size:12px;font-weight:700;
-  padding:4px 10px;border-radius:4px;display:inline-flex;align-items:center;gap:5px;margin-bottom:10px}
-.conv-beneficio .mi{font-size:14px}
-.conv-info{font-size:12px;color:var(--txt2);display:flex;flex-direction:column;gap:4px}
-.conv-info span{display:flex;align-items:center;gap:5px}
-.conv-info .mi{font-size:14px;color:var(--verde3)}
-
-/* ════════════════════════════════════════════
-   AMBIENTES
-════════════════════════════════════════════ */
-.amb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px}
-.amb-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
-  overflow:hidden;box-shadow:var(--sombra);transition:transform .15s}
-.amb-card:hover{transform:translateY(-3px)}
-.amb-top{background:linear-gradient(135deg,var(--verde),var(--verde3));padding:22px 16px;text-align:center}
-.amb-icon-wrap{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.15);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
-.amb-icon-wrap .mi{font-size:30px;color:white}
-.amb-name{font-size:16px;font-weight:700;color:white}
-.amb-prices{display:flex;gap:12px;justify-content:center;margin-top:8px}
-.amb-price{text-align:center}
-.amb-price-amt{font-size:20px;font-weight:700;color:var(--oro2)}
-.amb-price-amt span{font-size:12px;font-weight:400;color:rgba(255,255,255,.6)}
-.amb-price-label{font-size:9px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.5px;color:rgba(255,255,255,.5)}
-.amb-body{padding:14px 16px}
-.amb-horario{font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.8}
-.amb-horario-row{display:flex;align-items:center;gap:5px}
-.amb-horario-row .mi{font-size:14px;color:var(--verde3)}
-.btn-reservar{width:100%;background:var(--verde);color:white;border:none;
-  padding:10px;border-radius:6px;font-size:13px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;gap:6px}
-.btn-reservar .mi{font-size:18px}
-
-.pagos-strip{background:white;border-radius:var(--radio);border:1px solid var(--borde);padding:18px 20px}
-.pagos-strip h3{font-size:14px;font-weight:700;color:var(--verde);margin-bottom:12px;
-  display:flex;align-items:center;gap:6px}
-.pagos-strip h3 .mi{color:var(--verde3)}
-.pagos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-.pago-item{background:var(--verde-lt);border-radius:8px;padding:12px 14px;
-  display:flex;align-items:center;gap:8px}
-.pago-item .mi{font-size:20px;color:var(--verde3)}
-.pago-item-info strong{font-size:13px;color:var(--verde);display:block}
-.pago-item-info span{font-size:12px;color:var(--txt2)}
-
-/* ════════════════════════════════════════════
-   COMUNICADOS
-════════════════════════════════════════════ */
-.com-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.com-card{background:white;border-radius:var(--radio);border:1px solid var(--borde);
-  padding:18px 16px;box-shadow:var(--sombra);display:flex;flex-direction:column;gap:6px;
-  transition:transform .15s}
-.com-card:hover{transform:translateY(-2px)}
-.com-fecha{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--txt2);text-transform:uppercase}
-.com-card h3{font-size:14px;font-weight:700;color:var(--verde)}
-.com-card p{font-size:13px;color:var(--txt2);flex:1}
-.com-mas{font-size:12px;font-weight:700;color:var(--verde3);margin-top:4px;
-  display:flex;align-items:center;gap:4px}
-.com-mas .mi{font-size:14px}
-
-/* ════════════════════════════════════════════
-   FOOTER
-════════════════════════════════════════════ */
-footer{background:var(--verde);color:white;padding:40px 16px 80px}
-.footer-inner{max-width:1200px;margin:0 auto;
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:28px}
-footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-  color:var(--oro2);margin-bottom:12px}
-.footer-links{display:flex;flex-direction:column;gap:8px}
-.footer-links a,.footer-links span{font-size:13px;color:rgba(255,255,255,.6)}
-.footer-links a:hover{color:var(--oro2)}
-.footer-social{display:flex;gap:10px;margin-top:14px}
-.footer-social a{width:34px;height:34px;background:rgba(255,255,255,.1);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;transition:.2s}
-.footer-social a:hover{background:var(--oro)}
-.footer-social svg{width:16px;height:16px;fill:rgba(255,255,255,.75)}
-.footer-bottom{grid-column:1/-1;border-top:1px solid rgba(255,255,255,.1);
-  padding-top:20px;font-size:12px;color:rgba(255,255,255,.4);
-  display:flex;flex-direction:column;gap:5px}
-.footer-bottom a{color:var(--oro2)}
-.footer-dev{display:flex;align-items:center;gap:6px;margin-top:4px}
-.footer-dev .mi{font-size:15px;color:var(--oro2)}
-
-/* ════════════════════════════════════════════
-   BOTTOM NAV
-════════════════════════════════════════════ */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--verde);
-  border-top:1px solid rgba(255,255,255,.12);
-  display:grid;grid-template-columns:repeat(5,1fr);
-  padding-bottom:env(safe-area-inset-bottom,0)}
-.bnav-item{display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:10px 4px;color:rgba(255,255,255,.55);font-size:10px;font-weight:600;
-  background:none;border:none;transition:color .2s}
-.bnav-item .mi{font-size:22px}
-.bnav-item.primary{color:var(--oro2)}
-.bnav-item:hover{color:white}
-.bnav-item.primary:hover{color:var(--oro)}
-
-/* ════════════════════════════════════════════
-   DRAWER
-════════════════════════════════════════════ */
-.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;
-  opacity:0;pointer-events:none;transition:opacity .3s}
-.drawer-overlay.open{opacity:1;pointer-events:all}
-.drawer{position:fixed;top:0;left:-280px;bottom:0;width:280px;background:var(--verde);
-  z-index:301;transition:left .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:0 0 40px}
-.drawer.open{left:0}
-.drawer-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
-  border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:8px}
-.drawer-logo{font-family:'Playfair Display',serif;font-size:14px;color:white;line-height:1.4;flex:1}
-.drawer-logo span{color:var(--oro2)}
-.drawer-close{background:rgba(255,255,255,.1);border:none;color:white;
-  width:32px;height:32px;border-radius:50%;font-size:18px;flex-shrink:0}
-.drawer-nav a{display:flex;align-items:center;gap:10px;padding:12px 20px;
-  color:rgba(255,255,255,.75);font-size:14px;font-weight:500;transition:.15s;
-  border-left:3px solid transparent}
-.drawer-nav a .mi{font-size:18px;color:rgba(255,255,255,.45)}
-.drawer-nav a:hover{background:rgba(255,255,255,.07);color:white;border-left-color:var(--oro)}
-.drawer-nav a:hover .mi{color:var(--oro2)}
-.drawer-sec{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-  color:rgba(255,255,255,.3);padding:14px 20px 4px}
-.btn-acceder-d{margin:14px 20px 0;background:var(--oro);color:var(--verde);border:none;
-  padding:12px;border-radius:8px;font-size:14px;font-weight:700;width:calc(100% - 40px);
-  display:flex;align-items:center;justify-content:center;gap:6px}
-
-/* ════════════════════════════════════════════
-   MODALES
-════════════════════════════════════════════ */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;
-  display:none;align-items:center;justify-content:center;padding:20px}
-.modal-overlay.open{display:flex}
-.modal-box{background:white;border-radius:14px;overflow:hidden;
-  width:100%;max-width:480px;position:relative}
-.modal-close{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.08);
-  border:none;width:32px;height:32px;border-radius:50%;font-size:18px;color:#666}
-
-/* Modal verificar habilidad */
-.modal-hab-head{background:var(--verde);padding:20px;text-align:center}
-.modal-hab-head h3{font-size:16px;font-weight:700;color:white;margin-bottom:2px}
-.modal-hab-head p{font-size:12px;color:rgba(255,255,255,.6)}
-.modal-hab-body{padding:24px}
-.hab-status{text-align:center;padding:16px;border-radius:10px;margin-bottom:16px}
-.hab-status.habil{background:#e8f5e9;border:2px solid #4caf50}
-.hab-status.inhabil{background:#fce4ec;border:2px solid #e57373}
-.hab-status-icon .mi{font-size:40px}
-.hab-status.habil .hab-status-icon .mi{color:#388e3c}
-.hab-status.inhabil .hab-status-icon .mi{color:#c62828}
-.hab-status-label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:6px}
-.hab-status.habil .hab-status-label{color:#388e3c}
-.hab-status.inhabil .hab-status-label{color:#c62828}
-.hab-name{font-size:18px;font-weight:700;color:var(--verde);margin-top:4px}
-.hab-mat{font-size:13px;color:var(--txt2);margin-top:2px}
-.hab-web{margin-top:14px;padding:12px;background:var(--verde-lt);border-radius:8px;
-  display:flex;align-items:center;gap:10px}
-.hab-web-photo{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--verde3)}
-.hab-web-info a{font-size:13px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px}
-.hab-web-info a .mi{font-size:14px}
-.hab-web-info span{font-size:11px;color:var(--txt2)}
-
-/* Modal video */
-.vid-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:400;
-  display:none;align-items:center;justify-content:center;padding:20px}
-.vid-modal-overlay.open{display:flex}
-.vid-modal{background:#0d1f15;border-radius:12px;overflow:hidden;width:100%;max-width:760px;position:relative}
-.vid-modal-close{position:absolute;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.6);
-  border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:18px}
-.vid-modal-title{padding:14px 18px;background:var(--verde);font-size:14px;font-weight:700;color:white}
-.vid-modal-title span{font-size:11px;color:var(--oro2);display:block;margin-top:2px}
-.vid-container{position:relative;padding-bottom:56.25%;background:#000}
-.vid-container iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
-.vid-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:14px;gap:12px}
-.vid-placeholder .mi{font-size:48px;opacity:.3;color:white}
-
-/* ════════════════════════════════════════════
-   DESKTOP RESPONSIVE
-════════════════════════════════════════════ */
-@media(min-width:768px){
-  .btn-burger{display:none}
-  .btn-verificar{display:flex;align-items:center;gap:5px}
-  .desktop-nav{display:block}
-  .bottom-nav{display:none}
-  footer{padding-bottom:40px}
-  .acciones-grid{grid-template-columns:repeat(5,1fr)}
-  .cap-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-}
-</style>
+<link rel="icon" href="/static/img/favicon.ico">
 </head>
 <body>
 
@@ -440,7 +32,7 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
         <span class="mi sm">verified_user</span> Verificar
       </button>
       <a href="/login/" class="btn-acceder">Ingresar</a>
-      <button class="btn-burger" id="menuBtn">
+      <button class="btn-burger" id="menuBtn" aria-label="Menú">
         <span></span><span></span><span></span>
       </button>
     </div>
@@ -452,11 +44,11 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       <a href="/institucional/"><span class="mi sm">account_balance</span> Institucional</a>
       <a href="#capacitacion"><span class="mi sm">school</span> Capacitación</a>
       <a href="#convenios"><span class="mi sm">handshake</span> Convenios</a>
-      <a href="#ambientes"><span class="mi sm">sports</span> Ambientes</a>
+      <a href="#ambientes"><span class="mi sm">stadium</span> Ambientes</a>
       <a href="#eventos"><span class="mi sm">event</span> Eventos</a>
       <a href="#galeria"><span class="mi sm">photo_library</span> Galería</a>
       <span class="dns"></span>
-      <a href="#" onclick="toggleVerify();return false" style="color:var(--oro2)">
+      <a href="/consulta/habilidad" style="color:var(--oro2)">
         <span class="mi sm">search</span> Verificar Habilidad
       </a>
       <a href="/login/" style="color:var(--oro2);font-weight:700">
@@ -464,12 +56,11 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       </a>
     </div>
   </nav>
-  <!-- Barra de búsqueda verificar -->
+  <!-- Barra verificar (desplegable, gestionada por verificar.js) -->
   <div class="verify-bar" id="verifyBar">
     <div class="verify-bar-inner">
       <input class="verify-input" id="verifyInput" type="text"
-             placeholder="DNI o Apellidos y Nombres del colegiado"
-             onkeydown="if(event.key==='Enter')consultarHabilidad()">
+             placeholder="DNI o Apellidos y Nombres del colegiado">
       <button class="btn-consultar" onclick="consultarHabilidad()">
         <span class="mi sm">search</span> Consultar
       </button>
@@ -477,9 +68,8 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
   </div>
 </header>
 
-<!-- ══ CARRUSEL HERO ════════════════════════════════ -->
+<!-- ══ HERO + CARRUSEL ══════════════════════════════ -->
 <section class="hero" id="inicio">
-  <!-- Hojas amazónicas decorativas -->
   <div class="hero-deco">
     <svg class="leaf-deco leaf-tl" viewBox="0 0 200 300" fill="none">
       <path d="M100 280C20 200-20 100 60 20 80 0 120 0 140 20 200 80 180 200 100 280Z" fill="#c9a84c"/>
@@ -492,21 +82,25 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       <path d="M100 280C100 200 100 80 100 20" stroke="#1b4d35" stroke-width="3" opacity=".4"/>
     </svg>
   </div>
+
   <div class="carousel-wrap">
     <div class="carousel-viewport">
       <div class="carousel-track" id="carTrack">
+
         <div class="carousel-slide active">
           <img src="/static/img/ccploreto-directiva-2026-2027.jpg"
-               onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'" alt="Directiva">
+               onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'"
+               alt="Directiva CCPL 2026-2027">
           <div class="slide-overlay">
             <div class="slide-content">
               <div class="slide-label">Gestión 2026 · 2027</div>
               <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
-              <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía peruana</p>
+              <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía</p>
               <button class="slide-btn"><span class="mi sm">groups</span> Conocer la Directiva</button>
             </div>
           </div>
         </div>
+
         <div class="carousel-slide">
           <img src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200&q=80" alt="Ambientes">
           <div class="slide-overlay">
@@ -514,10 +108,13 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
               <div class="slide-label">Ambientes e Instalaciones</div>
               <h2>Espacios deportivos y auditorio para la comunidad</h2>
               <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
-              <button class="slide-btn" onclick="document.getElementById('ambientes').scrollIntoView({behavior:'smooth'})"><span class="mi sm">sports</span> Ver ambientes</button>
+              <button class="slide-btn" onclick="document.getElementById('ambientes').scrollIntoView({behavior:'smooth'})">
+                <span class="mi sm">stadium</span> Ver ambientes
+              </button>
             </div>
           </div>
         </div>
+
         <div class="carousel-slide">
           <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&q=80" alt="Capacitación">
           <div class="slide-overlay">
@@ -525,18 +122,22 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
               <div class="slide-label">Capacitación Continua</div>
               <h2>Actualización tributaria y financiera permanente</h2>
               <p>Cursos, diplomados y talleres para mantener tu competencia profesional al día</p>
-              <button class="slide-btn" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})"><span class="mi sm">school</span> Ver agenda</button>
+              <button class="slide-btn" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})">
+                <span class="mi sm">school</span> Ver agenda
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    <button class="carousel-ctrl prev" onclick="carMove(-1)">&#8249;</button>
-    <button class="carousel-ctrl next" onclick="carMove(1)">&#8250;</button>
+
+      </div><!-- /carousel-track -->
+    </div><!-- /carousel-viewport -->
+
+    <button class="carousel-ctrl prev" aria-label="Anterior">&#8249;</button>
+    <button class="carousel-ctrl next" aria-label="Siguiente">&#8250;</button>
     <div class="carousel-dots" id="carDots">
-      <button class="car-dot car-dot-active"></button>
-      <button class="car-dot"></button>
-      <button class="car-dot"></button>
+      <button class="car-dot car-dot-active" aria-label="Slide 1"></button>
+      <button class="car-dot" aria-label="Slide 2"></button>
+      <button class="car-dot" aria-label="Slide 3"></button>
     </div>
   </div>
 </section>
@@ -564,13 +165,14 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
 </div>
 
 <!-- ══ SECCIÓN: VIDEOS ══════════════════════════════ -->
-<section class="page-section-dark" id="videos">
+<section class="page-section-dark" id="videos" style="padding-bottom:40px">
   <div class="section-inner" style="text-align:center">
     <div class="sec-eyebrow sec-eyebrow-lt" style="justify-content:center;text-align:left">
       <span class="mi">play_circle</span><span>Guías del sistema</span>
     </div>
     <h2 class="sec-title sec-title-lt">Aprende a usar el portal en minutos</h2>
     <p class="sec-sub sec-sub-lt">Videos cortos con todo lo que necesitas saber sobre los nuevos servicios</p>
+
     <div class="video-grid">
       <div class="video-thumb" onclick="openVideo('VIDEO_URL_1','Cómo iniciar sesión y ver tu deuda')">
         <img class="vt-img" src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=70" alt="">
@@ -609,21 +211,22 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
         </div>
       </div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px;text-align:left">* Videos disponibles a partir del lanzamiento del sistema.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px;text-align:left">
+      * Videos disponibles a partir del lanzamiento del sistema.
+    </p>
   </div>
 </section>
 
 <!-- ══ SECCIÓN: CAPACITACIÓN ════════════════════════ -->
-<section class="page-section-dark" id="capacitacion" style="background:#111;padding-top:0;padding-bottom:40px">
+<section style="background:#111;padding:40px 16px" id="capacitacion">
   <div class="section-inner">
-    <div class="sec-eyebrow sec-eyebrow-lt" style="padding-top:40px">
+    <div class="sec-eyebrow sec-eyebrow-lt">
       <span class="mi">school</span><span>Agenda académica</span>
     </div>
     <h2 class="sec-title sec-title-lt">Capacitación Continua</h2>
     <p class="sec-sub sec-sub-lt">Selecciona un curso para ver el detalle completo</p>
-    <div class="cap-grid">
 
-      <!-- Tarjeta EN VIVO -->
+    <div class="cap-grid">
       <div class="cap-card" onclick="location.href='/capacitacion/'">
         <div class="cap-card-thumb">
           <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=70" alt="">
@@ -635,17 +238,11 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
           <div class="cap-canal-icon"><span class="mi">calculate</span></div>
           <div class="cap-info">
             <div class="cap-titulo">Cierre Contable y Estados Financieros 2025</div>
-            <div class="cap-meta"><span class="mi">calendar_month</span> Hoy, 07 Mar · 18:00 hrs</div>
+            <div class="cap-meta"><span class="mi">calendar_month</span> Hoy · 18:00 hrs</div>
             <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
-            <div class="cap-actions">
-              <button class="cap-action-btn"><span class="mi">thumb_up</span> 24</button>
-              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
-            </div>
           </div>
         </div>
       </div>
-
-      <!-- Tarjeta próximo -->
       <div class="cap-card" onclick="location.href='/capacitacion/'">
         <div class="cap-card-thumb">
           <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=70" alt="">
@@ -659,15 +256,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
             <div class="cap-titulo">NIIF para Pymes — Aplicación Práctica 2026</div>
             <div class="cap-meta"><span class="mi">calendar_month</span> 31 Mar · 10:00 hrs</div>
             <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
-            <div class="cap-actions">
-              <button class="cap-action-btn"><span class="mi">thumb_up</span> 18</button>
-              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
-            </div>
           </div>
         </div>
       </div>
-
-      <!-- Tarjeta próximo -->
       <div class="cap-card" onclick="location.href='/capacitacion/'">
         <div class="cap-card-thumb">
           <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=70" alt="">
@@ -681,15 +272,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
             <div class="cap-titulo">Peritaje Contable y Aspectos Legales</div>
             <div class="cap-meta"><span class="mi">calendar_month</span> 05 Abr · 16:00 hrs</div>
             <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
-            <div class="cap-actions">
-              <button class="cap-action-btn"><span class="mi">thumb_up</span> 12</button>
-              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
-            </div>
           </div>
         </div>
       </div>
-
-      <!-- Tarjeta próximo -->
       <div class="cap-card" onclick="location.href='/capacitacion/'">
         <div class="cap-card-thumb">
           <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=70" alt="">
@@ -703,14 +288,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
             <div class="cap-titulo">Tributación Digital y Facturación Electrónica</div>
             <div class="cap-meta"><span class="mi">calendar_month</span> 12 Abr · 09:00 hrs</div>
             <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
-            <div class="cap-actions">
-              <button class="cap-action-btn"><span class="mi">thumb_up</span> 31</button>
-              <button class="cap-action-btn"><span class="mi">share</span> Compartir</button>
-            </div>
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </section>
@@ -801,7 +381,6 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
         <div class="conv-info">
           <span><span class="mi">cloud</span> Virtual</span>
           <span><span class="mi">phone</span> 965-123456</span>
-          <span><span class="mi">support_agent</span> Soporte 24/7</span>
         </div>
       </div>
       <div class="conv-card" data-cat="servicios">
@@ -824,21 +403,15 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">stadium</span><span>Instalaciones CCPL</span></div>
     <h2 class="sec-title">Alquiler de Ambientes</h2>
-    <p class="sec-sub">Precios diferenciados · Disponibilidad en tiempo real · Reserva desde aquí</p>
+    <p class="sec-sub">Precios diferenciados · Disponibilidad en tiempo real</p>
     <div class="amb-grid">
       <div class="amb-card">
         <div class="amb-top">
           <div class="amb-icon-wrap"><span class="mi xl">pool</span></div>
           <div class="amb-name">Piscina</div>
           <div class="amb-prices">
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 30 <span>/hr</span></div>
-              <div class="amb-price-label">Colegiado hábil</div>
-            </div>
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 50 <span>/hr</span></div>
-              <div class="amb-price-label">Público general</div>
-            </div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 30 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 50 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
           </div>
         </div>
         <div class="amb-body">
@@ -856,14 +429,8 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
           <div class="amb-icon-wrap"><span class="mi xl">sports_soccer</span></div>
           <div class="amb-name">Cancha de Fútbol</div>
           <div class="amb-prices">
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 25 <span>/hr</span></div>
-              <div class="amb-price-label">Colegiado hábil</div>
-            </div>
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 40 <span>/hr</span></div>
-              <div class="amb-price-label">Público general</div>
-            </div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 25 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 40 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
           </div>
         </div>
         <div class="amb-body">
@@ -881,14 +448,8 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
           <div class="amb-icon-wrap"><span class="mi xl">sports_volleyball</span></div>
           <div class="amb-name">Cancha de Vóley</div>
           <div class="amb-prices">
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 20 <span>/hr</span></div>
-              <div class="amb-price-label">Colegiado hábil</div>
-            </div>
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 35 <span>/hr</span></div>
-              <div class="amb-price-label">Público general</div>
-            </div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 20 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 35 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
           </div>
         </div>
         <div class="amb-body">
@@ -906,14 +467,8 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
           <div class="amb-icon-wrap"><span class="mi xl">mic</span></div>
           <div class="amb-name">Auditorio</div>
           <div class="amb-prices">
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 80 <span>/hr</span></div>
-              <div class="amb-price-label">Colegiado hábil</div>
-            </div>
-            <div class="amb-price">
-              <div class="amb-price-amt">S/ 120 <span>/hr</span></div>
-              <div class="amb-price-label">Público general</div>
-            </div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 80 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+            <div class="amb-price"><div class="amb-price-amt">S/ 120 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
           </div>
         </div>
         <div class="amb-body">
@@ -930,18 +485,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
     <div class="pagos-strip">
       <h3><span class="mi">payment</span> Métodos de Pago</h3>
       <div class="pagos-grid">
-        <div class="pago-item">
-          <span class="mi">smartphone</span>
-          <div class="pago-item-info"><strong>Yape / Plin</strong><span>979 169 813</span></div>
-        </div>
-        <div class="pago-item">
-          <span class="mi">account_balance</span>
-          <div class="pago-item-info"><strong>BCP</strong><span>N° 123-4567890-1-23</span></div>
-        </div>
-        <div class="pago-item">
-          <span class="mi">account_balance</span>
-          <div class="pago-item-info"><strong>Banco de la Nación</strong><span>N° 00-987-654321</span></div>
-        </div>
+        <div class="pago-item"><span class="mi">smartphone</span><div class="pago-item-info"><strong>Yape / Plin</strong><span>979 169 813</span></div></div>
+        <div class="pago-item"><span class="mi">account_balance</span><div class="pago-item-info"><strong>BCP</strong><span>N° 123-4567890-1-23</span></div></div>
+        <div class="pago-item"><span class="mi">account_balance</span><div class="pago-item-info"><strong>Banco de la Nación</strong><span>N° 00-987-654321</span></div></div>
       </div>
     </div>
   </div>
@@ -955,7 +501,7 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
     <p class="sec-sub">Próximamente — sección en desarrollo</p>
     <div style="background:var(--verde-lt);border-radius:10px;padding:32px;text-align:center;color:var(--txt2)">
       <span class="mi" style="font-size:48px;color:var(--borde)">event</span>
-      <p style="margin-top:12px;font-size:14px">Esta sección se habilitará próximamente con el calendario de eventos 2026</p>
+      <p style="margin-top:12px;font-size:14px">Calendario de eventos 2026 — disponible próximamente</p>
     </div>
   </div>
 </section>
@@ -978,25 +524,25 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">campaign</span><span>Noticias oficiales</span></div>
     <h2 class="sec-title">Últimos Comunicados</h2>
-    <p class="sec-sub">Para descargar o compartir documentos debes identificarte como colegiado hábil</p>
-    <div class="com-grid">
-      <a href="/comunicado/comunicado-008-2025-ce/" class="com-card">
-        <div class="com-fecha">15 Ene 2026</div>
-        <h3>Comunicado N° 008-2026</h3>
-        <p>Proceso Electoral 2026 — Cronograma actualizado y lista de candidatos habilitados</p>
-        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+    <p class="sec-sub">Para descargar o compartir debes identificarte como colegiado hábil</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+      <a href="/comunicado/comunicado-008-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">15 Ene 2026</div>
+        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 008-2026</h3>
+        <p style="font-size:13px;color:var(--txt2);flex:1">Proceso Electoral 2026 — Cronograma actualizado</p>
+        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
       </a>
-      <a href="/comunicado/comunicado-007-2025-ce/" class="com-card">
-        <div class="com-fecha">12 Ene 2026</div>
-        <h3>Comunicado N° 007-2026</h3>
-        <p>Inscripción de listas para elecciones del Consejo Directivo 2026-2027</p>
-        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+      <a href="/comunicado/comunicado-007-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">12 Ene 2026</div>
+        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 007-2026</h3>
+        <p style="font-size:13px;color:var(--txt2);flex:1">Inscripción de listas para elecciones del Consejo Directivo</p>
+        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
       </a>
-      <a href="/comunicado/comunicado-n-006-2025/" class="com-card">
-        <div class="com-fecha">08 Ene 2026</div>
-        <h3>Comunicado N° 006-2026</h3>
-        <p>Convocatoria a Asamblea General Ordinaria — Agenda y puntos a tratar</p>
-        <span class="com-mas"><span class="mi">open_in_new</span> Leer más</span>
+      <a href="/comunicado/comunicado-n-006-2025/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">08 Ene 2026</div>
+        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 006-2026</h3>
+        <p style="font-size:13px;color:var(--txt2);flex:1">Convocatoria a Asamblea General Ordinaria</p>
+        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
       </a>
     </div>
   </div>
@@ -1011,13 +557,13 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
         <span>📍 Calle Echenique 451, Iquitos — Loreto</span>
         <span>📞 (065) 24-2821</span>
         <span>📱 979 169 813</span>
-        <span>✉ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="45262635292a3720312a052228242c296b262a28">[email&#160;protected]</a></span>
+        <span>✉ ccploreto@gmail.com</span>
       </div>
       <div class="footer-social">
-        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank">
+        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
         </a>
-        <a href="https://wa.me/51979169813" target="_blank">
+        <a href="https://wa.me/51979169813" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
         </a>
       </div>
@@ -1027,8 +573,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       <div class="footer-links">
         <a href="/consulta/habilidad">Consultar Habilidad</a>
         <a href="/institucional/">Institucional</a>
-        <a href="#capacitacion">Capacitación</a>
-        <a href="#galeria">Galería</a>
+        <a href="/colegiados/">Colegiados</a>
+        <a href="/reglamento/">Reglamento</a>
+        <a href="/transparencia/">Transparencia</a>
         <a href="/login/">Acceso Colegiados</a>
       </div>
     </div>
@@ -1045,9 +592,9 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
       <div class="footer-dev">
         <span class="mi">code</span>
         <span>Plataforma desarrollada por
-          <a href="https://www.sigcosystems.com" target="_blank">SigcoSystems</a>
+          <a href="https://www.sigcosystems.com" target="_blank" rel="noopener">SigcoSystems</a>
           &amp;
-          <a href="https://www.duilio.store" target="_blank">Duilio Restuccia · Perú Sistemas PRO</a>
+          <a href="https://www.duilio.store" target="_blank" rel="noopener">Duilio Restuccia · Perú Sistemas PRO</a>
         </span>
       </div>
     </div>
@@ -1074,7 +621,7 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
 </nav>
 
 <!-- ══ DRAWER ════════════════════════════════════════ -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-head">
     <div class="drawer-logo">Colegio de Contadores<br><span>Públicos de Loreto</span></div>
@@ -1092,11 +639,11 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
     <a href="#eventos" onclick="closeDrawer()"><span class="mi">event</span> Eventos</a>
     <a href="#galeria" onclick="closeDrawer()"><span class="mi">photo_library</span> Galería</a>
     <a href="#comunicados" onclick="closeDrawer()"><span class="mi">campaign</span> Comunicados</a>
-    <div class="drawer-sec">Consultas</div>
-    <a href="/comite-electoral/"><span class="mi">how_to_vote</span> Comité Electoral</a>
     <a href="/colegiados/"><span class="mi">badge</span> Colegiados</a>
     <a href="/reglamento/"><span class="mi">gavel</span> Reglamento Interno</a>
     <a href="/transparencia/"><span class="mi">folder_open</span> Transparencia</a>
+    <div class="drawer-sec">Consultas</div>
+    <a href="/comite-electoral/"><span class="mi">how_to_vote</span> Comité Electoral</a>
     <button class="btn-acceder-d" onclick="location.href='/login/'">
       <span class="mi">login</span> Acceso Colegiados
     </button>
@@ -1108,20 +655,19 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
   <div class="modal-box">
     <button class="modal-close" onclick="closeModalHab()">×</button>
     <div class="modal-hab-head">
-      <h3 id="habNombre">Nombre del Contador</h3>
-      <p id="habMatricula">Matrícula · DNI</p>
+      <h3 id="habNombre">Nombre del Colegiado</h3>
+      <p id="habMatricula">Matrícula</p>
     </div>
     <div class="modal-hab-body">
       <div class="hab-status habil" id="habStatus">
         <div class="hab-status-icon"><span class="mi">verified</span></div>
         <div class="hab-status-label" id="habLabel">HÁBIL</div>
       </div>
-      <!-- Sitio web del colegiado (si autorizó publicación) -->
       <div class="hab-web" id="habWeb" style="display:none">
         <img class="hab-web-photo" id="habFoto" src="" alt="Foto">
         <div class="hab-web-info">
           <span id="habEspecialidad">Contador Público</span>
-          <a href="#" id="habUrl" target="_blank">
+          <a href="#" id="habUrl" target="_blank" rel="noopener">
             <span class="mi">open_in_new</span> Ver perfil profesional
           </a>
         </div>
@@ -1134,7 +680,10 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
 <div class="vid-modal-overlay" id="vidModal">
   <div class="vid-modal">
     <button class="vid-modal-close" onclick="closeVideo()">×</button>
-    <div class="vid-modal-title" id="vidTitle">Título<span>CCPL · Guías del sistema</span></div>
+    <div class="vid-modal-title" id="vidTitle">
+      Título del video
+      <span>CCPL · Guías del sistema</span>
+    </div>
     <div class="vid-container" id="vidContainer">
       <div class="vid-placeholder">
         <span class="mi">play_circle</span>
@@ -1144,162 +693,12 @@ footer h4{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:upp
   </div>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-/* ── Carrusel ────────────────────────────── */
-(function(){
-  let ci = 0;
-  const track  = document.getElementById('carTrack');
-  const slides = track.querySelectorAll('.carousel-slide');
-  const dots   = document.querySelectorAll('.car-dot');
-  let timer;
+<!-- ══ SCRIPTS — en este orden, sin inline ══════════ -->
+<script src="/static/js/sites/ccp-loreto.js"></script>
+<script src="/static/js/sections/verificar.js"></script>
+<script src="/static/js/sections/convenios.js"></script>
+<script src="/static/js/sections/ambientes.js"></script>
+<script src="/static/js/sections/videos.js"></script>
 
-  function goTo(n){
-    slides[ci].classList.remove('active');
-    dots[ci].classList.remove('car-dot-active');
-    ci = (n + slides.length) % slides.length;
-    slides[ci].classList.add('active');
-    dots[ci].classList.add('car-dot-active');
-    track.style.transform = 'translateX(-' + (ci * 100) + '%)';
-  }
-  function next(){ goTo(ci + 1); }
-  function prev(){ goTo(ci - 1); }
-
-  // Botones prev/next
-  document.querySelector('.carousel-ctrl.prev').addEventListener('click', function(){ clearInterval(timer); prev(); timer = setInterval(next, 5000); });
-  document.querySelector('.carousel-ctrl.next').addEventListener('click', function(){ clearInterval(timer); next(); timer = setInterval(next, 5000); });
-
-  // Dots
-  dots.forEach(function(d, i){
-    d.addEventListener('click', function(){ clearInterval(timer); goTo(i); timer = setInterval(next, 5000); });
-  });
-
-  // Swipe táctil
-  var touchX = 0;
-  track.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive:true});
-  track.addEventListener('touchend',   function(e){
-    var dx = e.changedTouches[0].clientX - touchX;
-    if(Math.abs(dx) > 40){ clearInterval(timer); dx < 0 ? next() : prev(); timer = setInterval(next, 5000); }
-  }, {passive:true});
-
-  timer = setInterval(next, 5000);
-  window.carMove = function(d){ clearInterval(timer); goTo(ci+d); timer = setInterval(next,5000); };
-})();
-
-/* ── Verificar habilidad ─────────────────── */
-function toggleVerify(){
-  const bar=document.getElementById('verifyBar');
-  bar.classList.toggle('open');
-  if(bar.classList.contains('open'))document.getElementById('verifyInput').focus();
-}
-async function consultarHabilidad(){
-  const q = document.getElementById('verifyInput').value.trim();
-  if(q.length < 3){ return; }
-
-  const btn = document.querySelector('.btn-consultar');
-  btn.textContent = '…'; btn.disabled = true;
-
-  try {
-    const res = await fetch('/consulta/habilidad/verificar?q=' + encodeURIComponent(q));
-    if(!res.ok){
-      const err = await res.json().catch(()=>({}));
-      mostrarResultadoHabilidad(null, err.detail || 'No se encontró ningún colegiado.');
-      return;
-    }
-    const data = await res.json();
-    if(!data.encontrado){
-      mostrarResultadoHabilidad(null, data.mensaje);
-    } else {
-      mostrarResultadoHabilidad(data.datos);
-    }
-  } catch(e) {
-    mostrarResultadoHabilidad(null, 'Error de conexión. Intente de nuevo.');
-  } finally {
-    btn.textContent = 'Consultar'; btn.disabled = false;
-  }
-}
-function mostrarResultadoHabilidad(d, errorMsg){
-  const st = document.getElementById('habStatus');
-  const wb = document.getElementById('habWeb');
-
-  if(!d){
-    // No encontrado o error
-    document.getElementById('habNombre').textContent = 'Sin resultado';
-    document.getElementById('habMatricula').textContent = errorMsg || 'No se encontró el colegiado.';
-    st.className = 'hab-status inhabil';
-    st.querySelector('.mi').textContent = 'search_off';
-    document.getElementById('habLabel').textContent = 'NO ENCONTRADO';
-    wb.style.display = 'none';
-  } else {
-    // Datos reales del endpoint
-    document.getElementById('habNombre').textContent   = d.apellidos_nombres;
-    document.getElementById('habMatricula').textContent = 'Matrícula ' + d.codigo_matricula;
-    const esHabil = d.es_habil;
-    st.className = 'hab-status ' + (esHabil ? 'habil' : 'inhabil');
-    st.querySelector('.mi').textContent = esHabil ? 'verified' : 'cancel';
-    document.getElementById('habLabel').textContent = d.condicion_texto;
-    // Sitio web del colegiado (si autorizó)
-    if(d.autorizo_web && d.url_web){
-      document.getElementById('habFoto').src = d.foto_url || '/static/img/default-avatar.png';
-      document.getElementById('habUrl').href = d.url_web;
-      document.getElementById('habEspecialidad').textContent = d.especialidad || 'Contador Público';
-      wb.style.display = 'flex';
-    } else {
-      wb.style.display = 'none';
-    }
-  }
-  document.getElementById('modalHab').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeModalHab(){
-  document.getElementById('modalHab').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-/* ── Convenios tabs ──────────────────────── */
-document.querySelectorAll('#convTabs .tab-btn').forEach(b=>{
-  b.addEventListener('click',()=>{
-    document.querySelectorAll('#convTabs .tab-btn').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');const cat=b.dataset.cat;
-    document.querySelectorAll('#convGrid .conv-card').forEach(c=>{
-      c.classList.toggle('visible',cat==='todos'||c.dataset.cat===cat);
-    });
-  });
-});
-
-/* ── Ambientes ───────────────────────────── */
-function abrirReserva(ambiente){
-  // TODO: conectar con modal de disponibilidad desde BD
-  alert(`Próximamente: reserva de "${ambiente}" con calendario de disponibilidad en tiempo real.`);
-}
-
-/* ── Drawer ──────────────────────────────── */
-function openDrawer(){
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-function closeDrawer(){
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
-  document.body.style.overflow='';
-}
-document.getElementById('menuBtn').addEventListener('click',openDrawer);
-
-/* ── Modal video ─────────────────────────── */
-function openVideo(url,title){
-  document.getElementById('vidTitle').childNodes[0].textContent=title+' ';
-  const cont=document.getElementById('vidContainer');
-  document.getElementById('vidModal').classList.add('open');
-  document.body.style.overflow='hidden';
-  if(url&&!url.startsWith('VIDEO_URL')){
-    cont.innerHTML=`<iframe src="${url}" allow="autoplay;encrypted-media" allowfullscreen></iframe>`;
-  } else {
-    cont.innerHTML=`<div class="vid-placeholder"><span class="mi">play_circle</span><span style="color:rgba(255,255,255,.4);font-size:14px">Video próximamente disponible</span></div>`;
-  }
-}
-function closeVideo(){
-  document.getElementById('vidModal').classList.remove('open');
-  document.getElementById('vidContainer').innerHTML='';
-  document.body.style.overflow='';
-}
-document.getEle
+</body>
+</html>
