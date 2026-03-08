@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
 
+<link rel="stylesheet" href="/static/css/sections/nav-dropdowns.css">
 <!-- Base: tokens, header, hero, footer, layout -->
 <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
 <!-- Secciones -->
@@ -18,8 +19,11 @@
 <body>
 
 <!-- ══ HEADER ══════════════════════════════════════ -->
+
 <header class="header">
   <div class="header-inner">
+
+    <!-- Logo -->
     <div class="header-logo">
       <div class="logo-mark">CC<br>PL</div>
       <div class="header-title">
@@ -27,6 +31,8 @@
         <span>60 AÑOS · IQUITOS, PERÚ</span>
       </div>
     </div>
+
+    <!-- Acciones (mobile) -->
     <div class="header-actions">
       <button class="btn-verificar" onclick="toggleVerify()">
         <span class="mi sm">verified_user</span> Verificar
@@ -37,26 +43,144 @@
       </button>
     </div>
   </div>
-  <!-- Nav desktop -->
+
+  <!-- ── Nav desktop ──────────────────────────────────────── -->
   <nav class="desktop-nav">
     <div class="desktop-nav-inner">
-      <a href="/" class="active"><span class="mi sm">home</span> Inicio</a>
-      <a href="/institucional/"><span class="mi sm">account_balance</span> Institucional</a>
-      <a href="#capacitacion"><span class="mi sm">school</span> Capacitación</a>
-      <a href="#convenios"><span class="mi sm">handshake</span> Convenios</a>
-      <a href="#ambientes"><span class="mi sm">stadium</span> Ambientes</a>
-      <a href="#eventos"><span class="mi sm">event</span> Eventos</a>
-      <a href="#galeria"><span class="mi sm">photo_library</span> Galería</a>
+
+      <!-- Inicio -->
+      <a href="/" class="active">
+        <span class="mi sm">home</span> Inicio
+      </a>
+
+      <!-- Institución ▾ -->
+      <div class="dns-group" id="nav-institucion">
+        <button class="dns-group-btn" onclick="navToggle('institucion')">
+          <span class="mi sm">account_balance</span> Institución
+          <span class="mi caret">expand_more</span>
+        </button>
+        <div class="dns-drop">
+          <div class="dns-drop-header">Sobre el Colegio</div>
+          <a href="#" onclick="navToggle('institucion');abrirPartial('institucional')">
+            <span class="mi">info</span> Institucional
+          </a>
+          <a href="https://ccploreto.org.pe/consejo-directivo/" target="_blank" rel="noopener">
+            <span class="mi">groups</span> Consejo Directivo
+          </a>
+          <a href="#" onclick="navToggle('institucion');abrirPartial('transparencia')">
+            <span class="mi">folder_open</span> Transparencia
+          </a>
+          <div class="dns-drop-sep"></div>
+          <a href="#contacto" onclick="navToggle('institucion')">
+            <span class="mi">contact_phone</span> Contacto
+          </a>
+        </div>
+      </div>
+
+      <!-- Colegiados ▾ -->
+      <div class="dns-group" id="nav-colegiados">
+        <button class="dns-group-btn" onclick="navToggle('colegiados')">
+          <span class="mi sm">badge</span> Colegiados
+          <span class="mi caret">expand_more</span>
+        </button>
+        <div class="dns-drop">
+          <div class="dns-drop-header">Acceso y verificación</div>
+          <a href="#colegiados-info" onclick="navToggle('colegiados')">
+            <span class="mi">verified_user</span> ¿Hábil o No Hábil?
+          </a>
+          <a href="#" onclick="navToggle('colegiados');toggleVerify()">
+            <span class="mi">search</span> Consultar Habilidad
+          </a>
+          <a href="/directorio" onclick="navToggle('colegiados')">
+            <span class="mi">contact_page</span> Directorio Profesional
+            <span class="dns-badge">Nuevo</span>
+          </a>
+          <div class="dns-drop-sep"></div>
+          <a href="/login/" onclick="navToggle('colegiados')">
+            <span class="mi">login</span> Acceso Colegiados
+          </a>
+          <a href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REQUISITO-COLEGIADO-ACT.-2024.pdf"
+             target="_blank" rel="noopener" onclick="navToggle('colegiados')">
+            <span class="mi">school</span> Colegiarse
+          </a>
+        </div>
+      </div>
+
+      <!-- Comunidad ▾ -->
+      <div class="dns-group" id="nav-comunidad">
+        <button class="dns-group-btn" onclick="navToggle('comunidad')">
+          <span class="mi sm">campaign</span> Comunidad
+          <span class="mi caret">expand_more</span>
+        </button>
+        <div class="dns-drop">
+          <div class="dns-drop-header">Noticias y eventos</div>
+          <a href="#comunicados" onclick="navToggle('comunidad')">
+            <span class="mi">campaign</span> Comunicados
+          </a>
+          <a href="#capacitacion" onclick="navToggle('comunidad')">
+            <span class="mi">school</span> Capacitaciones
+          </a>
+          <a href="#convenios" onclick="navToggle('comunidad')">
+            <span class="mi">handshake</span> Convenios
+          </a>
+          <a href="#galeria" onclick="navToggle('comunidad')">
+            <span class="mi">photo_library</span> Galería
+          </a>
+          <div class="dns-drop-sep"></div>
+          <a href="/comite-electoral/" onclick="navToggle('comunidad')">
+            <span class="mi">how_to_vote</span> Comité Electoral
+          </a>
+          <a href="/publicaciones/" onclick="navToggle('comunidad')">
+            <span class="mi">menu_book</span> Publicaciones
+          </a>
+        </div>
+      </div>
+
+      <!-- Servicios ▾ -->
+      <div class="dns-group" id="nav-servicios">
+        <button class="dns-group-btn" onclick="navToggle('servicios')">
+          <span class="mi sm">build</span> Servicios
+          <span class="mi caret">expand_more</span>
+        </button>
+        <div class="dns-drop">
+          <div class="dns-drop-header">Servicios del Colegio</div>
+          <a href="#ambientes" onclick="navToggle('servicios')">
+            <span class="mi">stadium</span> Alquiler de Ambientes
+          </a>
+          <a href="/verificar/ccpl" onclick="navToggle('servicios')">
+            <span class="mi">verified</span> Constancia de Habilidad
+          </a>
+          <div class="dns-drop-sep"></div>
+          <a href="#" onclick="navToggle('servicios');alert('Pagos Online — próximamente')">
+            <span class="mi">payments</span> Pagos Online
+            <span class="dns-badge">Pronto</span>
+          </a>
+          <a href="#" onclick="navToggle('servicios');alert('Alertas Tributarias — próximamente')">
+            <span class="mi">notifications_active</span> Alertas Tributarias
+            <span class="dns-badge">Pronto</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Directorio — botón destacado -->
+      <a href="/directorio" class="dns-directorio">
+        <span class="mi sm">contact_page</span> Directorio
+      </a>
+
       <span class="dns"></span>
-      <a href="/consulta/habilidad" style="color:var(--oro2)">
-        <span class="mi sm">search</span> Verificar Habilidad
+
+      <!-- Verificar + Ingresar -->
+      <button class="btn-verificar" style="display:flex" onclick="toggleVerify()">
+        <span class="mi sm">search</span> Verificar
+      </button>
+      <a href="/login/" class="btn-acceder" style="margin-left:8px">
+        <span class="mi sm">login</span> Ingresar
       </a>
-      <a href="/login/" style="color:var(--oro2);font-weight:700">
-        <span class="mi sm">login</span> Acceso Colegiados
-      </a>
+
     </div>
   </nav>
-  <!-- Barra verificar (desplegable, gestionada por verificar.js) -->
+
+  <!-- Barra verificar desplegable -->
   <div class="verify-bar" id="verifyBar">
     <div class="verify-bar-inner">
       <input class="verify-input" id="verifyInput" type="text"
@@ -769,6 +893,7 @@
 ══════════════════════════════════════════════════════ -->
 <!-- ══ SCRIPTS ══════════════════════════════════════ -->
 <script src="/static/js/sites/ccp-loreto.js"></script>   <!-- 1. globals base -->
+<script src="/static/js/sections/nav.js"></script>       <!-- drawer + bottom nav -->
 <script src="/static/js/sections/verificar.js"></script>  <!-- 2. toggleVerify -->
 <script src="/static/js/sections/partials.js"></script>   <!-- 3. abrirPartial -->
 <script src="/static/js/sections/convenios.js"></script>  <!-- 4. tabs -->
