@@ -1,0 +1,261 @@
+<!-- app/templates/partials/pagos.html -->
+<style>
+.pag-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.pag-hero { background:linear-gradient(135deg,#1b4d35,#256847); padding:28px 24px; }
+.pag-hero h2 { font-family:'Playfair Display',serif; font-size:22px; color:white; margin:0 0 6px; font-weight:700; }
+.pag-hero p  { font-size:13px; color:rgba(255,255,255,.6); margin:0; }
+
+.pag-body { padding:20px 16px; }
+
+/* Tabs */
+.pag-tabs { display:flex; gap:0; background:#f0f8f4; border-radius:10px;
+  padding:4px; margin-bottom:20px; }
+.pag-tab {
+  flex:1; padding:10px 8px; border:none; background:none;
+  font-size:12px; font-weight:600; color:#5a7060; border-radius:8px;
+  cursor:pointer; transition:.2s; font-family:inherit; text-align:center;
+}
+.pag-tab.active { background:white; color:#1b4d35;
+  box-shadow:0 2px 8px rgba(0,0,0,.08); }
+
+/* Panels */
+.pag-panel { display:none; }
+.pag-panel.active { display:block; }
+
+/* OpenPay en espera */
+.pag-pronto {
+  background:#fff8e1; border:1px solid #ffe082; border-radius:12px;
+  padding:16px; margin-bottom:18px; display:flex; gap:10px;
+}
+.pag-pronto .mi { font-size:20px; color:#f9a825; flex-shrink:0; margin-top:2px; }
+.pag-pronto strong { display:block; margin-bottom:3px; color:#7a6000; font-size:13px; }
+.pag-pronto span  { font-size:12px; color:#9a8000; line-height:1.6; }
+
+/* Opciones de tipo de pagador */
+.pag-tipo-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+.pag-tipo {
+  border:2px solid #d8e8dc; border-radius:10px; padding:14px 12px;
+  text-align:center; cursor:pointer; transition:.2s; background:white;
+}
+.pag-tipo:hover   { border-color:#1b4d35; background:#f0f8f4; }
+.pag-tipo.sel     { border-color:#1b4d35; background:#e8f5ee; }
+.pag-tipo .mi     { font-size:26px; color:#5a7060; display:block; margin-bottom:6px; }
+.pag-tipo.sel .mi { color:#1b4d35; }
+.pag-tipo span    { font-size:12px; font-weight:600; color:#3a5040; display:block; }
+.pag-tipo span.sub { font-size:11px; color:#7a9080; font-weight:400; margin-top:2px; }
+
+/* Form compartido */
+.pag-field { margin-bottom:10px; }
+.pag-field label { display:block; font-size:11px; font-weight:700;
+  color:#5a7060; margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px; }
+.pag-field input, .pag-field select {
+  width:100%; padding:10px 12px; border:1px solid #d8e8dc; border-radius:8px;
+  font-size:13px; font-family:inherit; color:#1a2e22; background:white;
+  transition:border-color .2s; box-sizing:border-box;
+}
+.pag-field input:focus, .pag-field select:focus { outline:none; border-color:#1b4d35; }
+.pag-field-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+/* Métodos de pago */
+.pag-metodos { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 14px; }
+.pag-metodo {
+  flex:1; min-width:80px; border:2px solid #d8e8dc; border-radius:8px;
+  padding:10px 8px; text-align:center; cursor:pointer; transition:.2s; background:white;
+}
+.pag-metodo:hover { border-color:#1b4d35; }
+.pag-metodo.sel   { border-color:#1b4d35; background:#e8f5ee; }
+.pag-metodo .mi   { font-size:20px; display:block; margin-bottom:4px; color:#5a7060; }
+.pag-metodo.sel .mi { color:#1b4d35; }
+.pag-metodo span  { font-size:11px; font-weight:600; color:#3a5040; }
+
+/* Upload voucher */
+.pag-upload {
+  border:2px dashed #c8e0d0; border-radius:8px; padding:18px;
+  text-align:center; cursor:pointer; background:white; transition:border-color .2s;
+  margin-bottom:10px;
+}
+.pag-upload:hover { border-color:#1b4d35; }
+.pag-upload .mi   { font-size:32px; color:#c8e0d0; display:block; margin-bottom:6px; }
+.pag-upload span  { font-size:12px; color:#5a7060; }
+.pag-upload input { display:none; }
+
+/* Botón */
+.pag-btn {
+  width:100%; padding:13px; background:#1b4d35; color:white;
+  border:none; border-radius:8px; font-size:14px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  gap:8px; transition:background .2s; font-family:inherit;
+}
+.pag-btn:hover { background:#256847; }
+</style>
+
+<div class="pag-wrap">
+  <div class="pag-hero">
+    <h2>Pagos Online</h2>
+    <p>Paga o comunica un pago ya realizado</p>
+  </div>
+
+  <div class="pag-body">
+
+    <!-- Tabs -->
+    <div class="pag-tabs">
+      <button class="pag-tab active" onclick="pagTab('pagar',this)">
+        <span class="mi" style="font-size:14px;vertical-align:middle">payments</span> Pagar ahora
+      </button>
+      <button class="pag-tab" onclick="pagTab('reportar',this)">
+        <span class="mi" style="font-size:14px;vertical-align:middle">receipt_long</span> Reportar pago
+      </button>
+    </div>
+
+    <!-- Panel: Pagar ahora -->
+    <div class="pag-panel active" id="pag-pagar">
+
+      <div class="pag-pronto">
+        <span class="mi">hourglass_top</span>
+        <div>
+          <strong>Pasarela OpenPay — activación próxima</strong>
+          <span>Estamos en proceso de habilitación de credenciales. Pronto podrás pagar directamente desde aquí con tarjeta, Yape o transferencia.</span>
+        </div>
+      </div>
+
+      <!-- Tipo de pagador -->
+      <div class="pag-field">
+        <label>¿Quién realiza el pago?</label>
+      </div>
+      <div class="pag-tipo-row">
+        <div class="pag-tipo sel" onclick="selTipo(this)">
+          <span class="mi">person</span>
+          <span>Colegiado</span>
+          <span class="sub">Paga su propia colegiatura</span>
+        </div>
+        <div class="pag-tipo" onclick="selTipo(this)">
+          <span class="mi">business</span>
+          <span>Empresa</span>
+          <span class="sub">Paga por sus empleados</span>
+        </div>
+      </div>
+
+      <div class="pag-field">
+        <label>DNI / RUC del pagador</label>
+        <input type="text" placeholder="Ingresa tu documento">
+      </div>
+      <div class="pag-field">
+        <label>Concepto de pago</label>
+        <select>
+          <option value="">Seleccionar...</option>
+          <option>Cuota ordinaria mensual</option>
+          <option>Cuotas ordinarias atrasadas</option>
+          <option>Multa por inasistencia</option>
+          <option>Derecho de colegiatura</option>
+          <option>Alquiler de ambientes</option>
+          <option>Capacitación / Seminario</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="pag-field-row">
+        <div class="pag-field">
+          <label>Período (si aplica)</label>
+          <input type="month">
+        </div>
+        <div class="pag-field">
+          <label>Monto (S/)</label>
+          <input type="number" min="0" step="0.50" placeholder="0.00">
+        </div>
+      </div>
+
+      <button class="pag-btn" style="background:#aaa;cursor:not-allowed" disabled>
+        <span class="mi">lock</span> Pasarela en activación — próximamente
+      </button>
+    </div>
+
+    <!-- Panel: Reportar pago ya realizado -->
+    <div class="pag-panel" id="pag-reportar">
+
+      <div class="pag-field">
+        <label>DNI / RUC del pagador</label>
+        <input type="text" placeholder="Documento del que realizó el pago">
+      </div>
+      <div class="pag-field">
+        <label>Concepto de pago</label>
+        <select>
+          <option value="">Seleccionar...</option>
+          <option>Cuota ordinaria mensual</option>
+          <option>Cuotas ordinarias atrasadas</option>
+          <option>Multa por inasistencia</option>
+          <option>Derecho de colegiatura</option>
+          <option>Alquiler de ambientes</option>
+          <option>Capacitación / Seminario</option>
+          <option>Otro</option>
+        </select>
+      </div>
+
+      <div class="pag-field-row">
+        <div class="pag-field">
+          <label>Monto pagado (S/)</label>
+          <input type="number" min="0" step="0.50" placeholder="0.00">
+        </div>
+        <div class="pag-field">
+          <label>Fecha del pago</label>
+          <input type="date">
+        </div>
+      </div>
+
+      <div class="pag-field">
+        <label>Método de pago</label>
+      </div>
+      <div class="pag-metodos">
+        <div class="pag-metodo sel" onclick="selMetodo(this)"><span class="mi">phone_android</span><span>Yape</span></div>
+        <div class="pag-metodo" onclick="selMetodo(this)"><span class="mi">phone_android</span><span>Plin</span></div>
+        <div class="pag-metodo" onclick="selMetodo(this)"><span class="mi">swap_horiz</span><span>Transferencia</span></div>
+        <div class="pag-metodo" onclick="selMetodo(this)"><span class="mi">account_balance</span><span>Depósito</span></div>
+      </div>
+
+      <div class="pag-field">
+        <label>Código de operación</label>
+        <input type="text" placeholder="Número de operación / referencia">
+      </div>
+
+      <div class="pag-field">
+        <label>Adjuntar boucher</label>
+        <label class="pag-upload">
+          <input type="file" accept="image/*,.pdf">
+          <span class="mi">upload</span>
+          <span>Toca para subir imagen del comprobante</span>
+        </label>
+      </div>
+
+      <div class="pag-field">
+        <label>Correo o WhatsApp para confirmación</label>
+        <input type="text" placeholder="Cómo comunicarnos contigo">
+      </div>
+
+      <button class="pag-btn">
+        <span class="mi">send</span> Reportar pago
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function pagTab(id, btn) {
+  document.querySelectorAll('.pag-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.pag-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('pag-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+function selTipo(el) {
+  el.closest('.pag-tipo-row').querySelectorAll('.pag-tipo').forEach(function(t){ t.classList.remove('sel'); });
+  el.classList.add('sel');
+}
+function selMetodo(el) {
+  el.closest('.pag-metodos').querySelectorAll('.pag-metodo').forEach(function(m){ m.classList.remove('sel'); });
+  el.classList.add('sel');
+}
+document.querySelectorAll('.pag-upload input').forEach(function(inp){
+  inp.addEventListener('change', function(){
+    var lbl = inp.closest('.pag-upload').querySelector('span:last-child');
+    if(inp.files.length) lbl.textContent = inp.files[0].name;
+  });
+});
+</script>

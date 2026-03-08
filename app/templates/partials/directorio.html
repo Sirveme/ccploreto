@@ -1,0 +1,131 @@
+<!-- app/templates/partials/directorio.html -->
+<style>
+.dir-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.dir-hero {
+  background:linear-gradient(135deg,#1b4d35,#256847);
+  padding:28px 24px 24px; text-align:center;
+}
+.dir-hero h2 { font-family:'Playfair Display',serif; font-size:22px;
+  color:white; margin:0 0 8px; font-weight:700; }
+.dir-hero p  { font-size:13px; color:rgba(255,255,255,.65); margin:0; }
+
+.dir-body { padding:28px 20px; }
+
+/* Ícono grande central */
+.dir-icon-wrap {
+  text-align:center; margin-bottom:20px;
+}
+.dir-icon-wrap .mi {
+  font-size:64px; color:#d8e8dc;
+}
+
+/* Badge EN DESARROLLO */
+.dir-badge-dev {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#fff8e1; border:1px solid #ffe082;
+  color:#7a6000; font-size:11px; font-weight:700;
+  letter-spacing:1px; text-transform:uppercase;
+  padding:6px 14px; border-radius:20px;
+  margin:0 auto 20px; display:flex; justify-content:center; width:fit-content;
+  margin-left:auto; margin-right:auto;
+}
+.dir-badge-dev .mi { font-size:14px; color:#f9a825; }
+
+.dir-titulo {
+  font-family:'Playfair Display',serif;
+  font-size:20px; font-weight:700; color:#1b4d35;
+  text-align:center; margin-bottom:8px;
+}
+.dir-subtitulo {
+  font-size:14px; color:#5a7060; text-align:center;
+  line-height:1.7; margin-bottom:28px;
+}
+
+/* Sección de etiquetas */
+.dir-tags-label {
+  font-size:11px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:#5a7060;
+  text-align:center; margin-bottom:12px;
+}
+.dir-tags {
+  display:flex; flex-wrap:wrap; gap:8px;
+  justify-content:center; margin-bottom:24px;
+}
+.dir-tag {
+  display:flex; align-items:center; gap:6px;
+  background:white; border:2px solid #c8e0d0;
+  color:#1b4d35; font-size:13px; font-weight:600;
+  padding:8px 14px; border-radius:20px;
+  cursor:default; transition:border-color .2s, background .2s;
+}
+.dir-tag .mi { font-size:16px; color:#2e7d52; }
+.dir-tag:hover { border-color:#1b4d35; background:#e8f5ee; }
+
+/* Aviso próximamente */
+.dir-pronto {
+  background:linear-gradient(135deg,#1b4d35,#256847);
+  border-radius:14px; padding:22px 20px; text-align:center;
+  margin-top:8px;
+}
+.dir-pronto .mi-big { font-size:36px; color:rgba(201,168,76,.6);
+  display:block; margin-bottom:10px; }
+.dir-pronto h3 { font-size:16px; font-weight:700; color:white; margin-bottom:8px; }
+.dir-pronto p  { font-size:13px; color:rgba(255,255,255,.65);
+  margin:0; line-height:1.6; }
+
+/* Acción anticipada para colegiados */
+.dir-accion {
+  margin-top:16px; padding:16px;
+  background:#f0f8f4; border-radius:10px;
+  font-size:13px; color:#3a5040; line-height:1.6;
+  text-align:center;
+}
+.dir-accion strong { color:#1b4d35; }
+.dir-accion a { color:#1b4d35; font-weight:700; }
+</style>
+
+<div class="dir-wrap">
+  <div class="dir-hero">
+    <h2>Directorio Profesional</h2>
+    <p>Conectamos contadores con empresas e instituciones de Loreto</p>
+  </div>
+
+  <div class="dir-body">
+
+    <div class="dir-icon-wrap">
+      <span class="mi">contact_page</span>
+    </div>
+
+    <div class="dir-badge-dev">
+      <span class="mi">build_circle</span> En Desarrollo
+    </div>
+
+    <div class="dir-titulo">Tu vitrina profesional en Loreto</div>
+    <div class="dir-subtitulo">
+      Muy pronto podrás indicar con etiquetas cómo quieres ser encontrado y para qué servicios estás disponible.
+    </div>
+
+    <div class="dir-tags-label">¿Cómo quieres ser encontrado?</div>
+    <div class="dir-tags">
+      <div class="dir-tag"><span class="mi">work</span> Consultoría</div>
+      <div class="dir-tag"><span class="mi">school</span> Enseñanza / Cátedra</div>
+      <div class="dir-tag"><span class="mi">assignment</span> Contratos</div>
+      <div class="dir-tag"><span class="mi">person</span> Independiente</div>
+      <div class="dir-tag"><span class="mi">business</span> Estudio Contable</div>
+      <div class="dir-tag"><span class="mi">gavel</span> Perito</div>
+    </div>
+
+    <div class="dir-pronto">
+      <span class="mi mi-big">notifications_active</span>
+      <h3>Te avisaremos cuando esté disponible</h3>
+      <p>Activa las notificaciones del Colegio para ser de los primeros en publicar tu perfil en el Directorio Profesional.</p>
+    </div>
+
+    <div class="dir-accion">
+      ¿Eres colegiado hábil? <strong>Prepara tu perfil ahora</strong> desde
+      <a href="/login/">Acceso Colegiados</a> → <strong>Mi Perfil</strong>.<br>
+      Cuando el Directorio se active, tu información ya estará lista.
+    </div>
+
+  </div>
+</div>

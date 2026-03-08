@@ -1,0 +1,79 @@
+<!-- app/templates/partials/constancia.html -->
+<style>
+.con-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.con-hero { background:linear-gradient(135deg,#1b4d35,#256847); padding:28px 24px; text-align:center; }
+.con-hero h2 { font-family:'Playfair Display',serif; font-size:22px; color:white; margin:0 0 6px; font-weight:700; }
+.con-hero p  { font-size:13px; color:rgba(255,255,255,.6); margin:0; }
+.con-body { padding:32px 20px; }
+.con-badge {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:#fff3e0; border:1px solid #ffb74d; border-radius:20px;
+  padding:8px 18px; width:fit-content; margin:0 auto 20px;
+  font-size:12px; font-weight:700; color:#e65100; letter-spacing:.5px;
+  text-transform:uppercase;
+}
+.con-badge .mi { font-size:16px; color:#ff9800; }
+.con-titulo { font-family:'Playfair Display',serif; font-size:20px; font-weight:700;
+  color:#1b4d35; text-align:center; margin-bottom:10px; }
+.con-icon { font-size:68px; color:#d8e8dc; display:block; text-align:center; margin-bottom:16px; }
+.con-desc { font-size:14px; color:#5a7060; line-height:1.8; text-align:center; margin-bottom:24px; }
+.con-features { display:grid; gap:10px; }
+.con-feat {
+  display:flex; align-items:flex-start; gap:12px;
+  background:#f0f8f4; border-radius:10px; padding:14px 16px;
+}
+.con-feat .mi { font-size:20px; color:#2e7d52; flex-shrink:0; margin-top:1px; }
+.con-feat-title { font-size:13px; font-weight:700; color:#1b4d35; margin-bottom:2px; }
+.con-feat-desc  { font-size:12px; color:#5a7060; }
+.con-login-hint {
+  margin-top:20px; background:linear-gradient(135deg,#1b4d35,#256847);
+  border-radius:12px; padding:18px 20px; text-align:center;
+}
+.con-login-hint p { font-size:13px; color:rgba(255,255,255,.75); margin-bottom:12px; }
+.con-login-hint a {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#c9a84c; color:#1b4d35; padding:10px 20px;
+  border-radius:6px; font-size:13px; font-weight:700; text-decoration:none;
+}
+</style>
+<div class="con-wrap">
+  <div class="con-hero">
+    <h2>Constancia de Habilidad</h2>
+    <p>Certificación oficial de habilitación profesional</p>
+  </div>
+  <div class="con-body">
+    <span class="mi con-icon">verified</span>
+    <div class="con-badge"><span class="mi">schedule</span> Muy Pronto</div>
+    <div class="con-titulo">Solicitud en línea 24/7</div>
+    <p class="con-desc">
+      Muy pronto podrás solicitar y descargar tu constancia de habilidad directamente desde este portal, sin necesidad de apersonarte al Colegio.
+    </p>
+    <div class="con-features">
+      <div class="con-feat">
+        <span class="mi">qr_code_2</span>
+        <div>
+          <div class="con-feat-title">Con código QR de verificación</div>
+          <div class="con-feat-desc">Las constancias incluirán QR para que terceros validen la autenticidad en línea.</div>
+        </div>
+      </div>
+      <div class="con-feat">
+        <span class="mi">download</span>
+        <div>
+          <div class="con-feat-title">Descarga inmediata en PDF</div>
+          <div class="con-feat-desc">Genera y descarga tu constancia en segundos, una vez estés al día con tus aportes.</div>
+        </div>
+      </div>
+      <div class="con-feat">
+        <span class="mi">share</span>
+        <div>
+          <div class="con-feat-title">Comparte tu constancia digitalmente</div>
+          <div class="con-feat-desc">Envía el link de verificación a empleadores, instituciones o clientes.</div>
+        </div>
+      </div>
+    </div>
+    <div class="con-login-hint">
+      <p>Mientras tanto, puedes verificar tu situación de habilidad desde el portal.</p>
+      <a href="/login/"><span class="mi">login</span> Acceso Colegiados</a>
+    </div>
+  </div>
+</div>

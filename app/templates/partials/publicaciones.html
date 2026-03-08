@@ -1,0 +1,80 @@
+<!-- app/templates/partials/publicaciones.html -->
+<style>
+.pub-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.pub-hero { background:linear-gradient(135deg,#1b4d35,#256847); padding:28px 24px; }
+.pub-hero h2 { font-family:'Playfair Display',serif; font-size:22px; color:white; margin:0 0 6px; font-weight:700; }
+.pub-hero p  { font-size:13px; color:rgba(255,255,255,.6); margin:0; }
+.pub-body { padding:24px 18px; }
+.pub-intro { font-size:14px; color:#3a5040; line-height:1.8; margin-bottom:24px; }
+.pub-form-label {
+  font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+  color:#5a7060; margin-bottom:14px; display:flex; align-items:center; gap:6px;
+}
+.pub-form-label .mi { font-size:17px; color:#2e7d52; }
+.pub-field { margin-bottom:12px; }
+.pub-field label { display:block; font-size:11px; font-weight:700;
+  color:#5a7060; margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px; }
+.pub-field input, .pub-field select, .pub-field textarea {
+  width:100%; padding:10px 12px; border:1px solid #d8e8dc; border-radius:8px;
+  font-size:13px; font-family:inherit; color:#1a2e22; background:white;
+  transition:border-color .2s; box-sizing:border-box;
+}
+.pub-field input:focus, .pub-field select:focus, .pub-field textarea:focus {
+  outline:none; border-color:#1b4d35;
+}
+.pub-field textarea { resize:vertical; min-height:90px; }
+.pub-btn {
+  width:100%; padding:12px; background:#1b4d35; color:white;
+  border:none; border-radius:8px; font-size:14px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  gap:8px; transition:background .2s; font-family:inherit;
+}
+.pub-btn:hover { background:#256847; }
+.pub-nota {
+  margin-top:14px; font-size:12px; color:#7a9080; text-align:center; line-height:1.6;
+}
+</style>
+<div class="pub-wrap">
+  <div class="pub-hero">
+    <h2>Publicaciones</h2>
+    <p>Revista y documentos técnicos del CCPL</p>
+  </div>
+  <div class="pub-body">
+    <p class="pub-intro">
+      El Colegio de Contadores Públicos de Loreto difunde materiales técnicos, normativos y académicos de interés para la comunidad contable. ¿Tienes un tema que quisieras ver publicado?
+    </p>
+
+    <div class="pub-form-label">
+      <span class="mi">lightbulb</span> Sugerir un tema de publicación
+    </div>
+
+    <div class="pub-field">
+      <label>Tu nombre (opcional)</label>
+      <input type="text" placeholder="Contador / Empresa / Institución">
+    </div>
+    <div class="pub-field">
+      <label>Correo para respuesta (opcional)</label>
+      <input type="email" placeholder="correo@ejemplo.com">
+    </div>
+    <div class="pub-field">
+      <label>Área temática</label>
+      <select>
+        <option value="">Seleccionar...</option>
+        <option>Tributación y SUNAT</option>
+        <option>NIIF / Normas contables</option>
+        <option>Auditoría</option>
+        <option>Costos y presupuestos</option>
+        <option>Finanzas empresariales</option>
+        <option>Legislación laboral</option>
+        <option>Tecnología y sistemas contables</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="pub-field">
+      <label>Describe el tema</label>
+      <textarea placeholder="¿Qué te gustaría que se publique? ¿Por qué es relevante para los colegas?"></textarea>
+    </div>
+    <button class="pub-btn"><span class="mi">send</span> Enviar sugerencia</button>
+    <p class="pub-nota">Las sugerencias son revisadas por la Comisión de Publicaciones del Colegio.</p>
+  </div>
+</div>

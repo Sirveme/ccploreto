@@ -1,0 +1,129 @@
+<!-- app/templates/partials/alertas_tributarias.html -->
+<style>
+.at-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.at-hero {
+  background:linear-gradient(135deg,#1b4d35,#256847);
+  padding:28px 24px; position:relative; overflow:hidden;
+}
+.at-hero::before {
+  content:''; position:absolute; top:-30px; right:-30px;
+  width:130px; height:130px; border-radius:50%;
+  background:rgba(201,168,76,.1);
+}
+.at-eyebrow { font-size:10px; font-weight:700; letter-spacing:2px;
+  text-transform:uppercase; color:rgba(201,168,76,.8); margin-bottom:6px; }
+.at-hero h2 { font-family:'Playfair Display',serif; font-size:22px;
+  color:white; margin:0 0 6px; font-weight:700; }
+.at-hero p  { font-size:13px; color:rgba(255,255,255,.6); margin:0; }
+
+.at-body { padding:24px 18px; }
+
+/* Badge exclusivo */
+.at-excl {
+  display:flex; align-items:center; gap:8px;
+  background:#e8f5ee; border:1px solid #a5d6b7; border-radius:10px;
+  padding:12px 16px; margin-bottom:20px;
+}
+.at-excl .mi { font-size:22px; color:#2e7d52; flex-shrink:0; }
+.at-excl strong { font-size:13px; color:#1b4d35; display:block; margin-bottom:2px; }
+.at-excl span   { font-size:12px; color:#5a7060; }
+
+/* Beneficios */
+.at-titulo { font-family:'Playfair Display',serif; font-size:18px;
+  font-weight:700; color:#1b4d35; margin-bottom:16px; }
+.at-lista { list-style:none; padding:0; margin:0 0 24px; }
+.at-lista li {
+  display:flex; gap:12px; align-items:flex-start;
+  padding:12px 0; border-bottom:1px solid #eef4ee;
+}
+.at-lista li:last-child { border-bottom:none; }
+.at-lista li .mi { font-size:20px; color:#2e7d52; flex-shrink:0; margin-top:1px; }
+.at-lista li div strong { display:block; font-size:13px; color:#1b4d35; margin-bottom:2px; }
+.at-lista li div span   { font-size:12px; color:#5a7060; line-height:1.6; }
+
+/* CTA login */
+.at-cta {
+  background:linear-gradient(135deg,#1b4d35,#256847);
+  border-radius:14px; padding:22px 20px; text-align:center;
+}
+.at-cta p { font-size:14px; color:rgba(255,255,255,.75); margin-bottom:14px; line-height:1.6; }
+.at-cta a {
+  display:inline-flex; align-items:center; gap:8px;
+  background:#c9a84c; color:#1b4d35; padding:12px 24px;
+  border-radius:8px; font-size:14px; font-weight:700; text-decoration:none;
+  transition:background .2s;
+}
+.at-cta a:hover { background:#d4b860; }
+
+/* Ya activo hint */
+.at-ya {
+  margin-top:14px; padding:12px 16px;
+  background:#f0f8f4; border-radius:8px;
+  font-size:12px; color:#5a7060; text-align:center;
+  line-height:1.6;
+}
+.at-ya strong { color:#1b4d35; }
+</style>
+
+<div class="at-wrap">
+  <div class="at-hero">
+    <div class="at-eyebrow">Servicio exclusivo</div>
+    <h2>Alertas Tributarias</h2>
+    <p>Mantente al día con las obligaciones tributarias que te afectan</p>
+  </div>
+
+  <div class="at-body">
+
+    <div class="at-excl">
+      <span class="mi">verified_user</span>
+      <div>
+        <strong>Solo para Colegiados Hábiles</strong>
+        <span>Servicio disponible con tu acceso al portal del Colegio</span>
+      </div>
+    </div>
+
+    <div class="at-titulo">¿Qué incluye el servicio?</div>
+
+    <ul class="at-lista">
+      <li>
+        <span class="mi">notifications_active</span>
+        <div>
+          <strong>Alertas de vencimientos SUNAT</strong>
+          <span>Declaraciones mensuales, PDT, PLAME, libros electrónicos y demás obligaciones según tu régimen tributario.</span>
+        </div>
+      </li>
+      <li>
+        <span class="mi">new_releases</span>
+        <div>
+          <strong>Cambios normativos</strong>
+          <span>Resoluciones de Superintendencia, Decretos Supremos y circulares relevantes para la práctica contable.</span>
+        </div>
+      </li>
+      <li>
+        <span class="mi">calendar_today</span>
+        <div>
+          <strong>Calendario tributario mensual</strong>
+          <span>Cronograma de obligaciones del mes para RUC terminados en cualquier dígito.</span>
+        </div>
+      </li>
+      <li>
+        <span class="mi">phone_android</span>
+        <div>
+          <strong>Notificaciones push</strong>
+          <span>Recíbelas directamente en tu celular si instalaste la app del Colegio (añadir a pantalla de inicio).</span>
+        </div>
+      </li>
+    </ul>
+
+    <div class="at-cta">
+      <p>Accede con tu DNI y contraseña para activar las alertas tributarias y gestionar tus preferencias.</p>
+      <a href="/login/"><span class="mi">login</span> Ingresar al portal</a>
+    </div>
+
+    <div class="at-ya">
+      ¿Ya eres colegiado hábil con acceso activo?<br>
+      <strong>Dashboard → Alertas Tributarias</strong> para configurar tus preferencias.
+    </div>
+
+  </div>
+</div>

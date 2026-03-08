@@ -1,0 +1,251 @@
+<!-- app/templates/partials/contacto.html -->
+<style>
+.ct-wrap { font-family:'Source Sans 3',sans-serif; color:#1a2e22; }
+.ct-hero {
+  background:linear-gradient(135deg,#1b4d35,#256847);
+  padding:28px 24px 24px;
+}
+.ct-eyebrow { font-size:10px; font-weight:700; letter-spacing:2px;
+  text-transform:uppercase; color:rgba(201,168,76,.8); margin-bottom:6px; }
+.ct-hero h2 { font-family:'Playfair Display',serif; font-size:22px;
+  color:white; margin:0; font-weight:700; }
+
+.ct-body { padding:20px 16px; }
+
+/* Bloque de contacto */
+.ct-item {
+  display:flex; align-items:flex-start; gap:14px;
+  background:white; border:1px solid #e0ece4; border-radius:12px;
+  padding:16px; margin-bottom:10px;
+  text-decoration:none; color:inherit;
+  transition:box-shadow .2s, transform .2s;
+}
+.ct-item:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); transform:translateY(-1px); }
+.ct-icon {
+  width:44px; height:44px; flex-shrink:0; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+}
+.ct-icon .mi { font-size:22px; }
+.ct-icon.verde  { background:#e8f5ee; } .ct-icon.verde .mi  { color:#1b4d35; }
+.ct-icon.wa     { background:#e8f5e8; } .ct-icon.wa .mi     { color:#25d366; }
+.ct-icon.fb     { background:#e8eaf6; } .ct-icon.fb .mi     { color:#1877f2; }
+.ct-icon.push   { background:#fff3e0; } .ct-icon.push .mi   { color:#f57c00; }
+.ct-icon.mesa   { background:#f3e5f5; } .ct-icon.mesa .mi   { color:#7b1fa2; }
+
+.ct-label { font-size:11px; font-weight:700; letter-spacing:.5px;
+  text-transform:uppercase; color:#5a7060; margin-bottom:3px; }
+.ct-value { font-size:14px; font-weight:600; color:#1b4d35; margin-bottom:2px; }
+.ct-sub   { font-size:12px; color:#7a9080; }
+
+/* Horario */
+.ct-horario {
+  background:#f0f8f4; border-radius:12px; padding:16px; margin-bottom:16px;
+}
+.ct-horario h4 {
+  font-size:12px; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; color:#5a7060; margin-bottom:12px;
+  display:flex; align-items:center; gap:6px;
+}
+.ct-horario h4 .mi { font-size:16px; color:#2e7d52; }
+.ct-hrow {
+  display:flex; justify-content:space-between;
+  font-size:13px; padding:7px 0;
+  border-bottom:1px solid #d8e8dc;
+}
+.ct-hrow:last-child { border-bottom:none; }
+.ct-hrow span:first-child { color:#3a5040; font-weight:600; }
+.ct-hrow span:last-child  { color:#1b4d35; }
+
+/* Separador de sección */
+.ct-sep {
+  font-size:10px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:#aaa;
+  margin:18px 0 10px; padding-bottom:6px;
+  border-bottom:1px solid #eee;
+}
+
+/* Formulario Mesa de Partes */
+.ct-mesa-form { background:#f9fafb; border-radius:12px; padding:16px; }
+.ct-mesa-form h4 {
+  font-size:14px; font-weight:700; color:#1b4d35;
+  margin-bottom:14px; display:flex; align-items:center; gap:8px;
+}
+.ct-mesa-form h4 .mi { font-size:18px; color:#7b1fa2; }
+.ct-field { margin-bottom:10px; }
+.ct-field label { display:block; font-size:11px; font-weight:700;
+  color:#5a7060; margin-bottom:4px; letter-spacing:.3px; text-transform:uppercase; }
+.ct-field input, .ct-field select, .ct-field textarea {
+  width:100%; padding:10px 12px; border:1px solid #d8e8dc;
+  border-radius:8px; font-size:13px; font-family:inherit;
+  color:#1a2e22; background:white;
+  transition:border-color .2s; box-sizing:border-box;
+}
+.ct-field input:focus, .ct-field select:focus, .ct-field textarea:focus {
+  outline:none; border-color:#1b4d35;
+}
+.ct-field textarea { resize:vertical; min-height:80px; }
+.ct-field-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ct-upload {
+  border:2px dashed #c8e0d0; border-radius:8px; padding:16px;
+  text-align:center; cursor:pointer; background:white;
+  transition:border-color .2s; margin-bottom:10px;
+}
+.ct-upload:hover { border-color:#1b4d35; }
+.ct-upload .mi  { font-size:28px; color:#c8e0d0; display:block; margin-bottom:6px; }
+.ct-upload span { font-size:12px; color:#5a7060; }
+.ct-upload input { display:none; }
+.ct-btn-mesa {
+  width:100%; padding:12px; background:#1b4d35; color:white;
+  border:none; border-radius:8px; font-size:14px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  gap:8px; transition:background .2s; font-family:inherit;
+}
+.ct-btn-mesa:hover { background:#256847; }
+
+/* Push notifications */
+.ct-push-info {
+  background:#fff8e1; border:1px solid #ffe082; border-radius:10px;
+  padding:14px 16px; font-size:12px; color:#7a6000; line-height:1.6;
+  display:flex; gap:10px;
+}
+.ct-push-info .mi { font-size:18px; color:#f9a825; flex-shrink:0; margin-top:2px; }
+</style>
+
+<div class="ct-wrap">
+  <div class="ct-hero">
+    <div class="ct-eyebrow">Estamos para ayudarte</div>
+    <h2>Contacto</h2>
+  </div>
+
+  <div class="ct-body">
+
+    <!-- Horario -->
+    <div class="ct-horario">
+      <h4><span class="mi">schedule</span> Horario de Atención</h4>
+      <div class="ct-hrow">
+        <span>Lunes a Viernes</span>
+        <span>8:00 am – 1:00 pm · 4:00 – 7:00 pm</span>
+      </div>
+      <div class="ct-hrow">
+        <span>Sábados</span>
+        <span>8:00 am – 1:00 pm</span>
+      </div>
+      <div class="ct-hrow">
+        <span>Domingos y feriados</span>
+        <span>Cerrado</span>
+      </div>
+    </div>
+
+    <!-- Canales de contacto -->
+    <a class="ct-item" href="mailto:colegiocontadoresp.loreto@gmail.com">
+      <div class="ct-icon verde"><span class="mi">mail</span></div>
+      <div>
+        <div class="ct-label">Correo electrónico</div>
+        <div class="ct-value">colegiocontadoresp.loreto@gmail.com</div>
+        <div class="ct-sub">Respuesta en horario de oficina</div>
+      </div>
+    </a>
+
+    <a class="ct-item" href="tel:+5165242821">
+      <div class="ct-icon verde"><span class="mi">phone</span></div>
+      <div>
+        <div class="ct-label">Teléfono fijo</div>
+        <div class="ct-value">(065) 242821</div>
+        <div class="ct-sub">Iquitos, Loreto</div>
+      </div>
+    </a>
+
+    <a class="ct-item" href="https://wa.me/51979169813?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n" target="_blank" rel="noopener">
+      <div class="ct-icon wa"><span class="mi">chat</span></div>
+      <div>
+        <div class="ct-label">WhatsApp</div>
+        <div class="ct-value">(+51) 979 169 813</div>
+        <div class="ct-sub">Respuesta rápida en horario de oficina</div>
+      </div>
+    </a>
+
+    <a class="ct-item" href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener">
+      <div class="ct-icon fb"><span class="mi">thumb_up</span></div>
+      <div>
+        <div class="ct-label">Facebook</div>
+        <div class="ct-value">@ccploreto.oficial</div>
+        <div class="ct-sub">Noticias, eventos y comunicados</div>
+      </div>
+    </a>
+
+    <!-- Push Notifications -->
+    <div class="ct-sep">Notificaciones</div>
+    <div class="ct-push-info">
+      <span class="mi">notifications_active</span>
+      <div>
+        <strong style="display:block;margin-bottom:4px">Alertas y notificaciones push</strong>
+        Recibe en tu celular comunicados, eventos y alertas tributarias importantes. Instala la app del Colegio desde tu navegador (añadir a pantalla de inicio) para activar las notificaciones gratuitas.
+      </div>
+    </div>
+
+    <!-- Mesa de Partes -->
+    <div class="ct-sep">Mesa de Partes Virtual</div>
+
+    <div class="ct-mesa-form">
+      <h4><span class="mi">inbox</span> Enviar documento al Colegio</h4>
+
+      <div class="ct-field-row">
+        <div class="ct-field">
+          <label>Nombres</label>
+          <input type="text" placeholder="Tus nombres">
+        </div>
+        <div class="ct-field">
+          <label>DNI / RUC</label>
+          <input type="text" placeholder="Documento">
+        </div>
+      </div>
+
+      <div class="ct-field">
+        <label>Correo electrónico</label>
+        <input type="email" placeholder="correo@ejemplo.com">
+      </div>
+
+      <div class="ct-field">
+        <label>Asunto / Tipo de trámite</label>
+        <select>
+          <option value="">Seleccionar...</option>
+          <option>Solicitud de información</option>
+          <option>Reclamo o queja</option>
+          <option>Solicitud de constancia</option>
+          <option>Actualización de datos</option>
+          <option>Solicitud de fraccionamiento</option>
+          <option>Otros</option>
+        </select>
+      </div>
+
+      <div class="ct-field">
+        <label>Descripción</label>
+        <textarea placeholder="Describe brevemente tu solicitud..."></textarea>
+      </div>
+
+      <div class="ct-field">
+        <label>Adjuntar documento (opcional)</label>
+        <label class="ct-upload">
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png">
+          <span class="mi">upload_file</span>
+          <span>Toca para adjuntar PDF o imagen</span>
+        </label>
+      </div>
+
+      <button class="ct-btn-mesa">
+        <span class="mi">send</span> Enviar solicitud
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Upload label
+document.querySelectorAll('.ct-upload input').forEach(function(inp){
+  inp.addEventListener('change', function(){
+    var lbl = inp.closest('.ct-upload').querySelector('span:last-child');
+    if(inp.files.length) lbl.textContent = inp.files[0].name;
+  });
+});
+</script>
