@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
 
-<link rel="stylesheet" href="/static/css/sections/nav-dropdowns.css">
 <!-- Base: tokens, header, hero, footer, layout -->
 <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
+<link rel="stylesheet" href="/static/css/sections/nav-dropdowns.css">
 <!-- Secciones -->
 <link rel="stylesheet" href="/static/css/sections/verificar.css">
 <link rel="stylesheet" href="/static/css/sections/convenios.css">
@@ -191,6 +191,31 @@
     </div>
   </div>
 </header>
+
+
+<!-- ══ BOTTOM NAV (mobile) ══════════════════════════════════════ -->
+<nav class="bottom-nav">
+  <a href="/" class="bnav-item active">
+    <span class="mi">home</span>
+    <span>Inicio</span>
+  </a>
+  <button class="bnav-item" onclick="abrirPartial('institucional')">
+    <span class="mi">account_balance</span>
+    <span>Institución</span>
+  </button>
+  <a href="/login/" class="bnav-item bnav-primary">
+    <span class="mi">login</span>
+    <span>Ingresar</span>
+  </a>
+  <a href="/directorio" class="bnav-item">
+    <span class="mi">contact_page</span>
+    <span>Directorio</span>
+  </a>
+  <button class="bnav-item" onclick="openDrawer()">
+    <span class="mi">menu</span>
+    <span>Menú</span>
+  </button>
+</nav>
 
 <!-- ══ HERO + CARRUSEL ══════════════════════════════ -->
 <section class="hero" id="inicio">
@@ -744,33 +769,126 @@
   </a>
 </nav>
 
-<!-- ══ DRAWER ════════════════════════════════════════ -->
+
+<!-- ══ DRAWER (panel lateral) ══════════════════════════════════ -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="drawer">
+
   <div class="drawer-head">
-    <div class="drawer-logo">Colegio de Contadores<br><span>Públicos de Loreto</span></div>
+    <div class="drawer-logo">
+      Colegio de Contadores<br><span>Públicos de Loreto</span>
+    </div>
     <button class="drawer-close" onclick="closeDrawer()">×</button>
   </div>
+
   <nav class="drawer-nav">
+
+    <!-- Inicio -->
     <a href="/"><span class="mi">home</span> Inicio</a>
-    <a href="/institucional/"><span class="mi">account_balance</span> Institucional</a>
-    <a href="#capacitacion" onclick="closeDrawer()"><span class="mi">school</span> Capacitación</a>
-    <div class="drawer-sec">Servicios</div>
-    <a href="#convenios" onclick="closeDrawer()"><span class="mi">handshake</span> Convenios</a>
-    <a href="#ambientes" onclick="closeDrawer()"><span class="mi">stadium</span> Ambientes</a>
-    <a href="#videos" onclick="closeDrawer()"><span class="mi">play_circle</span> Videos del sistema</a>
-    <div class="drawer-sec">Institucional</div>
-    <a href="#eventos" onclick="closeDrawer()"><span class="mi">event</span> Eventos</a>
-    <a href="#galeria" onclick="closeDrawer()"><span class="mi">photo_library</span> Galería</a>
-    <a href="#comunicados" onclick="closeDrawer()"><span class="mi">campaign</span> Comunicados</a>
-    <a href="/colegiados/"><span class="mi">badge</span> Colegiados</a>
-    <a href="/reglamento/"><span class="mi">gavel</span> Reglamento Interno</a>
-    <a href="/transparencia/"><span class="mi">folder_open</span> Transparencia</a>
-    <div class="drawer-sec">Consultas</div>
-    <a href="/comite-electoral/"><span class="mi">how_to_vote</span> Comité Electoral</a>
+
+    <!-- Verificar habilidad -->
+    <a href="#" onclick="closeDrawer();setTimeout(toggleVerify,300)">
+      <span class="mi">verified_user</span> Verificar Habilidad
+    </a>
+
+    <!-- Directorio -->
+    <a href="/directorio" onclick="closeDrawer()">
+      <span class="mi">contact_page</span> Directorio Profesional
+    </a>
+
+    <!-- Grupo: Institución -->
+    <div class="drawer-group">
+      <button class="drawer-group-btn" onclick="drawerGrupo(this)">
+        Institución <span class="mi">expand_more</span>
+      </button>
+      <div class="drawer-group-body">
+        <a href="#" onclick="closeDrawer();abrirPartial('institucional')">
+          <span class="mi">info</span> Institucional
+        </a>
+        <a href="https://ccploreto.org.pe/consejo-directivo/" target="_blank" rel="noopener">
+          <span class="mi">groups</span> Consejo Directivo
+        </a>
+        <a href="#" onclick="closeDrawer();abrirPartial('transparencia')">
+          <span class="mi">folder_open</span> Transparencia
+        </a>
+        <a href="#contacto" onclick="closeDrawer()">
+          <span class="mi">contact_phone</span> Contacto
+        </a>
+      </div>
+    </div>
+
+    <!-- Grupo: Colegiados -->
+    <div class="drawer-group">
+      <button class="drawer-group-btn" onclick="drawerGrupo(this)">
+        Colegiados <span class="mi">expand_more</span>
+      </button>
+      <div class="drawer-group-body">
+        <a href="#colegiados-info" onclick="closeDrawer()">
+          <span class="mi">verified_user</span> ¿Hábil o No Hábil?
+        </a>
+        <a href="https://ccploreto.org.pe/wp-content/uploads/2025/08/REQUISITO-COLEGIADO-ACT.-2024.pdf"
+           target="_blank" rel="noopener">
+          <span class="mi">school</span> Colegiarse
+        </a>
+        <a href="/login/" onclick="closeDrawer()">
+          <span class="mi">login</span> Acceso Colegiados
+        </a>
+      </div>
+    </div>
+
+    <!-- Grupo: Comunidad -->
+    <div class="drawer-group">
+      <button class="drawer-group-btn" onclick="drawerGrupo(this)">
+        Comunidad <span class="mi">expand_more</span>
+      </button>
+      <div class="drawer-group-body">
+        <a href="#comunicados" onclick="closeDrawer()">
+          <span class="mi">campaign</span> Comunicados
+        </a>
+        <a href="#capacitacion" onclick="closeDrawer()">
+          <span class="mi">school</span> Capacitaciones
+        </a>
+        <a href="#convenios" onclick="closeDrawer()">
+          <span class="mi">handshake</span> Convenios
+        </a>
+        <a href="#galeria" onclick="closeDrawer()">
+          <span class="mi">photo_library</span> Galería
+        </a>
+        <a href="/comite-electoral/" onclick="closeDrawer()">
+          <span class="mi">how_to_vote</span> Comité Electoral
+        </a>
+        <a href="/publicaciones/" onclick="closeDrawer()">
+          <span class="mi">menu_book</span> Publicaciones
+        </a>
+      </div>
+    </div>
+
+    <!-- Grupo: Servicios -->
+    <div class="drawer-group">
+      <button class="drawer-group-btn" onclick="drawerGrupo(this)">
+        Servicios <span class="mi">expand_more</span>
+      </button>
+      <div class="drawer-group-body">
+        <a href="#ambientes" onclick="closeDrawer()">
+          <span class="mi">stadium</span> Alquiler de Ambientes
+        </a>
+        <a href="/verificar/ccpl" onclick="closeDrawer()">
+          <span class="mi">verified</span> Constancia de Habilidad
+        </a>
+        <a href="#" onclick="closeDrawer()">
+          <span class="mi">payments</span> Pagos Online
+        </a>
+        <a href="#" onclick="closeDrawer()">
+          <span class="mi">notifications_active</span> Alertas Tributarias
+        </a>
+      </div>
+    </div>
+
+    <!-- Acceso destacado -->
     <button class="btn-acceder-d" onclick="location.href='/login/'">
       <span class="mi">login</span> Acceso Colegiados
     </button>
+
   </nav>
 </div>
 
