@@ -21,6 +21,17 @@ router = APIRouter(prefix="/consulta", tags=["Público"])
 # Activa con DNI desde 5 dígitos, apellidos desde 3 caracteres
 # Devuelve máx. 10 resultados (solo datos mínimos para la lista)
 # ─────────────────────────────────────────────────────────────
+# ── Agregar en app/routers/consulta.py ─────────────────────────────────
+# Justo después del endpoint /habilidad/verificar que ya tienes
+#
+# IMPORTANTE: verifica que el nombre del campo sea correcto en tu modelo:
+#   Colegiado.apellidos_nombres  ← así está en tu proyecto
+#   Colegiado.dni
+#   Colegiado.codigo_matricula
+#   Colegiado.condicion
+#   Colegiado.organization_id
+
+
 @router.get("/habilidad/buscar")
 async def buscar_colegiado_autocomplete(
     request: Request,
@@ -29,54 +40,48 @@ async def buscar_colegiado_autocomplete(
 ):
     org = request.state.org
     if not org:
-        raise HTTPException(status_code=400, detail="Organización no identificada")
+        return {"resultados": [], "total": 0, "tipo": "error"}
 
     q = q.strip()
+    if not q:
+        return {"resultados": [], "total": 0, "tipo": "vacio"}
 
-    # Detectar criterio: solo dígitos → DNI, cualquier letra → apellidos
     es_dni = q.isdigit()
 
-    # Validar longitud mínima
     if es_dni and len(q) < 5:
-        return {"resultados": [], "tipo": "dni",      "total": 0}
+        return {"resultados": [], "total": 0, "tipo": "dni", "mensaje": "Ingrese al menos 5 dígitos"}
     if not es_dni and len(q) < 3:
-        return {"resultados": [], "tipo": "apellidos", "total": 0}
+        return {"resultados": [], "total": 0, "tipo": "apellidos", "mensaje": "Ingrese al menos 3 letras"}
 
-    # ── Query base ────────────────────────────────────────────────────────
-    base = db.query(
-        Colegiado.codigo_matricula,
-        Colegiado.apellidos_nombres,
-        Colegiado.dni,
-        Colegiado.condicion,
-    ).filter(
-        Colegiado.organization_id == org["id"]
-    )
-
-    if es_dni:
-        # DNI: empieza con los dígitos escritos
-        resultados_raw = (
-            base
-            .filter(Colegiado.dni.ilike(f"{q}%"))
-            .order_by(Colegiado.apellidos_nombres)
-            .limit(10)
-            .all()
-        )
-    else:
-        # Apellidos: contiene el texto, insensible a mayúsculas
-        # ilike es nativo de SQLAlchemy/Postgres — no necesita func.upper()
-        # Filtramos solo registros donde apellidos_nombres no es NULL
-        resultados_raw = (
-            base
-            .filter(
-                Colegiado.apellidos_nombres.isnot(None),
-                Colegiado.apellidos_nombres.ilike(f"%{q}%")
+    try:
+        if es_dni:
+            rows = (
+                db.query(Colegiado)
+                .filter(
+                    Colegiado.organization_id == org["id"],
+                    Colegiado.dni.ilike(f"{q}%")          # empieza con los dígitos
+                )
+                .order_by(Colegiado.apellidos_nombres)
+                .limit(10)
+                .all()
             )
-            .order_by(Colegiado.apellidos_nombres)
-            .limit(10)
-            .all()
-        )
+        else:
+            rows = (
+                db.query(Colegiado)
+                .filter(
+                    Colegiado.organization_id == org["id"],
+                    Colegiado.apellidos_nombres.isnot(None),
+                    Colegiado.apellidos_nombres.ilike(f"%{q}%")   # contiene el texto
+                )
+                .order_by(Colegiado.apellidos_nombres)
+                .limit(10)
+                .all()
+            )
+    except Exception as e:
+        # Log para debug — quitar en producción
+        print(f"ERROR buscar_colegiado: {e}")
+        return {"resultados": [], "total": 0, "tipo": "error", "mensaje": str(e)}
 
-    # ── Mapeo de condición ────────────────────────────────────────────────
     condicion_map = {
         "habil":      ("HÁBIL",    True),
         "vitalicio":  ("HÁBIL",    True),
@@ -86,21 +91,21 @@ async def buscar_colegiado_autocomplete(
     }
 
     resultados = []
-    for r in resultados_raw:
-        cond = (r.condicion or "inhabil").lower()
-        condicion_texto, es_habil = condicion_map.get(cond, ("NO HÁBIL", False))
+    for c in rows:
+        cond = (c.condicion or "inhabil").lower()
+        texto, es_habil = condicion_map.get(cond, ("NO HÁBIL", False))
         resultados.append({
-            "codigo_matricula":  r.codigo_matricula,
-            "apellidos_nombres": r.apellidos_nombres,
-            "dni":               r.dni,
-            "condicion_texto":   condicion_texto,
+            "codigo_matricula":  c.codigo_matricula,
+            "apellidos_nombres": c.apellidos_nombres,
+            "dni":               c.dni,
+            "condicion_texto":   texto,
             "es_habil":          es_habil,
         })
 
     return {
         "resultados": resultados,
-        "tipo":  "dni" if es_dni else "apellidos",
         "total": len(resultados),
+        "tipo": "dni" if es_dni else "apellidos",
     }
 
 
