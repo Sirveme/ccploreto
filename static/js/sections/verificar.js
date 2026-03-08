@@ -110,6 +110,16 @@ var Verificar = (function () {
     ultimaQ = q;
     try {
       var res  = await fetch('/consulta/habilidad/buscar?q=' + encodeURIComponent(q));
+
+      // Si el endpoint no existe o da error, mostrarlo en el dropdown
+      if (!res.ok) {
+        abrirDropdown(
+          '<div style="padding:14px 16px;font-size:12px;color:#c62828;text-align:center">' +
+          'Endpoint no disponible (' + res.status + '). Verifica que /consulta/habilidad/buscar existe.</div>'
+        );
+        return;
+      }
+
       var data = await res.json();
 
       if (!data.resultados || data.resultados.length === 0) {
@@ -163,7 +173,12 @@ var Verificar = (function () {
         });
       });
 
-    } catch (e) { cerrarDropdown(); }
+    } catch (e) {
+      abrirDropdown(
+        '<div style="padding:14px 16px;font-size:12px;color:#c62828;text-align:center">' +
+        'Error al conectar con el servidor. Verifique su conexión.</div>'
+      );
+    }
   }
 
   /* ── Consulta por matrícula (al seleccionar) */
