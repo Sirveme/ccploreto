@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPC. {{ c.apellidos_nombres }} — {{ org.name if org else 'CCPL' }}</title>
+<meta name="description" content="Perfil profesional de {{ c.apellidos_nombres }}, Contador Público Colegiado habilitado.">
+
+<link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
+<link rel="icon" href="{{ org.logo_url if org else '/static/img/favicon.ico' }}">
+<style>
+/* ── Perfil específico ──────────────────── */
+body { background: var(--gris); }
+
+.perfil-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+}
+
+/* Card principal */
+.perfil-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(27,77,53,.1);
+  margin-top: 24px;
+}
+
+.perfil-header {
+  background: linear-gradient(135deg, var(--verde), var(--verde3));
+  padding: 32px 24px 24px;
+  text-align: center;
+  position: relative;
+}
+.perfil-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 30px;
+  background: white;
+  border-radius: 30px 30px 0 0;
+}
+
+.perfil-foto-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+.perfil-foto {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(255,255,255,.3);
+  background: rgba(255,255,255,.1);
+}
+.perfil-foto-placeholder {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.15);
+  display: flex; align-items: center; justify-content: center;
+  border: 4px solid rgba(255,255,255,.2);
+}
+.perfil-foto-placeholder .mi { font-size: 48px; color: rgba(255,255,255,.5); }
+
+.perfil-badge-hab {
+  position: absolute;
+  bottom: 4px; right: -4px;
+  background: #4caf50;
+  border-radius: 50%;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: 3px solid white;
+}
+.perfil-badge-hab .mi { font-size: 14px; color: white; }
+
+.perfil-nombre {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(18px, 4vw, 24px);
+  font-weight: 700;
+  color: white;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.perfil-titulo {
+  font-size: 13px;
+  color: rgba(255,255,255,.7);
+  margin-bottom: 8px;
+}
+.perfil-hab-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(76,175,80,.25);
+  border: 1.5px solid rgba(76,175,80,.5);
+  color: #c8e6c9;
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+}
+.perfil-hab-chip .mi { font-size: 14px; }
+
+/* Cuerpo de la card */
+.perfil-body { padding: 20px 24px 24px; }
+
+.perfil-mat {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--borde);
+  margin-bottom: 20px;
+}
+.perfil-mat span {
+  font-size: 12px; color: var(--txt2);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.perfil-mat span .mi { font-size: 14px; color: var(--verde3); }
+.perfil-mat strong { color: var(--verde); }
+
+/* Secciones del perfil */
+.perfil-section { margin-bottom: 20px; }
+.perfil-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--txt2);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.perfil-section-title .mi { font-size: 14px; color: var(--verde3); }
+
+/* Especialidades */
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  background: var(--verde-lt); color: var(--verde2);
+  padding: 5px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+
+/* Contacto */
+.contacto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+  gap: 8px;
+}
+.contacto-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--gris); border-radius: 8px;
+  font-size: 13px; color: var(--txt);
+  text-decoration: none; transition: background .2s;
+}
+.contacto-item:hover { background: var(--verde-lt); }
+.contacto-item .mi { font-size: 18px; color: var(--verde3); flex-shrink: 0; }
+
+/* Verificar constancia */
+.verificar-strip {
+  background: var(--verde-lt);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.verificar-strip .mi { font-size: 28px; color: var(--verde3); flex-shrink: 0; }
+.verificar-strip p { font-size: 12px; color: var(--txt2); margin-bottom: 6px; }
+.btn-verificar-const {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--verde); color: white; border: none;
+  padding: 8px 14px; border-radius: 6px;
+  font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none;
+}
+
+/* Footer de la card */
+.perfil-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--borde);
+  background: var(--gris);
+  font-size: 11px; color: var(--txt2);
+  text-align: center;
+}
+.perfil-footer a { color: var(--verde3); }
+
+/* Nota legal */
+.nota-legal {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  font-size: 11px; color: var(--txt2);
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.nota-legal .mi { font-size: 14px; color: var(--verde3); flex-shrink: 0; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<!-- Header reutilizado -->
+<header class="header">
+  <div class="header-inner">
+    {% if org and org.logo_url %}
+    <img src="{{ org.logo_url }}" alt="{{ org.name }}" style="height:38px;width:auto;border-radius:6px;flex-shrink:0">
+    {% else %}
+    <div class="logo-mark">CC<br>PL</div>
+    {% endif %}
+    <div class="header-title">
+      <strong>{{ org.name if org else 'Colegio de Contadores Públicos de Loreto' }}</strong>
+      <span>PERFIL PROFESIONAL · COLEGIADO HÁBIL</span>
+    </div>
+    <div class="header-actions">
+      <a href="/" class="btn-acceder" style="background:transparent;border:1.5px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8);font-size:12px;padding:7px 12px">
+        <span class="mi sm">arrow_back</span> Inicio
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="perfil-wrap">
+
+  <!-- Card del colegiado -->
+  <div class="perfil-card">
+
+    <!-- Header de la card -->
+    <div class="perfil-header">
+      <div class="perfil-foto-wrap">
+        {% if c.foto_url %}
+        <img class="perfil-foto" src="{{ c.foto_url }}" alt="Foto de {{ c.apellidos_nombres }}">
+        {% else %}
+        <div class="perfil-foto-placeholder">
+          <span class="mi">person</span>
+        </div>
+        {% endif %}
+        <div class="perfil-badge-hab">
+          <span class="mi">verified</span>
+        </div>
+      </div>
+      <div class="perfil-nombre">CPC. {{ c.apellidos_nombres }}</div>
+      <div class="perfil-titulo">Contador Público Colegiado{% if c.especialidad %} · {{ c.especialidad }}{% endif %}</div>
+      <span class="perfil-hab-chip">
+        <span class="mi">verified</span> HÁBIL
+      </span>
+    </div>
+
+    <!-- Cuerpo -->
+    <div class="perfil-body">
+
+      <!-- Matrícula -->
+      <div class="perfil-mat">
+        <span>
+          <span class="mi">badge</span>
+          Matrícula <strong>{{ c.codigo_matricula }}</strong>
+          &nbsp;·&nbsp;
+          <span class="mi">calendar_today</span>
+          Colegiado desde <strong>{{ c.fecha_colegiatura.strftime('%Y') if c.fecha_colegiatura else '—' }}</strong>
+        </span>
+      </div>
+
+      <!-- Especialidades (si las tiene) -->
+      {% if c.especialidades %}
+      <div class="perfil-section">
+        <div class="perfil-section-title"><span class="mi">workspace_premium</span> Especialidades</div>
+        <div class="tags-wrap">
+          {% for esp in c.especialidades %}
+          <span class="tag">{{ esp }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Resumen profesional -->
+      {% if c.resumen_profesional %}
+      <div class="perfil-section">
+        <div class="perfil-section-title"><span class="mi">person</span> Perfil Profesional</div>
+        <p style="font-size:14px;color:var(--txt2);line-height:1.7">{{ c.resumen_profesional }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Contacto -->
+      <div class="perfil-section">
+        <div class="perfil-section-title"><span class="mi">contact_phone</span> Contacto</div>
+        <div class="contacto-grid">
+          {% if c.telefono_publico %}
+          <a class="contacto-item" href="tel:{{ c.telefono_publico }}">
+            <span class="mi">phone</span> {{ c.telefono_publico }}
+          </a>
+          {% endif %}
+          {% if c.whatsapp_publico %}
+          <a class="contacto-item" href="https://wa.me/51{{ c.whatsapp_publico }}" target="_blank" rel="noopener">
+            <span class="mi">chat</span> WhatsApp
+          </a>
+          {% endif %}
+          {% if c.email_publico %}
+          <a class="contacto-item" href="mailto:{{ c.email_publico }}">
+            <span class="mi">mail</span> {{ c.email_publico }}
+          </a>
+          {% endif %}
+          {% if c.sitio_web %}
+          <a class="contacto-item" href="{{ c.sitio_web }}" target="_blank" rel="noopener">
+            <span class="mi">language</span> Sitio web
+          </a>
+          {% endif %}
+          {% if not c.telefono_publico and not c.email_publico and not c.sitio_web %}
+          <p style="font-size:13px;color:var(--txt2)">Datos de contacto no publicados.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Verificar constancia de habilidad -->
+      <div class="verificar-strip">
+        <span class="mi">verified_user</span>
+        <div>
+          <p>¿Necesitas una constancia oficial de habilidad?</p>
+          <a class="btn-verificar-const" href="/consulta/habilidad">
+            <span class="mi sm">search</span> Verificar habilidad
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /perfil-body -->
+
+    <div class="perfil-footer">
+      Datos publicados con autorización del colegiado ·
+      <a href="/consulta/habilidad">Verificar habilidad</a> ·
+      <a href="/">Volver al inicio</a>
+    </div>
+
+  </div><!-- /perfil-card -->
+
+  <!-- Nota legal -->
+  <div class="nota-legal">
+    <span class="mi">info</span>
+    <span>
+      Este perfil es informativo y ha sido autorizado por el titular.
+      Para constancias oficiales, acérquese a las oficinas del
+      {{ org.name if org else 'Colegio' }} o use el sistema de verificación en línea.
+    </span>
+  </div>
+
+</div><!-- /perfil-wrap -->
+
+<!-- Bottom nav reutilizado -->
+<nav class="bottom-nav">
+  <a href="/" class="bnav-item"><span class="mi">home</span>Inicio</a>
+  <button class="bnav-item" onclick="history.back()"><span class="mi">arrow_back</span>Volver</button>
+  <a href="/consulta/habilidad" class="bnav-item primary"><span class="mi">verified_user</span>Verificar</a>
+  <a href="/login/" class="bnav-item"><span class="mi">login</span>Ingresar</a>
+  <a href="#" class="bnav-item" onclick="window.print()"><span class="mi">print</span>Imprimir</a>
+</nav>
+
+</body>
+</html>
