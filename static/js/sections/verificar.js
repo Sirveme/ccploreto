@@ -19,7 +19,8 @@ var Verificar = (function () {
     verifyInput = document.getElementById('verifyInput');
     if (!verifyInput) return;
 
-    verifyInput.addEventListener('input', onInput);
+    verifyInput.addEventListener('input',  onInput);
+    verifyInput.addEventListener('keyup',   onInput);   // respaldo para teclados móviles
     verifyInput.addEventListener('keydown', onKeydown);
     document.addEventListener('click', function (e) {
       if (verifyBar && !verifyBar.contains(e.target)) cerrarDropdown();
@@ -47,7 +48,6 @@ var Verificar = (function () {
     var esDni  = /^\d+$/.test(q);
     var minLen = esDni ? 5 : 3;
     if (q.length < minLen) { cerrarDropdown(); return; }
-    if (q === ultimaQ) return;
     debTimer = setTimeout(function () { buscarAuto(q); }, 280);
   }
 
