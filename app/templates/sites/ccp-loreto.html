@@ -701,6 +701,19 @@
   </div>
 </div>
 
-<!-- ══ SCRIPTS — en este orden, sin inline ══════════ -->
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/static/js/sites/ccp-loreto.js"></script>
-<script src=
+<!-- ══ SCRIPTS ═════════════════════════════════════════
+     ORDEN IMPORTANTE:
+     1. ccp-loreto.js  → carrusel, drawer, openModal/closeModal (globals)
+     2. verificar.js   → toggleVerify, consultarHabilidad, closeModalHab (globals)
+     3. convenios.js   → tabs
+     4. ambientes.js   → abrirReserva
+     5. videos.js      → openVideo, closeVideo
+══════════════════════════════════════════════════════ -->
+<script src="/static/js/sites/ccp-loreto.js"></script>
+<script src="/static/js/sections/verificar.js"></script>
+<script src="/static/js/sections/convenios.js"></script>
+<script src="/static/js/sections/ambientes.js"></script>
+<script src="/static/js/sections/videos.js"></script>
+
+</body>
+</html>
