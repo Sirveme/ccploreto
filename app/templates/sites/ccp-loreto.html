@@ -1192,31 +1192,63 @@ function toggleVerify(){
   if(bar.classList.contains('open'))document.getElementById('verifyInput').focus();
 }
 async function consultarHabilidad(){
-  const q=document.getElementById('verifyInput').value.trim();
-  if(!q)return;
-  // Llamada real: GET /api/publico/colegiado/habilidad?q=...
-  // Por ahora simulación de respuesta
-  const demo={nombre:'PÉREZ TORRES, JUAN CARLOS',matricula:'10-0245',dni:'12345678',
-    condicion:'habil',autorizo_web:false,foto:'',url_web:''};
-  mostrarResultadoHabilidad(demo);
+  const q = document.getElementById('verifyInput').value.trim();
+  if(q.length < 3){ return; }
+
+  const btn = document.querySelector('.btn-consultar');
+  btn.textContent = '…'; btn.disabled = true;
+
+  try {
+    const res = await fetch('/consulta/habilidad/verificar?q=' + encodeURIComponent(q));
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      mostrarResultadoHabilidad(null, err.detail || 'No se encontró ningún colegiado.');
+      return;
+    }
+    const data = await res.json();
+    if(!data.encontrado){
+      mostrarResultadoHabilidad(null, data.mensaje);
+    } else {
+      mostrarResultadoHabilidad(data.datos);
+    }
+  } catch(e) {
+    mostrarResultadoHabilidad(null, 'Error de conexión. Intente de nuevo.');
+  } finally {
+    btn.textContent = 'Consultar'; btn.disabled = false;
+  }
 }
-function mostrarResultadoHabilidad(d){
-  const st=document.getElementById('habStatus');
-  document.getElementById('habNombre').textContent=d.nombre;
-  document.getElementById('habMatricula').textContent=`Matrícula ${d.matricula} · DNI ${d.dni}`;
-  const es=d.condicion==='habil'||d.condicion==='vitalicio';
-  st.className='hab-status '+(es?'habil':'inhabil');
-  st.querySelector('.mi').textContent=es?'verified':'cancel';
-  document.getElementById('habLabel').textContent=es?'HÁBIL':'INHÁBIL';
-  const wb=document.getElementById('habWeb');
-  if(d.autorizo_web&&d.url_web){
-    document.getElementById('habFoto').src=d.foto||'/static/img/default-avatar.png';
-    document.getElementById('habUrl').href=d.url_web;
-    document.getElementById('habEspecialidad').textContent=d.especialidad||'Contador Público';
-    wb.style.display='flex';
-  } else { wb.style.display='none'; }
+function mostrarResultadoHabilidad(d, errorMsg){
+  const st = document.getElementById('habStatus');
+  const wb = document.getElementById('habWeb');
+
+  if(!d){
+    // No encontrado o error
+    document.getElementById('habNombre').textContent = 'Sin resultado';
+    document.getElementById('habMatricula').textContent = errorMsg || 'No se encontró el colegiado.';
+    st.className = 'hab-status inhabil';
+    st.querySelector('.mi').textContent = 'search_off';
+    document.getElementById('habLabel').textContent = 'NO ENCONTRADO';
+    wb.style.display = 'none';
+  } else {
+    // Datos reales del endpoint
+    document.getElementById('habNombre').textContent   = d.apellidos_nombres;
+    document.getElementById('habMatricula').textContent = 'Matrícula ' + d.codigo_matricula;
+    const esHabil = d.es_habil;
+    st.className = 'hab-status ' + (esHabil ? 'habil' : 'inhabil');
+    st.querySelector('.mi').textContent = esHabil ? 'verified' : 'cancel';
+    document.getElementById('habLabel').textContent = d.condicion_texto;
+    // Sitio web del colegiado (si autorizó)
+    if(d.autorizo_web && d.url_web){
+      document.getElementById('habFoto').src = d.foto_url || '/static/img/default-avatar.png';
+      document.getElementById('habUrl').href = d.url_web;
+      document.getElementById('habEspecialidad').textContent = d.especialidad || 'Contador Público';
+      wb.style.display = 'flex';
+    } else {
+      wb.style.display = 'none';
+    }
+  }
   document.getElementById('modalHab').classList.add('open');
-  document.body.style.overflow='hidden';
+  document.body.style.overflow = 'hidden';
 }
 function closeModalHab(){
   document.getElementById('modalHab').classList.remove('open');
