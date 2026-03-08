@@ -1096,6 +1096,7 @@ async def registrar_egreso(
     datos: EgresoRequest,
     centro_costo_id: int = Query(1),
     db: Session = Depends(get_db),
+    member = Depends(get_current_member),
 ):
     """Registra un egreso de caja. Estado inicial: pendiente."""
     from app.models import SesionCaja, EgresoCaja
@@ -1113,6 +1114,22 @@ async def registrar_egreso(
         raise HTTPException(400, detail="Debe indicar el responsable")
     if not datos.concepto or not datos.concepto.strip():
         raise HTTPException(400, detail="Debe indicar el concepto/motivo")
+    
+    # ── Control de límites ──
+    from app.services.limites_operacion import verificar_limite
+    limite = verificar_limite(
+        db=db,
+        org_id=sesion.organization_id,
+        operacion='registrar_egreso',
+        monto=datos.monto,
+        rol=member.role,
+    )
+    if not limite.permitido:
+        raise HTTPException(status_code=403, detail={
+            "requiere_aprobacion": True,
+            "mensaje": limite.mensaje,
+            "aprobador": limite.aprobador,
+        })
 
     org = db.query(Organization).first()
 
@@ -1372,6 +1389,7 @@ async def historial_cobros(
 async def anular_cobro(
     request: Request,
     db: Session = Depends(get_db),
+    member = Depends(get_current_member),
 ):
     """
     Anula un cobro:
@@ -1396,6 +1414,43 @@ async def anular_cobro(
 
     monto_anular = float(monto) if monto is not None else float(payment.amount)
     es_parcial = abs(monto_anular - float(payment.amount)) > 0.01
+
+    # ── Control de límites ──
+    from app.services.limites_operacion import verificar_limite
+    limite = verificar_limite(
+        db=db,
+        org_id=payment.organization_id,
+        operacion='anular_cobro',
+        monto=monto_anular,
+        rol=member.role,
+    )
+    if not limite.permitido:
+        # Guardar solicitud pendiente para aprobación
+        db.execute(text("""
+            INSERT INTO operaciones_pendientes
+                (organization_id, operacion, monto, solicitado_por,
+                 aprobador_requerido, datos_json, estado, created_at)
+            VALUES
+                (:org, 'anular_cobro', :monto, :solicitado_por,
+                 :aprobador, :datos, 'pendiente', NOW())
+        """), {
+            'org': payment.organization_id,
+            'monto': monto_anular,
+            'solicitado_por': member.id,
+            'aprobador': limite.aprobador,
+            'datos': json.dumps({
+                'payment_id': payment_id,
+                'motivo_codigo': motivo_codigo,
+                'motivo_texto': motivo_texto,
+                'observaciones': observaciones,
+            }),
+        })
+        db.commit()
+        raise HTTPException(status_code=403, detail={
+            "requiere_aprobacion": True,
+            "mensaje": limite.mensaje,
+            "aprobador": limite.aprobador,
+        })
 
     # ── Emitir Nota de Crédito si hay comprobante ──
     nota_credito_info = None
