@@ -26,7 +26,7 @@ async def mesa_partes_dashboard(
     user = db.query(User).filter(User.id == current_member.user_id).first()
     return templates.TemplateResponse("pages/mesa_partes/dashboard.html", {
         "request": request,
-        "user": user,
-        "member": current_member,
+        "user": current_member,   # base.html espera user.organization
+        "user_name": user.name,
         "org": getattr(request.state, "org", {}),
     })

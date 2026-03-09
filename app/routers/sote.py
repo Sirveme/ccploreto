@@ -45,8 +45,8 @@ async def sote_dashboard(
     user = db.query(User).filter(User.id == current_member.user_id).first()
     return templates.TemplateResponse("pages/sote/dashboard.html", {
         "request": request,
-        "user": user,
-        "member": current_member,
+        "user": current_member,   # base.html espera user.organization (Member lo tiene)
+        "user_name": user.name,   # nombre real para mostrar en el header SOTE
         "org": getattr(request.state, "org", {}),
         "theme": getattr(request.state, "theme", None),
     })
