@@ -1,0 +1,66 @@
+{% if usuarios %}
+<table class="sote-table">
+  <thead>
+    <tr>
+      <th>DNI</th>
+      <th>Nombre</th>
+      <th>Rol</th>
+      <th>Último Acceso</th>
+      <th>Accesos</th>
+      <th>Estado</th>
+      <th>Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in usuarios %}
+    <tr>
+      <td style="color:var(--sote-accent);font-weight:600;">{{ u.public_id }}</td>
+      <td>
+        {{ u.name }}
+        {% if u.debe_cambiar_clave %}
+          <span class="flag-cambio" title="Pendiente cambio de clave"></span>
+        {% endif %}
+      </td>
+      <td>
+        <span class="role-badge role-{{ u.role }}">{{ u.role }}</span>
+      </td>
+      <td>
+        {% if u.ultimo_login %}
+          <span class="time-ago">{{ u.ultimo_login.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% else %}
+          <span class="time-never">nunca</span>
+        {% endif %}
+      </td>
+      <td style="color:var(--sote-muted);text-align:center;">{{ u.login_count or 0 }}</td>
+      <td>
+        {% if u.is_active %}
+          <span style="color:var(--sote-green);font-size:10px;">● ACTIVO</span>
+        {% else %}
+          <span style="color:var(--sote-red);font-size:10px;">● INACTIVO</span>
+        {% endif %}
+      </td>
+      <td>
+        <span id="reset-result-{{ u.id }}">
+          <button
+            class="btn-warn"
+            hx-post="/sote/reset-password"
+            hx-vals='{"user_id": {{ u.id }}}'
+            hx-target="#reset-result-{{ u.id }}"
+            hx-swap="innerHTML"
+            hx-confirm="¿Resetear contraseña de {{ u.name }} al DNI {{ u.public_id }}?"
+          >RESET</button>
+        </span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif q %}
+<div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">
+  Sin resultados para "{{ q }}"
+</div>
+{% else %}
+<div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">
+  No hay usuarios de staff registrados aún
+</div>
+{% endif %}
