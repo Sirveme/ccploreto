@@ -31,7 +31,7 @@ async def admin_home(request: Request, member: Member = Depends(get_current_memb
     total_members = db.query(Member).filter(Member.organization_id == member.organization_id).count()
     recent_bulletins = db.query(Bulletin).filter(Bulletin.organization_id == member.organization_id).order_by(Bulletin.created_at.desc()).limit(5).all()
 
-    return templates.TemplateResponse("pages/admin/home_admin.html", {
+    return templates.TemplateResponse("pages/admin/admin-config.html", {
         "request": request,
         "user": member,
         "profiles": my_profiles, # <--- ENVIAR ESTO
