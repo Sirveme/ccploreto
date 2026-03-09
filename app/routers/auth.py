@@ -340,9 +340,13 @@ async def switch_profile(
 # ============================================================
 # HELPER: CREAR COOKIE Y REDIRIGIR
 # ============================================================
+# ============================================================
+# PARCHE: reemplazar create_session_response en app/routers/auth.py
+# ============================================================
+
 def create_session_response(user, member, db=None):
     """Crea la respuesta con cookie de sesión"""
-    
+
     access_token = create_access_token(data={
         "sub": str(member.id),
         "user_id": str(user.id),
@@ -353,17 +357,26 @@ def create_session_response(user, member, db=None):
 
     # Decidir destino según rol
     target_url = "/dashboard"
-    if member.role == "admin": 
+
+    if member.role == "sote":
+        target_url = "/sote"
+    elif member.role == "decano":
+        target_url = "/decano"
+    elif member.role == "admin":
         target_url = "/admin"
-    elif member.role in ["staff", "security"]: 
+    elif member.role in ["staff", "security"]:
         target_url = "/centinela"
     elif member.role in ["cajero", "tesorero"]:
         target_url = "/caja"
+    elif member.role == "secretaria":
+        target_url = "/mesa-partes"
     elif member.role == "colegiado":
-        # Verificar condición
-        col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
-        if col and col.condicion not in ('habil', 'vitalicio'):
-            target_url = "/portal/inactivo"
+        if db:
+            col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
+            if col and col.condicion not in ('habil', 'vitalicio'):
+                target_url = "/portal/inactivo"
+            else:
+                target_url = "/dashboard"
         else:
             target_url = "/dashboard"
 
