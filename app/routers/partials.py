@@ -4,10 +4,9 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 
 router_partials = APIRouter(prefix="/partials", tags=["Partials"])
-templates = Jinja2Templates(directory="app/templates")
-
 PARTIALS = [
     "institucional",
     "transparencia",

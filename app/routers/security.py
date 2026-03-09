@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.database import get_db
@@ -12,8 +13,6 @@ import os
 from zoneinfo import ZoneInfo
 
 router = APIRouter(tags=["security"])
-templates = Jinja2Templates(directory="app/templates")
-
 # 1. VISTA PRINCIPAL
 @router.get("/centinela")
 async def centinela_home(

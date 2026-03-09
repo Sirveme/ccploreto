@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Cookie, HTTPException, status
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Member, Bulletin, Organization, User, Colegiado, Payment
@@ -12,8 +13,6 @@ from app.utils.security import ALGORITHM
 import os
 
 router = APIRouter(tags=["dashboard"])
-templates = Jinja2Templates(directory="app/templates")
-
 SECRET_KEY = os.getenv("SECRET_KEY", "tu-clave-secreta")
 ALGORITHM = "HS256"
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -8,7 +9,6 @@ from app.database import get_db
 from app.models import User, Member, Colegiado
 from app.routers.dashboard import get_current_member
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/decano", tags=["decano"])
 
 

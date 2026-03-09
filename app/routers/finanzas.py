@@ -20,9 +20,8 @@ from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja
 from app.models_debt_management import Debt
 
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from app.routers.dashboard import get_current_member  # igual que en finance.py
-
-templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
 router_views = APIRouter(prefix="/finanzas", tags=["finanzas-views"])

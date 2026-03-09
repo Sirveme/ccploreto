@@ -10,6 +10,7 @@ para reducir el HTML inicial.
 from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,7 +18,6 @@ from app.routers.dashboard import get_current_member
 from app.models import Member, Colegiado, Organization
 from app.config import DEFAULT_THEME, THEMES
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/fragments", tags=["Fragments"])
 
 # Modales permitidos (whitelist de seguridad)

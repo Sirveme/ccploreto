@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.database import get_db
@@ -7,8 +8,6 @@ from app.models import Member, Partner
 from app.routers.dashboard import get_current_member
 
 router = APIRouter(tags=["services"])
-templates = Jinja2Templates(directory="app/templates")
-
 @router.get("/services")
 async def services_home(
     request: Request, 

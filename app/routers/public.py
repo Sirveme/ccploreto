@@ -4,6 +4,7 @@ Rutas públicas - No requieren autenticación
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -11,9 +12,6 @@ from ..database import get_db
 from ..models import Colegiado, Organization
 
 router = APIRouter(prefix="/consulta", tags=["Público"])
-templates = Jinja2Templates(directory="app/templates")
-
-
 @router.get("/habilidad", response_class=HTMLResponse)
 async def pagina_consulta_habilidad(request: Request):
     """Página pública para consultar habilidad"""

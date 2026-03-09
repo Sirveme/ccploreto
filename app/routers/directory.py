@@ -6,10 +6,9 @@ from sqlalchemy import or_
 from app.database import get_db
 from app.models import Member, User, Organization
 from fastapi import HTTPException
+from app.utils.templates import templates
 
 router = APIRouter(tags=["directory"])
-templates = Jinja2Templates(directory="app/templates")
-
 @router.get("/directory/accountants")
 async def public_directory(
     request: Request,

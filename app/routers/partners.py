@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Member, Partner, Organization
@@ -8,8 +9,6 @@ from app.routers.dashboard import get_current_member
 import base64
 
 router = APIRouter(tags=["partners"])
-templates = Jinja2Templates(directory="app/templates")
-
 # --- ADMIN: GUARDAR NUEVO PARTNER ---
 @router.post("/partners/create")
 async def create_partner(

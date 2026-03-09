@@ -6,11 +6,9 @@ Router: Páginas públicas de colegiospro.org.pe
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 
 router = APIRouter(tags=["colegiospro"])
-
-templates = Jinja2Templates(directory="app/templates/colegiospro")
-
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):

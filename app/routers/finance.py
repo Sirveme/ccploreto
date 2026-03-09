@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
 from app.database import get_db
@@ -24,8 +25,6 @@ api_key = os.getenv("OPENAI_API_KEY")
 #print ("🔑 Cargando clave API en finance.py..."+ api_key)
 
 router = APIRouter(tags=["finance"])
-templates = Jinja2Templates(directory="app/templates")
-
 # --- ADMIN: GENERAR CUOTAS MASIVAS ---
 @router.post("/finance/generate-fees")
 async def generate_fees(

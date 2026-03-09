@@ -10,6 +10,7 @@ Router: Autenticación
 from fastapi import APIRouter, Form, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import re
@@ -18,8 +19,6 @@ from app.database import get_db
 from app.models import User, Member, Organization, Colegiado
 from app.utils.security import verify_password, create_access_token, get_password_hash
 from app.routers.dashboard import get_current_member
-
-templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

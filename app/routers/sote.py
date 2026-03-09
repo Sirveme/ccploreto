@@ -24,11 +24,11 @@ from app.models import User, Member, Colegiado
 from app.routers.dashboard import get_current_member
 from app.utils.security import get_password_hash
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/sote", tags=["sote"])
 
 
 from fastapi.responses import Response as FastAPIResponse
+from app.utils.templates import templates
 
 def htmx_aware_redirect(request: Request, url: str):
     """Si es request HTMX, usar HX-Redirect. Si no, redirect normal."""

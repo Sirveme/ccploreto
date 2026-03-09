@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, Member
 from app.routers.dashboard import get_current_member
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/mesa-partes", tags=["mesa_partes"])
 
 

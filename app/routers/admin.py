@@ -3,6 +3,7 @@ import os
 from fastapi import APIRouter, Request, Depends, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models import Member, Bulletin, Device # Importamos modelos nuevos
@@ -11,13 +12,11 @@ from app.routers.ws import manager # Para avisar al websocket
 from pywebpush import webpush, WebPushException
 
 router = APIRouter(tags=["admin"])
-templates = Jinja2Templates(directory="app/templates")
-
 from app.models import Member, Bulletin, Device, Organization # <--- Agrega Organization
 
 @router.get("/admin")
 async def admin_home(request: Request, member: Member = Depends(get_current_member), db: Session = Depends(get_db)):
-    if member.role != "admin":
+    if member.role not in ("admin", "sote"):
         return templates.TemplateResponse("pages/errors/403.html", {"request": request})
     
     current_theme = getattr(request.state, "theme", None)

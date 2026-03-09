@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 import io
 from fastapi.responses import StreamingResponse
+from app.utils.templates import templates
 #from app.services.pdf_cierre_caja import generar_pdf_cierre
 
 from app.database import get_db
@@ -43,7 +44,6 @@ from app.services.facturacion import FacturacionService
 logger = logging.getLogger(__name__)
 
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
 # Router para la página HTML (sin prefix)

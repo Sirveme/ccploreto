@@ -114,6 +114,7 @@ async def buscar_colegiado_autocomplete(
 # prefix="/colegiado"
 
 from fastapi import APIRouter as _APIRouter
+from app.utils.templates import templates
 router_perfil = _APIRouter(prefix="/colegiado", tags=["Perfil Público"])
 
 

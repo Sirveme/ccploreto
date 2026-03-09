@@ -5,6 +5,7 @@ Router: Vistas Admin (HTML)
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -13,9 +14,6 @@ from app.models import Organization, Colegiado, Payment, Member
 from app.routers.dashboard import get_current_member  # <-- Importar de dashboard
 
 router = APIRouter(tags=["admin-views"])
-templates = Jinja2Templates(directory="app/templates")
-
-
 @router.get("/admin/config", response_class=HTMLResponse)
 async def admin_config_page(
     request: Request,
