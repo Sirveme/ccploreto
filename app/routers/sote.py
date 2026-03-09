@@ -127,12 +127,11 @@ async def sote_stats(
 @router.get("/usuarios", response_class=HTMLResponse)
 async def sote_usuarios(
     request: Request,
-    q: str = "",
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_sote),
 ):
+    """Lista completa de staff/directivos (no colegiados) — carga al entrar a la sección"""
     org_id = current_member.organization_id
-
     sql = """
         SELECT u.id, u.public_id, u.name, u.ultimo_login, u.login_count,
                u.debe_cambiar_clave, m.role, m.is_active
@@ -140,20 +139,57 @@ async def sote_usuarios(
         JOIN members m ON m.user_id = u.id
         WHERE m.organization_id = :org
           AND m.role != 'colegiado'
+        ORDER BY m.role, u.name
+        LIMIT 100
     """
-    params = {"org": org_id}
+    usuarios = db.execute(text(sql), {"org": org_id}).fetchall()
+    return templates.TemplateResponse("pages/sote/partials/usuarios.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "q": "",
+    })
 
-    if q and q.strip():
-        sql += " AND (u.public_id ILIKE :q OR u.name ILIKE :q)"
-        params["q"] = f"%{q.strip()}%"
 
-    sql += " ORDER BY m.role, u.name LIMIT 100"
-    usuarios = db.execute(text(sql), params).fetchall()
+@router.get("/usuarios/buscar", response_class=HTMLResponse)
+async def sote_usuarios_buscar(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Autocomplete: devuelve filas coincidentes mientras el usuario escribe"""
+    org_id = current_member.organization_id
+    termino = q.strip()
+
+    if not termino or len(termino) < 1:
+        # Sin término: devolver todos
+        sql = """
+            SELECT u.id, u.public_id, u.name, u.ultimo_login, u.login_count,
+                   u.debe_cambiar_clave, m.role, m.is_active
+            FROM users u
+            JOIN members m ON m.user_id = u.id
+            WHERE m.organization_id = :org
+              AND m.role != 'colegiado'
+            ORDER BY m.role, u.name LIMIT 100
+        """
+        usuarios = db.execute(text(sql), {"org": org_id}).fetchall()
+    else:
+        sql = """
+            SELECT u.id, u.public_id, u.name, u.ultimo_login, u.login_count,
+                   u.debe_cambiar_clave, m.role, m.is_active
+            FROM users u
+            JOIN members m ON m.user_id = u.id
+            WHERE m.organization_id = :org
+              AND m.role != 'colegiado'
+              AND (u.public_id ILIKE :q OR u.name ILIKE :q)
+            ORDER BY m.role, u.name LIMIT 50
+        """
+        usuarios = db.execute(text(sql), {"org": org_id, "q": f"%{termino}%"}).fetchall()
 
     return templates.TemplateResponse("pages/sote/partials/usuarios.html", {
         "request": request,
         "usuarios": usuarios,
-        "q": q,
+        "q": termino,
     })
 
 
