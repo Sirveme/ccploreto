@@ -194,7 +194,7 @@
     </div>
   </div>
   <div class="dec-header-right">
-    <span class="dec-user">{{ user.name }}</span>
+    <span class="dec-user">{{ user_name }}</span>
     <a href="/auth/logout" class="btn-exit">Salir</a>
   </div>
 </header>
@@ -202,7 +202,7 @@
 <main class="dec-main">
 
   <div class="dec-welcome">
-    <h1>Bienvenido, {{ user.name.split()[0] }}</h1>
+    <h1>Bienvenido, {{ user_name.split()[0] }}</h1>
     <p>Panel ejecutivo del Decanato — datos en tiempo real del sistema ColegiosPro</p>
   </div>
 
