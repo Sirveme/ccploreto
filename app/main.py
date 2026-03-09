@@ -37,6 +37,12 @@ from app.routers import consulta
 
 from app.routers.partials import router_partials
 
+
+from app.routers.sote import router as router_sote
+from app.routers.decano import router as router_decano
+from app.routers.mesa_partes import router as router_mesa_partes
+
+
 app = FastAPI(title="Multi-Tenant SaaS")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -175,6 +181,11 @@ app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
 app.include_router(router_partials)
+
+app.include_router(router_sote)
+app.include_router(router_decano)
+app.include_router(router_mesa_partes)
+
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
 for route in app.routes:
