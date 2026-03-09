@@ -39,26 +39,16 @@ from app.routers import consulta
 
 from app.routers.partials import router_partials
 
-
 from app.routers.sote import router as router_sote
 from app.routers.decano import router as router_decano
 from app.routers.mesa_partes import router as router_mesa_partes
 
+from app.utils.templates import templates
 
 app = FastAPI(title="Multi-Tenant SaaS")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
 
-def _fmt_lima(dt):
-    if dt is None:
-        return "nunca"
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    lima = dt + timedelta(hours=-5)
-    return lima.strftime('%d/%m/%Y %H:%M')
-
-templates.env.filters["lima"] = _fmt_lima
 
 # --- MIDDLEWARE INTELIGENTE (Redis + DB) ---
 @app.middleware("http")
