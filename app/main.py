@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 
+from datetime import timezone, timedelta
+
 from jose import jwt
 from .utils.security import ALGORITHM # <--- Importar ALGO
 
@@ -47,6 +49,16 @@ app = FastAPI(title="Multi-Tenant SaaS")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
+def _fmt_lima(dt):
+    if dt is None:
+        return "nunca"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    lima = dt + timedelta(hours=-5)
+    return lima.strftime('%d/%m/%Y %H:%M')
+
+templates.env.filters["lima"] = _fmt_lima
 
 # --- MIDDLEWARE INTELIGENTE (Redis + DB) ---
 @app.middleware("http")
