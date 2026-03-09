@@ -535,28 +535,30 @@
       </div>
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">Directorio de Accesos</span>
-          <span class="htmx-indicator" id="usuarios-loading">cargando...</span>
+          <span class="panel-title">Directorio de Accesos — Staff y Directivos</span>
+          <span class="htmx-indicator" id="usuarios-loading" style="color:var(--sote-muted);font-size:10px;">buscando...</span>
         </div>
         <div class="panel-body">
           <div class="search-row">
             <input
               type="text"
               class="sote-input"
-              placeholder="Buscar por DNI o nombre..."
+              id="input-usuarios"
+              placeholder="Filtrar por DNI o nombre..."
               name="q"
-              hx-get="/sote/usuarios"
-              hx-trigger="keyup changed delay:400ms"
+              hx-get="/sote/usuarios/buscar"
+              hx-trigger="keyup changed delay:300ms, search"
               hx-target="#tabla-usuarios"
-              hx-include="[name='q']"
+              hx-include="this"
               hx-indicator="#usuarios-loading"
             >
             <button
               class="btn-primary"
-              hx-get="/sote/usuarios"
+              hx-get="/sote/usuarios/buscar"
               hx-target="#tabla-usuarios"
+              hx-include="#input-usuarios"
               hx-indicator="#usuarios-loading"
-            >BUSCAR</button>
+            >FILTRAR</button>
           </div>
           <div class="scroll-area">
             <div
@@ -564,7 +566,7 @@
               hx-get="/sote/usuarios"
               hx-trigger="load"
             >
-              <div style="color:var(--sote-muted);font-size:11px;">Cargando usuarios...</div>
+              <div style="color:var(--sote-muted);font-size:11px;padding:12px;">Cargando...</div>
             </div>
           </div>
         </div>
