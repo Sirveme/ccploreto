@@ -28,9 +28,23 @@ templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/sote", tags=["sote"])
 
 
-def require_sote(current_member: Member = Depends(get_current_member)):
-    from fastapi import HTTPException
-    if current_member.role != "sote":
+from fastapi.responses import Response as FastAPIResponse
+
+def htmx_aware_redirect(request: Request, url: str):
+    """Si es request HTMX, usar HX-Redirect. Si no, redirect normal."""
+    from fastapi.responses import RedirectResponse
+    if request.headers.get("HX-Request"):
+        resp = FastAPIResponse(status_code=200)
+        resp.headers["HX-Redirect"] = url
+        return resp
+    return RedirectResponse(url=url, status_code=302)
+
+
+async def require_sote(
+    request: Request,
+    current_member: Member = Depends(get_current_member)
+):
+    if current_member is None or current_member.role != "sote":
         raise HTTPException(status_code=403, detail="Acceso restringido a SOTE")
     return current_member
 
@@ -109,7 +123,7 @@ async def sote_stats(
     })
 
 
-# ── Lista de usuarios ──────────────────────────────────────
+# ── Lista de usuarios (staff + directivos, no colegiados) ──
 @router.get("/usuarios", response_class=HTMLResponse)
 async def sote_usuarios(
     request: Request,
@@ -119,26 +133,70 @@ async def sote_usuarios(
 ):
     org_id = current_member.organization_id
 
-    query = """
+    sql = """
         SELECT u.id, u.public_id, u.name, u.ultimo_login, u.login_count,
                u.debe_cambiar_clave, m.role, m.is_active
         FROM users u
         JOIN members m ON m.user_id = u.id
         WHERE m.organization_id = :org
+          AND m.role != 'colegiado'
     """
     params = {"org": org_id}
 
-    if q:
-        query += " AND (u.public_id ILIKE :q OR u.name ILIKE :q)"
-        params["q"] = f"%{q}%"
+    if q and q.strip():
+        sql += " AND (u.public_id ILIKE :q OR u.name ILIKE :q)"
+        params["q"] = f"%{q.strip()}%"
 
-    query += " ORDER BY u.ultimo_login DESC NULLS LAST LIMIT 100"
-
-    usuarios = db.execute(text(query), params).fetchall()
+    sql += " ORDER BY m.role, u.name LIMIT 100"
+    usuarios = db.execute(text(sql), params).fetchall()
 
     return templates.TemplateResponse("pages/sote/partials/usuarios.html", {
         "request": request,
         "usuarios": usuarios,
+        "q": q,
+    })
+
+
+# ── Buscar colegiado (reutiliza lógica de consulta habilidad) ──
+@router.get("/buscar-colegiado", response_class=HTMLResponse)
+async def sote_buscar_colegiado(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    org_id = current_member.organization_id
+    colegiados = []
+
+    if q and len(q.strip()) >= 2:
+        termino = q.strip()
+        es_dni = termino.isdigit()
+
+        sql = """
+            SELECT c.id, c.codigo_matricula, c.apellidos_nombres, c.dni,
+                   c.condicion, u.id as user_id, u.public_id, u.login_count,
+                   u.ultimo_login, u.debe_cambiar_clave,
+                   m.id as member_id, m.role
+            FROM colegiados c
+            LEFT JOIN members m ON m.id = c.member_id
+            LEFT JOIN users u ON u.id = m.user_id
+            WHERE c.organization_id = :org
+        """
+        params = {"org": org_id}
+
+        if es_dni:
+            sql += " AND c.dni ILIKE :q"
+            params["q"] = f"%{termino}%"
+        else:
+            sql += " AND c.apellidos_nombres ILIKE :q"
+            params["q"] = f"%{termino}%"
+
+        sql += " ORDER BY c.apellidos_nombres LIMIT 30"
+        colegiados = db.execute(text(sql), params).fetchall()
+
+    return templates.TemplateResponse("pages/sote/partials/colegiados.html", {
+        "request": request,
+        "colegiados": colegiados,
         "q": q,
     })
 
