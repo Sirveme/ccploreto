@@ -615,60 +615,52 @@
         <span class="section-title">Reset de Contraseña</span>
         <div class="section-line"></div>
       </div>
-      <div class="two-col">
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Restablecer al DNI</span>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Buscar Colegiado — Restablecer al DNI</span>
+          <span style="color:var(--sote-muted);font-size:10px;">DNI o apellidos · mín. 2 caracteres</span>
+        </div>
+        <div class="panel-body">
+          <p style="color:var(--sote-muted);font-size:11px;margin-bottom:14px;line-height:1.6;">
+            La nueva contraseña será el DNI del colegiado y se activará el flag de cambio obligatorio.
+          </p>
+          <div class="search-row">
+            <input
+              type="text"
+              class="sote-input"
+              id="input-buscar-col"
+              placeholder="DNI (ej: 05316133) o Apellidos (ej: SANTANA)..."
+              name="q"
+              hx-get="/sote/buscar-colegiado"
+              hx-trigger="keyup changed delay:500ms"
+              hx-target="#tabla-colegiados"
+              hx-indicator="#col-loading"
+            >
+            <button
+              class="btn-primary"
+              hx-get="/sote/buscar-colegiado"
+              hx-target="#tabla-colegiados"
+              hx-include="#input-buscar-col"
+              hx-indicator="#col-loading"
+            >BUSCAR</button>
           </div>
-          <div class="panel-body">
-            <p style="color:var(--sote-muted);font-size:11px;margin-bottom:16px;line-height:1.6;">
-              Busca el usuario por DNI o nombre, luego usa el botón RESET en la tabla.<br>
-              La nueva contraseña será el DNI del usuario y se activará el flag de cambio obligatorio.
-            </p>
-            <div class="search-row">
-              <input
-                type="text"
-                class="sote-input"
-                placeholder="DNI o nombre del usuario..."
-                name="q_reset"
-                hx-get="/sote/usuarios"
-                hx-trigger="keyup changed delay:400ms"
-                hx-target="#tabla-reset"
-                hx-include="[name='q_reset']"
-                hx-vals='{"q": ""}'
-              >
-              <button
-                class="btn-primary"
-                hx-get="/sote/usuarios"
-                hx-target="#tabla-reset"
-                hx-include="[name='q_reset']"
-              >BUSCAR</button>
-            </div>
-            <div class="scroll-area" style="max-height:350px;">
-              <div id="tabla-reset">
-                <div style="color:var(--sote-muted);font-size:11px;">Ingresa un DNI o nombre para buscar.</div>
+          <span id="col-loading" class="htmx-indicator" style="margin:8px 0;display:none;">buscando...</span>
+          <div class="scroll-area" style="max-height:420px;margin-top:8px;">
+            <div id="tabla-colegiados">
+              <div style="color:var(--sote-muted);font-size:11px;padding:20px;text-align:center;">
+                Ingresa DNI o apellidos para buscar
               </div>
             </div>
           </div>
         </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Notas de Operación</span>
-          </div>
-          <div class="panel-body">
-            <div style="color:var(--sote-muted);font-size:11px;line-height:1.8;">
-              <div style="color:var(--sote-yellow);margin-bottom:8px;">⚠ ADVERTENCIAS</div>
-              <div>• El reset fuerza cambio de clave en el siguiente login</div>
-              <div>• La clave temporal es el DNI del usuario (8 dígitos)</div>
-              <div>• Úsalo solo para pruebas o cuando el usuario no pueda acceder</div>
-              <div>• Queda registrado en audit_logs automáticamente</div>
-              <br>
-              <div style="color:var(--sote-accent);margin-bottom:8px;">ℹ CASOS DE USO</div>
-              <div>• Probar flujo como colegiado específico</div>
-              <div>• Usuario olvidó su clave</div>
-              <div>• Onboarding de nuevo staff</div>
-            </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-header"><span class="panel-title">Notas</span></div>
+        <div class="panel-body">
+          <div style="color:var(--sote-muted);font-size:11px;line-height:1.8;">
+            <span style="color:var(--sote-yellow);">⚠</span> El reset fuerza cambio de clave en el siguiente login &nbsp;·&nbsp;
+            <span style="color:var(--sote-yellow);">⚠</span> Úsalo para pruebas o recuperación de acceso &nbsp;·&nbsp;
+            <span style="color:var(--sote-accent);">ℹ</span> Colegiados sin cuenta no tienen botón RESET
           </div>
         </div>
       </div>
