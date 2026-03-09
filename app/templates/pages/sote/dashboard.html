@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block container_width %}max-w-full{% endblock %}
 {% block title %}SOTE — Panel de Control{% endblock %}
 
 {% block head_extra %}
@@ -121,7 +122,27 @@
     background: var(--sote-surface);
     border-right: 1px solid var(--sote-border);
     padding: 16px 0;
+    transition: width 0.2s ease;
+    overflow: hidden;
   }
+  .sote-sidebar.collapsed {
+    width: 0 !important;
+    padding: 0;
+    border: none;
+  }
+  .btn-toggle-sidebar {
+    background: transparent;
+    border: 1px solid var(--sote-border);
+    color: var(--sote-muted);
+    width: 28px; height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-toggle-sidebar:hover { border-color: var(--sote-accent); color: var(--sote-accent); }
   .sote-nav-section {
     padding: 8px 16px 4px;
     font-size: 9px;
@@ -445,6 +466,7 @@
     </div>
   </div>
   <div class="sote-header-info">
+    <button class="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mostrar/ocultar menú">☰</button>
     <span><span class="sote-status-dot"></span> SISTEMA ACTIVO</span>
     <span class="sote-user-badge">{{ user_name | upper }}</span>
     <a href="/auth/logout" class="btn-logout">⏻ SALIR</a>
@@ -681,6 +703,11 @@ setInterval(updateClock, 1000);
 function setActiveFilter(btn) {
   btn.closest('.filter-row').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+}
+
+// ── Toggle sidebar ─────────────────────────────────────────
+function toggleSidebar() {
+  document.querySelector('.sote-sidebar').classList.toggle('collapsed');
 }
 
 // ── HTMX: pasar q_reset como q ──────────────────────────────
