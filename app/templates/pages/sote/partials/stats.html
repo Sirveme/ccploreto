@@ -1,0 +1,72 @@
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-label">Colegiados Total</div>
+    <div class="stat-value">{{ stats.colegiados.total }}</div>
+    <div class="stat-sub">{{ stats.colegiados.habiles }} hábiles · {{ stats.colegiados.vitalicios }} vitalicios</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label">Usuarios Activos Hoy</div>
+    <div class="stat-value">{{ stats.usuarios.activos_hoy }}</div>
+    <div class="stat-sub">{{ stats.usuarios.activos_semana }} en los últimos 7 días</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-label">Deudas Pendientes</div>
+    <div class="stat-value">{{ stats.deudas.pendientes }}</div>
+    <div class="stat-sub">S/ {{ "%.2f"|format(stats.deudas.monto_pendiente) }} por cobrar</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-label">Pagos (30 días)</div>
+    <div class="stat-value">{{ stats.pagos_30d.total }}</div>
+    <div class="stat-sub">S/ {{ "%.2f"|format(stats.pagos_30d.monto) }} recaudados</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Estado de Colegiados</span>
+    </div>
+    <div class="panel-body">
+      <table class="sote-table">
+        <tr>
+          <td style="color:var(--sote-green);">● Hábiles</td>
+          <td style="text-align:right;font-weight:700;color:var(--sote-green);">{{ stats.colegiados.habiles }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--sote-accent);">● Vitalicios</td>
+          <td style="text-align:right;font-weight:700;color:var(--sote-accent);">{{ stats.colegiados.vitalicios }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--sote-red);">● Inhábiles</td>
+          <td style="text-align:right;font-weight:700;color:var(--sote-red);">{{ stats.colegiados.inhabiles }}</td>
+        </tr>
+        <tr style="border-top:1px solid var(--sote-border);">
+          <td style="color:var(--sote-muted);">Total</td>
+          <td style="text-align:right;font-weight:700;">{{ stats.colegiados.total }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Accesos al Sistema</span>
+    </div>
+    <div class="panel-body">
+      <table class="sote-table">
+        <tr>
+          <td style="color:var(--sote-green);">● Hoy</td>
+          <td style="text-align:right;font-weight:700;color:var(--sote-green);">{{ stats.usuarios.activos_hoy }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--sote-accent);">● Última semana</td>
+          <td style="text-align:right;font-weight:700;color:var(--sote-accent);">{{ stats.usuarios.activos_semana }}</td>
+        </tr>
+        <tr>
+          <td style="color:var(--sote-muted);">Total usuarios</td>
+          <td style="text-align:right;font-weight:700;">{{ stats.usuarios.total }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>

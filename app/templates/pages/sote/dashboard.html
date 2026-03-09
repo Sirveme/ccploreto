@@ -1,0 +1,694 @@
+{% extends "base.html" %}
+{% block title %}SOTE — Panel de Control{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --sote-bg:       #0a0e17;
+    --sote-surface:  #111827;
+    --sote-card:     #1a2235;
+    --sote-border:   #1e3a5f;
+    --sote-accent:   #00d4ff;
+    --sote-accent2:  #ff6b35;
+    --sote-green:    #00ff88;
+    --sote-yellow:   #ffd700;
+    --sote-red:      #ff4444;
+    --sote-text:     #e2e8f0;
+    --sote-muted:    #64748b;
+    --sote-font:     'JetBrains Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--sote-bg);
+    color: var(--sote-text);
+    font-family: var(--sote-font);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────── */
+  .sote-header {
+    background: var(--sote-surface);
+    border-bottom: 1px solid var(--sote-border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .sote-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sote-logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--sote-accent), #0066ff);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+  }
+  .sote-logo-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sote-accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .sote-logo-sub {
+    font-size: 10px;
+    color: var(--sote-muted);
+    letter-spacing: 1px;
+  }
+  .sote-header-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 11px;
+    color: var(--sote-muted);
+  }
+  .sote-status-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sote-green);
+    box-shadow: 0 0 6px var(--sote-green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .sote-user-badge {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: var(--sote-accent);
+    font-size: 11px;
+  }
+  .btn-logout {
+    background: transparent;
+    border: 1px solid var(--sote-border);
+    color: var(--sote-muted);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    font-size: 11px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-logout:hover {
+    border-color: var(--sote-red);
+    color: var(--sote-red);
+  }
+
+  /* ── Layout ──────────────────────────────── */
+  .sote-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* ── Sidebar ──────────────────────────────── */
+  .sote-sidebar {
+    background: var(--sote-surface);
+    border-right: 1px solid var(--sote-border);
+    padding: 16px 0;
+  }
+  .sote-nav-section {
+    padding: 8px 16px 4px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--sote-muted);
+    text-transform: uppercase;
+  }
+  .sote-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    color: var(--sote-muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .sote-nav-item:hover, .sote-nav-item.active {
+    color: var(--sote-text);
+    background: rgba(0, 212, 255, 0.05);
+    border-left-color: var(--sote-accent);
+  }
+  .sote-nav-item.active { color: var(--sote-accent); }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+  /* ── Main content ─────────────────────────── */
+  .sote-main {
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  /* ── Section title ────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--sote-text);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--sote-border);
+  }
+
+  /* ── Stats grid ───────────────────────────── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.blue::before  { background: var(--sote-accent); }
+  .stat-card.green::before { background: var(--sote-green); }
+  .stat-card.orange::before { background: var(--sote-accent2); }
+  .stat-card.yellow::before { background: var(--sote-yellow); }
+  .stat-label {
+    font-size: 10px;
+    color: var(--sote-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-card.blue .stat-value  { color: var(--sote-accent); }
+  .stat-card.green .stat-value { color: var(--sote-green); }
+  .stat-card.orange .stat-value { color: var(--sote-accent2); }
+  .stat-card.yellow .stat-value { color: var(--sote-yellow); }
+  .stat-sub {
+    font-size: 10px;
+    color: var(--sote-muted);
+  }
+
+  /* ── Panels ───────────────────────────────── */
+  .panel {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--sote-border);
+    background: rgba(0,0,0,0.2);
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--sote-accent);
+  }
+  .panel-body { padding: 16px; }
+
+  /* ── Search bar ───────────────────────────── */
+  .search-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .sote-input {
+    background: var(--sote-bg);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-text);
+    padding: 7px 12px;
+    border-radius: 4px;
+    font-family: var(--sote-font);
+    font-size: 12px;
+    flex: 1;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .sote-input:focus { border-color: var(--sote-accent); }
+  .sote-input::placeholder { color: var(--sote-muted); }
+
+  .btn-primary {
+    background: var(--sote-accent);
+    color: #000;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { background: #00b8d9; }
+
+  .btn-warn {
+    background: transparent;
+    color: var(--sote-accent2);
+    border: 1px solid var(--sote-accent2);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    font-size: 10px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .btn-warn:hover { background: rgba(255,107,53,0.15); }
+
+  /* ── Table ────────────────────────────────── */
+  .sote-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .sote-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--sote-muted);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--sote-border);
+    font-weight: 600;
+  }
+  .sote-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(30,58,95,0.5);
+    vertical-align: middle;
+  }
+  .sote-table tr:last-child td { border-bottom: none; }
+  .sote-table tr:hover td { background: rgba(0,212,255,0.04); }
+
+  /* ── Badges ───────────────────────────────── */
+  .role-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .role-sote      { background: rgba(0,212,255,0.15); color: var(--sote-accent); border: 1px solid rgba(0,212,255,0.3); }
+  .role-admin     { background: rgba(255,107,53,0.15); color: var(--sote-accent2); border: 1px solid rgba(255,107,53,0.3); }
+  .role-decano    { background: rgba(255,215,0,0.15); color: var(--sote-yellow); border: 1px solid rgba(255,215,0,0.3); }
+  .role-tesorero  { background: rgba(0,255,136,0.15); color: var(--sote-green); border: 1px solid rgba(0,255,136,0.3); }
+  .role-cajero    { background: rgba(0,255,136,0.10); color: #7fffb5; border: 1px solid rgba(0,255,136,0.2); }
+  .role-secretaria{ background: rgba(160,100,255,0.15); color: #c084fc; border: 1px solid rgba(160,100,255,0.3); }
+  .role-colegiado { background: rgba(100,116,139,0.15); color: var(--sote-muted); border: 1px solid rgba(100,116,139,0.3); }
+
+  .badge-ok    { color: var(--sote-green); font-size: 11px; }
+  .badge-error { color: var(--sote-red); font-size: 11px; }
+  .badge-warn  { color: var(--sote-yellow); font-size: 11px; }
+
+  .flag-cambio {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sote-yellow);
+    box-shadow: 0 0 4px var(--sote-yellow);
+    margin-left: 4px;
+    vertical-align: middle;
+    title: "Debe cambiar clave";
+  }
+
+  /* ── Tabs ─────────────────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--sote-border);
+    padding-bottom: 0;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--sote-muted);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    font-size: 11px;
+    letter-spacing: 1px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--sote-text); }
+  .tab-btn.active { color: var(--sote-accent); border-bottom-color: var(--sote-accent); }
+
+  /* ── Filter btns ──────────────────────────── */
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    background: var(--sote-bg);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-muted);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    font-size: 10px;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--sote-accent);
+    color: var(--sote-accent);
+    background: rgba(0,212,255,0.07);
+  }
+
+  /* ── Loading indicator ────────────────────── */
+  .htmx-indicator { display: none; color: var(--sote-muted); font-size: 11px; }
+  .htmx-request .htmx-indicator { display: inline; }
+
+  /* ── Scrollable areas ─────────────────────── */
+  .scroll-area { max-height: 400px; overflow-y: auto; }
+  .scroll-area::-webkit-scrollbar { width: 4px; }
+  .scroll-area::-webkit-scrollbar-track { background: transparent; }
+  .scroll-area::-webkit-scrollbar-thumb { background: var(--sote-border); border-radius: 2px; }
+
+  /* ── Time display ─────────────────────────── */
+  .time-ago { color: var(--sote-muted); font-size: 11px; }
+  .time-never { color: #374151; font-style: italic; }
+
+  /* ── Two col layout ───────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) {
+    .sote-layout { grid-template-columns: 1fr; }
+    .sote-sidebar { display: none; }
+    .sote-main { padding: 16px; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div style="font-family: 'JetBrains Mono', monospace;">
+
+<!-- Header -->
+<header class="sote-header">
+  <div class="sote-logo">
+    <div class="sote-logo-icon">⚙</div>
+    <div>
+      <div class="sote-logo-text">SOTE</div>
+      <div class="sote-logo-sub">SOPORTE TÉCNICO — CCPL</div>
+    </div>
+  </div>
+  <div class="sote-header-info">
+    <span><span class="sote-status-dot"></span> SISTEMA ACTIVO</span>
+    <span class="sote-user-badge">{{ user.name | upper }}</span>
+    <a href="/auth/logout" class="btn-logout">⏻ SALIR</a>
+  </div>
+</header>
+
+<div class="sote-layout">
+
+  <!-- Sidebar -->
+  <nav class="sote-sidebar">
+    <div class="sote-nav-section">Inspección</div>
+    <a class="sote-nav-item active" onclick="showSection('stats')" href="#">
+      <span class="nav-icon">◈</span> Dashboard
+    </a>
+    <a class="sote-nav-item" onclick="showSection('usuarios')" href="#">
+      <span class="nav-icon">◉</span> Usuarios
+    </a>
+    <a class="sote-nav-item" onclick="showSection('activos')" href="#">
+      <span class="nav-icon">◎</span> Sesiones
+    </a>
+
+    <div class="sote-nav-section" style="margin-top:12px;">Mantenimiento</div>
+    <a class="sote-nav-item" onclick="showSection('reset')" href="#">
+      <span class="nav-icon">⟳</span> Reset Password
+    </a>
+
+    <div class="sote-nav-section" style="margin-top:12px;">Sistema</div>
+    <a class="sote-nav-item" href="/admin" target="_blank">
+      <span class="nav-icon">⬡</span> Admin Panel
+    </a>
+    <a class="sote-nav-item" href="/caja" target="_blank">
+      <span class="nav-icon">⬡</span> Caja
+    </a>
+    <a class="sote-nav-item" href="/finanzas/dashboard" target="_blank">
+      <span class="nav-icon">⬡</span> Finanzas
+    </a>
+  </nav>
+
+  <!-- Main -->
+  <main class="sote-main">
+
+    <!-- ═══ SECTION: STATS ═══ -->
+    <section id="section-stats">
+      <div class="section-header">
+        <span class="section-title">Dashboard</span>
+        <div class="section-line"></div>
+        <span id="clock" style="color:var(--sote-muted);font-size:11px;"></span>
+      </div>
+
+      <!-- Stats cargadas via HTMX -->
+      <div
+        hx-get="/sote/stats"
+        hx-trigger="load"
+        hx-target="this"
+        hx-swap="innerHTML"
+      >
+        <div style="color:var(--sote-muted);font-size:11px;padding:20px 0;">Cargando estadísticas...</div>
+      </div>
+    </section>
+
+    <!-- ═══ SECTION: USUARIOS ═══ -->
+    <section id="section-usuarios" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">Usuarios del Sistema</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Directorio de Accesos</span>
+          <span class="htmx-indicator" id="usuarios-loading">cargando...</span>
+        </div>
+        <div class="panel-body">
+          <div class="search-row">
+            <input
+              type="text"
+              class="sote-input"
+              placeholder="Buscar por DNI o nombre..."
+              name="q"
+              hx-get="/sote/usuarios"
+              hx-trigger="keyup changed delay:400ms"
+              hx-target="#tabla-usuarios"
+              hx-include="[name='q']"
+              hx-indicator="#usuarios-loading"
+            >
+            <button
+              class="btn-primary"
+              hx-get="/sote/usuarios"
+              hx-target="#tabla-usuarios"
+              hx-indicator="#usuarios-loading"
+            >BUSCAR</button>
+          </div>
+          <div class="scroll-area">
+            <div
+              id="tabla-usuarios"
+              hx-get="/sote/usuarios"
+              hx-trigger="load"
+            >
+              <div style="color:var(--sote-muted);font-size:11px;">Cargando usuarios...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SECTION: ACTIVOS ═══ -->
+    <section id="section-activos" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">Sesiones Recientes</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Actividad de Accesos</span>
+        </div>
+        <div class="panel-body">
+          <div class="filter-row">
+            <button class="filter-btn active"
+              hx-get="/sote/activos?horas=24"
+              hx-target="#tabla-activos"
+              onclick="setActiveFilter(this)">ÚLTIMAS 24h</button>
+            <button class="filter-btn"
+              hx-get="/sote/activos?horas=168"
+              hx-target="#tabla-activos"
+              onclick="setActiveFilter(this)">ÚLTIMA SEMANA</button>
+            <button class="filter-btn"
+              hx-get="/sote/activos?horas=720"
+              hx-target="#tabla-activos"
+              onclick="setActiveFilter(this)">ÚLTIMO MES</button>
+          </div>
+          <div class="scroll-area">
+            <div
+              id="tabla-activos"
+              hx-get="/sote/activos?horas=24"
+              hx-trigger="load"
+            >
+              <div style="color:var(--sote-muted);font-size:11px;">Cargando...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SECTION: RESET PASSWORD ═══ -->
+    <section id="section-reset" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">Reset de Contraseña</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Restablecer al DNI</span>
+          </div>
+          <div class="panel-body">
+            <p style="color:var(--sote-muted);font-size:11px;margin-bottom:16px;line-height:1.6;">
+              Busca el usuario por DNI o nombre, luego usa el botón RESET en la tabla.<br>
+              La nueva contraseña será el DNI del usuario y se activará el flag de cambio obligatorio.
+            </p>
+            <div class="search-row">
+              <input
+                type="text"
+                class="sote-input"
+                placeholder="DNI o nombre del usuario..."
+                name="q_reset"
+                hx-get="/sote/usuarios"
+                hx-trigger="keyup changed delay:400ms"
+                hx-target="#tabla-reset"
+                hx-include="[name='q_reset']"
+                hx-vals='{"q": ""}'
+              >
+              <button
+                class="btn-primary"
+                hx-get="/sote/usuarios"
+                hx-target="#tabla-reset"
+                hx-include="[name='q_reset']"
+              >BUSCAR</button>
+            </div>
+            <div class="scroll-area" style="max-height:350px;">
+              <div id="tabla-reset">
+                <div style="color:var(--sote-muted);font-size:11px;">Ingresa un DNI o nombre para buscar.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Notas de Operación</span>
+          </div>
+          <div class="panel-body">
+            <div style="color:var(--sote-muted);font-size:11px;line-height:1.8;">
+              <div style="color:var(--sote-yellow);margin-bottom:8px;">⚠ ADVERTENCIAS</div>
+              <div>• El reset fuerza cambio de clave en el siguiente login</div>
+              <div>• La clave temporal es el DNI del usuario (8 dígitos)</div>
+              <div>• Úsalo solo para pruebas o cuando el usuario no pueda acceder</div>
+              <div>• Queda registrado en audit_logs automáticamente</div>
+              <br>
+              <div style="color:var(--sote-accent);margin-bottom:8px;">ℹ CASOS DE USO</div>
+              <div>• Probar flujo como colegiado específico</div>
+              <div>• Usuario olvidó su clave</div>
+              <div>• Onboarding de nuevo staff</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</div><!-- end font wrapper -->
+
+<script>
+// ── Navegación entre secciones ──────────────────────────────
+function showSection(name) {
+  document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
+  document.getElementById('section-' + name).style.display = 'block';
+  document.querySelectorAll('.sote-nav-item').forEach(i => i.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+// ── Reloj ───────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ` +
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Filter buttons ──────────────────────────────────────────
+function setActiveFilter(btn) {
+  btn.closest('.filter-row').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── HTMX: pasar q_reset como q ──────────────────────────────
+document.addEventListener('htmx:configRequest', function(evt) {
+  if (evt.detail.parameters.q_reset !== undefined) {
+    evt.detail.parameters.q = evt.detail.parameters.q_reset;
+    delete evt.detail.parameters.q_reset;
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% if activos %}
+<table class="sote-table">
+  <thead>
+    <tr>
+      <th>DNI</th>
+      <th>Nombre</th>
+      <th>Rol</th>
+      <th>Último Acceso</th>
+      <th>Ingresos</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in activos %}
+    <tr>
+      <td style="color:var(--sote-accent);font-weight:600;">{{ u.public_id }}</td>
+      <td>{{ u.name }}</td>
+      <td><span class="role-badge role-{{ u.role }}">{{ u.role }}</span></td>
+      <td><span class="time-ago">{{ u.ultimo_login.strftime('%d/%m/%Y %H:%M') }}</span></td>
+      <td style="color:var(--sote-muted);text-align:center;">{{ u.login_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">
+  Sin actividad en el período seleccionado
+</div>
+{% endif %}

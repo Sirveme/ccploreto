@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Decano — Panel Ejecutivo{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --dec-bg:      #0f0a00;
+    --dec-surface: #1a1200;
+    --dec-card:    #221800;
+    --dec-border:  #3d2e00;
+    --dec-gold:    #d4a017;
+    --dec-gold2:   #f0c040;
+    --dec-text:    #f5e6c8;
+    --dec-muted:   #8a7040;
+    --dec-green:   #4caf50;
+    --dec-red:     #ef5350;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--dec-bg); color: var(--dec-text); font-family: 'Georgia', serif; min-height: 100vh; }
+
+  .dec-header {
+    background: var(--dec-surface);
+    border-bottom: 1px solid var(--dec-border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dec-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .dec-seal {
+    width: 40px; height: 40px;
+    border: 2px solid var(--dec-gold);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    color: var(--dec-gold);
+  }
+  .dec-brand-text {
+    font-size: 13px;
+    color: var(--dec-gold2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .dec-brand-sub {
+    font-size: 10px;
+    color: var(--dec-muted);
+    font-style: italic;
+  }
+  .dec-header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--dec-muted);
+    font-family: 'Georgia', serif;
+  }
+  .dec-user {
+    color: var(--dec-gold);
+    font-size: 13px;
+  }
+  .btn-exit {
+    color: var(--dec-muted);
+    text-decoration: none;
+    font-size: 12px;
+    border: 1px solid var(--dec-border);
+    padding: 4px 12px;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .btn-exit:hover { color: var(--dec-red); border-color: var(--dec-red); }
+
+  .dec-main { padding: 32px; max-width: 1100px; margin: 0 auto; }
+
+  .dec-welcome {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--dec-border);
+  }
+  .dec-welcome h1 {
+    font-size: 24px;
+    color: var(--dec-gold2);
+    font-weight: normal;
+    margin-bottom: 6px;
+  }
+  .dec-welcome p {
+    color: var(--dec-muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .kpi-card {
+    background: var(--dec-card);
+    border: 1px solid var(--dec-border);
+    border-top: 3px solid var(--dec-gold);
+    padding: 20px;
+    border-radius: 2px;
+  }
+  .kpi-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--dec-muted);
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-size: 32px;
+    color: var(--dec-gold2);
+    font-weight: normal;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-detail { font-size: 11px; color: var(--dec-muted); font-style: italic; }
+
+  .dec-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:700px) { .dec-section { grid-template-columns: 1fr; } }
+
+  .dec-panel {
+    background: var(--dec-card);
+    border: 1px solid var(--dec-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .dec-panel-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--dec-border);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--dec-gold);
+    background: rgba(0,0,0,0.3);
+  }
+  .dec-panel-body { padding: 18px; }
+
+  .dec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dec-table td { padding: 8px 4px; border-bottom: 1px solid rgba(61,46,0,0.5); }
+  .dec-table tr:last-child td { border-bottom: none; }
+  .dec-table .label { color: var(--dec-muted); font-style: italic; }
+  .dec-table .value { text-align: right; color: var(--dec-gold2); font-size: 15px; }
+
+  .access-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--dec-gold);
+    color: var(--dec-gold);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: all 0.2s;
+    margin: 4px;
+    font-family: 'Georgia', serif;
+  }
+  .access-btn:hover { background: rgba(212,160,23,0.1); color: var(--dec-gold2); }
+
+  .dev-notice {
+    background: rgba(212,160,23,0.08);
+    border: 1px solid rgba(212,160,23,0.25);
+    border-left: 3px solid var(--dec-gold);
+    padding: 12px 16px;
+    border-radius: 2px;
+    font-size: 12px;
+    color: var(--dec-muted);
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="dec-header">
+  <div class="dec-brand">
+    <div class="dec-seal">⚖</div>
+    <div>
+      <div class="dec-brand-text">Decanato — CCPL</div>
+      <div class="dec-brand-sub">Colegio de Contadores Públicos de Loreto</div>
+    </div>
+  </div>
+  <div class="dec-header-right">
+    <span class="dec-user">{{ user.name }}</span>
+    <a href="/auth/logout" class="btn-exit">Salir</a>
+  </div>
+</header>
+
+<main class="dec-main">
+
+  <div class="dec-welcome">
+    <h1>Bienvenido, {{ user.name.split()[0] }}</h1>
+    <p>Panel ejecutivo del Decanato — datos en tiempo real del sistema ColegiosPro</p>
+  </div>
+
+  <!-- KPIs cargados via HTMX -->
+  <div
+    hx-get="/decano/kpis"
+    hx-trigger="load"
+    hx-target="this"
+    hx-swap="innerHTML"
+  >
+    <div style="color:var(--dec-muted);font-size:12px;font-style:italic;margin-bottom:24px;">Cargando indicadores...</div>
+  </div>
+
+  <div class="dev-notice">
+    ℹ Este panel ejecutivo está en desarrollo. Próximamente incluirá gráficas de recaudación mensual,
+    comparativo de habilitaciones por período, alertas financieras automáticas y exportación de reportes.
+  </div>
+
+  <div class="dec-section">
+    <!-- Accesos rápidos -->
+    <div class="dec-panel">
+      <div class="dec-panel-header">Accesos Rápidos</div>
+      <div class="dec-panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
+        <a href="/finanzas/dashboard" class="access-btn">📊 Finanzas</a>
+        <a href="/caja" class="access-btn">💰 Caja</a>
+        <a href="/admin" class="access-btn">⚙ Administración</a>
+        <a href="/directorio" class="access-btn">📋 Directorio</a>
+        <a href="/dashboard" class="access-btn">👤 Mi Perfil</a>
+      </div>
+    </div>
+
+    <!-- Mi información como colegiado -->
+    <div class="dec-panel">
+      <div class="dec-panel-header">Mi Estado como Colegiado</div>
+      <div class="dec-panel-body">
+        <div
+          hx-get="/decano/mi-estado"
+          hx-trigger="load"
+          hx-target="this"
+          hx-swap="innerHTML"
+        >
+          <div style="color:var(--dec-muted);font-size:12px;font-style:italic;">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+{% endblock %}

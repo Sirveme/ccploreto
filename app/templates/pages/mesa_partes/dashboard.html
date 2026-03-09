@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Mesa de Partes — CCPL{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --mp-bg:      #0d1117;
+    --mp-surface: #161b22;
+    --mp-card:    #1c2230;
+    --mp-border:  #243044;
+    --mp-accent:  #7c9cbf;
+    --mp-text:    #cdd5e0;
+    --mp-muted:   #4a5568;
+    --mp-green:   #56a98e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--mp-bg); color: var(--mp-text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  .mp-header {
+    background: var(--mp-surface);
+    border-bottom: 1px solid var(--mp-border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mp-brand { display: flex; align-items: center; gap: 12px; }
+  .mp-icon {
+    width: 34px; height: 34px;
+    background: rgba(124,156,191,0.15);
+    border: 1px solid var(--mp-accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .mp-brand-text { font-size: 14px; color: var(--mp-accent); font-weight: 600; }
+  .mp-brand-sub { font-size: 10px; color: var(--mp-muted); }
+  .mp-user-info { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--mp-muted); }
+  .mp-username { color: var(--mp-text); font-size: 13px; }
+  .btn-salir {
+    color: var(--mp-muted);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--mp-border);
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .btn-salir:hover { color: #ef5350; border-color: #ef5350; }
+
+  .mp-main { padding: 32px; max-width: 900px; margin: 0 auto; }
+
+  /* Hero en desarrollo */
+  .wip-hero {
+    background: var(--mp-card);
+    border: 1px solid var(--mp-border);
+    border-radius: 8px;
+    padding: 48px 40px;
+    text-align: center;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .wip-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--mp-accent), transparent);
+    animation: scan 3s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%,100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  .wip-badge {
+    display: inline-block;
+    background: rgba(124,156,191,0.12);
+    border: 1px solid rgba(124,156,191,0.35);
+    color: var(--mp-accent);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .wip-title {
+    font-size: 26px;
+    font-weight: 300;
+    color: var(--mp-text);
+    margin-bottom: 10px;
+  }
+  .wip-sub {
+    font-size: 14px;
+    color: var(--mp-muted);
+    max-width: 480px;
+    margin: 0 auto 28px;
+    line-height: 1.6;
+  }
+
+  /* Features preview */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .feature-card {
+    background: var(--mp-card);
+    border: 1px solid var(--mp-border);
+    border-radius: 6px;
+    padding: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .feature-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .feature-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mp-text);
+    margin-bottom: 4px;
+  }
+  .feature-desc {
+    font-size: 11px;
+    color: var(--mp-muted);
+    line-height: 1.5;
+  }
+  .feature-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(86,169,142,0.12);
+    color: var(--mp-green);
+    border: 1px solid rgba(86,169,142,0.25);
+  }
+
+  /* Accesos disponibles ahora */
+  .available-panel {
+    background: var(--mp-card);
+    border: 1px solid var(--mp-border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .available-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--mp-border);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--mp-accent);
+    background: rgba(0,0,0,0.2);
+  }
+  .available-body { padding: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .avail-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(124,156,191,0.07);
+    border: 1px solid var(--mp-border);
+    color: var(--mp-text);
+    text-decoration: none;
+    font-size: 12px;
+    border-radius: 5px;
+    transition: all 0.2s;
+  }
+  .avail-btn:hover { border-color: var(--mp-accent); background: rgba(124,156,191,0.12); }
+  .avail-btn .ico { font-size: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="mp-header">
+  <div class="mp-brand">
+    <div class="mp-icon">📬</div>
+    <div>
+      <div class="mp-brand-text">Mesa de Partes</div>
+      <div class="mp-brand-sub">Secretaría — CCPL</div>
+    </div>
+  </div>
+  <div class="mp-user-info">
+    <span class="mp-username">{{ user.name }}</span>
+    <a href="/auth/logout" class="btn-salir">Salir</a>
+  </div>
+</header>
+
+<main class="mp-main">
+
+  <!-- Hero en desarrollo -->
+  <div class="wip-hero">
+    <div class="wip-badge">En Desarrollo</div>
+    <h1 class="wip-title">Módulo de Mesa de Partes</h1>
+    <p class="wip-sub">
+      Este módulo está siendo construido. Pronto podrás gestionar trámites,
+      constancias, comunicaciones y colegiados desde aquí.
+    </p>
+  </div>
+
+  <!-- Funciones previstas -->
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📋</div>
+      <div>
+        <div class="feature-title">Gestión de Trámites</div>
+        <div class="feature-desc">Registro y seguimiento de solicitudes de colegiados. Estado, historial y resolución.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎓</div>
+      <div>
+        <div class="feature-title">Constancias y Certificados</div>
+        <div class="feature-desc">Emisión de constancias de habilidad. Verificación de identidad y entrega presencial.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📢</div>
+      <div>
+        <div class="feature-title">Comunicaciones</div>
+        <div class="feature-desc">Envío de avisos, notificaciones y mensajes masivos a colegiados o grupos.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">👥</div>
+      <div>
+        <div class="feature-title">Directorio de Colegiados</div>
+        <div class="feature-desc">Búsqueda, edición de datos y actualización de condición de cualquier colegiado.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💳</div>
+      <div>
+        <div class="feature-title">Reportes de Pago</div>
+        <div class="feature-desc">Visualización de pagos pendientes y comprobantes emitidos. Sin acceso a caja.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <div>
+        <div class="feature-title">Agenda y Reservas</div>
+        <div class="feature-desc">Gestión de citas, ambientes y eventos institucionales.</div>
+        <span class="feature-tag">próximamente</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accesos disponibles ahora -->
+  <div class="available-panel">
+    <div class="available-header">Disponible Ahora</div>
+    <div class="available-body">
+      <a href="/consulta/habilidad" class="avail-btn">
+        <span class="ico">🔍</span> Consultar Habilidad
+      </a>
+      <a href="/directorio" class="avail-btn">
+        <span class="ico">📋</span> Directorio Profesional
+      </a>
+      <a href="/" class="avail-btn">
+        <span class="ico">🌐</span> Portal Público
+      </a>
+    </div>
+  </div>
+
+</main>
+{% endblock %}
