@@ -37,7 +37,7 @@
       </td>
       <td>
         {% if c.ultimo_login %}
-          <span class="time-ago">{{ c.ultimo_login.strftime('%d/%m/%y %H:%M') }}</span>
+          <span class="time-ago">{{ c.ultimo_login | lima }}</span>
         {% else %}
           <span class="time-never">nunca</span>
         {% endif %}

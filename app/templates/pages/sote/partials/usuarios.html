@@ -26,7 +26,7 @@
       </td>
       <td>
         {% if u.ultimo_login %}
-          <span class="time-ago">{{ u.ultimo_login.strftime('%d/%m/%Y %H:%M') }}</span>
+          <span class="time-ago">{{ u.ultimo_login | lima }}</span>
         {% else %}
           <span class="time-never">nunca</span>
         {% endif %}

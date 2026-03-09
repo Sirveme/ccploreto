@@ -15,7 +15,7 @@
       <td style="color:var(--sote-accent);font-weight:600;">{{ u.public_id }}</td>
       <td>{{ u.name }}</td>
       <td><span class="role-badge role-{{ u.role }}">{{ u.role }}</span></td>
-      <td><span class="time-ago">{{ u.ultimo_login.strftime('%d/%m/%Y %H:%M') }}</span></td>
+      <td><span class="time-ago">{{ u.ultimo_login | lima }}</span></td>
       <td style="color:var(--sote-muted);text-align:center;">{{ u.login_count }}</td>
     </tr>
     {% endfor %}
