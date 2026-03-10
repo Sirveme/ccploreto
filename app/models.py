@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, JSON, Float, Enum, Date, Numeric, Table, Index, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -31,7 +32,8 @@ class Organization(Base):
     
     # CONFIGURACIÓN DEL PLAN (Ventas)
     # Ej: { "plan": "pro", "modules": {"panic": true, "access": true, "voting": false} }
-    config = Column(JSON, default={}) 
+    #config = Column(JSON, default={}) 
+    config = Column(JSONB, default={})
     
     theme_color = Column(String, default="#6366f1")
     logo_url = Column(String)
