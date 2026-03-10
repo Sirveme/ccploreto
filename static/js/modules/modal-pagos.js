@@ -42,6 +42,8 @@ window.ModalPagos = {
         if (a === 'quitar')         this._quitarDelCarrito(id);
         if (a === 'pagar-carrito')  this._pagarCarrito();
         if (a === 'fraccionar')     this._abrirFraccionamiento();
+        if (a === 'pagar-online')       this._pagarDeudaOnline(id);
+        if (a === 'pagar-cuotas-online') this._pagarCuotasOnline();
     },
 
     // ── ABRIR ─────────────────────────────────────────────────
@@ -202,8 +204,13 @@ window.ModalPagos = {
                             ${d.monto_original && d.monto_original !== d.balance
                                 ? `<small>de S/ ${this._fmt(d.monto_original)}</small>` : ''}
                         </span>
-                        <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}">
-                            <i class="ph ph-credit-card"></i> Pagar
+                        <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}"
+                                title="Pago en ventanilla o POS">
+                            <i class="ph ph-buildings"></i> Ventanilla
+                        </button>
+                        <button class="mp-btn-pagar-online" data-accion="pagar-online" data-id="${d.id}"
+                                title="Pago con tarjeta en línea - OpenPay">
+                            <i class="ph ph-credit-card"></i> En línea
                         </button>
                     </div>
                 </div>`).join('');
@@ -314,9 +321,15 @@ window.ModalPagos = {
                     ${this._calcularResultadoCuotas(pendientes, montoCuota, descPct, mesInicio, anio)}
                 </div>
 
-                <button class="mp-btn-pagar-cuotas" data-accion="pagar-cuotas">
-                    <i class="ph ph-credit-card"></i>
-                    Pagar S/ <span id="mp-monto-cuotas">${montoDefault}</span>
+                <button class="mp-btn-pagar-cuotas" data-accion="pagar-cuotas"
+                        title="Registrar pago en ventanilla">
+                    <i class="ph ph-buildings"></i> Pagar en ventanilla
+                </button>
+                <button class="mp-btn-pagar-cuotas mp-btn-pagar-cuotas-online"
+                        data-accion="pagar-cuotas-online"
+                        style="background:#3b82f6;color:#fff;margin-top:.4rem"
+                        title="Pagar con tarjeta en línea">
+                    <i class="ph ph-credit-card"></i> Pagar en línea — OpenPay
                 </button>
             </div>`;
     },
@@ -558,6 +571,125 @@ window.ModalPagos = {
             },
         });
         this._cerrar();
+    },
+
+    // ── PAGAR DEUDA INDIVIDUAL EN LÍNEA (OpenPay) ──────────────
+    _pagarDeudaOnline(id) {
+        const deuda = this.data?.deudas?.find(d => d.id === id);
+        if (!deuda) return;
+        this._iniciarPagoOpenpay([id], deuda.balance);
+    },
+
+    // ── PAGAR CUOTAS ORDINARIAS EN LÍNEA (OpenPay) ─────────────
+    _pagarCuotasOnline() {
+        const ci  = this.data?.colegiado?.cuotas_info;
+        if (!ci) return;
+        const sel   = document.getElementById('mp-n-cuotas');
+        const n     = parseInt(sel?.value) || ci.cuotas_pendientes;
+        const monto = parseFloat(document.getElementById('mp-monto-cuotas')?.textContent)
+                    || (n * ci.monto_cuota);
+        // Cuotas online: pasamos monto, sin debt_ids específicos (el backend los resuelve)
+        this._iniciarPagoOpenpay([], monto, { tipo: 'cuotas_ordinarias', cantidad: n });
+    },
+
+    // ── NÚCLEO: llamar a /pagos/openpay/iniciar via fetch ───────
+    async _iniciarPagoOpenpay(deudaIds, monto, extra = {}) {
+        this._cerrar();
+
+        // Toast de inicio
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Conectando con pasarela de pago...', 'info');
+        }
+
+        // Mostrar overlay de espera
+        const overlay = document.createElement('div');
+        overlay.id = 'openpay-overlay';
+        overlay.style.cssText = `
+            position:fixed;inset:0;background:rgba(0,0,0,.75);
+            display:flex;flex-direction:column;align-items:center;
+            justify-content:center;gap:16px;z-index:9999;
+        `;
+        overlay.innerHTML = `
+            <div style="width:48px;height:48px;border:4px solid #334155;
+                border-top-color:#3b82f6;border-radius:50%;
+                animation:openpay-spin .8s linear infinite"></div>
+            <div style="color:#f1f5f9;font-size:15px;font-weight:600">
+                Preparando pago seguro...
+            </div>
+            <div style="color:#64748b;font-size:13px">
+                S/ ${parseFloat(monto).toFixed(2)}
+            </div>
+            <style>
+                @keyframes openpay-spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+        document.body.appendChild(overlay);
+
+        try {
+            const body = new FormData();
+            body.append('deuda_ids', deudaIds.join(','));
+            // Si no hay IDs específicos (cuotas ordinarias), pasar monto directo
+            if (deudaIds.length === 0 && extra.tipo) {
+                body.append('tipo_pago', extra.tipo);
+                body.append('cantidad_cuotas', extra.cantidad || 1);
+            }
+
+            const resp = await fetch('/pagos/openpay/iniciar', {
+                method:  'POST',
+                headers: { 'HX-Request': 'true' },
+                body,
+            });
+
+            // Si el backend devuelve HX-Redirect, seguirlo
+            const hxRedirect = resp.headers.get('HX-Redirect');
+            if (hxRedirect) {
+                window.location.href = hxRedirect;
+                return;
+            }
+
+            // Si devuelve HTML con error, mostrarlo
+            const html = await resp.text();
+            if (html.includes('alerta-error') || !resp.ok) {
+                overlay.remove();
+                const errDiv = document.createElement('div');
+                errDiv.style.cssText = `
+                    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+                    background:#1e293b;border:1px solid #ef4444;border-radius:10px;
+                    padding:14px 20px;color:#fca5a5;font-size:13px;
+                    max-width:380px;z-index:9999;text-align:center;
+                `;
+                errDiv.innerHTML = `⚠ No se pudo conectar con la pasarela. Intenta nuevamente.<br>
+                    <button onclick="this.parentElement.remove()"
+                        style="margin-top:8px;background:transparent;border:1px solid #475569;
+                        color:#94a3b8;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px">
+                        Cerrar
+                    </button>`;
+                document.body.appendChild(errDiv);
+                setTimeout(() => errDiv.remove(), 8000);
+                return;
+            }
+
+            // Si llegó aquí con 200 y redirect normal
+            if (resp.redirected) {
+                window.location.href = resp.url;
+                return;
+            }
+
+            // Fallback: el servidor debería haber redirigido
+            overlay.remove();
+            if (typeof Toast !== 'undefined') {
+                Toast.show('Respuesta inesperada del servidor. Intenta nuevamente.', 'warning');
+            }
+
+        } catch (err) {
+            overlay.remove();
+            console.error('OpenPay error:', err);
+            if (typeof Toast !== 'undefined') {
+                Toast.show('Error de conexión. Verifica tu internet e intenta nuevamente.', 'error');
+            }
+        }
     },
 
     _abrirFraccionamiento() {
