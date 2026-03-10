@@ -21,6 +21,7 @@ from app.models_debt_management import Debt
 from app.routers.ws import manager
 from app.services.emitir_certificado_service import emitir_certificado_automatico
 from app.services.deuda_cuotas_service import calcular_deuda_total as _svc_deuda_total
+from app.services.evaluar_habilidad import evaluar_habilidad
 
 import io
 from fastapi.responses import StreamingResponse
@@ -159,20 +160,33 @@ async def consultar_deuda(
     deuda_info = calcular_deuda_total(db, colegiado.id)
     beneficio = obtener_beneficio_aplicable(org, deuda_info["total"])
     
+    # Evaluar habilidad con reglas configurables
+    eval_hab = evaluar_habilidad(deuda_info, org, colegiado)
+
     return {
         "encontrado": True,
         "colegiado": {
-            "id": colegiado.id,
-            "dni": colegiado.dni,
-            "codigo_matricula": colegiado.codigo_matricula,
+            "id":                colegiado.id,
+            "dni":               colegiado.dni,
+            "codigo_matricula":  colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
-            "condicion": colegiado.condicion,
-            "email": colegiado.email,
-            "telefono": colegiado.telefono
+            "condicion":         colegiado.condicion,
+            "email":             colegiado.email,
+            "telefono":          colegiado.telefono,
         },
-        "deuda": deuda_info,
+        "deuda":     deuda_info,
         "beneficio": beneficio,
-        "metodos_pago": get_org_finanzas_config(org, "metodos_pago", [])
+        "metodos_pago": get_org_finanzas_config(org, "metodos_pago", []),
+        # ── Evaluación de habilidad para el frontend ──────────
+        "evaluacion": {
+            "debe_portal_inactivo": eval_hab.debe_inhabilitar,
+            "motivo":               eval_hab.motivo,
+            "cuotas_vencidas":      eval_hab.cuotas_vencidas,
+            "deuda_otras":          eval_hab.deuda_otras,
+            "tiene_fracc":          eval_hab.tiene_fracc,
+            "umbral_cuotas":        eval_hab.umbral_cuotas,
+            "umbral_monto_otras":   eval_hab.umbral_monto_otras,
+        },
     }
 
 
