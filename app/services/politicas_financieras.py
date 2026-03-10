@@ -57,6 +57,17 @@ CONFIG_DEFECTO = {
         "dias_gracia": 5,               # Días después del vencimiento antes de inhabilitar
     },
 
+    # ── Habilidad colegiada ──
+    # Reglas configurables por organización.
+    # X: cuotas ordinarias vencidas que inhabilitan
+    # Y: monto de otras deudas que inhabilitan (None = regla desactivada)
+    "habilidad": {
+        "cuotas_para_inhabilitar":        3,     # X — CCPL: 3 cuotas
+        "monto_otras_para_inhabilitar": None,    # Y — CCPL: pendiente definir
+        # Nota CCPL: cuando Y quede definido, actualizar aquí o en config JSONB de la org.
+        # La config JSONB tiene prioridad sobre este default.
+    },
+
     # ── Caja ──
     "fondo_fijo_caja": 200.00,          # Fondo con que abre cada caja
     "max_diferencia_caja": 10.00,        # Diferencia aceptable en cierre
