@@ -35,6 +35,9 @@ from app.services.openpay_service import (
     APP_BASE_URL,
 )
 
+#para el HANDLER de webhook, que no tiene autenticación ni sesión, se valida el webhook con la firma de OpenPay y se procesa igual aunque falle la verificación (queda en revisión manual).
+from fastapi.responses import PlainTextResponse
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["openpay"])
 
@@ -550,3 +553,18 @@ async def pago_resultado_publico(
         "pago":    pago,
         "org":     org or {},
     })
+
+
+
+@router.get("/pagos/openpay/webhook")
+async def openpay_webhook_verificacion(
+    request: Request,
+    verification_code: str = None,
+):
+    """
+    OpenPay llama a este endpoint GET con el código de verificación
+    al registrar el webhook. Debe devolver el código tal cual.
+    """
+    if verification_code:
+        return PlainTextResponse(verification_code)
+    return PlainTextResponse("ok")
