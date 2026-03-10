@@ -234,7 +234,7 @@ def calcular_deuda_total(
         Debt.status.in_(['pending', 'partial']),
         Debt.estado_gestion.in_(['vigente', 'en_cobranza']),
         Debt.debt_type != 'cuota_ordinaria',  # Las ordinarias se infieren
-    ).order_by(Debt.due_date).all()
+    ).order_by(Debt.due_date.asc().nullslast()).all()
 
     obligaciones = []
     for d in otras:
