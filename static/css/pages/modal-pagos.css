@@ -308,6 +308,28 @@
 }
 .mp-btn-pagar:hover, .mp-btn-agregar:hover { opacity: 0.85; }
 
+
+.mp-btn-pagar-online {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .3rem .7rem;
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .15s;
+}
+.mp-btn-pagar-online:hover { opacity: .85; }
+.mp-deuda-right {
+    gap: .4rem;    /* un poco más de espacio entre los dos botones */
+}
+
+
 .mp-btn-quitar {
     display: inline-flex; align-items: center;
     padding: 0.3rem 0.5rem;
@@ -384,3 +406,4 @@
 
     .mp-cat-pill-label { display: none; }  /* Solo icono + contador en móvil */
 }
+
