@@ -494,7 +494,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
                             border-radius:10px;color:var(--tx);font-size:16px;font-weight:700;
                             text-align:right;box-sizing:border-box;">
                 <div style="font-size:11px;color:var(--tx3);margin-top:4px;">
-                    Deuda total: <strong style="color:var(--warm)">S/ {{ resumen.deuda_total | round(2) }}</strong>
+                    Deuda total: <strong style="color:var(--warm)">S/ <span id="monto-deuda-total">—</span></strong>
                 </div>
             </div>
 
@@ -509,7 +509,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
                             border-radius:10px;color:var(--tx);font-size:16px;font-weight:700;
                             text-align:right;box-sizing:border-box;">
                 <div style="font-size:11px;color:var(--tx3);margin-top:4px;">
-                    Deuda total: <strong style="color:var(--warm)">S/ {{ resumen.deuda_total | round(2) }}</strong>
+                    Deuda total: <strong style="color:var(--warm)">S/ <span id="monto-deuda-total2">—</span></strong>
                 </div>
             </div>
 
@@ -1070,6 +1070,12 @@ const P = {
             this.total  = d.total  || 0;
 
             document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.total)}`;
+            // Actualizar spans del panel OpenPay
+            const s1 = document.getElementById('monto-deuda-total');
+            const s2 = document.getElementById('monto-deuda-total2');
+            if (s1) s1.textContent = this.fmt(this.total);
+            if (s2) s2.textContent = this.fmt(this.total);
+
             document.getElementById('deuda-count').textContent =
                 `${d.cantidad} concepto${d.cantidad !== 1 ? 's' : ''} pendiente${d.cantidad !== 1 ? 's' : ''}`;
 
