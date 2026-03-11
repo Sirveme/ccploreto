@@ -120,6 +120,10 @@ async def dashboard_home(request: Request, member: Member = Depends(get_current_
     print(f"DEBUG COLEGIADO: input='{user_input}' -> encontrado={colegiado.codigo_matricula if colegiado else 'NINGUNO'}")
     # ========================================
     
+    # Añadir ANTES del return templates.TemplateResponse:
+    if colegiado and colegiado.condicion == 'inhabil':
+        return RedirectResponse(url="/portal/inactivo", status_code=302)
+    
     return templates.TemplateResponse("pages/dashboard_colegiado.html", {
         "request": request,
         "user": member,
