@@ -42,6 +42,7 @@ from app.routers.partials import router_partials
 from app.routers.sote import router as router_sote
 from app.routers.decano import router as router_decano
 from app.routers.mesa_partes import router as router_mesa_partes
+from app.routers.openpay import router as openpay_router
 
 from app.utils.templates import templates
 
@@ -182,6 +183,7 @@ app.websocket("/ws/finanzas")(ws_finanzas)
 app.include_router(portal_router)
 app.include_router(fragments_router)
 app.include_router(api_colegiado_pagos_router)
+app.include_router(openpay_router)
 app.include_router(router_partials)
 
 app.include_router(router_sote)
