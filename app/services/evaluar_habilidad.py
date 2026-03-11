@@ -61,6 +61,7 @@ DEFAULTS_HABILIDAD = {
 
 
 dataclass
+@dataclass
 class ResultadoHabilidad:
     debe_inhabilitar:   bool
     debe_retirar:       bool                    # Art. 114°: >= 24 cuotas impagas
@@ -137,7 +138,10 @@ def evaluar_habilidad(
     umbral_retiro      = cfg["cuotas_para_retiro"]
 
     # ── Leer datos de deuda_info ───────────────────────────────────────────
-    cuotas_vencidas = int(deuda_info.get("cantidad_cuotas", 0))
+    cuotas_vencidas = int(
+        deuda_info.get("cantidad_cuotas") or
+        deuda_info.get("resumen", {}).get("cuotas_pendientes", 0)
+    )
 
     # Obligaciones por tipo — leer de la lista 'obligaciones'
     obligaciones = deuda_info.get("obligaciones", [])
