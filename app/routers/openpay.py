@@ -423,6 +423,7 @@ async def openpay_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     event_type = data.get("type", "")
+    logger.info(f"OpenPay webhook body completo: {json.dumps(data)}")
     logger.info(f"OpenPay webhook recibido: {event_type}")
 
     # Solo procesar pagos completados
