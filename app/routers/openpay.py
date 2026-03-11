@@ -35,6 +35,8 @@ from app.services.openpay_service import (
     APP_BASE_URL,
 )
 
+from app.models_debt_management import Fraccionamiento
+
 #para el HANDLER de webhook, que no tiene autenticación ni sesión, se valida el webhook con la firma de OpenPay y se procesa igual aunque falle la verificación (queda en revisión manual).
 from fastapi.responses import PlainTextResponse
 
@@ -49,56 +51,100 @@ router = APIRouter(tags=["openpay"])
 @router.post("/pagos/openpay/iniciar", response_class=HTMLResponse)
 async def openpay_iniciar_pago(
     request: Request,
-    deuda_ids: str = Form(...),      # "123,456,789" — IDs separados por coma
+    deuda_ids:         str   = Form(""),     # "123,456" — vacío en flujos sin IDs
+    monto_directo:     float = Form(0.0),    # monto libre (pago directo o cuota inicial)
+    fraccionamiento_id: int  = Form(None),   # si viene del simulador de fraccionamiento
+    numero_cuota:      int   = Form(0),      # 0 = cuota inicial
+    incluir_constancia: str  = Form(""),     # "1" si quiere constancia (+S/10)
     db: Session = Depends(get_db),
     current_member: Member = Depends(get_current_member),
 ):
     """
-    Recibe los IDs de deudas seleccionadas, calcula el monto total,
-    crea el cargo en OpenPay y redirige al checkout.
+    Crea cargo OpenPay. Acepta tres flujos:
+
+    FLUJO A — deuda_ids no vacío:
+        Colegiado hábil selecciona deudas del modal. Se validan IDs en BD.
+
+    FLUJO B — monto_directo > 0 sin fraccionamiento_id:
+        Colegiado inhábil paga monto libre directamente (sin plan).
+
+    FLUJO C — fraccionamiento_id + monto_directo:
+        Colegiado inhábil paga cuota inicial de fraccionamiento.
     """
-    # ── Obtener colegiado ──────────────────────────────────────
     from app.models import Colegiado, User
+
     col = db.query(Colegiado).filter(
         Colegiado.member_id == current_member.id
     ).first()
     if not col:
-        raise HTTPException(status_code=404, detail="Colegiado no encontrado")
+        return _err_html("Colegiado no encontrado.")
 
     user = db.query(User).filter(User.id == current_member.user_id).first()
+    email = (getattr(user, 'email', '') or col.email or "sin-email@ccploreto.org.pe")
 
-    # ── Parsear y validar IDs de deudas ───────────────────────
-    try:
-        ids = [int(x.strip()) for x in deuda_ids.split(",") if x.strip()]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="IDs de deuda inválidos")
+    con_constancia = (incluir_constancia == "1")
+    MONTO_CONSTANCIA = 10.0
 
-    if not ids:
-        raise HTTPException(status_code=400, detail="No se seleccionaron deudas")
+    # ── Determinar monto y descripción según flujo ─────────────
+    ids = [int(x.strip()) for x in deuda_ids.split(",") if x.strip().isdigit()]
 
-    # ── Consultar deudas ───────────────────────────────────────
-    deudas = db.execute(text("""
-        SELECT id, concept, period_label, balance
-        FROM debts
-        WHERE id = ANY(:ids)
-          AND colegiado_id = :cid
-          AND status IN ('pending', 'parcial')
-          AND balance > 0
-    """), {"ids": ids, "cid": col.id}).fetchall()
+    if ids:
+        # ── FLUJO A: pago por IDs de deudas ───────────────────
+        deudas = db.execute(text("""
+            SELECT id, concept, period_label, balance
+            FROM debts
+            WHERE id = ANY(:ids)
+              AND colegiado_id = :cid
+              AND status IN ('pending', 'partial')
+              AND balance > 0
+        """), {"ids": ids, "cid": col.id}).fetchall()
 
-    if not deudas:
-        raise HTTPException(status_code=400, detail="Deudas no válidas o ya pagadas")
+        if not deudas:
+            return _err_html("Las deudas seleccionadas ya no están disponibles.")
 
-    monto_total = sum(float(d.balance) for d in deudas)
-    conceptos   = ", ".join(f"{d.period_label or d.concept}" for d in deudas)
+        monto_base  = sum(float(d.balance) for d in deudas)
+        conceptos   = ", ".join(d.period_label or d.concept for d in deudas)
+        notas_pago  = f"OpenPay deudas | {conceptos[:100]}"
+        debt_ids_db = [d.id for d in deudas]
 
-    # ── Registrar intento de pago en BD ────────────────────────
-    # Crear un payment pendiente para obtener un ID (usado como order_id)
+    elif fraccionamiento_id and monto_directo > 0:
+        # ── FLUJO C: cuota inicial de fraccionamiento ─────────
+        fracc = db.query(Fraccionamiento).filter(
+            Fraccionamiento.id == fraccionamiento_id,
+            Fraccionamiento.colegiado_id == col.id,
+            Fraccionamiento.estado == "activo",
+        ).first()
+        if not fracc:
+            return _err_html("Plan de fraccionamiento no encontrado o ya no está activo.")
+
+        monto_base = float(monto_directo)
+        conceptos  = f"Cuota inicial fracc. {fracc.numero_solicitud}"
+        notas_pago = f"OpenPay fracc | {fracc.numero_solicitud} | cuota {numero_cuota}"
+        debt_ids_db = []
+
+    elif monto_directo > 0:
+        # ── FLUJO B: pago directo libre ───────────────────────
+        if monto_directo < 1:
+            return _err_html("El monto mínimo de pago es S/ 1.00.")
+
+        monto_base  = float(monto_directo)
+        conceptos   = "Abono a deuda"
+        notas_pago  = f"OpenPay directo | S/ {monto_base:.2f}"
+        debt_ids_db = []
+
+    else:
+        return _err_html("Selecciona una deuda o ingresa un monto a pagar.")
+
+    # Sumar constancia si aplica
+    monto_total = monto_base + (MONTO_CONSTANCIA if con_constancia else 0)
+    if con_constancia:
+        notas_pago += " | +Constancia S/10"
+
+    # ── Registrar payment pendiente ────────────────────────────
     result = db.execute(text("""
         INSERT INTO payments (
             organization_id, colegiado_id, member_id,
-            amount, status, payment_method,
-            notes, created_at
+            amount, status, payment_method, notes, created_at
         ) VALUES (
             :org, :cid, :mid,
             :amount, 'pendiente_openpay', 'openpay',
@@ -109,42 +155,52 @@ async def openpay_iniciar_pago(
         "cid":    col.id,
         "mid":    current_member.id,
         "amount": monto_total,
-        "notes":  f"OpenPay | {conceptos}",
+        "notes":  notas_pago,
     })
     db.commit()
     payment_id = result.fetchone()[0]
 
+    # Metadatos extra para el webhook
+    if fraccionamiento_id:
+        db.execute(text("""
+            UPDATE payments
+            SET notes = notes || :nota
+            WHERE id = :pid
+        """), {
+            "nota": f" | fracc_id:{fraccionamiento_id} cuota:{numero_cuota}",
+            "pid":  payment_id,
+        })
+        db.commit()
+
+    # ── Construir URLs ─────────────────────────────────────────
     order_id     = construir_order_id(payment_id)
-    redirect_url = construir_redirect_url(col.id, ids)
+    redirect_url = (
+        construir_redirect_url(col.id, debt_ids_db)
+        if debt_ids_db
+        else f"{APP_BASE_URL}/portal/pago-resultado?colegiado={col.id}&payment={payment_id}"
+    )
 
     # ── Llamar a OpenPay ───────────────────────────────────────
     try:
         cargo = await crear_cargo_redirect(
-            order_id      = order_id,
-            amount        = monto_total,
-            description   = f"CCPL - {conceptos[:80]}",
-            customer_name = col.apellidos_nombres,
-            customer_email= getattr(user, 'email', '') or "sin-email@ccploreto.org.pe",
-            redirect_url  = redirect_url,
-            due_hours     = 48,
+            order_id       = order_id,
+            amount         = monto_total,
+            description    = f"CCPL - {conceptos[:80]}",
+            customer_name  = col.apellidos_nombres,
+            customer_email = email,
+            redirect_url   = redirect_url,
+            due_hours      = 48,
         )
     except OpenPayError as e:
-        logger.error(f"OpenPay error al crear cargo: {e.message} [{e.code}]")
-        # Marcar payment como fallido
+        logger.error(f"OpenPay error: {e.message} [{e.code}]")
         db.execute(text("""
             UPDATE payments SET status = 'error_openpay',
             notes = notes || :nota WHERE id = :pid
         """), {"nota": f" | Error: {e.message}", "pid": payment_id})
         db.commit()
-        # Respuesta HTMX con error visible al usuario
-        return HTMLResponse(f"""
-        <div class="alerta-error" style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">
-            ⚠ No se pudo conectar con la pasarela de pago. Intenta nuevamente en unos minutos.<br>
-            <small style="color:#b91c1c;">{e.message}</small>
-        </div>
-        """)
+        return _err_html(f"No se pudo conectar con la pasarela. {e.message}")
 
-    # ── Guardar transaction_id de OpenPay ──────────────────────
+    # ── Guardar transaction_id ─────────────────────────────────
     transaction_id = cargo.get("id", "")
     checkout_url   = cargo.get("payment_method", {}).get("url", "")
 
@@ -159,27 +215,19 @@ async def openpay_iniciar_pago(
         "nota": f" | TX:{transaction_id}",
         "pid":  payment_id,
     })
-    # Vincular deudas al payment
-    for deuda in deudas:
+
+    for did in debt_ids_db:
         db.execute(text("""
             INSERT INTO payment_debts (payment_id, debt_id)
-            VALUES (:pid, :did)
-            ON CONFLICT DO NOTHING
-        """), {"pid": payment_id, "did": deuda.id})
+            VALUES (:pid, :did) ON CONFLICT DO NOTHING
+        """), {"pid": payment_id, "did": did})
 
     db.commit()
+    logger.info(f"OpenPay cargo: order={order_id} tx={transaction_id} monto={monto_total} flujo={'ids' if ids else 'fracc' if fraccionamiento_id else 'directo'}")
 
-    logger.info(f"OpenPay cargo creado: order={order_id} tx={transaction_id} monto={monto_total}")
-
-    # ── Redirigir al checkout de OpenPay ──────────────────────
     if not checkout_url:
-        return HTMLResponse("""
-        <div class="alerta-error" style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;">
-            ⚠ OpenPay no devolvió URL de pago. Contacta a soporte.
-        </div>
-        """)
+        return _err_html("OpenPay no devolvió URL de pago. Contacta a soporte.")
 
-    # Si es request HTMX, usar HX-Redirect; si no, redirect normal
     if request.headers.get("HX-Request"):
         from fastapi.responses import Response
         resp = Response(status_code=200)
@@ -187,6 +235,15 @@ async def openpay_iniciar_pago(
         return resp
 
     return RedirectResponse(url=checkout_url, status_code=302)
+
+
+# ── Helper HTML error ──────────────────────────────────────────
+def _err_html(msg: str) -> HTMLResponse:
+    return HTMLResponse(f"""
+    <div style="padding:12px;background:#fee2e2;border-radius:8px;color:#991b1b;font-size:13px;margin-top:8px;">
+        ⚠ {msg}
+    </div>
+    """)
 
 
 """
