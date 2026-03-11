@@ -190,6 +190,8 @@ def calcular_deuda_cuotas(colegiado_id, organization_id, db, hasta=None):
 
     pendientes = []
     for d in deudas_cuotas:
+        if not d.periodo or len(d.periodo) < 7 or d.periodo[4:5] != '-':
+            continue  # ignorar periodos malformados
         anio, mes = int(d.periodo[:4]), int(d.periodo[5:7])
         vencido = True  # Si está en pending y es histórico, está vencido
         dias_mora = (hoy - d.due_date.date()).days if d.due_date else 0
