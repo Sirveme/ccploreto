@@ -482,6 +482,38 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
                 </div>
             </label>
 
+            
+            <div id="pago-directo-container" style="margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                    Monto a pagar (pago parcial o total)
+                </div>
+                <input type="number" id="monto-pago-directo" 
+                    min="1" step="0.50" placeholder="0.00"
+                    oninput="actualizarTotalOpenpay()"
+                    style="width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--bd);
+                            border-radius:10px;color:var(--tx);font-size:16px;font-weight:700;
+                            text-align:right;box-sizing:border-box;">
+                <div style="font-size:11px;color:var(--tx3);margin-top:4px;">
+                    Deuda total: <strong style="color:var(--warm)">S/ {{ resumen.deuda_total | round(2) }}</strong>
+                </div>
+            </div>
+
+
+            <!-- Monto pago directo (sin fraccionamiento) -->
+            <div id="pago-directo-wrap" style="margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Monto a pagar</div>
+                <input type="number" id="monto-pago-directo"
+                    min="1" step="0.50" placeholder="0.00"
+                    oninput="actualizarTotalOpenpay()"
+                    style="width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--bd);
+                            border-radius:10px;color:var(--tx);font-size:16px;font-weight:700;
+                            text-align:right;box-sizing:border-box;">
+                <div style="font-size:11px;color:var(--tx3);margin-top:4px;">
+                    Deuda total: <strong style="color:var(--warm)">S/ {{ resumen.deuda_total | round(2) }}</strong>
+                </div>
+            </div>
+
+            
             <!-- Selector de deudas -->
             <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Selecciona las deudas a pagar</div>
             <div style="display:grid;gap:8px;margin-bottom:14px">
@@ -933,27 +965,24 @@ document.querySelectorAll('.deuda-checkbox').forEach(cb => {
 });
 
 function actualizarTotalOpenpay() {
-    const hayDeudas = document.querySelectorAll('.deuda-checkbox:checked').length > 0
-                   || (window._montoFracc && window._montoFracc > 0);
-    
-    // Constancia solo disponible si hay deuda seleccionada
-    const chkConstancia = document.getElementById('online-constancia');
-    if (chkConstancia) {
-        chkConstancia.disabled = !hayDeudas;
-        chkConstancia.closest('label').style.opacity = hayDeudas ? '1' : '0.4';
-        if (!hayDeudas) chkConstancia.checked = false;
-    }
-
     let total = 0;
-    document.querySelectorAll('.deuda-checkbox:checked').forEach(cb => {
-        total += _deudaMontos[cb.value] || 0;
-    });
-    if (window._montoFracc && window._montoFracc > 0) total += window._montoFracc;
-    if (hayDeudas && chkConstancia?.checked) total += 10;
-
+    // Fraccionamiento tiene prioridad
+    if (window._montoFracc && window._montoFracc > 0) {
+        total += window._montoFracc;
+    } else {
+        const montoDirecto = parseFloat(document.getElementById('monto-pago-directo')?.value) || 0;
+        total += montoDirecto;
+    }
+    // Constancia solo si hay monto base
+    const chk = document.getElementById('online-constancia');
+    if (chk) {
+        chk.disabled = total <= 0;
+        chk.closest('label').style.opacity = total > 0 ? '1' : '0.4';
+        if (total <= 0) chk.checked = false;
+    }
+    if (total > 0 && chk?.checked) total += 10;
     document.getElementById('openpay-total').textContent =
         'S/ ' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
     const btn = document.getElementById('btn-pagar-openpay');
     btn.disabled = total <= 0;
     btn.style.opacity = total > 0 ? '1' : '0.5';
@@ -965,22 +994,22 @@ document.getElementById('online-constancia')?.addEventListener('change', actuali
 
 // REEMPLAZAR iniciarPagoOpenpay() completo:
 function iniciarPagoOpenpay() {
-    const checks = document.querySelectorAll('.deuda-checkbox:checked');
-    const ids = Array.from(checks).map(cb => cb.value).join(',');
     const btn = document.getElementById('btn-pagar-openpay');
-
     btn.disabled = true;
     btn.querySelector('div > div:first-child').textContent = 'Conectando...';
     btn.style.opacity = '0.7';
-
     const fd = new FormData();
-    fd.append('deuda_ids', ids);
-
-    fetch('/pagos/openpay/iniciar', {
-        method: 'POST',
-        headers: { 'HX-Request': 'true' },
-        body: fd,
-    })
+    fd.append('deuda_ids', '');
+    if (window._planActivo) {
+        fd.append('fraccionamiento_id', window._planActivo.fraccionamiento_id);
+        fd.append('numero_cuota', window._planActivo.numero_cuota ?? 0);
+        fd.append('monto_directo', window._montoFracc);
+    } else {
+        const monto = parseFloat(document.getElementById('monto-pago-directo')?.value) || 0;
+        fd.append('monto_directo', monto);
+    }
+    if (document.getElementById('online-constancia')?.checked) fd.append('incluir_constancia', '1');
+    fetch('/pagos/openpay/iniciar', { method: 'POST', headers: { 'HX-Request': 'true' }, body: fd })
     .then(async resp => {
         const hxRedir = resp.headers.get('HX-Redirect');
         if (hxRedir) { window.location.href = hxRedir; return; }
@@ -1245,10 +1274,12 @@ const P = {
         const open = p.classList.toggle('open');
         if (open) { po.classList.remove('open'); fp.classList.remove('open'); }
         if (open) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        window._montoFracc = 0;
-        window._planActivo = null;
-        actualizarTotalOpenpay();
+        // Solo resetear si se abre manualmente (sin fraccionamiento activo)
+        if (!open || !window._planActivo) {
+            window._montoFracc = 0;
+            window._planActivo = null;
+            actualizarTotalOpenpay();
+        }
     },
 
     togglePayOffline() {
@@ -1321,26 +1352,20 @@ const P = {
 
     // Activa el panel de pago con instrucciones específicas para la cuota inicial
     _activarPanelPagoFracc(plan) {
-        const ptop = document.querySelector('.ptop h4');
-        if (ptop) ptop.innerHTML = `<i class="ph ph-credit-card"></i> Pagar cuota inicial · S/ ${this.fmt(plan.cuota_inicial)}`;
-
-        // Añadir nota de referencia con número de solicitud
-        const pbody = document.querySelector('.pbody p');
-        if (pbody) pbody.innerHTML = `
-            Indica <strong>${this.col?.numero_colegiatura || 'tu N° de colegiatura'}</strong>
-            y el código <strong>${plan.numero_solicitud}</strong> como referencia al transferir.
-        `;
-
-        document.getElementById('ppanel').classList.add('open');
-        document.getElementById('ppanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        // Al final de _activarPanelPagoFracc(plan):
-        window._montoFracc  = plan.cuota_inicial;
-        window._planActivo  = {
-            fraccionamiento_id: plan.fraccionamiento_id,
-            numero_cuota: 0,
-        };
-        actualizarTotalOpenpay(); // recalcular total con el monto del fracc
+        window._montoFracc = plan.cuota_inicial;
+        window._planActivo = { fraccionamiento_id: plan.fraccionamiento_id, numero_cuota: 0 };
+        // Abrir panel ONLINE
+        const po   = document.getElementById('ppanel-online');
+        const poff = document.getElementById('ppanel');
+        if (poff) poff.classList.remove('open');
+        if (po) {
+            po.classList.add('open');
+            po.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        // Actualizar título
+        const ptop = po?.querySelector('.ptop h4');
+        if (ptop) ptop.innerHTML = `<i class="ph ph-lightning"></i> Pagar cuota inicial · S/ ${this.fmt(plan.cuota_inicial)}`;
+        actualizarTotalOpenpay();
     },
 
     async solicitarF() {
