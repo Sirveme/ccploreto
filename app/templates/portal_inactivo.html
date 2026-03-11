@@ -933,21 +933,28 @@ document.querySelectorAll('.deuda-checkbox').forEach(cb => {
 });
 
 function actualizarTotalOpenpay() {
+    const hayDeudas = document.querySelectorAll('.deuda-checkbox:checked').length > 0
+                   || (window._montoFracc && window._montoFracc > 0);
+    
+    // Constancia solo disponible si hay deuda seleccionada
+    const chkConstancia = document.getElementById('online-constancia');
+    if (chkConstancia) {
+        chkConstancia.disabled = !hayDeudas;
+        chkConstancia.closest('label').style.opacity = hayDeudas ? '1' : '0.4';
+        if (!hayDeudas) chkConstancia.checked = false;
+    }
+
     let total = 0;
     document.querySelectorAll('.deuda-checkbox:checked').forEach(cb => {
         total += _deudaMontos[cb.value] || 0;
     });
-    // Sumar cuota inicial de fraccionamiento si está activa
-    if (window._montoFracc && window._montoFracc > 0) {
-        total += window._montoFracc;
-    }
-    if (document.getElementById('online-constancia')?.checked) {
-        total += 10;
-    }
+    if (window._montoFracc && window._montoFracc > 0) total += window._montoFracc;
+    if (hayDeudas && chkConstancia?.checked) total += 10;
+
     document.getElementById('openpay-total').textContent =
         'S/ ' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
     const btn = document.getElementById('btn-pagar-openpay');
-    // Habilitar si hay cualquier monto > 0
     btn.disabled = total <= 0;
     btn.style.opacity = total > 0 ? '1' : '0.5';
     btn.style.cursor  = total > 0 ? 'pointer' : 'not-allowed';
@@ -956,34 +963,37 @@ function actualizarTotalOpenpay() {
 // Recalcular cuando cambia el checkbox de constancia
 document.getElementById('online-constancia')?.addEventListener('change', actualizarTotalOpenpay);
 
+// REEMPLAZAR iniciarPagoOpenpay() completo:
 function iniciarPagoOpenpay() {
     const checks = document.querySelectorAll('.deuda-checkbox:checked');
-    const tieneConstancia = document.getElementById('online-constancia')?.checked;
-    const tieneFracc = window._montoFracc && window._montoFracc > 0;
-
-    if (checks.length === 0 && !tieneConstancia && !tieneFracc) return;
-
     const ids = Array.from(checks).map(cb => cb.value).join(',');
     const btn = document.getElementById('btn-pagar-openpay');
+
     btn.disabled = true;
     btn.querySelector('div > div:first-child').textContent = 'Conectando...';
     btn.style.opacity = '0.7';
 
-    const valores = { deuda_ids: ids };
-    if (tieneConstancia) valores.incluir_constancia = '1';
-    if (tieneFracc && window._planActivo) {
-        valores.fraccionamiento_id = window._planActivo.fraccionamiento_id;
-        valores.numero_cuota       = window._planActivo.numero_cuota ?? 0;
-    }
+    const fd = new FormData();
+    fd.append('deuda_ids', ids);
 
-    htmx.ajax('POST', '/pagos/openpay/iniciar', {
-        target:  '#openpay-resultado',
-        swap:    'innerHTML',
-        values:  valores,
+    fetch('/pagos/openpay/iniciar', {
+        method: 'POST',
         headers: { 'HX-Request': 'true' },
-    }).catch(() => {
+        body: fd,
+    })
+    .then(async resp => {
+        const hxRedir = resp.headers.get('HX-Redirect');
+        if (hxRedir) { window.location.href = hxRedir; return; }
+        if (resp.redirected) { window.location.href = resp.url; return; }
+        const html = await resp.text();
+        document.getElementById('openpay-resultado').innerHTML = html;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.querySelector('div > div:first-child').textContent = 'Pagar con Tarjeta';
+    })
+    .catch(() => {
         document.getElementById('openpay-resultado').innerHTML =
-            '<div style="color:#ef4444;font-size:12px;padding:8px;">Error de conexión. Intenta nuevamente.</div>';
+            '<div style="color:#ef4444;font-size:12px;padding:8px;">Error de conexión.</div>';
         btn.disabled = false;
         btn.style.opacity = '1';
         btn.querySelector('div > div:first-child').textContent = 'Pagar con Tarjeta';
