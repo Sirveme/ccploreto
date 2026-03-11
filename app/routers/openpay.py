@@ -177,7 +177,7 @@ async def openpay_iniciar_pago(
     redirect_url = (
         construir_redirect_url(col.id, debt_ids_db)
         if debt_ids_db
-        else f"{APP_BASE_URL}/portal/pago-resultado?colegiado={col.id}&payment={payment_id}"
+        else f"{APP_BASE_URL}/pagos/resultado?payment={payment_id}"
     )
 
     # ── Llamar a OpenPay ───────────────────────────────────────
@@ -494,35 +494,63 @@ async def openpay_webhook(
         "pid":  payment.id,
     })
 
-    # ── Cerrar deudas vinculadas ────────────────────────────────
+    # ── Cerrar deudas vinculadas o imputar automáticamente ─────────
     deudas_vinculadas = db.execute(text("""
         SELECT debt_id FROM payment_debts WHERE payment_id = :pid
     """), {"pid": payment.id}).fetchall()
 
-    for d in deudas_vinculadas:
-        db.execute(text("""
-            UPDATE debts
-            SET balance = 0,
-                status  = 'pagado',
-                updated_at = now()
-            WHERE id = :did AND status IN ('pending', 'parcial', 'esperando_pago')
-        """), {"did": d.debt_id})
+    if deudas_vinculadas:
+        # FLUJO A: deudas específicas seleccionadas por el colegiado
+        for d in deudas_vinculadas:
+            db.execute(text("""
+                UPDATE debts
+                SET balance = 0,
+                    status  = 'pagado',
+                    updated_at = now()
+                WHERE id = :did AND status IN ('pending', 'partial', 'parcial', 'esperando_pago')
+            """), {"did": d.debt_id})
+    else:
+        # FLUJO B/C: pago libre o cuota inicial — imputar a más antigua primero
+        from app.services.deuda_cuotas_service import imputar_pago_a_deudas
+        resultado = imputar_pago_a_deudas(
+            colegiado_id    = payment.colegiado_id,
+            organization_id = payment.organization_id,
+            monto_pagado    = float(payment.amount),
+            payment_id      = payment.id,
+            db              = db,
+        )
+        logger.info(
+            f"Imputación automática: {resultado['deudas_cerradas']} deudas cerradas, "
+            f"imputado S/{resultado['monto_imputado']:.2f}, "
+            f"sobrante S/{resultado['monto_sobrante']:.2f}"
+        )
+        # Si hay sobrante, anotarlo en el payment para revisión manual
+        if resultado['monto_sobrante'] > 0:
+            db.execute(text("""
+                UPDATE payments SET notes = notes || :nota WHERE id = :pid
+            """), {
+                "nota": f" | Sobrante S/{resultado['monto_sobrante']:.2f} pendiente de imputar",
+                "pid":  payment.id,
+            })
 
     # ── Recalcular habilidad del colegiado ──────────────────────
     # Verificar si ya no tiene deudas pendientes y actualizar condicion
-    deudas_pendientes = db.execute(text("""
-        SELECT COUNT(*) FROM debts
-        WHERE colegiado_id = :cid
-          AND status IN ('pending', 'parcial')
-          AND balance > 0
-    """), {"cid": payment.colegiado_id}).fetchone()
+    from app.services.evaluar_habilidad import evaluar_habilidad
+    from app.services.deuda_cuotas_service import calcular_deuda_total as _svc_deuda
 
-    if deudas_pendientes[0] == 0:
+    deuda_info = _svc_deuda(payment.colegiado_id, payment.organization_id, db)
+    col_obj = db.execute(text("SELECT * FROM colegiados WHERE id = :cid"),
+        {"cid": payment.colegiado_id}).fetchone()
+    org_obj = db.execute(text("SELECT * FROM organizations WHERE id = :oid"),
+        {"oid": payment.organization_id}).fetchone()
+
+    eval_hab = evaluar_habilidad(deuda_info, dict(org_obj._mapping), col_obj)
+    if not eval_hab.debe_inhabilitar:
         db.execute(text("""
             UPDATE colegiados SET condicion = 'habil'
             WHERE id = :cid AND condicion = 'inhabil'
         """), {"cid": payment.colegiado_id})
-        logger.info(f"Colegiado {payment.colegiado_id} actualizado a HÁBIL tras pago OpenPay")
+        logger.info(f"Colegiado {payment.colegiado_id} → HÁBIL tras pago OpenPay")
 
     db.commit()
     logger.info(f"✅ Pago OpenPay procesado: payment={payment.id} tx={tx_id} monto={monto}")

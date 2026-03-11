@@ -179,13 +179,15 @@ async def consultar_deuda(
         "metodos_pago": get_org_finanzas_config(org, "metodos_pago", []),
         # ── Evaluación de habilidad para el frontend ──────────
         "evaluacion": {
-            "debe_portal_inactivo": eval_hab.debe_inhabilitar,
-            "motivo":               eval_hab.motivo,
-            "cuotas_vencidas":      eval_hab.cuotas_vencidas,
-            "deuda_otras":          eval_hab.deuda_otras,
-            "tiene_fracc":          eval_hab.tiene_fracc,
-            "umbral_cuotas":        eval_hab.umbral_cuotas,
-            "umbral_monto_otras":   eval_hab.umbral_monto_otras,
+            "debe_portal_inactivo":  eval_hab.debe_inhabilitar,
+            "debe_retirar":          eval_hab.debe_retirar,
+            "motivo":                eval_hab.motivo,
+            "cuotas_vencidas":       eval_hab.cuotas_vencidas,
+            "tiene_multa":           eval_hab.tiene_multa,
+            "tiene_extraordinaria":  eval_hab.tiene_extraordinaria,
+            "tiene_fracc":           eval_hab.tiene_fracc,
+            "fracc_atrasadas":       eval_hab.fracc_atrasadas,
+            "umbral_cuotas":         eval_hab.umbral_cuotas,
         },
     }
 
