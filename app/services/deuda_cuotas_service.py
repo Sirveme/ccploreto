@@ -272,6 +272,7 @@ def calcular_deuda_total(
             'saldo': fracc.saldo_pendiente,
             'cuota_mensual': fracc.monto_cuota,
             'cuotas_pagadas': fracc.cuotas_pagadas,
+            'cuotas_atrasadas': fracc.cuotas_atrasadas,
             'cuotas_total': fracc.num_cuotas,
             'proxima_cuota': fracc.proxima_cuota_fecha.isoformat() if fracc.proxima_cuota_fecha else None,
             'estado': fracc.estado,
@@ -353,4 +354,98 @@ def aplicar_descuento_estacional(
         'monto_futuro': round(monto_futuro, 2),
         'descuento': descuento,
         'monto_final': round(monto - descuento, 2),
+    }
+
+
+
+def imputar_pago_a_deudas(
+    colegiado_id: int,
+    organization_id: int,
+    monto_pagado: float,
+    payment_id: int,
+    db: Session,
+) -> dict:
+    """
+    Imputa un monto pagado contra las deudas pendientes del colegiado,
+    aplicando la regla: deuda más antigua primero.
+
+    Orden de imputación:
+    1. Cuotas ordinarias (por periodo ASC → más antiguas primero)
+    2. Otras deudas: multas, extraordinarias, eventos (por due_date ASC)
+
+    Solo se imputan deudas vigentes/en_cobranza — las condonadas/exoneradas
+    se saltan automáticamente.
+
+    Returns:
+        {
+            'imputaciones': [{'debt_id': X, 'monto_aplicado': Y, 'saldo_nuevo': Z}, ...],
+            'monto_imputado': float,
+            'monto_sobrante': float,
+            'deudas_cerradas': int,
+        }
+    """
+    from sqlalchemy import text as _text
+
+    saldo = round(float(monto_pagado), 2)
+    imputaciones = []
+    deudas_cerradas = 0
+
+    # ── 1. Cuotas ordinarias pendientes (más antiguas primero) ────────────
+    cuotas = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.organization_id == organization_id,
+        Debt.debt_type == 'cuota_ordinaria',
+        Debt.status.in_(['pending', 'partial']),
+        Debt.estado_gestion.in_(['vigente', 'en_cobranza']),
+        Debt.balance > 0,
+    ).order_by(Debt.periodo.asc().nullslast()).all()
+
+    # ── 2. Otras deudas pendientes (más antiguas primero) ─────────────────
+    otras = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.organization_id == organization_id,
+        Debt.debt_type != 'cuota_ordinaria',
+        Debt.status.in_(['pending', 'partial']),
+        Debt.estado_gestion.in_(['vigente', 'en_cobranza']),
+        Debt.balance > 0,
+    ).order_by(Debt.due_date.asc().nullslast()).all()
+
+    # ── Imputar en orden ──────────────────────────────────────────────────
+    for deuda in cuotas + otras:
+        if saldo <= 0:
+            break
+
+        balance_actual = round(float(deuda.balance), 2)
+        aplicar = min(saldo, balance_actual)
+        nuevo_balance = round(balance_actual - aplicar, 2)
+
+        deuda.balance = nuevo_balance
+        deuda.status = 'pagado' if nuevo_balance == 0 else 'partial'
+        if nuevo_balance == 0:
+            deudas_cerradas += 1
+
+        # Vincular al payment
+        db.execute(_text("""
+            INSERT INTO payment_debts (payment_id, debt_id)
+            VALUES (:pid, :did)
+            ON CONFLICT DO NOTHING
+        """), {"pid": payment_id, "did": deuda.id})
+
+        imputaciones.append({
+            'debt_id':       deuda.id,
+            'debt_type':     deuda.debt_type,
+            'periodo':       deuda.periodo,
+            'monto_aplicado': aplicar,
+            'saldo_nuevo':   nuevo_balance,
+        })
+
+        saldo = round(saldo - aplicar, 2)
+
+    monto_imputado = round(float(monto_pagado) - saldo, 2)
+
+    return {
+        'imputaciones':    imputaciones,
+        'monto_imputado':  monto_imputado,
+        'monto_sobrante':  saldo,
+        'deudas_cerradas': deudas_cerradas,
     }
