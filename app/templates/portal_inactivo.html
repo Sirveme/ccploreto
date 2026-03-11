@@ -497,22 +497,6 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
                     Deuda total: <strong style="color:var(--warm)">S/ <span id="monto-deuda-total">—</span></strong>
                 </div>
             </div>
-
-
-            <!-- Monto pago directo (sin fraccionamiento) -->
-            <div id="pago-directo-wrap" style="margin-bottom:14px;">
-                <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Monto a pagar</div>
-                <input type="number" id="monto-pago-directo"
-                    min="1" step="0.50" placeholder="0.00"
-                    oninput="actualizarTotalOpenpay()"
-                    style="width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--bd);
-                            border-radius:10px;color:var(--tx);font-size:16px;font-weight:700;
-                            text-align:right;box-sizing:border-box;">
-                <div style="font-size:11px;color:var(--tx3);margin-top:4px;">
-                    Deuda total: <strong style="color:var(--warm)">S/ <span id="monto-deuda-total2">—</span></strong>
-                </div>
-            </div>
-
             
             <!-- Selector de deudas -->
             <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Selecciona las deudas a pagar</div>
@@ -1072,9 +1056,7 @@ const P = {
             document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.total)}`;
             // Actualizar spans del panel OpenPay
             const s1 = document.getElementById('monto-deuda-total');
-            const s2 = document.getElementById('monto-deuda-total2');
             if (s1) s1.textContent = this.fmt(this.total);
-            if (s2) s2.textContent = this.fmt(this.total);
 
             document.getElementById('deuda-count').textContent =
                 `${d.cantidad} concepto${d.cantidad !== 1 ? 's' : ''} pendiente${d.cantidad !== 1 ? 's' : ''}`;
