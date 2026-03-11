@@ -641,15 +641,21 @@ async def pago_resultado_publico(
 
 
 
+# CAMBIAR TEMPORALMENTE en app/routers/openpay.py:
+
 @router.get("/pagos/openpay/webhook")
-async def openpay_webhook_verificacion(
+async def webhook_verificar(
     request: Request,
     verification_code: str = None,
 ):
-    """
-    OpenPay llama a este endpoint GET con el código de verificación
-    al registrar el webhook. Debe devolver el código tal cual.
-    """
+    # LOG TEMPORAL — ver qué envía OpenPay
+    logger.info(f"Webhook GET params: {dict(request.query_params)}")
+    
     if verification_code:
         return PlainTextResponse(verification_code)
+    # Si viene con otro nombre, devolver el primer valor que haya
+    params = dict(request.query_params)
+    if params:
+        primer_valor = list(params.values())[0]
+        return PlainTextResponse(primer_valor)
     return PlainTextResponse("ok")
