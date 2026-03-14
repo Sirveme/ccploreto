@@ -1399,8 +1399,10 @@ const P = {
         document.getElementById('deuda-grupos').innerHTML = html;
         const nAnios = anios.length;
         document.getElementById('deuda-summary').textContent =
-            `${deudas.length} concepto${deudas.length !== 1 ? 's' : ''} · ${nAnios} año${nAnios !== 1 ? 's' : ''}` +
-            (totalCond > 0 ? ` · S/ ${this.fmt(totalCond)} condonable con fraccionamiento` : '');
+            `${deudas.length} conceptos pendientes` +
+            (totalCond > 0
+                ? ` · Con fraccionamiento pagarías solo S/ ${this.fmt(totalReal)}`
+                : '');
 
         this._initSelBar();
     },
@@ -1973,6 +1975,7 @@ const A = {
 
         this._addMsg(pregunta, 'user');
         const typing = this._addTyping();
+        this._setEstadoProcesando(true);
 
         try {
             const fd = new FormData();
@@ -1983,12 +1986,30 @@ const A = {
             });
             const d = await r.json();
             typing.remove();
+            this._setEstadoProcesando(false);
             this._addMsg(d.respuesta || 'No pude responder. Intenta de nuevo.', 'bot');
             // Leer en voz alta
             this._hablar(d.respuesta);
         } catch(e) {
             typing.remove();
+            this._setEstadoProcesando(false);
             this._addMsg('Error de conexión. Intenta en unos segundos.', 'bot');
+        }
+    },
+
+    _setEstadoProcesando(activo) {
+        const btn  = document.getElementById('btn-voz');
+        const inp  = document.getElementById('asist-input');
+        const envB = inp?.nextElementSibling;
+        if (activo) {
+            inp.placeholder  = 'Procesando...';
+            inp.disabled     = true;
+            if (envB) envB.disabled = true;
+        } else {
+            inp.placeholder  = 'Escribe tu pregunta...';
+            inp.disabled     = false;
+            if (envB) envB.disabled = false;
+            inp.focus();
         }
     },
 
@@ -2055,29 +2076,33 @@ const A = {
                 this._setMicOff();
                 stream.getTracks().forEach(t => t.stop());
 
+                document.getElementById('msg-grabando')?.remove();
+                this._addMsg('⚙️ Transcribiendo con Whisper...', 'bot', 'msg-transcribiendo');
+
                 const blob = new Blob(this._grabarChunks, { type: 'audio/webm' });
                 const fd   = new FormData();
                 fd.append('audio', blob, 'voz.webm');
 
-                this._addMsg('🎙 Procesando audio...', 'bot', 'typing-whisper');
                 try {
                     const r = await fetch('/api/portal/asistente/audio', { method: 'POST', body: fd });
                     const d = await r.json();
-                    document.getElementById('typing-whisper')?.remove();
+                    document.getElementById('msg-transcribiendo')?.remove();  // ← AQUÍ
                     if (d.transcripcion) {
                         this._addMsg(`"${d.transcripcion}"`, 'user');
                     }
                     this._addMsg(d.respuesta || 'No pude procesar el audio.', 'bot');
                     this._hablar(d.respuesta);
                 } catch(e) {
-                    document.getElementById('typing-whisper')?.remove();
+                    document.getElementById('msg-transcribiendo')?.remove();  // ← Y AQUÍ en el catch
                     this._addMsg('Error procesando el audio.', 'bot');
                 }
-            };
+            },
 
             mr.start();
             this.grabando = true;
             this._setMicOn();
+            // Mostrar feedback visual con onda animada
+            this._addMsg('🎙 Escuchando... habla ahora', 'bot', 'msg-grabando');
 
             // Auto-stop a los 10 segundos
             setTimeout(() => { if (this.grabando) mr.stop(); }, 10000);
@@ -2091,7 +2116,12 @@ const A = {
     _hablar(texto) {
         if (!texto || !window.speechSynthesis) return;
         window.speechSynthesis.cancel();
-        const utt  = new SpeechSynthesisUtterance(texto);
+        // Convertir S/ 1,832.00 → "1832 soles"
+        const textoVoz = texto
+            .replace(/S\/\s*([\d,]+)\.?\d*/g, (_, n) => n.replace(/,/g, '') + ' soles')
+            .replace(/\bS\//g, '')
+            .replace(/(\d+)\s*soles/g, (_, n) => n + ' soles');
+        const utt  = new SpeechSynthesisUtterance(textoVoz);
         utt.lang   = 'es-PE';
         utt.rate   = 1.05;
         utt.pitch  = 1.0;
