@@ -44,6 +44,8 @@ from app.routers.decano import router as router_decano
 from app.routers.mesa_partes import router as router_mesa_partes
 from app.routers.openpay import router as openpay_router
 
+from app.routers.legal import router as legal_router
+
 from app.utils.templates import templates
 
 app = FastAPI(title="Multi-Tenant SaaS")
@@ -189,6 +191,8 @@ app.include_router(router_partials)
 app.include_router(router_sote)
 app.include_router(router_decano)
 app.include_router(router_mesa_partes)
+
+app.include_router(legal_router)
 
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
