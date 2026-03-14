@@ -116,28 +116,6 @@ async def asistente_texto(
     texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
     return JSONResponse({"respuesta": texto})
 
-    """
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key":         ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type":      "application/json",
-                },
-                json={
-                    "model":      "claude-haiku-4-5-20251001",
-                    "max_tokens": 150,
-                    "system":     system,
-                    "messages":   [{"role": "user", "content": pregunta}],
-                }
-            )
-            data = resp.json()
-
-        texto = data.get("content", [{}])[0].get("text", "Disculpa, no pude procesar tu consulta.")
-    """
-
-
 @router.post("/api/portal/asistente/audio")
 async def asistente_audio(
     request: Request,
@@ -185,31 +163,11 @@ async def asistente_audio(
                 "max_tokens": 150,
                 "messages":   [
                     {"role": "system",  "content": system},
-                    {"role": "user",    "content": pregunta},
+                    {"role": "user",    "content": transcripcion},
                 ],
             }
         )
         data = resp.json()
     texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
     return JSONResponse({"transcripcion": transcripcion, "respuesta": texto})
-
-    """
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key":         ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type":      "application/json",
-                },
-                json={
-                    "model":      "claude-haiku-4-5-20251001",
-                    "max_tokens": 150,
-                    "system":     system,
-                    "messages":   [{"role": "user", "content": transcripcion}],
-                }
-            )
-            data = resp.json()
-
-        texto = data.get("content", [{}])[0].get("text", "No pude procesar tu consulta.")
-    """
+    
