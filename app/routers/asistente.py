@@ -95,25 +95,47 @@ async def asistente_texto(
 
     system = _build_system_prompt(col, deuda_info)
 
+    # DESPUÉS (usando OpenAI GPT-4o mini — mismo OPENAI_API_KEY que Whisper):
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
+            "https://api.openai.com/v1/chat/completions",
             headers={
-                "x-api-key":         ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type":      "application/json",
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type":  "application/json",
             },
             json={
-                "model":      "claude-haiku-4-5-20251001",
+                "model":      "gpt-4o-mini",
                 "max_tokens": 150,
-                "system":     system,
-                "messages":   [{"role": "user", "content": pregunta}],
+                "messages":   [
+                    {"role": "system",  "content": system},
+                    {"role": "user",    "content": pregunta},
+                ],
             }
         )
         data = resp.json()
-
-    texto = data.get("content", [{}])[0].get("text", "Disculpa, no pude procesar tu consulta.")
+    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
     return JSONResponse({"respuesta": texto})
+
+    """
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key":         ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type":      "application/json",
+                },
+                json={
+                    "model":      "claude-haiku-4-5-20251001",
+                    "max_tokens": 150,
+                    "system":     system,
+                    "messages":   [{"role": "user", "content": pregunta}],
+                }
+            )
+            data = resp.json()
+
+        texto = data.get("content", [{}])[0].get("text", "Disculpa, no pude procesar tu consulta.")
+    """
 
 
 @router.post("/api/portal/asistente/audio")
@@ -150,22 +172,44 @@ async def asistente_audio(
     deuda_info = calcular_deuda_total(col.id, member.organization_id, db) if col else {}
     system     = _build_system_prompt(col, deuda_info)
 
+    # DESPUÉS (usando OpenAI GPT-4o mini — mismo OPENAI_API_KEY que Whisper):
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
+            "https://api.openai.com/v1/chat/completions",
             headers={
-                "x-api-key":         ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type":      "application/json",
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type":  "application/json",
             },
             json={
-                "model":      "claude-haiku-4-5-20251001",
+                "model":      "gpt-4o-mini",
                 "max_tokens": 150,
-                "system":     system,
-                "messages":   [{"role": "user", "content": transcripcion}],
+                "messages":   [
+                    {"role": "system",  "content": system},
+                    {"role": "user",    "content": pregunta},
+                ],
             }
         )
         data = resp.json()
-
-    texto = data.get("content", [{}])[0].get("text", "No pude procesar tu consulta.")
+    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
     return JSONResponse({"transcripcion": transcripcion, "respuesta": texto})
+
+    """
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key":         ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type":      "application/json",
+                },
+                json={
+                    "model":      "claude-haiku-4-5-20251001",
+                    "max_tokens": 150,
+                    "system":     system,
+                    "messages":   [{"role": "user", "content": transcripcion}],
+                }
+            )
+            data = resp.json()
+
+        texto = data.get("content", [{}])[0].get("text", "No pude procesar tu consulta.")
+    """
