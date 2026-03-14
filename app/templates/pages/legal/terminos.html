@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Términos y Condiciones — CCPL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --verde:        #1a4731;
+      --verde-medio:  #166534;
+      --verde-claro:  #22c55e;
+      --verde-suave:  #f0fdf4;
+      --verde-borde:  #bbf7d0;
+      --gris-texto:   #374151;
+      --gris-suave:   #6b7280;
+      --gris-fondo:   #f9fafb;
+      --blanco:       #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      background: var(--gris-fondo);
+      color: var(--gris-texto);
+      line-height: 1.8;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0f2d1e 0%, var(--verde) 60%, #1e6040 100%);
+      color: white;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -80px;
+      width: 350px; height: 350px;
+      border-radius: 50%;
+      background: rgba(34,197,94,.05);
+    }
+    .header-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 32px 40px;
+      position: relative;
+      z-index: 1;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      color: #86efac;
+    }
+    .header-badge::before { content: '📋'; font-size: 13px; }
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      color: white;
+    }
+    header h1 span { color: var(--verde-claro); }
+    .header-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,.65);
+      font-weight: 300;
+      max-width: 520px;
+    }
+    .header-meta {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,.12);
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .meta-item { font-size: 12px; color: rgba(255,255,255,.5); font-weight: 400; }
+    .meta-item strong {
+      display: block;
+      color: rgba(255,255,255,.85);
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .nav-wrap {
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 8px rgba(0,0,0,.06);
+    }
+    .nav-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 32px;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav-inner::-webkit-scrollbar { display: none; }
+    .nav-link {
+      display: block;
+      padding: 14px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--gris-suave);
+      text-decoration: none;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+    }
+    .nav-link:hover { color: var(--verde-medio); border-bottom-color: var(--verde-claro); }
+
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    section { margin-bottom: 52px; scroll-margin-top: 60px; }
+
+    .section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px; height: 32px;
+      background: var(--verde);
+      color: white;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--verde);
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--verde-borde);
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--verde-medio);
+      margin: 20px 0 8px;
+    }
+    p { font-size: 15px; margin-bottom: 12px; font-weight: 300; }
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 15px; font-weight: 300; margin-bottom: 6px; }
+
+    .card {
+      background: var(--verde-suave);
+      border: 1px solid var(--verde-borde);
+      border-left: 4px solid var(--verde);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .card-warn {
+      background: #fffbeb;
+      border-color: #fde68a;
+      border-left-color: #f59e0b;
+    }
+    .card-info {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      border-left-color: #3b82f6;
+    }
+    .card p { margin-bottom: 0; }
+    .card strong { color: var(--verde); font-weight: 500; }
+
+    .openpay-section {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin: 20px 0;
+    }
+    .openpay-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .op-logo { font-size: 20px; font-weight: 700; color: #005f9e; }
+    .op-bbva {
+      background: #004481;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .op-desc { font-size: 13px; color: var(--gris-suave); margin-left: auto; }
+
+    .process-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      background: var(--verde);
+      color: white;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-text { font-size: 14px; font-weight: 300; }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .contact-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .contact-item .label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--gris-suave);
+      margin-bottom: 4px;
+    }
+    .contact-item .value { font-size: 14px; font-weight: 500; color: var(--verde); }
+
+    footer {
+      background: var(--verde);
+      color: rgba(255,255,255,.7);
+      padding: 40px 32px;
+    }
+    .footer-inner { max-width: 860px; margin: 0 auto; }
+    .footer-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(255,255,255,.15);
+    }
+    .footer-ccpl strong {
+      display: block;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 4px;
+      font-family: 'Playfair Display', serif;
+    }
+    .footer-ccpl span { font-size: 13px; }
+    .footer-powered { text-align: right; }
+    .footer-powered .powered-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; opacity: .6; }
+    .footer-powered .brand { font-size: 15px; font-weight: 600; color: var(--verde-claro); }
+    .footer-powered .brand-sub { font-size: 11px; opacity: .6; }
+    .footer-bottom { font-size: 12px; opacity: .55; }
+
+    @media (max-width: 600px) {
+      .header-inner, main, footer { padding-left: 20px; padding-right: 20px; }
+      .footer-powered { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-badge">Términos y Condiciones</div>
+    <h1>Condiciones de Uso<br>del <span>Portal Digital CCPL</span></h1>
+    <p class="header-sub">
+      Al utilizar el portal del Colegio de Contadores Públicos de Loreto, el colegiado acepta los presentes términos en su totalidad.
+    </p>
+    <div class="header-meta">
+      <div class="meta-item"><strong>Vigente desde</strong>Marzo 2026</div>
+      <div class="meta-item"><strong>Última actualización</strong>14 de marzo de 2026</div>
+      <div class="meta-item"><strong>Versión</strong>1.0</div>
+    </div>
+  </div>
+</header>
+
+<nav class="nav-wrap">
+  <div class="nav-inner">
+    <a href="#partes" class="nav-link">Las partes</a>
+    <a href="#acceso" class="nav-link">Acceso al portal</a>
+    <a href="#servicios" class="nav-link">Servicios</a>
+    <a href="#pagos" class="nav-link">Pagos</a>
+    <a href="#openpay" class="nav-link">OpenPay</a>
+    <a href="#obligaciones" class="nav-link">Obligaciones</a>
+    <a href="#responsabilidad" class="nav-link">Responsabilidad</a>
+    <a href="#vigencia" class="nav-link">Vigencia</a>
+    <a href="#contacto" class="nav-link">Contacto</a>
+  </div>
+</nav>
+
+<main>
+
+  <section id="partes">
+    <div class="section-num">1</div>
+    <h2>Las Partes</h2>
+    <p>Los presentes Términos y Condiciones regulan el uso del portal digital <strong>ccploreto.org.pe</strong> y sus módulos asociados.</p>
+    <p><strong>El Proveedor:</strong> Colegio de Contadores Públicos de Loreto (CCPL), con domicilio en Calle Echenique N° 451, Iquitos, Loreto — Perú.</p>
+    <p><strong>El Usuario:</strong> Todo colegiado o persona que acceda al portal, ya sea para consultar información, realizar pagos o utilizar los servicios disponibles.</p>
+    <p>La plataforma es desarrollada y mantenida por <strong>Perú Sistemas Pro E.I.R.L.</strong> (RUC 20615446565), actuando como proveedor tecnológico del CCPL.</p>
+  </section>
+
+  <section id="acceso">
+    <div class="section-num">2</div>
+    <h2>Acceso al Portal</h2>
+    <h3>Registro y credenciales</h3>
+    <p>El acceso al portal de colegiados requiere autenticación mediante número de matrícula o DNI y contraseña personal. El colegiado es responsable de mantener la confidencialidad de sus credenciales.</p>
+    <h3>Condiciones de uso</h3>
+    <ul>
+      <li>Usar el portal exclusivamente para fines legítimos relacionados con su condición de colegiado</li>
+      <li>No compartir sus credenciales de acceso con terceros</li>
+      <li>No intentar acceder a información de otros colegiados</li>
+      <li>No realizar actos que comprometan la seguridad o disponibilidad del sistema</li>
+    </ul>
+    <h3>Disponibilidad</h3>
+    <p>El CCPL y Perú Sistemas Pro se esfuerzan por mantener el portal disponible de forma continua, pero no garantizan disponibilidad ininterrumpida. Podrán realizarse interrupciones programadas para mantenimiento, notificadas con anticipación.</p>
+  </section>
+
+  <section id="servicios">
+    <div class="section-num">3</div>
+    <h2>Servicios del Portal</h2>
+    <p>El portal digital del CCPL ofrece los siguientes servicios a los colegiados:</p>
+    <ul>
+      <li>Consulta de estado de habilidad e historial de pagos</li>
+      <li>Visualización de deudas pendientes: cuotas ordinarias, extraordinarias, multas y otros conceptos</li>
+      <li>Pago en línea de obligaciones mediante pasarela electrónica autorizada</li>
+      <li>Solicitud y descarga de constancias de habilidad</li>
+      <li>Gestión de planes de fraccionamiento de deuda</li>
+      <li>Actualización de datos de contacto</li>
+      <li>Consulta de comunicados y resoluciones institucionales</li>
+    </ul>
+  </section>
+
+  <section id="pagos">
+    <div class="section-num">4</div>
+    <h2>Pagos en el Portal</h2>
+    <h3>Métodos aceptados</h3>
+    <p>El portal acepta los siguientes métodos de pago:</p>
+    <ul>
+      <li><strong>Tarjeta de débito o crédito</strong> (Visa, Mastercard) — procesado por OpenPay by BBVA</li>
+      <li><strong>Reporte de pago</strong> vía Yape, Plin o transferencia bancaria — sujeto a verificación por Tesorería</li>
+      <li><strong>Pago presencial</strong> en las oficinas del CCPL (Caja)</li>
+    </ul>
+
+    <h3>Confirmación de pago</h3>
+    <p>Los pagos con tarjeta son confirmados en tiempo real por la pasarela de pago. Una vez procesado, la deuda correspondiente es actualizada automáticamente en el sistema.</p>
+
+    <div class="card card-warn">
+      <p>Los pagos reportados manualmente (Yape, Plin, transferencia) están sujetos a verificación. La habilitación del colegiado se efectúa una vez confirmado el pago por Tesorería, en un plazo máximo de <strong>24 horas hábiles</strong>.</p>
+    </div>
+
+    <h3>No reembolso automático</h3>
+    <p>Los pagos realizados en el portal corresponden a obligaciones estatutarias del colegiado. Las solicitudes de devolución o imputación diferente deben ser presentadas formalmente ante Tesorería del CCPL dentro de los 30 días calendario siguientes al pago.</p>
+  </section>
+
+  <section id="openpay">
+    <div class="section-num">5</div>
+    <h2>Pasarela de Pago — OpenPay by BBVA</h2>
+
+    <div class="openpay-section">
+      <div class="openpay-header">
+        <div class="op-logo">Openpay</div>
+        <div class="op-bbva">BBVA</div>
+        <div class="op-desc">Plataforma de pago seguro certificada PCI DSS</div>
+      </div>
+      <p style="font-size:14px;font-weight:300;color:var(--gris-texto);">
+        El CCPL ha integrado <strong>OpenPay by BBVA</strong> como pasarela de pago electrónico para garantizar transacciones seguras, rápidas y confiables a sus colegiados.
+      </p>
+    </div>
+
+    <h3>Flujo de pago con tarjeta</h3>
+    <div class="process-steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">El colegiado selecciona las deudas a pagar en el portal del CCPL</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Es redirigido al entorno seguro de OpenPay para ingresar los datos de su tarjeta</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">OpenPay procesa el cargo y notifica el resultado al sistema del CCPL</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">El sistema actualiza automáticamente el estado de deuda y la condición del colegiado</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text">El colegiado recibe confirmación en pantalla con referencia de transacción</div>
+      </div>
+    </div>
+
+    <h3>Mención de la pasarela</h3>
+    <div class="card card-info">
+      <p>Los pagos en línea del portal del CCPL son procesados por <strong>OpenPay Perú S.A.</strong>, empresa del grupo BBVA, con domicilio en Perú y autorizada por la Superintendencia de Banca, Seguros y AFP (SBS) para operar como proveedor de servicios de pago electrónico. OpenPay cumple con la normativa PCI DSS y la regulación peruana de medios de pago.</p>
+    </div>
+
+    <h3>Cargos y comisiones</h3>
+    <p>El CCPL no cobra comisiones adicionales por el uso de la pasarela de pago. El monto cobrado al colegiado corresponde exactamente al valor de la deuda seleccionada. OpenPay aplica sus propias comisiones al CCPL como comercio, las cuales son asumidas íntegramente por la institución.</p>
+  </section>
+
+  <section id="obligaciones">
+    <div class="section-num">6</div>
+    <h2>Obligaciones del Colegiado</h2>
+    <p>Al utilizar el portal, el colegiado se compromete a:</p>
+    <ul>
+      <li>Proporcionar información veraz y actualizada en sus datos de contacto</li>
+      <li>Realizar únicamente pagos correspondientes a sus propias obligaciones o las de terceros con su consentimiento expreso</li>
+      <li>No utilizar tarjetas de crédito o débito ajenas sin autorización del titular</li>
+      <li>Notificar al CCPL cualquier error en la imputación de pagos dentro de los 30 días calendario</li>
+      <li>No intentar manipular, alterar o vulnerar el sistema de gestión</li>
+    </ul>
+  </section>
+
+  <section id="responsabilidad">
+    <div class="section-num">7</div>
+    <h2>Limitación de Responsabilidad</h2>
+    <p>El CCPL y Perú Sistemas Pro no serán responsables por:</p>
+    <ul>
+      <li>Interrupciones del servicio causadas por fuerza mayor, fallos de conectividad o mantenimiento de terceros</li>
+      <li>Errores cometidos por el usuario al ingresar datos de pago</li>
+      <li>Transacciones rechazadas por el banco emisor de la tarjeta del usuario</li>
+      <li>Uso no autorizado de las credenciales del colegiado por terceros</li>
+    </ul>
+    <p>La responsabilidad del CCPL en relación con pagos procesados se limita al monto de la transacción específica en disputa.</p>
+  </section>
+
+  <section id="vigencia">
+    <div class="section-num">8</div>
+    <h2>Vigencia y Modificaciones</h2>
+    <p>Estos Términos y Condiciones entran en vigor el <strong>14 de marzo de 2026</strong> y permanecen vigentes hasta su modificación o sustitución.</p>
+    <p>El CCPL se reserva el derecho de modificar estos términos en cualquier momento. Las modificaciones serán publicadas en esta página y notificadas a los colegiados. El uso continuado del portal tras la publicación de cambios implica la aceptación de los nuevos términos.</p>
+    <p>La legislación aplicable es la de la República del Perú. Cualquier controversia será sometida a los juzgados competentes de la ciudad de Iquitos.</p>
+  </section>
+
+  <section id="contacto">
+    <div class="section-num">9</div>
+    <h2>Contacto y Atención al Colegiado</h2>
+    <p>Para consultas, reclamaciones o ejercicio de derechos relacionados con estos términos:</p>
+    <div class="contact-grid">
+      <div class="contact-item">
+        <div class="label">Teléfonos</div>
+        <div class="value">979 169 813<br>997 226 828</div>
+      </div>
+      <div class="contact-item">
+        <div class="label">Dirección</div>
+        <div class="value">Calle Echenique N° 451<br>Iquitos, Loreto</div>
+      </div>
+      <div class="contact-item">
+        <div class="label">Horario de atención</div>
+        <div class="value">Lun–Vie<br>8:00 a.m. – 5:00 p.m.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-ccpl">
+        <strong>Colegio de Contadores Públicos de Loreto</strong>
+        <span>Calle Echenique N° 451 · Iquitos, Loreto · ccploreto.org.pe</span>
+      </div>
+      <div class="footer-powered">
+        <div class="powered-label">Sistema desarrollado por</div>
+        <div class="brand">Perú Sistemas Pro</div>
+        <div class="brand-sub">RUC 20615446565 · Iquitos</div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      © 2026 Colegio de Contadores Públicos de Loreto. Todos los derechos reservados. ·
+      <a href="/politicas" style="color:rgba(255,255,255,.5);text-decoration:none;">Política de Privacidad</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
