@@ -299,6 +299,39 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 .ben-title{font-size:13px;font-weight:700;margin-bottom:3px}
 .ben-desc{font-size:11px;color:var(--tx2)}
 
+
+/* ── CHECKBOXES EN FILAS DE DEUDA ─────────────────────── */
+.drow { cursor:pointer; transition:background .15s,border-left .15s; border-left:3px solid transparent; padding-left:21px!important; }
+.drow:has(.debt-chk:checked) { background:rgba(59,130,246,.05)!important; border-left-color:var(--glow)!important; }
+.drow.condonable:has(.debt-chk:checked) { background:rgba(34,197,94,.04)!important; border-left-color:var(--green)!important; }
+.debt-chk { width:18px;height:18px;accent-color:var(--glow);flex-shrink:0;cursor:pointer;margin-right:4px; }
+
+/* ── BADGE CONDONABLE ─────────────────────────────────── */
+.badge-cond { display:inline-flex;align-items:center;gap:3px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:#22c55e;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap; }
+.drow.condonable .dconcept { color:var(--tx2); }
+.drow.condonable .damount  { color:rgba(34,197,94,.5)!important;text-decoration:line-through; }
+
+/* ── BREAKDOWN TOTAL / CONDONABLE / REAL ─────────────── */
+.dhead-breakdown { display:grid;grid-template-columns:1fr 1fr 1fr;padding:10px 16px;gap:4px;border-bottom:1px solid var(--bd);background:rgba(0,0,0,.12); }
+.dbd-item { text-align:center;padding:6px 4px; }
+.dbd-label { font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-weight:600; }
+.dbd-val   { font-size:15px;font-weight:800;font-variant-numeric:tabular-nums; }
+
+/* ── BARRA FLOTANTE DE SELECCIÓN ─────────────────────── */
+.sel-bar { position:sticky;bottom:76px;z-index:50;background:rgba(15,23,42,.97);backdrop-filter:blur(16px);border:1px solid rgba(59,130,246,.3);border-radius:14px;padding:10px 14px;margin:10px 0 0;display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5); }
+.sel-bar.visible { opacity:1;transform:translateY(0);pointer-events:auto; }
+.sel-bar-left  { flex:1;min-width:0; }
+.sel-bar-count { font-size:11px;color:var(--tx2); }
+.sel-bar-monto { font-size:18px;font-weight:800;color:var(--green2);font-variant-numeric:tabular-nums; }
+.sel-bar-btn   { padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--glow),var(--glow2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0; }
+
+/* ── NOTA ACUERDO 007 ────────────────────────────────── */
+.acuerdo-nota { background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.15);border-radius:0;padding:10px 16px;font-size:11px;color:var(--tx2);line-height:1.6;display:flex;gap:8px;align-items:flex-start;border-left:none;border-right:none; }
+.acuerdo-nota i { color:var(--green);flex-shrink:0;margin-top:1px;font-size:14px; }
+
+/* ── SELECCIONAR TODOS ───────────────────────────────── */
+.dhead-selall { display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:11px;color:var(--tx2);border-bottom:1px solid var(--bd);cursor:pointer;background:rgba(255,255,255,.01);transition:background .15s;user-select:none; }
+.dhead-selall:hover { background:rgba(255,255,255,.02); }
 </style>
 </head>
 <body>
@@ -396,8 +429,39 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
             </div>
             <div class="dtotal" id="deuda-total">S/ 0.00</div>
         </div>
+        
+        
+        <!-- Grupos por año — generados por JS -->
+        <!-- Breakdown: total / condonable / real -->
+        <div class="dhead-breakdown" id="dhead-breakdown" style="display:none">
+            <div class="dbd-item">
+                <div class="dbd-label">Deuda total</div>
+                <div class="dbd-val" id="dbd-total" style="color:var(--red)">S/ 0</div>
+            </div>
+            <div class="dbd-item" style="border-left:1px solid var(--bd);border-right:1px solid var(--bd)">
+                <div class="dbd-label">⚡ Condonable</div>
+                <div class="dbd-val" id="dbd-cond" style="color:var(--green)">S/ 0</div>
+            </div>
+            <div class="dbd-item">
+                <div class="dbd-label">A fraccionar</div>
+                <div class="dbd-val" id="dbd-real" style="color:var(--warm)">S/ 0</div>
+            </div>
+        </div>
+        <!-- Nota Acuerdo 007-2026 -->
+        <div class="acuerdo-nota" id="acuerdo-nota" style="display:none">
+            <i class="ph ph-info"></i>
+            <span>Las deudas marcadas <strong style="color:var(--green)">CONDONABLE</strong> se eliminan automáticamente al activar un fraccionamiento (Acuerdo 007-2026).</span>
+        </div>
+        <!-- Seleccionar todos -->
+        <div class="dhead-selall" id="dhead-selall" style="display:none" onclick="P.toggleSelAll()">
+            <input type="checkbox" id="chk-selall" style="width:16px;height:16px" onclick="event.stopPropagation()">
+            <span>Seleccionar todas las deudas</span>
+        </div>
         <!-- Grupos por año — generados por JS -->
         <div id="deuda-grupos"></div>
+
+
+
         <div class="dsummary" id="deuda-summary"></div>
     </div>
 
@@ -498,28 +562,10 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
                 </div>
             </div>
             
-            <!-- Selector de deudas -->
-            <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Selecciona las deudas a pagar</div>
-            <div style="display:grid;gap:8px;margin-bottom:14px">
-                {% for deuda in deudas %}
-                {% if deuda.balance > 0 and deuda.status in ('pending', 'parcial') %}
-                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .2s"
-                       onmouseover="this.style.borderColor='rgba(59,130,246,.5)'"
-                       onmouseout="this.style.borderColor='var(--bd)'">
-                    <input type="checkbox"
-                           class="deuda-checkbox"
-                           value="{{ deuda.id }}"
-                           data-monto="{{ deuda.balance }}"
-                           onchange="actualizarTotalOpenpay()"
-                           style="width:18px;height:18px;accent-color:#3b82f6;flex-shrink:0">
-                    <div style="flex:1">
-                        <div style="font-size:13px;font-weight:600;color:var(--tx)">{{ deuda.period_label or deuda.concept }}</div>
-                        <div style="font-size:11px;color:var(--tx2)">{{ deuda.debt_type or 'Deuda pendiente' }}</div>
-                    </div>
-                    <div style="color:#fbbf24;font-weight:800;font-size:14px;white-space:nowrap;flex-shrink:0">S/ {{ "%.2f"|format(deuda.balance) }}</div>
-                </label>
-                {% endif %}
-                {% endfor %}
+            <!-- Resumen selección -->
+            <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--tx2)">
+                <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Deudas seleccionadas en la lista de arriba</div>
+                <div style="font-size:13px;font-weight:700;color:var(--tx)" id="ppanel-sel-info">Ninguna — usa los checkboxes o el monto libre</div>
             </div>
 
             <!-- Total dinámico -->
@@ -943,73 +989,72 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 <!-- ── Script OpenPay (agregar antes de </body> si no está ya) ── -->
 <script>
 // Precios de deudas para calcular total en cliente
-const _deudaMontos = {};
-document.querySelectorAll('.deuda-checkbox').forEach(cb => {
-    _deudaMontos[cb.value] = parseFloat(cb.dataset.monto) || 0;
-});
-
 function actualizarTotalOpenpay() {
     let total = 0;
-    // Fraccionamiento tiene prioridad
     if (window._montoFracc && window._montoFracc > 0) {
-        total += window._montoFracc;
+        total = window._montoFracc;
     } else {
-        const montoDirecto = parseFloat(document.getElementById('monto-pago-directo')?.value) || 0;
-        total += montoDirecto;
+        const chks = document.querySelectorAll('.debt-chk:checked');
+        if (chks.length > 0) {
+            total = Array.from(chks).reduce((s, c) => s + (parseFloat(c.dataset.monto) || 0), 0);
+        } else {
+            total = parseFloat(document.getElementById('monto-pago-directo')?.value) || 0;
+        }
     }
-    // Constancia solo si hay monto base
-    const chk = document.getElementById('online-constancia');
-    if (chk) {
-        chk.disabled = total <= 0;
-        chk.closest('label').style.opacity = total > 0 ? '1' : '0.4';
-        if (total <= 0) chk.checked = false;
+    const chkConst = document.getElementById('online-constancia');
+    if (chkConst) {
+        const sin = total <= 0;
+        chkConst.disabled = sin;
+        chkConst.closest('label').style.opacity = sin ? '0.4' : '1';
+        if (sin) chkConst.checked = false;
     }
-    if (total > 0 && chk?.checked) total += 10;
-    document.getElementById('openpay-total').textContent =
-        'S/ ' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    if (total > 0 && chkConst?.checked) total += 10;
+    const totalEl = document.getElementById('openpay-total');
+    if (totalEl) totalEl.textContent = 'S/ ' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const btn = document.getElementById('btn-pagar-openpay');
-    btn.disabled = total <= 0;
-    btn.style.opacity = total > 0 ? '1' : '0.5';
-    btn.style.cursor  = total > 0 ? 'pointer' : 'not-allowed';
+    if (btn) {
+        btn.disabled      = total <= 0;
+        btn.style.opacity = total > 0 ? '1' : '0.5';
+        btn.style.cursor  = total > 0 ? 'pointer' : 'not-allowed';
+    }
 }
 
-// Recalcular cuando cambia el checkbox de constancia
-document.getElementById('online-constancia')?.addEventListener('change', actualizarTotalOpenpay);
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('online-constancia')?.addEventListener('change', actualizarTotalOpenpay);
+});
 
-// REEMPLAZAR iniciarPagoOpenpay() completo:
 function iniciarPagoOpenpay() {
     const btn = document.getElementById('btn-pagar-openpay');
-    btn.disabled = true;
-    btn.querySelector('div > div:first-child').textContent = 'Conectando...';
-    btn.style.opacity = '0.7';
+    btn.disabled = true; btn.style.opacity = '0.7';
     const fd = new FormData();
-    fd.append('deuda_ids', '');
     if (window._planActivo) {
         fd.append('fraccionamiento_id', window._planActivo.fraccionamiento_id);
-        fd.append('numero_cuota', window._planActivo.numero_cuota ?? 0);
-        fd.append('monto_directo', window._montoFracc);
+        fd.append('numero_cuota',       window._planActivo.numero_cuota ?? 0);
+        fd.append('monto_directo',      window._montoFracc);
+        fd.append('deuda_ids', '');
     } else {
-        const monto = parseFloat(document.getElementById('monto-pago-directo')?.value) || 0;
-        fd.append('monto_directo', monto);
+        const chks = document.querySelectorAll('.debt-chk:checked');
+        if (chks.length > 0) {
+            fd.append('deuda_ids',     Array.from(chks).map(c => c.value).join(','));
+            fd.append('monto_directo', '');
+        } else {
+            fd.append('deuda_ids',     '');
+            fd.append('monto_directo', parseFloat(document.getElementById('monto-pago-directo')?.value) || 0);
+        }
     }
     if (document.getElementById('online-constancia')?.checked) fd.append('incluir_constancia', '1');
     fetch('/pagos/openpay/iniciar', { method: 'POST', headers: { 'HX-Request': 'true' }, body: fd })
     .then(async resp => {
         const hxRedir = resp.headers.get('HX-Redirect');
-        if (hxRedir) { window.location.href = hxRedir; return; }
+        if (hxRedir)         { window.location.href = hxRedir;  return; }
         if (resp.redirected) { window.location.href = resp.url; return; }
-        const html = await resp.text();
-        document.getElementById('openpay-resultado').innerHTML = html;
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.querySelector('div > div:first-child').textContent = 'Pagar con Tarjeta';
+        document.getElementById('openpay-resultado').innerHTML = await resp.text();
+        btn.disabled = false; btn.style.opacity = '1';
     })
     .catch(() => {
         document.getElementById('openpay-resultado').innerHTML =
-            '<div style="color:#ef4444;font-size:12px;padding:8px;">Error de conexión.</div>';
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.querySelector('div > div:first-child').textContent = 'Pagar con Tarjeta';
+            '<div style="color:#ef4444;font-size:12px;padding:8px">❌ Error de conexión.</div>';
+        btn.disabled = false; btn.style.opacity = '1';
     });
 }
 </script>
@@ -1084,39 +1129,67 @@ const P = {
     },
 
     // ── RENDERIZAR DEUDA CONSOLIDADA POR AÑO ──────────────────────
+    // ── HELPER: ¿Es condonable según Acuerdo 007-2026? ─────────────
+    _esCondonable(d) {
+        const tipo     = (d.debt_type || d.categoria || '').toLowerCase();
+        const concepto = (d.concept   || d.concepto  || '').toLowerCase();
+        const periodo  = (d.periodo   || '').replace('/', '-');
+        if (tipo === 'multa') {
+            const esEleccion = concepto.includes('elecci') || concepto.includes('votaci');
+            return !esEleccion;
+        }
+        if (tipo === 'cuota_ordinaria') {
+            const m = periodo.match(/(\d{4})/);
+            if (m) return parseInt(m[1]) <= 2019;
+        }
+        return false;
+    },
+
+    // ── RENDERIZAR DEUDA CONSOLIDADA POR AÑO ──────────────────────
     _renderDeudaConsolidada(deudas, total) {
-        // Agrupar por año (del campo periodo "01/2025" → 2025, o por due_date)
-        const grupos = {}; // { '2025': { label, items: [], subtotal } }
+        const grupos = {};
+        let   totalCond = 0;
 
         deudas.forEach(d => {
-            // periodo puede ser '2024-01', '2024', '2007' etc. — extraer año
             let anio = '?';
-            if (d.periodo) {
-                const m = d.periodo.match(/(\d{4})/);
-                if (m) anio = m[1];
-            } else if (d.due_date) {
-                anio = String(d.due_date).slice(0, 4);
-            }
+            if (d.periodo) { const m = d.periodo.match(/(\d{4})/); if (m) anio = m[1]; }
+            else if (d.due_date) anio = String(d.due_date).slice(0, 4);
             if (!grupos[anio]) grupos[anio] = { items: [], subtotal: 0 };
             grupos[anio].items.push(d);
             grupos[anio].subtotal += parseFloat(d.balance) || 0;
+            if (this._esCondonable(d)) totalCond += parseFloat(d.balance) || 0;
         });
 
-        // Ordenar por año desc (más reciente primero)
-        const anios = Object.keys(grupos).sort((a, b) => parseInt(b) - parseInt(a));
+        // Breakdown
+        const totalReal = total - totalCond;
+        const bdEl = document.getElementById('dhead-breakdown');
+        if (bdEl) {
+            bdEl.style.display = 'grid';
+            document.getElementById('dbd-total').textContent = 'S/ ' + this.fmt(total);
+            document.getElementById('dbd-cond').textContent  = 'S/ ' + this.fmt(totalCond);
+            document.getElementById('dbd-real').textContent  = 'S/ ' + this.fmt(totalReal);
+        }
+        const noEl = document.getElementById('acuerdo-nota');
+        const saEl = document.getElementById('dhead-selall');
+        if (noEl) noEl.style.display = totalCond > 0 ? 'flex' : 'none';
+        if (saEl) saEl.style.display = 'flex';
 
+        // Guardar para fraccionamiento
+        this._totalCondonable = totalCond;
+        this._totalReal       = totalReal;
+
+        // Ordenar desc
+        const anios = Object.keys(grupos).sort((a, b) => parseInt(b) - parseInt(a));
         let html = '';
         anios.forEach((anio, idx) => {
-            const g = grupos[anio];
-            const count = g.items.length;
-            // Solo el primer grupo (más reciente) abierto por defecto
+            const g      = grupos[anio];
+            const count  = g.items.length;
             const abierto = idx === 0;
             html += `
                 <div class="dyear-group">
                     <div class="dyear-header" onclick="P._toggleYear('y${anio}')">
                         <div class="dyear-label">
-                            <i class="ph ph-calendar-blank"></i>
-                            ${anio}
+                            <i class="ph ph-calendar-blank"></i>${anio}
                             <span class="ybadge">${count} concepto${count !== 1 ? 's' : ''}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:4px">
@@ -1125,23 +1198,91 @@ const P = {
                         </div>
                     </div>
                     <div class="dyear-body ${abierto ? 'open' : ''}" id="y${anio}">
-                        ${g.items.map(d => `
-                            <div class="drow">
-                                <div class="dconcept">${d.concept || d.concepto || ''}</div>
-                                <div class="ddate">${d.period_label || d.periodo || ''}</div>
-                                <div class="damount" style="color:${parseFloat(d.balance) > 100 ? 'var(--red)' : 'var(--tx)'}">
-                                    S/ ${this.fmt(d.balance)}
+                        ${g.items.map(d => {
+                            const cond  = this._esCondonable(d);
+                            const monto = parseFloat(d.balance) || 0;
+                            const badge = cond
+                                ? '<span class="badge-cond"><i class="ph ph-sparkle"></i>Condonable</span>'
+                                : '';
+                            return `
+                            <label class="drow${cond ? ' condonable' : ''}"
+                                   style="display:flex;align-items:center;gap:8px">
+                                <input type="checkbox" class="debt-chk"
+                                    value="${d.id}"
+                                    data-monto="${monto}"
+                                    data-cond="${cond ? '1' : '0'}"
+                                    onchange="P._onDebtChk()">
+                                <div class="dconcept" style="flex:1">
+                                    ${d.concept || d.concepto || '—'} ${badge}
+                                    <div style="font-size:10px;color:var(--tx3);margin-top:1px">
+                                        ${d.debt_type || ''} · ${d.period_label || d.periodo || ''}
+                                    </div>
                                 </div>
-                            </div>`).join('')}
+                                <div class="damount" style="color:${monto > 100 ? 'var(--red)' : 'var(--tx)'}">
+                                    S/ ${this.fmt(monto)}
+                                </div>
+                            </label>`;
+                        }).join('')}
                     </div>
                 </div>`;
         });
 
         document.getElementById('deuda-grupos').innerHTML = html;
-
         const nAnios = anios.length;
         document.getElementById('deuda-summary').textContent =
-            `Deuda acumulada de ${nAnios} año${nAnios !== 1 ? 's' : ''} · Regulariza hoy y reactívate de inmediato`;
+            `${deudas.length} concepto${deudas.length !== 1 ? 's' : ''} · ${nAnios} año${nAnios !== 1 ? 's' : ''}` +
+            (totalCond > 0 ? ` · S/ ${this.fmt(totalCond)} condonable con fraccionamiento` : '');
+
+        this._initSelBar();
+    },
+
+    _onDebtChk() {
+        const chks   = document.querySelectorAll('.debt-chk:checked');
+        const total  = Array.from(chks).reduce((s, c) => s + (parseFloat(c.dataset.monto) || 0), 0);
+        const count  = chks.length;
+        const bar    = document.getElementById('sel-bar');
+        if (bar) {
+            document.getElementById('sel-bar-count').textContent =
+                count === 0 ? 'Ninguna seleccionada'
+                            : `${count} deuda${count !== 1 ? 's' : ''} seleccionada${count !== 1 ? 's' : ''}`;
+            document.getElementById('sel-bar-monto').textContent = 'S/ ' + this.fmt(total);
+            bar.classList.toggle('visible', count > 0);
+        }
+        const all = document.querySelectorAll('.debt-chk');
+        const ca  = document.getElementById('chk-selall');
+        if (ca) ca.checked = count === all.length && all.length > 0;
+        actualizarTotalOpenpay();
+    },
+
+    toggleSelAll() {
+        const ca    = document.getElementById('chk-selall');
+        const check = !ca.checked;
+        ca.checked  = check;
+        document.querySelectorAll('.debt-chk').forEach(c => { c.checked = check; });
+        this._onDebtChk();
+    },
+
+    _initSelBar() {
+        if (document.getElementById('sel-bar')) return;
+        const bar = document.createElement('div');
+        bar.id        = 'sel-bar';
+        bar.className = 'sel-bar';
+        bar.innerHTML = `
+            <div class="sel-bar-left">
+                <div class="sel-bar-count">Ninguna seleccionada</div>
+                <div class="sel-bar-monto">S/ 0.00</div>
+            </div>
+            <button class="sel-bar-btn" onclick="P.pagarSeleccion()">
+                <i class="ph ph-lightning"></i> Pagar seleccionadas
+            </button>`;
+        document.getElementById('deuda-card')?.after(bar);
+    },
+
+    pagarSeleccion() {
+        const po = document.getElementById('ppanel-online');
+        if (po && !po.classList.contains('open')) P.togglePayOnline();
+        actualizarTotalOpenpay();
+        po?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
 
     _toggleYear(id) {
