@@ -20,61 +20,82 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY")   # para Whisper fase 2
 
 
-def _build_system_prompt(col, deuda_info: dict) -> str:
-    resumen      = deuda_info.get("resumen", {})
-    deuda_total  = resumen.get("deuda_total", 0)
-    cuotas_pend  = resumen.get("cuotas_pendientes", 0)
-    deuda_otras  = resumen.get("deuda_otras", 0)
-    tiene_fracc  = bool(deuda_info.get("fraccionamiento"))
-    min_inicial  = round(deuda_total * 0.20, 2)
-    condona      = 0.0
+import re as _re
 
-    # Calcular condonable (multas asamblea + cuotas ≤ 2019)
+def _build_system_prompt(col, deuda_info: dict) -> str:
+    resumen = deuda_info.get("resumen", {})
+
+    # Compatibilidad con distintas claves del resumen
+    deuda_total = (
+        resumen.get("deuda_total") or
+        (resumen.get("deuda_cuotas", 0) +
+         resumen.get("deuda_otras",  0) +
+         resumen.get("deuda_fraccionamiento", 0))
+    ) or 0.0
+
+    cuotas_pend = (
+        resumen.get("cuotas_pendientes") or
+        resumen.get("cantidad_cuotas")   or
+        deuda_info.get("cantidad_cuotas", 0)
+    ) or 0
+
+    deuda_otras = resumen.get("deuda_otras", 0) or 0
+    tiene_fracc = bool(deuda_info.get("fraccionamiento"))
+    condona     = 0.0
+
+    # Calcular condonable (multas asamblea + cuotas ordinarias ≤ 2019)
     for o in deuda_info.get("obligaciones", []):
         tipo     = (o.get("categoria") or "").lower()
         concepto = (o.get("concepto")  or "").lower()
         periodo  = (o.get("periodo")   or "")
         balance  = float(o.get("balance") or 0)
-        if tipo == "multa" and not any(p in concepto for p in ["elecci", "votaci"]):
-            condona += balance
+
+        if tipo == "multa":
+            es_eleccion = any(p in concepto for p in ["elecci", "votaci", "elección"])
+            if not es_eleccion:
+                condona += balance
+
         elif tipo == "cuota_ordinaria":
-            m = __import__("re").search(r"(\d{4})", periodo)
+            m = _re.search(r"(\d{4})", periodo)
             if m and int(m.group(1)) <= 2019:
                 condona += balance
 
-    deuda_real = deuda_total - condona
+    deuda_real  = max(deuda_total - condona, 0)
+    min_inicial = round(deuda_real * 0.20, 2)
+    califica_fracc = deuda_real >= 500
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
 Atiendes al colegiado {col.apellidos_nombres.split()[0] if col else 'estimado'}.
 
 DATOS ACTUALES DEL COLEGIADO:
 - Nombre: {col.apellidos_nombres if col else '—'}
-- Condición: {'INHÁBIL' if col and col.condicion == 'inhabil' else col.condicion if col else '—'}
+- Condición: {'INHÁBIL' if col and col.condicion == 'inhabil' else (col.condicion if col else '—')}
 - Deuda total: S/ {deuda_total:.2f}
 - Cuotas ordinarias vencidas: {cuotas_pend}
-- Otras deudas (multas, extraordinarias): S/ {deuda_otras:.2f}
+- Otras deudas (multas, extraordinarias, eventos): S/ {deuda_otras:.2f}
 - Monto condonable (Acuerdo 007-2026): S/ {condona:.2f}
-- Deuda real a fraccionar: S/ {deuda_real:.2f}
-- Cuota inicial mínima (20%): S/ {min_inicial:.2f}
+- Deuda real a fraccionar (sin condonables): S/ {deuda_real:.2f}
+- Cuota inicial mínima (20% de deuda real): S/ {min_inicial:.2f}
 - Cuota mensual mínima: S/ 100.00
 - Fraccionamiento activo: {'Sí' if tiene_fracc else 'No'}
+- Califica para fraccionar: {'Sí' if califica_fracc else 'No (deuda real menor a S/ 500)'}
 - Máximo cuotas mensuales: 12
 
 REGLAS QUE DEBES CONOCER:
-- Para ser HÁBIL: 0 multas, 0 cuotas extraordinarias, menos de 3 cuotas ordinarias vencidas.
-- Fraccionamiento: requiere deuda mínima S/ 500, cuota inicial 20%, cuotas desde S/ 100.
-- Al pagar cuota inicial del fraccionamiento → queda HÁBIL de inmediato.
-- Con Acuerdo 007-2026: las multas de asamblea y cuotas ≤ 2019 se condonan al fraccionar.
-- Pagos en línea: tarjeta Visa/Mastercard vía OpenPay. Yape/Plin: reportar pago manual.
-- Constancia de Habilidad: S/ 10, se emite al instante tras pago en línea.
+- Para ser HÁBIL: cero multas impagas, cero cuotas extraordinarias impagas, menos de 3 cuotas ordinarias vencidas.
+- Fraccionamiento requiere: deuda real mínima S/ 500, cuota inicial al menos 20%, cuotas desde S/ 100/mes.
+- Al pagar la cuota inicial del fraccionamiento → queda HÁBIL de inmediato ese mismo día.
+- Acuerdo 007-2026: las multas por inasistencia a asambleas y las cuotas ordinarias del año 2019 hacia atrás se condonan automáticamente al activar un fraccionamiento. Las multas por elecciones NUNCA se condonan.
+- Pagos en línea: tarjeta Visa o Mastercard vía OpenPay (activación inmediata). Yape/Plin/transferencia: se reporta manualmente y se valida en hasta 24 horas.
+- Constancia de Habilidad: cuesta S/ 10, se emite en PDF al instante tras pago en línea.
 
-INSTRUCCIONES:
-- Responde en máximo 2 oraciones, en español peruano simple y directo.
-- Si preguntan cuánto deben, da el número exacto.
-- Si preguntan por fraccionamiento, da la cuota inicial mínima y las opciones de cuotas.
-- Si preguntan qué se condona, explica el Acuerdo 007-2026 brevemente.
-- Nunca inventes datos. Si no sabes algo, di "consulta en ventanilla".
-- Tono: amigable, breve, como un colega que ayuda."""
+INSTRUCCIONES DE RESPUESTA:
+- Máximo 2 oraciones, en español peruano simple y directo.
+- Da siempre el monto exacto cuando pregunten por deuda o cuotas.
+- Si preguntan cómo reactivarse, menciona el fraccionamiento y la cuota inicial mínima.
+- Si preguntan qué se condona, menciona el Acuerdo 007-2026 brevemente.
+- Nunca inventes datos que no estén arriba. Si no sabes algo, di: consulta en ventanilla o llama al 979 169 813.
+- Tono: amigable, breve, como un colega contador que ayuda."""
 
 
 @router.post("/api/portal/asistente")
