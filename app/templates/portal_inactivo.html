@@ -1152,6 +1152,79 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 </a>
 
 
+<!-- Modal renovación de sesión -->
+<div id="modal-sesion" style="display:none;position:fixed;inset:0;z-index:500;
+     background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+     align-items:center;justify-content:center">
+    <div style="background:#0f172a;border:1px solid rgba(148,163,184,.15);
+                border-radius:20px;padding:32px;width:min(340px,90vw);text-align:center">
+        <div style="font-size:40px;margin-bottom:12px">🔐</div>
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Sesión expirada</h3>
+        <p style="font-size:13px;color:#64748b;margin-bottom:20px">
+            Tu sesión ha terminado. Ingresa tu contraseña para continuar.
+        </p>
+        <input type="password" id="modal-clave"
+               placeholder="Tu contraseña"
+               style="width:100%;padding:12px 14px;background:#1a2542;
+                      border:1px solid rgba(148,163,184,.15);border-radius:10px;
+                      color:#f1f5f9;font-size:14px;margin-bottom:12px;
+                      font-family:'DM Sans',sans-serif"
+               onkeydown="if(event.key==='Enter') renovarSesion()">
+        <button onclick="renovarSesion()"
+                style="width:100%;padding:13px;border:none;border-radius:10px;
+                       background:linear-gradient(135deg,#3b82f6,#6366f1);
+                       color:#fff;font-size:14px;font-weight:700;cursor:pointer">
+            Continuar sesión
+        </button>
+        <div id="modal-sesion-error"
+             style="color:#ef4444;font-size:12px;margin-top:8px;display:none">
+            Contraseña incorrecta. Intenta de nuevo.
+        </div>
+    </div>
+</div>
+
+<script>
+async function renovarSesion() {
+    const clave = document.getElementById('modal-clave').value;
+    const errEl = document.getElementById('modal-sesion-error');
+    errEl.style.display = 'none';
+
+    // Obtener el DNI/usuario del perfil ya cargado
+    const dni = P.col?.dni || '';
+
+    const fd = new FormData();
+    fd.append('username', dni);
+    fd.append('password', clave);
+
+    try {
+        const r = await fetch('/auth/login', { method: 'POST', body: fd });
+        if (r.ok || r.redirected) {
+            document.getElementById('modal-sesion').style.display = 'none';
+            // Recargar datos sin recargar la página
+            P.loadDeuda();
+        } else {
+            errEl.style.display = 'block';
+        }
+    } catch(e) {
+        errEl.style.display = 'block';
+    }
+}
+
+// Interceptar 401/403 en cualquier fetch
+const _fetchOriginal = window.fetch;
+window.fetch = async function(...args) {
+    const resp = await _fetchOriginal(...args);
+    if (resp.status === 401 || resp.status === 422) {
+        // No mostrar modal para el login mismo
+        const url = typeof args[0] === 'string' ? args[0] : '';
+        if (!url.includes('/auth/')) {
+            document.getElementById('modal-sesion').style.display = 'flex';
+        }
+    }
+    return resp;
+};
+</script>
+
 <!-- ── Script OpenPay (agregar antes de </body> si no está ya) ── -->
 <script>
 // Precios de deudas para calcular total en cliente
@@ -1246,6 +1319,9 @@ const P = {
             if (r.status === 401 || r.status === 422) { location.href = '/'; return; }
             const d = await r.json();
             this.col = d;
+
+            window._colNombre = d.nombres || d.nombre_completo || d.nombre_corto || '';
+
             document.getElementById('topbar-org').textContent = d.organizacion || 'Colegio Profesional';
             document.getElementById('hero-name').textContent = d.nombres || d.nombre_completo || d.nombre_corto;
             if (d.condicion === 'habil' || d.condicion === 'vitalicio') { location.href = '/dashboard'; return; }
@@ -1419,20 +1495,23 @@ const P = {
 
         
         // Guardar contexto para el asistente — AQUÍ porque ya tenemos los totales correctos
+        // Al final de _renderDeudaConsolidada, ANTES de this._initSelBar():
         window._asistCtx = {
-            nombre:      P.col?.nombres || P.col?.nombre_completo || P.col?.nombre_corto || '',
+            nombre:      P.col?.nombres || P.col?.nombre_completo ||
+                        P.col?.nombre_corto || window._colNombre || 'Colegiado',
             deuda_total: total,
             cantidad:    deudas.length,
-            deuda_otras: total - (deudas
-                .filter(d => (d.debt_type||'').includes('cuota_ordinaria'))
-                .reduce((s,d) => s + (parseFloat(d.balance)||0), 0)),
             condonable:  totalCond,
             deuda_real:  totalReal,
-            cuotas_pend: deudas.filter(d => (d.debt_type||'') === 'cuota_ordinaria').length,
-            tiene_fracc: !!(P.deudas?.fraccionamiento),
+            deuda_otras: deudas
+                .filter(d => (d.debt_type||'') !== 'cuota_ordinaria')
+                .reduce((s,d) => s + (parseFloat(d.balance)||0), 0),
+            cuotas_pend: deudas
+                .filter(d => (d.debt_type||'') === 'cuota_ordinaria').length,
+            tiene_fracc: false,
             condicion:   P.col?.condicion || 'inhabil',
         };
-        console.log('[Asistente ctx]', window._asistCtx);  // verificar en consola
+        console.log('[Asistente ctx guardado]', window._asistCtx);
 
         this._initSelBar();
 
@@ -2210,6 +2289,10 @@ const A = {
         window.speechSynthesis.cancel();
 
         let textoVoz = texto
+            // 24/7 → "veinticuatro horas, siete días"
+            .replace(/\b24\/7\b/g, 'veinticuatro horas al día, siete días a la semana')
+            // Fracciones simples que pueden malinterpretarse
+            .replace(/\b(\d+)\/(\d+)\b/g, '$1 sobre $2')
             // CCPL → "el Colegio de Contadores"
             .replace(/\bCCPL\b/g, 'el Colegio de Contadores')
             .replace(/\bCCPLo\b/gi, 'el Colegio de Contadores de Loreto')
