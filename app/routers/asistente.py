@@ -155,7 +155,7 @@ def _build_system_prompt_from_ctx(ctx: dict) -> str:
     deuda_otras= float(ctx.get("deuda_otras", 0))
     tiene_fracc= bool(ctx.get("tiene_fracc",  False))
     condicion  = ctx.get("condicion", "inhabil").upper()
-    min_inicial= round(deuda_real * 0.20, 2)
+    min_inicial= math.ceil(deuda_real * 0.20)
     califica   = deuda_real >= 500
 
     return _system_prompt_base(
