@@ -147,16 +147,24 @@ async def asistente_texto(
 
 def _build_system_prompt_from_ctx(ctx: dict) -> str:
     """Construye system prompt desde el contexto JSON de la página — siempre correcto."""
-    nombre     = ctx.get("nombre", "estimado colegiado")
-    deuda_total= float(ctx.get("deuda_total", 0))
-    condonable = float(ctx.get("condonable",  0))
-    deuda_real = float(ctx.get("deuda_real",  deuda_total))
-    cuotas_pend= int(ctx.get("cuotas_pend",   0))
-    deuda_otras= float(ctx.get("deuda_otras", 0))
-    tiene_fracc= bool(ctx.get("tiene_fracc",  False))
-    condicion  = ctx.get("condicion", "inhabil").upper()
-    min_inicial= math.ceil(deuda_real * 0.20)
-    califica   = deuda_real >= 500
+    nombre      = ctx.get("nombre", "estimado colegiado")
+    deuda_total = float(ctx.get("deuda_total", 0))
+    condonable  = float(ctx.get("condonable",  0))
+    deuda_real  = float(ctx.get("deuda_real",  deuda_total))
+    cuotas_pend = int(ctx.get("cuotas_pend",   0))
+    deuda_otras = float(ctx.get("deuda_otras", 0))
+    tiene_fracc = bool(ctx.get("tiene_fracc",  False))
+    condicion   = ctx.get("condicion", "inhabil").upper()
+    califica    = deuda_real >= 500
+
+    # Usar cuota_inicial_min de la página si viene — garantiza consistencia
+    # La página usa ceil al 10, el backend usa ceil al 1
+    # Prioridad: valor de la página > cálculo local
+    cuota_min_pagina = ctx.get("cuota_inicial_min")
+    if cuota_min_pagina and float(cuota_min_pagina) > 0:
+        min_inicial = int(float(cuota_min_pagina))
+    else:
+        min_inicial = math.ceil(deuda_real * 0.20)
 
     return _system_prompt_base(
         nombre, condicion, deuda_total, cuotas_pend,
@@ -189,8 +197,7 @@ def _system_prompt_base( nombre, condicion, deuda_total, cuotas_pend,
     deuda_otras, condonable, deuda_real,
     min_inicial, tiene_fracc, califica) -> str:
     saldo_tras_inicial = round(deuda_real - min_inicial)  # entero
-    min_inicial        = round(min_inicial)                # entero
-
+    
     planes_lineas = []
     for n in range(2, 13):
         cuota_m = round(saldo_tras_inicial / n)
