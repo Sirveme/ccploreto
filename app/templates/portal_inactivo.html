@@ -1263,19 +1263,6 @@ const P = {
             this.deudas = d.deudas || [];
             this.total  = d.total  || 0;
 
-            // ── Guardar contexto para el asistente ──
-            window._asistCtx = {
-                nombre:        this.col?.nombres || this.col?.nombre_completo || '',
-                deuda_total:   d.total || 0,
-                cantidad:      d.cantidad || 0,
-                deuda_otras:   d.deuda_otras || 0,
-                condonable:    this._totalCondonable || 0,
-                deuda_real:    this._totalReal || d.total || 0,
-                cuotas_pend:   d.cuotas_pendientes || 0,
-                tiene_fracc:   !!(d.fraccionamiento),
-                condicion:     this.col?.condicion || 'inhabil',
-            };
-
             document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.total)}`;
             // Actualizar spans del panel OpenPay
             const s1 = document.getElementById('monto-deuda-total');
@@ -1422,7 +1409,25 @@ const P = {
                 ? ` · Con fraccionamiento pagarías solo S/ ${this.fmt(totalReal)}`
                 : '');
 
+        
+        // Guardar contexto para el asistente — AQUÍ porque ya tenemos los totales correctos
+        window._asistCtx = {
+            nombre:      P.col?.nombres || P.col?.nombre_completo || P.col?.nombre_corto || '',
+            deuda_total: total,
+            cantidad:    deudas.length,
+            deuda_otras: total - (deudas
+                .filter(d => (d.debt_type||'').includes('cuota_ordinaria'))
+                .reduce((s,d) => s + (parseFloat(d.balance)||0), 0)),
+            condonable:  totalCond,
+            deuda_real:  totalReal,
+            cuotas_pend: deudas.filter(d => (d.debt_type||'') === 'cuota_ordinaria').length,
+            tiene_fracc: !!(P.deudas?.fraccionamiento),
+            condicion:   P.col?.condicion || 'inhabil',
+        };
+        console.log('[Asistente ctx]', window._asistCtx);  // verificar en consola
+
         this._initSelBar();
+
     },
 
     _onDebtChk() {
