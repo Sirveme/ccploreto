@@ -13,10 +13,13 @@
 'use strict';
 
 /* ────────────────────────────────────────────────────────────
-   Utilidades
+   Utilidades globales
 ──────────────────────────────────────────────────────────── */
 const fmt = n =>
   (parseFloat(n) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Redondeo al sol — sin céntimos para el colegiado
+const fmtS = n => Math.round(parseFloat(n) || 0).toLocaleString('es-PE');
 
 const hora = () =>
   new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
@@ -32,9 +35,16 @@ const Portal = {
   ctx: {
     nombre: '', primera: '', matricula: '',
     dni: '', condicion: '',
-    deuda_total: 0, deuda_fraccionable: 0,
-    deuda_condonable: 0, cuota_inicial_min: 0,
-    deudas: [],
+    // campos internos
+    deuda_total:        0,
+    deuda_fraccionable: 0,
+    deuda_condonable:   0,
+    cuota_inicial_min:  0,
+    deudas:             [],
+    // aliases para el backend (asistente.py)
+    deuda_real:         0,
+    condonable:         0,
+    cuotas_pend:        0,
   },
 
   async init() {
@@ -60,21 +70,23 @@ const Portal = {
       this.ctx.condicion = cond;
 
       // DOM — panel desktop
-      $('panel-av').textContent     = ini;
-      $('panel-nombre').textContent = nombre;
-      $('panel-mat').textContent    = 'Matrícula ' + (perfil.matricula || '—');
-      $('topbar-org').textContent   = perfil.organizacion || 'Colegio de Contadores Públicos de Loreto';
+      if ($('panel-av'))     $('panel-av').textContent     = ini;
+      if ($('panel-nombre')) $('panel-nombre').textContent = nombre;
+      if ($('panel-mat'))    $('panel-mat').textContent    = 'Matrícula ' + (perfil.matricula || '—');
+      if ($('topbar-org'))   $('topbar-org').textContent   = perfil.organizacion || 'Colegio de Contadores Públicos de Loreto';
 
       if (cond === 'retirado') {
         const b = $('panel-status');
-        b.classList.replace('status-inhabil', 'status-retirado');
-        $('panel-status-txt').textContent = 'RETIRADO';
+        if (b) {
+          b.classList.replace('status-inhabil', 'status-retirado');
+          if ($('panel-status-txt')) $('panel-status-txt').textContent = 'RETIRADO';
+        }
       }
 
       // DOM — topbar mobile
-      $('mob-av').textContent     = ini;
-      $('mob-nombre').textContent = primera;
-      $('pwa-nombre').textContent = primera;
+      if ($('mob-av'))     $('mob-av').textContent     = ini;
+      if ($('mob-nombre')) $('mob-nombre').textContent = primera;
+      if ($('pwa-nombre')) $('pwa-nombre').textContent = primera;
 
       // Pre-llenar modales con DNI/matrícula
       const dniMat = (perfil.dni || '') + ' / ' + (perfil.matricula || '');
@@ -96,26 +108,37 @@ const Portal = {
       const rd = await fetch('/api/portal/mi-deuda');
       const d  = await rd.json();
 
-      const total      = parseFloat(d.total      || 0);
-      const condona    = parseFloat(d.condonable  || 0);
-      const fraccio    = parseFloat(d.fraccionable || total);
-      const cuotaMin   = Math.max(100, Math.ceil(fraccio * 0.20 / 10) * 10);
-      const cant       = parseInt(d.cantidad || 0);
+      const total    = parseFloat(d.total      || 0);
+      const condona  = parseFloat(d.condonable  || 0);
+      // deuda real a fraccionar = total - condonable
+      const fraccio  = Math.max(0, total - condona);
+      // Cuota inicial mínima: ceil al 10 más cercano, mínimo 100
+      const cuotaMin = Math.max(100, Math.ceil((fraccio * 0.20) / 10) * 10);
+      const cant     = parseInt(d.cantidad || 0);
+      // Cuotas ordinarias pendientes
+      const cuotasPend = parseInt(d.cuotas_pendientes || 0);
 
-      this.ctx.deuda_total       = total;
-      this.ctx.deuda_condonable  = condona;
-      this.ctx.deuda_fraccionable= fraccio;
-      this.ctx.cuota_inicial_min = cuotaMin;
-      this.ctx.deudas            = d.deudas || [];
-      // ── Aliases que espera el backend ──────────────
-      this.ctx.deuda_real        = fraccio;   // ← AÑADIR
-      this.ctx.condonable        = condona;   // ← AÑADIR
+      // Guardar en ctx — incluyendo aliases que espera el backend
+      this.ctx.deuda_total        = total;
+      this.ctx.deuda_condonable   = condona;
+      this.ctx.deuda_fraccionable = fraccio;
+      this.ctx.cuota_inicial_min  = cuotaMin;
+      this.ctx.deudas             = d.deudas || [];
+      this.ctx.cuotas_pend        = cuotasPend;
+      // Aliases para _build_system_prompt_from_ctx en backend
+      this.ctx.deuda_real         = fraccio;
+      this.ctx.condonable         = condona;
+
+      console.log('[Portal.ctx]', {
+        total, condona, fraccio, cuotaMin,
+        deuda_real: fraccio, condonable: condona,
+      });
 
       // Panel desktop
-      $('panel-deuda-total').textContent = fmt(total);
-      $('panel-deuda-cnt').textContent   =
+      if ($('panel-deuda-total')) $('panel-deuda-total').textContent = fmt(total);
+      if ($('panel-deuda-cnt'))   $('panel-deuda-cnt').textContent   =
         cant + ' concepto' + (cant !== 1 ? 's' : '') + ' pendiente' + (cant !== 1 ? 's' : '');
-      $('mob-deuda').textContent         = 'Deuda S/ ' + fmt(total);
+      if ($('mob-deuda')) $('mob-deuda').textContent = 'Deuda S/ ' + fmt(total);
 
       // Pills condonable / fraccionable
       const pillsEl = $('panel-pills');
@@ -158,14 +181,38 @@ const Portal = {
 
     const chips = [];
     if (total > 0)
-      chips.push({ cls: 'chip-deuda',    icon: 'account_balance_wallet', label: `Debo S/ ${fmt(total)}`,      q: `¿Cuánto debo en total y en qué conceptos?` });
+      chips.push({
+        cls: 'chip-deuda', icon: 'account_balance_wallet',
+        label: `Debo S/ ${fmtS(total)}`,
+        q: '¿Cuánto debo en total y en qué conceptos?',
+      });
     if (fraccio >= 500)
-      chips.push({ cls: 'chip-inicial',  icon: 'calendar_month',          label: `Inicial mín. S/ ${fmt(cuotaMin)}`, q: '¿Cómo funciona el fraccionamiento y cuánto sería mi cuota mensual?' });
+      chips.push({
+        cls: 'chip-inicial', icon: 'calendar_month',
+        label: `Inicial mín. S/ ${fmtS(cuotaMin)}`,
+        q: '¿Cómo funciona el fraccionamiento y cuánto sería mi cuota mensual?',
+      });
     if (condona > 0)
-      chips.push({ cls: 'chip-condona',  icon: 'auto_awesome',            label: `Me condonan S/ ${fmt(condona)}`,  q: '¿Qué deudas me condonan y cómo aplico a la condonación?' });
-    chips.push({ cls: 'chip-benef',    icon: 'handshake',                label: 'Beneficios al reactivarme',       q: '¿Qué beneficios y descuentos recupero al reactivarme?' });
-    chips.push({ cls: 'chip-reactiva', icon: 'bolt',                     label: 'Reactivarme hoy',                 q: '¿Cuál es la forma más rápida de reactivarme hoy?' });
-    chips.push({ cls: 'chip-legal',    icon: 'gavel',                    label: 'Base legal',                      q: '¿Cuál es la base legal que explica mi condición?' });
+      chips.push({
+        cls: 'chip-condona', icon: 'auto_awesome',
+        label: `Me condonan S/ ${fmtS(condona)}`,
+        q: '¿Qué deudas me condonan y cómo aplico a la condonación?',
+      });
+    chips.push({
+      cls: 'chip-benef', icon: 'handshake',
+      label: 'Beneficios al reactivarme',
+      q: '¿Qué beneficios y descuentos recupero al reactivarme?',
+    });
+    chips.push({
+      cls: 'chip-reactiva', icon: 'bolt',
+      label: 'Reactivarme hoy',
+      q: '¿Cuál es la forma más rápida de reactivarme hoy?',
+    });
+    chips.push({
+      cls: 'chip-legal', icon: 'gavel',
+      label: 'Base legal',
+      q: '¿Cuál es la base legal que explica mi condición y el fraccionamiento?',
+    });
 
     chips.forEach(c => {
       const btn = document.createElement('button');
@@ -179,7 +226,7 @@ const Portal = {
 
 
 /* ════════════════════════════════════════════════════════════
-   ASISTENTE — chat de texto + grabación de voz
+   ASISTENTE — chat de texto + grabación de voz + síntesis
 ════════════════════════════════════════════════════════════ */
 const Asistente = {
 
@@ -193,20 +240,22 @@ const Asistente = {
 
   activarWhisper() { this.usarWhisper = true; },
 
-  /* ── Saludo inicial ──────────────────────────────────── */
+  /* ── Saludo inicial ────────────────────────────────────── */
   welcomeMsg() {
-    const { primera, deuda_total, deuda_condonable } = Portal.ctx;
-    let txt = `¡Hola, ${primera}! 👋 Soy el asistente del CCPL.`;
+    const { primera, deuda_total, deuda_condonable, deuda_fraccionable, cuota_inicial_min } = Portal.ctx;
+    let txt = `¡Hola, ${primera}! 👋 Soy el asistente del Colegio de Contadores.`;
     if (deuda_total > 0) {
-      txt += ` Veo que tienes una deuda de <strong>S/ ${fmt(deuda_total)}</strong>.`;
+      txt += ` Tienes una deuda de <strong>S/ ${fmtS(deuda_total)}</strong>.`;
       if (deuda_condonable > 0)
-        txt += ` De eso, <strong>S/ ${fmt(deuda_condonable)}</strong> pueden <strong>condonarse</strong> automáticamente al activar un fraccionamiento.`;
+        txt += ` De eso, <strong>S/ ${fmtS(deuda_condonable)}</strong> se <strong>condona automáticamente</strong> al fraccionar (Acuerdo 007-2026).`;
+      if (deuda_fraccionable >= 500)
+        txt += ` Tu deuda real a fraccionar es <strong>S/ ${fmtS(deuda_fraccionable)}</strong> con una cuota inicial desde <strong>S/ ${fmtS(cuota_inicial_min)}</strong>.`;
     }
-    txt += '<br><br>¿En qué te puedo ayudar?';
+    txt += '<br><br>Usa los accesos rápidos o escríbeme tu pregunta. ¿En qué te ayudo?';
     this._addMsg(txt, 'bot');
   },
 
-  /* ── Chat texto ──────────────────────────────────────── */
+  /* ── Chat texto ────────────────────────────────────────── */
   enviar() {
     const input = $('chat-input');
     const texto = input.value.trim();
@@ -216,7 +265,6 @@ const Asistente = {
   },
 
   ask(texto) {
-    // Ocultar chips tras primera pregunta
     const chips = $('ctx-chips');
     if (chips) chips.style.display = 'none';
     this._sendText(texto);
@@ -225,7 +273,8 @@ const Asistente = {
   async _sendText(texto) {
     this._addMsg(texto, 'user');
     const typing = this._addTyping();
-    $('btn-send').disabled = true;
+    const btnSend = $('btn-send');
+    if (btnSend) btnSend.disabled = true;
 
     try {
       const fd = new FormData();
@@ -235,18 +284,69 @@ const Asistente = {
       const r = await fetch('/api/portal/asistente', { method: 'POST', body: fd });
       const d = await r.json();
       typing.remove();
-      this._addMsg(d.respuesta || 'No pude responder en este momento.', 'bot');
-      this._hablar(d.respuesta);
+      const resp = d.respuesta || 'No pude responder en este momento.';
+      this._addMsg(resp, 'bot');
+      this._hablar(resp);
 
     } catch(e) {
       typing.remove();
       this._addMsg('Error de conexión. Intenta en unos segundos.', 'bot');
     } finally {
-      $('btn-send').disabled = false;
+      if (btnSend) btnSend.disabled = false;
     }
   },
 
-  /* ── Voz ─────────────────────────────────────────────── */
+  /* ── Síntesis de voz ───────────────────────────────────── */
+  _hablar(texto) {
+    if (!texto || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+
+    const limpiar = (t) => t
+      // Porcentajes legibles
+      .replace(/(\d+)\s*%/g, '$1 por ciento')
+      // 24/7 → texto completo
+      .replace(/24\/7/g, 'veinticuatro horas al día, siete días a la semana')
+      // Fracciones simples — evitar "sobre" en montos
+      .replace(/\b(\d+)\/(\d+)\b/g, (_, a, b) => a + ' sobre ' + b)
+      // CCPL → "el Colegio de Contadores"
+      .replace(/\bCCPL\b/g, 'el Colegio de Contadores')
+      .replace(/\bCCPLo\b/gi, 'el Colegio de Contadores de Loreto')
+      // Artículos estatutarios — sin puntos ni grados
+      .replace(/Art\.\s*(\d+)\s*°?/gi, 'Artículo $1')
+      .replace(/Art°?\.\s*/gi, 'Artículo ')
+      .replace(/°/g, '')
+      // Montos: S/ 2,272.00 → "2272 soles"
+      .replace(/S\/\s*([\d,]+)(?:\.\d+)?/g, (_, n) => n.replace(/,/g, '') + ' soles')
+      .replace(/\bS\//g, '')
+      // Teléfonos 9 dígitos: 979 169 813 → "9-7-9, 1-6-9, 8-1-3"
+      .replace(/\b(\d{3})\s*(\d{3})\s*(\d{3})\b/g, (_, a, b, c) =>
+        [...a].join('-') + ', ' + [...b].join('-') + ', ' + [...c].join('-'))
+      // HTML tags
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+
+    const hablar = (voces) => {
+      const utt  = new SpeechSynthesisUtterance(limpiar(texto));
+      utt.lang   = 'es-PE';
+      utt.rate   = 1.0;
+      utt.pitch  = 1.0;
+      const voz  = voces.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('female'))
+                || voces.find(v => v.lang.startsWith('es'))
+                || null;
+      if (voz) utt.voice = voz;
+      window.speechSynthesis.speak(utt);
+    };
+
+    const voces = window.speechSynthesis.getVoices();
+    if (voces.length > 0) {
+      hablar(voces);
+    } else {
+      window.speechSynthesis.addEventListener('voiceschanged',
+        () => hablar(window.speechSynthesis.getVoices()), { once: true });
+    }
+  },
+
+  /* ── Voz ───────────────────────────────────────────────── */
   async toggleVoz() {
     if (this.grabando) { this.detenerGrabacion(); return; }
     await this._iniciarGrabacion();
@@ -259,10 +359,12 @@ const Asistente = {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.chunks  = [];
 
-      const mime  = ['audio/webm;codecs=opus','audio/webm',''].find(m => !m || MediaRecorder.isTypeSupported(m));
-      this.mr     = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      // Elegir MIME soportado
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', '']
+        .find(m => !m || MediaRecorder.isTypeSupported(m));
+      this.mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       this.mr.ondataavailable = e => { if (e.data.size > 0) this.chunks.push(e.data); };
-      this.mr.onstop          = ()  => this._procesarAudio(stream);
+      this.mr.onstop          = ()  => this._procesarAudio(stream, mime || 'audio/webm');
       this.mr.start(100);
       this.grabando = true;
 
@@ -279,78 +381,125 @@ const Asistente = {
       this._drawOrb();
 
       // UI botón
-      $('btn-mic').classList.add('rec');
-      $('mic-icon').textContent = 'stop_circle';
+      const btnMic  = $('btn-mic');
+      const micIcon = $('mic-icon');
+      if (btnMic)  btnMic.classList.add('rec');
+      if (micIcon) micIcon.textContent = 'stop_circle';
+
+      // Auto-stop a los 15 segundos
+      this._autoStopTimer = setTimeout(() => {
+        if (this.grabando) this.detenerGrabacion();
+      }, 15000);
 
     } catch(e) {
       console.error('[Voz]', e);
-      alert('No se pudo acceder al micrófono. Por favor permite el acceso en tu navegador.');
+      this._addMsg('No se pudo acceder al micrófono. Por favor permite el acceso en tu navegador.', 'bot');
     }
   },
 
   detenerGrabacion() {
     if (!this.mr || !this.grabando) return;
     this.grabando = false;
-    if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; }
+    if (this._autoStopTimer) { clearTimeout(this._autoStopTimer); this._autoStopTimer = null; }
+    if (this.rafId)          { cancelAnimationFrame(this.rafId); this.rafId = null; }
     this.mr.stop();
-    $('voz-lbl').textContent  = 'Procesando...';
-    $('voz-hint').textContent = 'Enviando al asistente IA';
-    $('voz-ov').classList.add('proc');
-    const stopBtn = document.querySelector('.btn-voz-stop');
-    if (stopBtn) stopBtn.style.display = 'none';
-    $('orb-icon').textContent = 'hourglass_empty';
-    $('btn-mic').classList.remove('rec');
-    $('mic-icon').textContent = 'mic';
+
+    if ($('voz-lbl'))  $('voz-lbl').textContent  = 'Procesando...';
+    if ($('voz-hint')) $('voz-hint').textContent = 'Enviando al asistente IA';
+    $('voz-ov')?.classList.add('proc');
+    document.querySelector('.btn-voz-stop')?.style?.setProperty('display', 'none');
+    if ($('orb-icon')) $('orb-icon').textContent = 'hourglass_empty';
+
+    const btnMic  = $('btn-mic');
+    const micIcon = $('mic-icon');
+    if (btnMic)  btnMic.classList.remove('rec');
+    if (micIcon) micIcon.textContent = 'mic';
   },
 
-  async _procesarAudio(stream) {
+  async _procesarAudio(stream, mimeUsado) {
     stream.getTracks().forEach(t => t.stop());
     if (this.audioCtx) { try { await this.audioCtx.close(); } catch(_) {} this.audioCtx = null; }
     this.analyser = null;
 
-    const blob = new Blob(this.chunks, { type: 'audio/webm' });
-    if (blob.size < 500) { this._hideOverlay(); return; }
+    const blob = new Blob(this.chunks, { type: mimeUsado || 'audio/webm' });
+    console.log('[Audio] blob size:', blob.size, 'mime:', blob.type);
+
+    if (blob.size < 500) {
+      this._hideOverlay();
+      this._addMsg('No escuché nada. ¿Puedes intentar de nuevo?', 'bot');
+      return;
+    }
 
     try {
+      // Determinar extensión según MIME
+      const extMap = {
+        'audio/webm': 'webm', 'audio/webm;codecs=opus': 'webm',
+        'audio/ogg':  'ogg',  'audio/mp4': 'mp4',
+        'audio/mpeg': 'mp3',  'audio/wav': 'wav',
+      };
+      const ext      = extMap[blob.type] || extMap[mimeUsado] || 'webm';
+      const filename = `voz.${ext}`;
+
       const fd = new FormData();
-      fd.append('audio', blob, 'voz.webm');
-      fd.append('ctx', JSON.stringify(Portal.ctx));
+      fd.append('audio', blob, filename);
+      fd.append('ctx',   JSON.stringify(Portal.ctx));
+
+      console.log('[Audio] enviando:', filename, blob.size, 'bytes');
 
       const r = await fetch('/api/portal/asistente/audio', { method: 'POST', body: fd });
-      const d = await r.json();
 
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        console.error('[Audio] error HTTP', r.status, err);
+        this._hideOverlay();
+        // Mostrar respuesta de error si el backend la provee
+        const msg = err.respuesta || err.error || 'No pude procesar el audio. Intenta de nuevo o escribe tu pregunta.';
+        this._addMsg(msg, 'bot');
+        return;
+      }
+
+      const d = await r.json();
       this._hideOverlay();
 
       const chips = $('ctx-chips');
       if (chips) chips.style.display = 'none';
 
-      if (d.transcripcion) this._addMsg(d.transcripcion, 'user');
-      this._addMsg(d.respuesta || 'No pude procesar tu consulta.', 'bot');
-      this._hablar(d.respuesta);
+      if (d.transcripcion) this._addMsg(`🎙 "${d.transcripcion}"`, 'user');
+      const resp = d.respuesta || 'No pude procesar tu consulta.';
+      this._addMsg(resp, 'bot');
+      this._hablar(resp);
 
     } catch(e) {
       console.error('[Audio]', e);
       this._hideOverlay();
-      this._addMsg('Error procesando el audio. Intenta de nuevo.', 'bot');
+      this._addMsg('Error de conexión procesando el audio. Intenta de nuevo.', 'bot');
     }
   },
 
   _webSpeechFallback() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('Tu navegador no soporta reconocimiento de voz.'); return; }
-    const sr = new SR();
+    if (!SR) {
+      this._addMsg('Tu navegador no soporta reconocimiento de voz. Por favor escribe tu pregunta.', 'bot');
+      return;
+    }
+    const sr    = new SR();
     sr.lang     = 'es-PE';
     sr.onresult = e => {
       const t = e.results[0]?.[0]?.transcript.trim();
-      if (t) { $('chat-input').value = t; this.enviar(); }
+      if (t) {
+        const inp = $('chat-input');
+        if (inp) inp.value = t;
+        this.enviar();
+      }
     };
-    sr.onerror  = () => {};
+    sr.onerror = () => {};
     sr.start();
   },
 
-  /* ── Orb canvas ──────────────────────────────────────── */
+  /* ── Orb canvas ────────────────────────────────────────── */
   _drawOrb() {
     const canvas = $('orb-canvas');
+    if (!canvas) return;
     const ctx2d  = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height, CX = W/2, CY = H/2;
 
@@ -367,14 +516,16 @@ const Asistente = {
           const angle  = (i / bars) * Math.PI * 2 - Math.PI / 2;
           const val    = (data[Math.floor(i * data.length / bars)] || 0) / 255;
           const barLen = val * 36 + 5;
-          const hue    = 130 + val * 30;  // verde → amarillo
+          const hue    = 130 + val * 30;
           ctx2d.save();
           ctx2d.strokeStyle = `hsla(${hue},75%,60%,${0.35 + val * .65})`;
-          ctx2d.lineWidth   = 2; ctx2d.lineCap = 'round';
+          ctx2d.lineWidth   = 2;
+          ctx2d.lineCap     = 'round';
           ctx2d.beginPath();
-          ctx2d.moveTo(CX + Math.cos(angle) * innerR,             CY + Math.sin(angle) * innerR);
-          ctx2d.lineTo(CX + Math.cos(angle) * (innerR + barLen),  CY + Math.sin(angle) * (innerR + barLen));
-          ctx2d.stroke(); ctx2d.restore();
+          ctx2d.moveTo(CX + Math.cos(angle) * innerR,            CY + Math.sin(angle) * innerR);
+          ctx2d.lineTo(CX + Math.cos(angle) * (innerR + barLen), CY + Math.sin(angle) * (innerR + barLen));
+          ctx2d.stroke();
+          ctx2d.restore();
         }
       }
 
@@ -382,37 +533,44 @@ const Asistente = {
       const gr = ctx2d.createRadialGradient(CX, CY, 0, CX, CY, 42);
       gr.addColorStop(0, 'rgba(27,77,53,0.35)');
       gr.addColorStop(1, 'rgba(27,77,53,0)');
-      ctx2d.beginPath(); ctx2d.arc(CX, CY, 42, 0, Math.PI * 2);
-      ctx2d.fillStyle = gr; ctx2d.fill();
+      ctx2d.beginPath();
+      ctx2d.arc(CX, CY, 42, 0, Math.PI * 2);
+      ctx2d.fillStyle = gr;
+      ctx2d.fill();
     };
 
     frame();
   },
 
-  /* ── Overlay helpers ─────────────────────────────────── */
+  /* ── Overlay helpers ───────────────────────────────────── */
   _showOverlay(processing) {
     const el = $('voz-ov');
+    if (!el) return;
     el.classList.toggle('proc', !!processing);
     el.classList.add('on');
-    $('voz-lbl').textContent  = 'Escuchando...';
-    $('voz-hint').textContent = 'Habla tu pregunta claramente';
-    $('voz-transcript').textContent = '';
-    $('voz-transcript').classList.remove('show');
-    $('orb-icon').textContent = 'mic';
+    if ($('voz-lbl'))        $('voz-lbl').textContent        = 'Escuchando...';
+    if ($('voz-hint'))       $('voz-hint').textContent       = 'Habla tu pregunta claramente';
+    if ($('voz-transcript')) {
+      $('voz-transcript').textContent = '';
+      $('voz-transcript').classList.remove('show');
+    }
+    if ($('orb-icon')) $('orb-icon').textContent = 'mic';
     const stopBtn = document.querySelector('.btn-voz-stop');
     if (stopBtn) stopBtn.style.display = 'flex';
   },
 
   _hideOverlay() {
     const el = $('voz-ov');
+    if (!el) return;
     el.classList.remove('on', 'proc');
     const canvas = $('orb-canvas');
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   },
 
-  /* ── Mensajes DOM ────────────────────────────────────── */
+  /* ── Mensajes DOM ──────────────────────────────────────── */
   _addMsg(html, tipo) {
     const cont = $('msgs-wrap');
+    if (!cont) return;
     const div  = document.createElement('div');
     div.className = `msg msg-${tipo}`;
     div.innerHTML = html + `<span class="msg-time">${hora()}</span>`;
@@ -423,6 +581,7 @@ const Asistente = {
 
   _addTyping() {
     const cont = $('msgs-wrap');
+    if (!cont) return { remove: () => {} };
     const div  = document.createElement('div');
     div.className = 'typing-dot';
     div.innerHTML = '<span></span><span></span><span></span>';
@@ -430,42 +589,7 @@ const Asistente = {
     cont.scrollTop = cont.scrollHeight;
     return div;
   },
-
-  _hablar(texto) {
-        if (!texto || !window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
-
-        const hablar = (voces) => {
-            let t = texto
-                .replace(/24\/7/g, 'veinticuatro horas al día, siete días a la semana')
-                .replace(/\bCCPL\b/g, 'el Colegio de Contadores')
-                .replace(/Art\.\s*(\d+)\s*°?/gi, 'Artículo $1')
-                .replace(/°/g, '')
-                .replace(/S\/\s*([\d,]+)(?:\.\d+)?/g, (_, n) => n.replace(/,/g,'') + ' soles')
-                .replace(/\bS\//g, '')
-                .replace(/\b(\d{3})\s*(\d{3})\s*(\d{3})\b/g, (_, a,b,c) =>
-                    [...a].join('-')+', '+[...b].join('-')+', '+[...c].join('-'));
-            const utt  = new SpeechSynthesisUtterance(t);
-            utt.lang   = 'es-PE';
-            utt.rate   = 1.0;
-            utt.pitch  = 1.0;
-            const voz  = voces.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('female'))
-                    || voces.find(v => v.lang.startsWith('es')) || null;
-            if (voz) utt.voice = voz;
-            window.speechSynthesis.speak(utt);
-        };
-
-        const voces = window.speechSynthesis.getVoices();
-        if (voces.length > 0) {
-            hablar(voces);
-        } else {
-            window.speechSynthesis.addEventListener('voiceschanged',
-                () => hablar(window.speechSynthesis.getVoices()), { once: true });
-        }
-    },
 };
-
-
 
 
 /* ════════════════════════════════════════════════════════════
@@ -473,7 +597,7 @@ const Asistente = {
 ════════════════════════════════════════════════════════════ */
 const Modales = {
 
-  /* ─── Fraccionamiento ────────────────────────────────── */
+  /* ─── Fraccionamiento ─────────────────────────────────── */
   fraccion: {
     deuda: 0, cuotaMin: 0, seleccion: null,
 
@@ -484,28 +608,31 @@ const Modales = {
 
     abrir() {
       if (this.deuda < 500) {
-        Asistente._addMsg('Tu deuda es menor a S/ 500. El fraccionamiento aplica desde ese monto. ¿Quieres más información?', 'bot');
+        Asistente._addMsg(
+          'Tu deuda fraccionable es menor a S/ 500. El fraccionamiento aplica desde ese monto mínimo. ¿Quieres más información?',
+          'bot'
+        );
         return;
       }
       this._renderBody(this.cuotaMin);
-      $('modal-fraccion').classList.add('open');
+      $('modal-fraccion')?.classList.add('open');
     },
 
-    cerrar() { $('modal-fraccion').classList.remove('open'); },
+    cerrar() { $('modal-fraccion')?.classList.remove('open'); },
 
     _renderBody(cuotaInicial) {
       const body = $('fraccion-body');
-      const restante = Math.max(0, this.deuda - cuotaInicial);
-      const condena  = Portal.ctx.deuda_condonable;
+      if (!body) return;
+      const condena = Portal.ctx.deuda_condonable;
 
       body.innerHTML = `
         <div class="fraccio-condiciones">
           <div class="fraccio-cond-title">Condiciones del plan</div>
           <div class="fraccio-cond-item"><span class="mi sm c-amber">info</span> Deuda mínima para fraccionar: S/ 500</div>
-          <div class="fraccio-cond-item"><span class="mi sm c-blue">percent</span> Cuota inicial mínima: 20% de la deuda total</div>
+          <div class="fraccio-cond-item"><span class="mi sm c-blue">percent</span> Cuota inicial mínima: 20% de la deuda a fraccionar</div>
           <div class="fraccio-cond-item"><span class="mi sm c-dim">payments</span> Cuota mensual mínima: S/ 100</div>
           <div class="fraccio-cond-item"><span class="mi sm c-dim">calendar_month</span> Máximo 12 cuotas mensuales</div>
-          ${condena > 0 ? `<div class="fraccio-cond-item"><span class="mi sm c-violet">auto_awesome</span> <strong style="color:var(--violet)">Condonable S/ ${fmt(condena)}</strong> — se elimina al activar el fraccionamiento (Acuerdo 007-2026)</div>` : ''}
+          ${condena > 0 ? `<div class="fraccio-cond-item"><span class="mi sm c-violet">auto_awesome</span> <strong style="color:var(--violet)">Condonable S/ ${fmt(condena)}</strong> — se elimina al activar (Acuerdo 007-2026)</div>` : ''}
           <div class="fraccio-cond-item"><span class="mi sm c-emerald">bolt</span> Habilidad temporal al pagar cada cuota puntualmente</div>
         </div>
 
@@ -513,39 +640,41 @@ const Modales = {
           <label class="fraccio-lbl">Cuota inicial (mínimo: S/ ${fmt(this.cuotaMin)})</label>
           <input type="number" class="fraccio-input" id="fraccio-inicial"
                  value="${this.cuotaMin}" min="${this.cuotaMin}" max="${this.deuda}"
+                 step="10"
                  oninput="Modales.fraccion._recalcular()">
           <div class="fraccio-input-hint">Puedes ingresar más del mínimo para reducir las cuotas mensuales</div>
         </div>
 
         <label class="fraccio-lbl" style="display:block;margin-bottom:10px">Elige tu plan mensual</label>
-        <div class="fraccio-options" id="fraccio-options">
-          <!-- Renderizado por _recalcular -->
-        </div>
+        <div class="fraccio-options" id="fraccio-options"></div>
       `;
 
       this._recalcular();
     },
 
     _recalcular() {
-      const input   = $('fraccio-inicial');
+      const input = $('fraccio-inicial');
       if (!input) return;
-      const inicial = Math.max(this.cuotaMin, parseFloat(input.value) || 0);
-      const restante= Math.max(0, this.deuda - inicial);
-      const optEl   = $('fraccio-options');
+      // Cuota inicial: usar ceil para consistencia con backend
+      const inicial  = Math.max(this.cuotaMin, parseFloat(input.value) || 0);
+      const restante = Math.max(0, this.deuda - inicial);
+      const optEl    = $('fraccio-options');
       if (!optEl) return;
 
       optEl.innerHTML = '';
       this.seleccion  = null;
-      $('btn-solicitar-fraccion').style.display = 'none';
+      const btnSol = $('btn-solicitar-fraccion');
+      if (btnSol) btnSol.style.display = 'none';
 
       for (let n = 2; n <= 12; n++) {
+        // Cuota mensual redondeada al 10 superior
         const cuotaMes = Math.ceil(restante / n / 10) * 10;
         if (cuotaMes < 100) break;
         const div = document.createElement('div');
-        div.className = 'fraccio-option';
-        div.dataset.n = n;
-        div.dataset.mes = cuotaMes;
-        div.innerHTML = `
+        div.className    = 'fraccio-option';
+        div.dataset.n    = n;
+        div.dataset.mes  = cuotaMes;
+        div.innerHTML    = `
           <div>
             <div class="fraccio-n-cuotas">${n} cuotas mensuales</div>
             <div class="fraccio-detalle">de S/ ${fmt(cuotaMes)} cada una</div>
@@ -561,7 +690,8 @@ const Modales = {
       document.querySelectorAll('.fraccio-option').forEach(o => o.classList.remove('selected'));
       el.classList.add('selected');
       this.seleccion = { n, cuotaMes, inicial };
-      $('btn-solicitar-fraccion').style.display = 'flex';
+      const btnSol = $('btn-solicitar-fraccion');
+      if (btnSol) btnSol.style.display = 'flex';
     },
 
     async solicitar() {
@@ -569,21 +699,27 @@ const Modales = {
       const { n, cuotaMes, inicial } = this.seleccion;
       try {
         const r = await fetch('/api/portal/solicitar-fraccionamiento', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cuota_inicial: inicial,
-            n_cuotas: n,
-            cuota_mensual: cuotaMes,
-            deuda_total: this.deuda,
+          body:    JSON.stringify({
+            cuota_inicial:  inicial,
+            n_cuotas:       n,
+            cuota_mensual:  cuotaMes,
+            deuda_total:    this.deuda,
           }),
         });
         const d = await r.json();
         this.cerrar();
         if (d.ok || r.ok) {
-          Asistente._addMsg(`✅ Fraccionamiento solicitado: cuota inicial S/ ${fmt(inicial)}, ${n} cuotas de S/ ${fmt(cuotaMes)}/mes. El colegio revisará y activará tu habilidad temporal.`, 'bot');
+          Asistente._addMsg(
+            `✅ Fraccionamiento solicitado: cuota inicial <strong>S/ ${fmt(inicial)}</strong>, ${n} cuotas de <strong>S/ ${fmt(cuotaMes)}/mes</strong>. El colegio revisará y activará tu habilidad temporal.`,
+            'bot'
+          );
         } else {
-          Asistente._addMsg('Hubo un problema al solicitar el fraccionamiento. Por favor contacta a la oficina del colegio.', 'bot');
+          Asistente._addMsg(
+            'Hubo un problema al solicitar el fraccionamiento. Por favor contacta a la oficina del colegio.',
+            'bot'
+          );
         }
       } catch(e) {
         this.cerrar();
@@ -592,13 +728,13 @@ const Modales = {
     },
   },
 
-  /* ─── Reportar Pago ──────────────────────────────────── */
+  /* ─── Reportar Pago ───────────────────────────────────── */
   reportarPago: {
-    metodo: null,
+    metodo:  null,
     archivo: null,
 
-    abrir() { $('modal-reporte').classList.add('open'); },
-    cerrar() { $('modal-reporte').classList.remove('open'); },
+    abrir()  { $('modal-reporte')?.classList.add('open'); },
+    cerrar() { $('modal-reporte')?.classList.remove('open'); },
 
     setMetodo(m, btn) {
       this.metodo = m;
@@ -609,13 +745,13 @@ const Modales = {
     handleFile(file) {
       if (!file) return;
       this.archivo = file;
-      $('voucher-label').textContent = '✅ ' + file.name;
-      $('voucher-drop').style.borderColor = 'var(--verde-soft)';
+      if ($('voucher-label')) $('voucher-label').textContent = '✅ ' + file.name;
+      if ($('voucher-drop'))  $('voucher-drop').style.borderColor = 'var(--verde-soft)';
     },
 
     handleDrop(e) {
       e.preventDefault();
-      $('voucher-drop').classList.remove('drag');
+      $('voucher-drop')?.classList.remove('drag');
       const file = e.dataTransfer?.files?.[0];
       if (file) this.handleFile(file);
     },
@@ -632,9 +768,9 @@ const Modales = {
       }
 
       const fd = new FormData();
-      fd.append('concepto',   $('rp-concepto')?.value || 'deuda_total');
-      fd.append('monto',      monto);
-      fd.append('metodo',     this.metodo);
+      fd.append('concepto',    $('rp-concepto')?.value || 'deuda_total');
+      fd.append('monto',       monto);
+      fd.append('metodo',      this.metodo);
       fd.append('nro_operacion', $('rp-nro-op')?.value || '');
       fd.append('solicitar_constancia', $('rp-constancia-check')?.checked ? '1' : '0');
       if (this.archivo) fd.append('voucher', this.archivo);
@@ -654,22 +790,21 @@ const Modales = {
     },
   },
 
-  /* ─── Pago en Línea ──────────────────────────────────── */
+  /* ─── Pago en Línea ───────────────────────────────────── */
   pagoLinea: {
 
     abrir() {
       this.recalcular();
-      $('modal-pago-linea').classList.add('open');
+      $('modal-pago-linea')?.classList.add('open');
     },
 
-    cerrar() { $('modal-pago-linea').classList.remove('open'); },
+    cerrar() { $('modal-pago-linea')?.classList.remove('open'); },
 
     recalcular() {
       const monto    = parseFloat($('pl-monto')?.value || 0);
       const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
       const total    = monto + addConst;
-      const el       = $('pl-total');
-      if (el) el.textContent = 'S/ ' + fmt(total);
+      if ($('pl-total')) $('pl-total').textContent = 'S/ ' + fmt(total);
     },
 
     async pagar() {
@@ -682,26 +817,26 @@ const Modales = {
       const total    = monto + addConst;
 
       try {
-        // Llamar al endpoint OpenPay para obtener URL de pago
-        const r = await fetch('/api/portal/pago-linea', {
+        const r = await fetch('/pagos/openpay/iniciar', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            monto,
-            incluir_constancia: addConst > 0,
-            total,
+          headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            monto_directo:       monto,
+            incluir_constancia:  addConst > 0 ? '1' : '0',
+            deuda_ids:           '',
           }),
         });
-        const d = await r.json();
+        // OpenPay responde con HX-Redirect
+        const hxRedir = r.headers.get('HX-Redirect');
+        if (hxRedir) { location.href = hxRedir; return; }
+        if (r.redirected) { location.href = r.url; return; }
 
+        const d = await r.json().catch(() => ({}));
         if (d.redirect_url) {
           location.href = d.redirect_url;
-        } else if (d.error) {
-          Asistente._addMsg('Error al iniciar el pago: ' + d.error, 'bot');
         } else {
           Asistente._addMsg('Error al conectar con el procesador de pagos. Intenta más tarde.', 'bot');
         }
-
       } catch(e) {
         this.cerrar();
         Asistente._addMsg('Error de conexión al procesar el pago.', 'bot');
@@ -721,33 +856,25 @@ const PWA = {
   esIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
 
   init() {
-    // Capturar beforeinstallprompt (Android/Chrome/Edge)
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
       this.deferredPrompt = e;
-      console.log('[PWA] beforeinstallprompt capturado');
     });
 
-    // Detectar iOS
     if (this.esIOS) {
       const iosHint = $('ios-hint');
       if (iosHint) iosHint.style.display = 'block';
-      // En iOS no hay deferredPrompt — btn muestra instrucciones
     }
 
-    // Exit intent desktop
     document.addEventListener('mouseleave', e => {
       if (e.clientY < 5 && !this.popupMostrado) {
         setTimeout(() => this.mostrarPopup(), 300);
       }
     });
 
-    // Exit intent mobile — cambio de visibilidad (tab switch, home button)
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && !this.popupMostrado) {
-        // No disparar en la primera visita para no ser invasivo
-        // Solo si ya lleva más de 30s en la página
-        if (this._tiempoEnPagina() > 30) this.mostrarPopup();
+      if (document.hidden && !this.popupMostrado && this._tiempoEnPagina() > 30) {
+        this.mostrarPopup();
       }
     });
 
@@ -761,21 +888,17 @@ const PWA = {
   mostrarPopup() {
     if (this.popupMostrado) return;
     this.popupMostrado = true;
-    $('pwa-overlay').classList.add('open');
+    $('pwa-overlay')?.classList.add('open');
   },
 
-  cerrarPopup() {
-    $('pwa-overlay').classList.remove('open');
-  },
+  cerrarPopup() { $('pwa-overlay')?.classList.remove('open'); },
 
   async instalar() {
-    // Desde bottom bar
     if (this.deferredPrompt) {
       this.deferredPrompt.prompt();
       const { outcome } = await this.deferredPrompt.userChoice;
       if (outcome === 'accepted') this.deferredPrompt = null;
     } else {
-      // No hay prompt disponible — mostrar popup con instrucciones
       this.mostrarPopup();
     }
   },
@@ -787,20 +910,39 @@ const PWA = {
       this.cerrarPopup();
       if (outcome === 'accepted') {
         this.deferredPrompt = null;
-        Asistente._addMsg('✅ ¡App instalada! Ya puedes recibir alertas y acceder sin conexión.', 'bot');
+        Asistente._addMsg('✅ ¡App instalada! Ya puedes recibir alertas y acceder más rápido.', 'bot');
       }
     } else if (this.esIOS) {
-      // Instrucciones ya visibles en el popup para iOS — no hacer nada más
+      // instrucciones ya visibles en el popup
     } else {
       this.cerrarPopup();
-      Asistente._addMsg('La app ya está instalada o tu navegador no soporta la instalación directa. Prueba desde Chrome en Android.', 'bot');
+      Asistente._addMsg(
+        'La app ya está instalada o tu navegador no soporta instalación directa. Prueba desde Chrome en Android.',
+        'bot'
+      );
     }
   },
 };
 
 
 /* ════════════════════════════════════════════════════════════
-   Cerrar modales al tocar el overlay
+   Interceptor global de sesión expirada
+════════════════════════════════════════════════════════════ */
+const _fetchOrig = window.fetch.bind(window);
+window.fetch = async function(...args) {
+  const resp = await _fetchOrig(...args);
+  if ((resp.status === 401 || resp.status === 422)) {
+    const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url) || '';
+    if (!url.includes('/auth/')) {
+      $('modal-sesion-exp')?.classList.add('open');
+    }
+  }
+  return resp;
+};
+
+
+/* ════════════════════════════════════════════════════════════
+   Eventos globales
 ════════════════════════════════════════════════════════════ */
 document.querySelectorAll('.modal-overlay').forEach(ov => {
   ov.addEventListener('click', e => {
@@ -808,10 +950,13 @@ document.querySelectorAll('.modal-overlay').forEach(ov => {
   });
 });
 
-// Recalcular total pago en línea al cambiar checkbox
 document.addEventListener('change', e => {
   if (e.target.id === 'pl-incluir-constancia') Modales.pagoLinea.recalcular();
 });
+
+// Pre-cargar voces de síntesis al cargar la página
+window.speechSynthesis?.getVoices();
+window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
 
 
 /* ════════════════════════════════════════════════════════════
