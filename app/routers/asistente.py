@@ -277,6 +277,7 @@ async def asistente_audio(
             files={"file": (audio.filename or "audio.webm", audio_bytes, "audio/webm")},
         )
         transcripcion = whisper_resp.json().get("text", "")
+        transcripcion = _corregir_transcripcion(transcripcion)
 
     if not transcripcion:
         return JSONResponse({"error": "No se pudo transcribir el audio"}, status_code=400)
@@ -316,3 +317,32 @@ async def asistente_audio(
 
     texto = data.get("choices",[{}])[0].get("message",{}).get("content","No pude procesar tu consulta.")
     return JSONResponse({"transcripcion": transcripcion, "respuesta": texto})
+
+
+
+
+import re
+
+def _corregir_transcripcion(texto: str) -> str:
+    """
+    Corrige errores frecuentes de Whisper en español peruano
+    para preguntas sobre fraccionamiento y deuda.
+    """
+    t = texto.strip()
+
+    # "$7" → "7 meses", "$12" → "12 meses" (Whisper interpreta números como dólares)
+    t = re.sub(r'\$\s*(\d+)', r'\1 meses', t)
+
+    # "7$" → "7 meses"
+    t = re.sub(r'(\d+)\s*\$', r'\1 meses', t)
+
+    # "s/." → "soles" (Whisper lee el símbolo)
+    t = re.sub(r's/\.?\s*', 'soles ', t, flags=re.IGNORECASE)
+
+    # Números escritos seguidos de "mes" sin espacio
+    t = re.sub(r'(\d+)mes(es)?', r'\1 meses', t)
+
+    # "art." al inicio → "artículo"
+    t = re.sub(r'\barts?\.\s*', 'artículo ', t, flags=re.IGNORECASE)
+
+    return t
