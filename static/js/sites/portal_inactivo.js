@@ -141,7 +141,7 @@ const Portal = {
 
         // ── Cuota inicial mínima: ceil al 10 más cercano ──
         const cuotaMin = fraccio >= 500
-        ? Math.max(100, Math.ceil((fraccio * 0.20) / 10) * 10)
+        ? Math.max(100, Math.ceil((fraccio * 0.20) ) )
         : 0;
 
         // Guardar en ctx — con aliases para el backend
@@ -153,7 +153,6 @@ const Portal = {
         this.ctx.cuotas_pend        = cuotasPend;
         this.ctx.deuda_real         = fraccio;   // alias backend
         this.ctx.condonable         = condona;   // alias backend
-        this.ctx.cuota_inicial_min  = cuotaMin;
 
         console.log('[Portal.ctx] total:', total,
                     '| condona:', condona,
@@ -690,7 +689,7 @@ const Modales = {
 
       for (let n = 2; n <= 12; n++) {
         // Cuota mensual redondeada al 10 superior
-        const cuotaMes = Math.ceil(restante / n / 10) * 10;
+        const cuotaMes = Math.ceil(restante / n );
         if (cuotaMes < 100) break;
         const div = document.createElement('div');
         div.className    = 'fraccio-option';
