@@ -194,7 +194,7 @@ def _system_prompt_base( nombre, condicion, deuda_total, cuotas_pend,
     for n in range(2, 13):
         cuota_m = round(saldo_tras_inicial / n)
         if cuota_m >= 100:
-            planes_lineas.append(f"  {n} meses → S/ {cuota_m}/mes")
+            planes_lineas.append(f"  {n} meses → S/ {cuota_m}/mes  (SON {n} CUOTAS MENSUALES, no {n-1})")
     planes_txt = "\n".join(planes_lineas) or "  No hay planes disponibles"
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
@@ -249,7 +249,27 @@ INSTRUCCIONES:
 - Si la pregunta parece confusa o incompleta: interpreta en contexto de fraccionamiento o deuda.
 - Teléfono de contacto (dígito por dígito): nueve-siete-nueve, uno-seis-nueve, ocho-uno-tres.
 - Si no sabes algo: di consulta en ventanilla o llama al nueve-siete-nueve, uno-seis-nueve, ocho-uno-tres.
-- Tono: amigable, como un colega contador que ayuda."""
+- Tono: amigable, como un colega contador que ayuda.
+- La cuota inicial es un pago PREVIO y SEPARADO, NO cuenta como cuota mensual número 1.
+  Si alguien pide 8 meses → paga la inicial + OCHO cuotas mensuales. Total: 9 pagos.
+- Nunca digas "X-1 cuotas" ni restes 1 al número de meses solicitado.
+
+ESTRATEGIA DE ENGAGEMENT:
+- Si el colegiado menciona que no tenía dinero, estaba fuera de Loreto, tenía problemas personales
+  o cualquier motivo por el que se alejó: muestra empatía y menciona UN beneficio concreto
+  que ahora tiene disponible.
+- Beneficios actuales del CCPL para colegiados hábiles:
+  * Alertas tributarias automáticas para sus clientes (vencimientos SUNAT)
+  * Constancia de Habilidad en PDF al instante — S/ 10
+  * Directorio profesional público (empleadores los encuentran)
+  * Capacitaciones y conferencias gratuitas
+  * Asistente IA contable disponible 24/7
+  * Página web propia dentro del portal CCPL (próximamente)
+  * Acceso a convenios institucionales vigentes
+- Si preguntan por cursos o eventos: di que consulten en ventanilla o la sección de 
+  capacitaciones del portal para el calendario actualizado.
+- Tono motivador cuando el colegiado dude: recuérdale que con solo S/ {min_inicial} 
+  se reactiva ese mismo día y accede a todos los beneficios."""
 
 
 @router.post("/api/portal/asistente/audio")
