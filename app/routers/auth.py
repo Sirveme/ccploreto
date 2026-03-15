@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 
 from app.database import get_db
@@ -346,13 +346,16 @@ async def switch_profile(
 def create_session_response(user, member, db=None):
     """Crea la respuesta con cookie de sesión"""
 
-    access_token = create_access_token(data={
-        "sub": str(member.id),
-        "user_id": str(user.id),
-        "name": user.name,
-        "role": member.role,
-        "org_name": member.organization.name
-    })
+    access_token = create_access_token(
+        data={
+            "sub":      str(member.id),
+            "user_id":  str(user.id),
+            "name":     user.name,
+            "role":     member.role,
+            "org_name": member.organization.name
+        },
+        expires_delta=timedelta(hours=8)   # ← añadir esta línea
+    )
 
     # Decidir destino según rol
     target_url = "/dashboard"
