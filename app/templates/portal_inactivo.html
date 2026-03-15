@@ -1263,6 +1263,19 @@ const P = {
             this.deudas = d.deudas || [];
             this.total  = d.total  || 0;
 
+            // ── Guardar contexto para el asistente ──
+            window._asistCtx = {
+                nombre:        this.col?.nombres || this.col?.nombre_completo || '',
+                deuda_total:   d.total || 0,
+                cantidad:      d.cantidad || 0,
+                deuda_otras:   d.deuda_otras || 0,
+                condonable:    this._totalCondonable || 0,
+                deuda_real:    this._totalReal || d.total || 0,
+                cuotas_pend:   d.cuotas_pendientes || 0,
+                tiene_fracc:   !!(d.fraccionamiento),
+                condicion:     this.col?.condicion || 'inhabil',
+            };
+
             document.getElementById('deuda-total').textContent = `S/ ${this.fmt(this.total)}`;
             // Actualizar spans del panel OpenPay
             const s1 = document.getElementById('monto-deuda-total');
@@ -1975,25 +1988,24 @@ const A = {
         if (!pregunta) return;
         inp.value = '';
 
-        // Ocultar sugerencias tras primer mensaje
         document.getElementById('asist-sugs').style.display = 'none';
-
         this._addMsg(pregunta, 'user');
-        const typing = this._addTyping();
         this._setEstadoProcesando(true);
+        const typing = this._addTyping();
 
         try {
             const fd = new FormData();
             fd.append('pregunta', pregunta);
+            // Pasar contexto de la página
+            if (window._asistCtx) {
+                fd.append('ctx', JSON.stringify(window._asistCtx));
+            }
 
-            const r = await fetch('/api/portal/asistente', {
-                method: 'POST', body: fd
-            });
+            const r = await fetch('/api/portal/asistente', { method:'POST', body:fd });
             const d = await r.json();
             typing.remove();
             this._setEstadoProcesando(false);
-            this._addMsg(d.respuesta || 'No pude responder. Intenta de nuevo.', 'bot');
-            // Leer en voz alta
+            this._addMsg(d.respuesta || 'No pude responder.', 'bot');
             this._hablar(d.respuesta);
         } catch(e) {
             typing.remove();
@@ -2099,6 +2111,9 @@ const A = {
                 const blob = new Blob(this._grabarChunks, { type: 'audio/webm' });
                 const fd   = new FormData();
                 fd.append('audio', blob, 'voz.webm');
+                if (window._asistCtx) {
+                    fd.append('ctx', JSON.stringify(window._asistCtx));
+                }
 
                 try {
                     const r = await fetch('/api/portal/asistente/audio', { method: 'POST', body: fd });
