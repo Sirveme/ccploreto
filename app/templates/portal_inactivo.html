@@ -133,7 +133,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 
 /* ── FRACCIONAMIENTO PANEL ───────────────────────────────────────── */
 .fpanel{background:var(--sf);border:1px solid rgba(99,102,241,.15);border-radius:16px;margin-top:16px;overflow:hidden;max-height:0;opacity:0;transition:max-height .4s ease, opacity .3s ease}
-.fpanel.open{max-height:900px;opacity:1}
+.fpanel.open{max-height:1400px;opacity:1}
 .ftop{padding:14px 20px;background:rgba(99,102,241,.04);border-bottom:1px solid rgba(99,102,241,.1);display:flex;align-items:center;justify-content:space-between}
 .ftop h4{font-size:14px;font-weight:700;color:#818cf8;display:flex;align-items:center;gap:8px}
 .fbody{padding:20px}
@@ -145,7 +145,15 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
 .finput:focus{outline:none;border-color:var(--glow)}
 
 /* Plan cards */
-.fopts{display:grid;gap:8px}
+.fopts {
+    display: grid;
+    gap: 8px;
+    max-height: 380px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99,102,241,.3) transparent;
+    padding-right: 4px;
+}
 .fopt{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg2);border:2px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .2s}
 .fopt:hover{border-color:#818cf8}.fopt.sel{border-color:#818cf8;background:rgba(99,102,241,.07)}
 .fopt-n{font-size:14px;font-weight:700}.fopt-d{font-size:11px;color:var(--tx2);margin-top:2px}.fopt-m{font-size:17px;font-weight:800;color:#818cf8}
@@ -1501,7 +1509,9 @@ const P = {
 
     // ── FRACCIONAMIENTO ───────────────────────────────────────────
     _prepF() {
-        const minIni = Math.ceil(this.total * 0.20);
+        // USAR deuda real (sin condonables), no this.total
+        const base   = this._totalReal || this.total;
+        const minIni = Math.ceil(base * 0.20);
         document.getElementById('fmin').textContent = `S/ ${this.fmt(minIni)}`;
         const inp = document.getElementById('fini');
         inp.min   = minIni;
@@ -1510,8 +1520,9 @@ const P = {
     },
 
     calcF() {
+        const base   = this._totalReal || this.total;   // ← deuda real
         const ini    = parseFloat(document.getElementById('fini').value) || 0;
-        const minIni = Math.ceil(this.total * 0.20);
+        const minIni = Math.ceil(base * 0.20);
         const opts   = document.getElementById('fopts');
         const resumen = document.getElementById('fplan-resumen');
 
@@ -1525,11 +1536,11 @@ const P = {
             return;
         }
 
-        const saldo = this.total - ini;
+        const saldo = base - ini;   // ← saldo sobre deuda real
         const planes = [];
         for (let n = 2; n <= 12; n++) {
-            const cuota = saldo / n;
-            if (cuota >= 100) planes.push({ n, cuota: Math.ceil(cuota * 100) / 100 });
+            const cuota = Math.round(saldo / n);
+            if (cuota >= 100) planes.push({ n, cuota });
         }
 
         if (!planes.length) {
@@ -1972,7 +1983,6 @@ const A = {
     abierto:  false,
     grabando: false,
     reconocedor: null,
-    // true = usar Whisper (fase 2), false = Web Speech API (fase 1)
     usarWhisper: false,
 
     toggle() {
@@ -1982,7 +1992,37 @@ const A = {
         if (this.abierto) {
             document.getElementById('fab-badge').style.display = 'none';
             document.getElementById('asist-input').focus();
+            this._actualizarSugerencias();   // ← añadir aquí
         }
+    },
+
+    _actualizarSugerencias() {
+        const ctx  = window._asistCtx;
+        const sugs = document.getElementById('asist-sugs');
+        if (!ctx || !sugs) return;
+
+        const tieneCondonable = ctx.condonable > 0;
+        const calificaFracc   = ctx.deuda_real >= 500;
+        const cuotaIni        = Math.round(ctx.deuda_real * 0.20);
+
+        sugs.innerHTML = `
+            <button class="asug" onclick="A.ask('¿Cuánto debo en total?')">
+                💰 Debo S/ ${Math.round(ctx.deuda_total)}
+            </button>
+            ${calificaFracc ? `
+            <button class="asug" onclick="A.ask('¿Cuánto sería la cuota inicial mínima para fraccionar?')">
+                📅 Inicial mínima: S/ ${cuotaIni}
+            </button>` : ''}
+            ${tieneCondonable ? `
+            <button class="asug" onclick="A.ask('¿Qué deudas me condonarían al fraccionar?')">
+                ✨ Me condonan S/ ${Math.round(ctx.condonable)}
+            </button>` : ''}
+            <button class="asug" onclick="A.ask('¿Cómo me reactivo hoy mismo?')">
+                ⚡ Reactivarme hoy
+            </button>
+            <button class="asug" onclick="A.ask('¿Qué artículos del estatuto sustentan mi situación?')">
+                📋 Base legal
+            </button>`;
     },
 
     ask(pregunta) {
