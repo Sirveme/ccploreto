@@ -5,6 +5,7 @@ Fase 1: Claude Haiku + Web Speech API
 Fase 2: Claude Haiku + Whisper (solo cambiar el endpoint de audio)
 """
 import os
+import math
 import httpx
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
 from fastapi.responses import JSONResponse
@@ -61,7 +62,7 @@ def _build_system_prompt(col, deuda_info: dict) -> str:
                 condona += balance
 
     deuda_real  = max(deuda_total - condona, 0)
-    min_inicial = round(deuda_real * 0.20, 2)
+    min_inicial = math.ceil(deuda_real * 0.20)
     califica_fracc = deuda_real >= 500
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
