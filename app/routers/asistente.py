@@ -105,16 +105,56 @@ async def asistente_texto(
     member:   Member  = Depends(get_current_member),
     db:       Session = Depends(get_db),
 ):
-    """Asistente de texto — Claude Haiku."""
-    col = db.query(Colegiado).filter(
-        Colegiado.member_id == member.id
-    ).first()
+    """Asistente de texto — GPT-4o mini."""
+
+    # ── Buscar colegiado con la misma lógica que dashboard.py ────────
+    col = None
+    user_input = member.user.public_id if member.user else None
+
+    if user_input:
+        user_input = user_input.strip().upper()
+        # Por DNI
+        if len(user_input) == 8 and user_input.isdigit():
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.dni == user_input
+            ).first()
+        # Por matrícula con guión
+        elif '-' in user_input:
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == user_input
+            ).first()
+        # Por matrícula numérica (ej: 100649 → 10-0649)
+        elif user_input.startswith('10'):
+            resto  = user_input[2:]
+            numero = ''.join(c for c in resto if c.isdigit())
+            matricula = f"10-{numero.zfill(4)}"
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == matricula
+            ).first()
+
+    # Fallback por member_id
+    if not col:
+        col = db.query(Colegiado).filter(
+            Colegiado.member_id == member.id
+        ).first()
+
+    # Fallback por DNI sin filtro de organización
+    if not col and user_input and len(user_input) == 8 and user_input.isdigit():
+        col = db.query(Colegiado).filter(
+            Colegiado.dni == user_input
+        ).first()
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[Asistente] member={member.id} col={col.id if col else None} dni={user_input}")
 
     org_id     = member.organization_id
     col_id     = col.id if col else None
     deuda_info = calcular_deuda_total(col_id, org_id, db) if col_id else {}
-
-    system = _build_system_prompt(col, deuda_info)
+    system     = _build_system_prompt(col, deuda_info)
 
     # DESPUÉS (usando OpenAI GPT-4o mini — mismo OPENAI_API_KEY que Whisper):
     async with httpx.AsyncClient(timeout=20) as client:
@@ -144,11 +184,7 @@ async def asistente_audio(
     member:  Member     = Depends(get_current_member),
     db:      Session    = Depends(get_db),
 ):
-    """
-    Asistente de voz — Whisper + Claude Haiku.
-    Fase 2: activar cuando el cliente apruebe.
-    Requiere: OPENAI_API_KEY en Railway.
-    """
+    """Asistente de voz — Whisper + GPT-4o mini."""
     if not OPENAI_API_KEY:
         return JSONResponse({"error": "Whisper no configurado"}, status_code=503)
 
@@ -166,12 +202,49 @@ async def asistente_audio(
     if not transcripcion:
         return JSONResponse({"error": "No se pudo transcribir el audio"}, status_code=400)
 
-    # 2. Pasar transcripción a Claude (mismo flujo que texto)
-    col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
+    # 2. Buscar colegiado — misma lógica que dashboard.py
+    col        = None
+    user_input = member.user.public_id if member.user else None
+
+    if user_input:
+        user_input = user_input.strip().upper()
+        if len(user_input) == 8 and user_input.isdigit():
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.dni == user_input
+            ).first()
+        elif '-' in user_input:
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == user_input
+            ).first()
+        elif user_input.startswith('10'):
+            resto     = user_input[2:]
+            numero    = ''.join(c for c in resto if c.isdigit())
+            matricula = f"10-{numero.zfill(4)}"
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.codigo_matricula == matricula
+            ).first()
+
+    if not col:
+        col = db.query(Colegiado).filter(
+            Colegiado.member_id == member.id
+        ).first()
+
+    if not col and user_input and len(user_input) == 8 and user_input.isdigit():
+        col = db.query(Colegiado).filter(
+            Colegiado.dni == user_input
+        ).first()
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[Asistente audio] member={member.id} col={col.id if col else None} transcripcion='{transcripcion[:50]}'")
+
+    # 3. Construir contexto y consultar GPT
     deuda_info = calcular_deuda_total(col.id, member.organization_id, db) if col else {}
     system     = _build_system_prompt(col, deuda_info)
 
-    # DESPUÉS (usando OpenAI GPT-4o mini — mismo OPENAI_API_KEY que Whisper):
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -183,12 +256,12 @@ async def asistente_audio(
                 "model":      "gpt-4o-mini",
                 "max_tokens": 150,
                 "messages":   [
-                    {"role": "system",  "content": system},
-                    {"role": "user",    "content": transcripcion},
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": transcripcion},
                 ],
             }
         )
         data = resp.json()
-    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
+
+    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "No pude procesar tu consulta.")
     return JSONResponse({"transcripcion": transcripcion, "respuesta": texto})
-    
