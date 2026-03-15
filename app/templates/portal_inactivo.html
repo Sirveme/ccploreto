@@ -1585,9 +1585,12 @@ const P = {
 
     toggleFracc() {
         const p = document.getElementById('fpanel');
+        if (!p) return;
         p.classList.toggle('open');
         if (p.classList.contains('open')) {
-            document.getElementById('ppanel').classList.remove('open');
+            document.getElementById('ppanel-online')?.classList.remove('open');
+            document.getElementById('ppanel-offline')?.classList.remove('open');
+            p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     },
     togglePayOnline() {
@@ -2162,20 +2165,29 @@ const A = {
     _hablar(texto) {
         if (!texto || !window.speechSynthesis) return;
         window.speechSynthesis.cancel();
-        // Convertir S/ 1,832.00 → "1832 soles"
-        const textoVoz = texto
-            .replace(/S\/\s*([\d,]+)\.?\d*/g, (_, n) => n.replace(/,/g, '') + ' soles')
-            .replace(/\bS\//g, '')
-            .replace(/(\d+)\s*soles/g, (_, n) => n + ' soles');
+
+        // Convertir montos: S/ 2,272.00 → "2272 soles"
+        let textoVoz = texto
+            .replace(/S\/\s*([\d,]+)(?:\.\d+)?/g, (_, n) =>
+                n.replace(/,/g, '') + ' soles')
+            .replace(/\bS\//g, '');
+
+        // Convertir teléfonos: 979169813 o 979 169 813 → dígitos separados
+        textoVoz = textoVoz.replace(/\b(\d{3})\s*(\d{3})\s*(\d{3})\b/g, (_, a, b, c) =>
+            [...a].join('-') + ', ' + [...b].join('-') + ', ' + [...c].join('-')
+        );
+
+        // Evitar que lea años como "dos mil veintitrés" cuando son periodos
+        textoVoz = textoVoz.replace(/\b(19|20)\d{2}\b/g, m => [...m].join(' '));
+
         const utt  = new SpeechSynthesisUtterance(textoVoz);
         utt.lang   = 'es-PE';
-        utt.rate   = 1.05;
+        utt.rate   = 1.0;
         utt.pitch  = 1.0;
-        // Preferir voz femenina en español si está disponible
         const voces = window.speechSynthesis.getVoices();
         const voz   = voces.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('female'))
-                   || voces.find(v => v.lang.startsWith('es'))
-                   || null;
+                || voces.find(v => v.lang.startsWith('es'))
+                || null;
         if (voz) utt.voice = voz;
         window.speechSynthesis.speak(utt);
     },
