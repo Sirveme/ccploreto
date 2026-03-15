@@ -107,6 +107,9 @@ const Portal = {
       this.ctx.deuda_fraccionable= fraccio;
       this.ctx.cuota_inicial_min = cuotaMin;
       this.ctx.deudas            = d.deudas || [];
+      // ── Aliases que espera el backend ──────────────
+      this.ctx.deuda_real        = fraccio;   // ← AÑADIR
+      this.ctx.condonable        = condona;   // ← AÑADIR
 
       // Panel desktop
       $('panel-deuda-total').textContent = fmt(total);
@@ -233,6 +236,7 @@ const Asistente = {
       const d = await r.json();
       typing.remove();
       this._addMsg(d.respuesta || 'No pude responder en este momento.', 'bot');
+      this._hablar(d.respuesta);
 
     } catch(e) {
       typing.remove();
@@ -322,6 +326,7 @@ const Asistente = {
 
       if (d.transcripcion) this._addMsg(d.transcripcion, 'user');
       this._addMsg(d.respuesta || 'No pude procesar tu consulta.', 'bot');
+      this._hablar(d.respuesta);
 
     } catch(e) {
       console.error('[Audio]', e);
@@ -425,7 +430,42 @@ const Asistente = {
     cont.scrollTop = cont.scrollHeight;
     return div;
   },
+
+  _hablar(texto) {
+        if (!texto || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+
+        const hablar = (voces) => {
+            let t = texto
+                .replace(/24\/7/g, 'veinticuatro horas al día, siete días a la semana')
+                .replace(/\bCCPL\b/g, 'el Colegio de Contadores')
+                .replace(/Art\.\s*(\d+)\s*°?/gi, 'Artículo $1')
+                .replace(/°/g, '')
+                .replace(/S\/\s*([\d,]+)(?:\.\d+)?/g, (_, n) => n.replace(/,/g,'') + ' soles')
+                .replace(/\bS\//g, '')
+                .replace(/\b(\d{3})\s*(\d{3})\s*(\d{3})\b/g, (_, a,b,c) =>
+                    [...a].join('-')+', '+[...b].join('-')+', '+[...c].join('-'));
+            const utt  = new SpeechSynthesisUtterance(t);
+            utt.lang   = 'es-PE';
+            utt.rate   = 1.0;
+            utt.pitch  = 1.0;
+            const voz  = voces.find(v => v.lang.startsWith('es') && v.name.toLowerCase().includes('female'))
+                    || voces.find(v => v.lang.startsWith('es')) || null;
+            if (voz) utt.voice = voz;
+            window.speechSynthesis.speak(utt);
+        };
+
+        const voces = window.speechSynthesis.getVoices();
+        if (voces.length > 0) {
+            hablar(voces);
+        } else {
+            window.speechSynthesis.addEventListener('voiceschanged',
+                () => hablar(window.speechSynthesis.getVoices()), { once: true });
+        }
+    },
 };
+
+
 
 
 /* ════════════════════════════════════════════════════════════
