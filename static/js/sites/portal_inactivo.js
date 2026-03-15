@@ -105,72 +105,94 @@ const Portal = {
 
   async loadDeuda() {
     try {
-      const rd = await fetch('/api/portal/mi-deuda');
-      const d  = await rd.json();
+        const rd = await fetch('/api/portal/mi-deuda');
+        const d  = await rd.json();
 
-      const total    = parseFloat(d.total      || 0);
-      const condona  = parseFloat(d.condonable  || 0);
-      // deuda real a fraccionar = total - condonable
-      const fraccio  = Math.max(0, total - condona);
-      // Cuota inicial mínima: ceil al 10 más cercano, mínimo 100
-      const cuotaMin = Math.max(100, Math.ceil((fraccio * 0.20) / 10) * 10);
-      const cant     = parseInt(d.cantidad || 0);
-      // Cuotas ordinarias pendientes
-      const cuotasPend = parseInt(d.cuotas_pendientes || 0);
+        const total    = parseFloat(d.total || 0);
+        const cant     = parseInt(d.cantidad || 0);
+        const deudas   = d.deudas || [];
+        const cuotasPend = parseInt(d.cuotas_pendientes || 0);
 
-      // Guardar en ctx — incluyendo aliases que espera el backend
-      this.ctx.deuda_total        = total;
-      this.ctx.deuda_condonable   = condona;
-      this.ctx.deuda_fraccionable = fraccio;
-      this.ctx.cuota_inicial_min  = cuotaMin;
-      this.ctx.deudas             = d.deudas || [];
-      this.ctx.cuotas_pend        = cuotasPend;
-      // Aliases para _build_system_prompt_from_ctx en backend
-      this.ctx.deuda_real         = fraccio;
-      this.ctx.condonable         = condona;
+        // ── Calcular condonable desde las deudas (Acuerdo 007-2026) ──
+        // No depender de d.condonable que puede no venir del API
+        let condona = 0;
+        deudas.forEach(deu => {
+        const tipo     = (deu.debt_type || deu.categoria || '').toLowerCase();
+        const concepto = (deu.concept   || deu.concepto  || '').toLowerCase();
+        const periodo  = (deu.periodo   || '');
+        const balance  = parseFloat(deu.balance || 0);
 
-      console.log('[Portal.ctx]', {
-        total, condona, fraccio, cuotaMin,
-        deuda_real: fraccio, condonable: condona,
-      });
+        if (tipo === 'multa') {
+            const esEleccion = concepto.includes('elecci') ||
+                            concepto.includes('votaci') ||
+                            concepto.includes('elección');
+            if (!esEleccion) condona += balance;
 
-      // Panel desktop
-      if ($('panel-deuda-total')) $('panel-deuda-total').textContent = fmt(total);
-      if ($('panel-deuda-cnt'))   $('panel-deuda-cnt').textContent   =
+        } else if (tipo === 'cuota_ordinaria') {
+            const m = periodo.match(/(\d{4})/);
+            if (m && parseInt(m[1]) <= 2019) condona += balance;
+        }
+        });
+        // Si el API sí lo devuelve y la lista está vacía, usar el del API como fallback
+        if (condona === 0 && d.condonable) condona = parseFloat(d.condonable);
+
+        // ── Deuda real = total - condonable ──
+        const fraccio  = Math.max(0, total - condona);
+
+        // ── Cuota inicial mínima: ceil al 10 más cercano ──
+        const cuotaMin = fraccio >= 500
+        ? Math.max(100, Math.ceil((fraccio * 0.20) / 10) * 10)
+        : 0;
+
+        // Guardar en ctx — con aliases para el backend
+        this.ctx.deuda_total        = total;
+        this.ctx.deuda_condonable   = condona;
+        this.ctx.deuda_fraccionable = fraccio;
+        this.ctx.cuota_inicial_min  = cuotaMin;
+        this.ctx.deudas             = deudas;
+        this.ctx.cuotas_pend        = cuotasPend;
+        this.ctx.deuda_real         = fraccio;   // alias backend
+        this.ctx.condonable         = condona;   // alias backend
+        this.ctx.cuota_inicial_min  = cuotaMin;
+
+        console.log('[Portal.ctx] total:', total,
+                    '| condona:', condona,
+                    '| fraccio:', fraccio,
+                    '| cuotaMin:', cuotaMin);
+
+        // Panel desktop
+        if ($('panel-deuda-total')) $('panel-deuda-total').textContent = fmt(total);
+        if ($('panel-deuda-cnt'))   $('panel-deuda-cnt').textContent   =
         cant + ' concepto' + (cant !== 1 ? 's' : '') + ' pendiente' + (cant !== 1 ? 's' : '');
-      if ($('mob-deuda')) $('mob-deuda').textContent = 'Deuda S/ ' + fmt(total);
+        if ($('mob-deuda')) $('mob-deuda').textContent = 'Deuda S/ ' + fmt(total);
 
-      // Pills condonable / fraccionable
-      const pillsEl = $('panel-pills');
-      if (pillsEl) {
+        // Pills
+        const pillsEl = $('panel-pills');
+        if (pillsEl) {
         pillsEl.innerHTML = '';
-        if (fraccio >= 500) {
-          pillsEl.insertAdjacentHTML('beforeend',
+        if (fraccio >= 500)
+            pillsEl.insertAdjacentHTML('beforeend',
             `<span class="deuda-pill pill-fraccion">
-               <span class="mi sm" style="color:var(--blue-soft)">calendar_month</span>
-               Fraccionable S/ ${fmt(fraccio)}
-             </span>`);
-        }
-        if (condona > 0) {
-          pillsEl.insertAdjacentHTML('beforeend',
+                <span class="mi sm" style="color:var(--blue-soft)">calendar_month</span>
+                Fraccionable S/ ${fmt(fraccio)}
+            </span>`);
+        if (condona > 0)
+            pillsEl.insertAdjacentHTML('beforeend',
             `<span class="deuda-pill pill-condona">
-               <span class="mi sm" style="color:var(--violet)">auto_awesome</span>
-               Condonable S/ ${fmt(condona)}
-             </span>`);
+                <span class="mi sm" style="color:var(--violet)">auto_awesome</span>
+                Condonable S/ ${fmt(condona)}
+            </span>`);
         }
-      }
 
-      // Chips contextuales del chat
-      this._renderChips(total, cuotaMin, condona, fraccio);
+        this._renderChips(total, cuotaMin, condona, fraccio);
 
-      // Datos para modal pago en línea
-      const plRef = $('pl-deuda-ref');
-      if (plRef) plRef.textContent = 'S/ ' + fmt(total);
+        const plRef = $('pl-deuda-ref');
+        if (plRef) plRef.textContent = 'S/ ' + fmt(total);
 
-      Modales.fraccion._setDeuda(fraccio, cuotaMin);
+        Modales.fraccion._setDeuda(fraccio, cuotaMin);
 
     } catch(e) {
-      console.error('[Portal.loadDeuda]', e);
+        console.error('[Portal.loadDeuda]', e);
     }
   },
 
