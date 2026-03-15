@@ -101,62 +101,27 @@ INSTRUCCIONES DE RESPUESTA:
 @router.post("/api/portal/asistente")
 async def asistente_texto(
     request:  Request,
-    pregunta: str     = Form(...),
-    member:   Member  = Depends(get_current_member),
-    db:       Session = Depends(get_db),
+    pregunta: str           = Form(...),
+    ctx:      str           = Form(None),   # contexto JSON de la página
+    member:   Member        = Depends(get_current_member),
+    db:       Session       = Depends(get_db),
 ):
-    """Asistente de texto — GPT-4o mini."""
-
-    # ── Buscar colegiado con la misma lógica que dashboard.py ────────
-    col = None
-    user_input = member.user.public_id if member.user else None
-
-    if user_input:
-        user_input = user_input.strip().upper()
-        # Por DNI
-        if len(user_input) == 8 and user_input.isdigit():
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.dni == user_input
-            ).first()
-        # Por matrícula con guión
-        elif '-' in user_input:
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.codigo_matricula == user_input
-            ).first()
-        # Por matrícula numérica (ej: 100649 → 10-0649)
-        elif user_input.startswith('10'):
-            resto  = user_input[2:]
-            numero = ''.join(c for c in resto if c.isdigit())
-            matricula = f"10-{numero.zfill(4)}"
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.codigo_matricula == matricula
-            ).first()
-
-    # Fallback por member_id
-    if not col:
-        col = db.query(Colegiado).filter(
-            Colegiado.member_id == member.id
-        ).first()
-
-    # Fallback por DNI sin filtro de organización
-    if not col and user_input and len(user_input) == 8 and user_input.isdigit():
-        col = db.query(Colegiado).filter(
-            Colegiado.dni == user_input
-        ).first()
-
-    import logging
+    import json, logging
     logger = logging.getLogger(__name__)
-    logger.info(f"[Asistente] member={member.id} col={col.id if col else None} dni={user_input}")
 
-    org_id     = member.organization_id
-    col_id     = col.id if col else None
-    deuda_info = calcular_deuda_total(col_id, org_id, db) if col_id else {}
-    system     = _build_system_prompt(col, deuda_info)
+    # ── Usar contexto de la página si viene ──────────────────────────
+    if ctx:
+        try:
+            ctx_data = json.loads(ctx)
+            system   = _build_system_prompt_from_ctx(ctx_data)
+            logger.info(f"[Asistente] Usando ctx de página: deuda={ctx_data.get('deuda_total')}")
+        except Exception as e:
+            logger.warning(f"[Asistente] ctx inválido: {e} — fallback a BD")
+            ctx_data = None
+            system   = _build_system_prompt_from_db(member, db)
+    else:
+        system = _build_system_prompt_from_db(member, db)
 
-    # DESPUÉS (usando OpenAI GPT-4o mini — mismo OPENAI_API_KEY que Whisper):
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -168,23 +133,106 @@ async def asistente_texto(
                 "model":      "gpt-4o-mini",
                 "max_tokens": 150,
                 "messages":   [
-                    {"role": "system",  "content": system},
-                    {"role": "user",    "content": pregunta},
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": pregunta},
                 ],
             }
         )
         data = resp.json()
-    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "...")
+
+    texto = data.get("choices",[{}])[0].get("message",{}).get("content","No pude responder.")
     return JSONResponse({"respuesta": texto})
+
+
+def _build_system_prompt_from_ctx(ctx: dict) -> str:
+    """Construye system prompt desde el contexto JSON de la página — siempre correcto."""
+    nombre     = ctx.get("nombre", "estimado colegiado")
+    deuda_total= float(ctx.get("deuda_total", 0))
+    condonable = float(ctx.get("condonable",  0))
+    deuda_real = float(ctx.get("deuda_real",  deuda_total))
+    cuotas_pend= int(ctx.get("cuotas_pend",   0))
+    deuda_otras= float(ctx.get("deuda_otras", 0))
+    tiene_fracc= bool(ctx.get("tiene_fracc",  False))
+    condicion  = ctx.get("condicion", "inhabil").upper()
+    min_inicial= round(deuda_real * 0.20, 2)
+    califica   = deuda_real >= 500
+
+    return _system_prompt_base(
+        nombre, condicion, deuda_total, cuotas_pend,
+        deuda_otras, condonable, deuda_real, min_inicial,
+        tiene_fracc, califica
+    )
+
+
+def _build_system_prompt_from_db(member, db) -> str:
+    """Fallback: construye system prompt consultando la BD."""
+    col        = None
+    user_input = member.user.public_id if member.user else None
+    if user_input:
+        user_input = user_input.strip().upper()
+        if len(user_input) == 8 and user_input.isdigit():
+            col = db.query(Colegiado).filter(
+                Colegiado.organization_id == member.organization_id,
+                Colegiado.dni == user_input
+            ).first()
+    if not col:
+        col = db.query(Colegiado).filter(
+            Colegiado.member_id == member.id
+        ).first()
+
+    deuda_info  = calcular_deuda_total(col.id, member.organization_id, db) if col else {}
+    return _build_system_prompt(col, deuda_info)   # función original
+
+
+def _system_prompt_base(
+    nombre, condicion, deuda_total, cuotas_pend,
+    deuda_otras, condonable, deuda_real,
+    min_inicial, tiene_fracc, califica
+) -> str:
+    return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
+Atiendes a: {nombre}.
+
+DATOS EXACTOS DEL COLEGIADO (NO inventar otros montos):
+- Condición actual: {condicion}
+- Deuda total: S/ {deuda_total:.2f}
+- Cuotas ordinarias vencidas: {cuotas_pend}
+- Otras deudas (multas, eventos, extraordinarias): S/ {deuda_otras:.2f}
+- Monto CONDONABLE (Acuerdo 007-2026): S/ {condonable:.2f}
+- Deuda real a fraccionar (sin condonables): S/ {deuda_real:.2f}
+- Cuota inicial mínima (20%): S/ {min_inicial:.2f}
+- Cuota mensual mínima: S/ 100.00
+- Fraccionamiento activo: {'Sí' if tiene_fracc else 'No'}
+- Califica para fraccionar: {'Sí' if califica else 'No'}
+- Máximo cuotas mensuales: 12
+
+REGLAS:
+- HÁBIL requiere: sin multas, sin extraordinarias, menos de 3 cuotas ordinarias vencidas.
+- Al pagar cuota inicial del fraccionamiento → HÁBIL ese mismo día.
+- Acuerdo 007-2026: multas de asamblea y cuotas ordinarias ≤ 2019 se condonan al fraccionar. Multas de elecciones NUNCA se condonan.
+- Constancia de Habilidad: S/ 10, PDF inmediato tras pago en línea.
+- Pagos: tarjeta vía OpenPay (inmediato), Yape/Plin/transferencia (hasta 24h validación).
+
+INSTRUCCIONES:
+- Máximo 2 oraciones, español peruano simple.
+- Usa SIEMPRE los montos exactos de arriba — nunca otros.
+- Para reactivarse: menciona cuota inicial mínima y fraccionamiento.
+- Si no sabes algo: "consulta en ventanilla o llama al 979 169 813".
+- Tono: amigable, como un colega contador."""
+
+
 
 @router.post("/api/portal/asistente/audio")
 async def asistente_audio(
     request: Request,
     audio:   UploadFile = File(...),
+    ctx:     str        = Form(None),
     member:  Member     = Depends(get_current_member),
     db:      Session    = Depends(get_db),
 ):
     """Asistente de voz — Whisper + GPT-4o mini."""
+    import json, logging
+    logger = logging.getLogger(__name__)
+
     if not OPENAI_API_KEY:
         return JSONResponse({"error": "Whisper no configurado"}, status_code=503)
 
@@ -202,49 +250,21 @@ async def asistente_audio(
     if not transcripcion:
         return JSONResponse({"error": "No se pudo transcribir el audio"}, status_code=400)
 
-    # 2. Buscar colegiado — misma lógica que dashboard.py
-    col        = None
-    user_input = member.user.public_id if member.user else None
+    logger.info(f"[Asistente audio] member={member.id} transcripcion='{transcripcion[:60]}'")
 
-    if user_input:
-        user_input = user_input.strip().upper()
-        if len(user_input) == 8 and user_input.isdigit():
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.dni == user_input
-            ).first()
-        elif '-' in user_input:
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.codigo_matricula == user_input
-            ).first()
-        elif user_input.startswith('10'):
-            resto     = user_input[2:]
-            numero    = ''.join(c for c in resto if c.isdigit())
-            matricula = f"10-{numero.zfill(4)}"
-            col = db.query(Colegiado).filter(
-                Colegiado.organization_id == member.organization_id,
-                Colegiado.codigo_matricula == matricula
-            ).first()
+    # 2. Construir system prompt — ctx de página tiene prioridad
+    if ctx:
+        try:
+            ctx_data = json.loads(ctx)
+            system   = _build_system_prompt_from_ctx(ctx_data)
+            logger.info(f"[Asistente audio] Usando ctx de página: deuda={ctx_data.get('deuda_total')}")
+        except Exception as e:
+            logger.warning(f"[Asistente audio] ctx inválido: {e} — fallback a BD")
+            system = _build_system_prompt_from_db(member, db)
+    else:
+        system = _build_system_prompt_from_db(member, db)
 
-    if not col:
-        col = db.query(Colegiado).filter(
-            Colegiado.member_id == member.id
-        ).first()
-
-    if not col and user_input and len(user_input) == 8 and user_input.isdigit():
-        col = db.query(Colegiado).filter(
-            Colegiado.dni == user_input
-        ).first()
-
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[Asistente audio] member={member.id} col={col.id if col else None} transcripcion='{transcripcion[:50]}'")
-
-    # 3. Construir contexto y consultar GPT
-    deuda_info = calcular_deuda_total(col.id, member.organization_id, db) if col else {}
-    system     = _build_system_prompt(col, deuda_info)
-
+    # 3. Consultar GPT-4o mini
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -263,5 +283,5 @@ async def asistente_audio(
         )
         data = resp.json()
 
-    texto = data.get("choices", [{}])[0].get("message", {}).get("content", "No pude procesar tu consulta.")
+    texto = data.get("choices",[{}])[0].get("message",{}).get("content","No pude procesar tu consulta.")
     return JSONResponse({"transcripcion": transcripcion, "respuesta": texto})
