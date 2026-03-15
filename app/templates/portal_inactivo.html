@@ -1911,6 +1911,17 @@ const P = {
         
         const sndPop = new Audio('/static/sounds/pop-sound.mp3');
         sndPop.volume = 0.2;
+
+        const sndIn  = new Audio('/static/sounds/new-notification-sound.mp3');
+        const sndOut = new Audio('/static/sounds/swoosh-sound.mp3');
+        sndIn.volume  = 0.35;
+        sndOut.volume = 0.25;
+
+        // Un contador por tipo de sonido
+        let _cntPop = 0;
+        let _cntIn  = 0;
+        let _cntOut = 0;
+        const MAX_SND = 3;
         
         // Medir altura real del primer notif tras render
         const setContainerHeight = (el) => {
@@ -1934,7 +1945,12 @@ const P = {
                 const h = notifs[cur].offsetHeight;
                 if (container && h > 20) container.style.height = (h + 20) + 'px';
             });
-            try { sndPop.currentTime = 0; sndPop.play().catch(()=>{}); } catch(e){}
+
+            // sndPop:
+            if (_cntPop < MAX_SND) {
+                try { sndPop.currentTime = 0; sndPop.play().catch(()=>{}); _cntPop++; } catch(e){}
+            }
+            
             cur = (cur + 1) % notifs.length;
         };
         
@@ -1952,11 +1968,7 @@ const P = {
         ];
         
         // Preload sounds
-        const sndIn  = new Audio('/static/sounds/new-notification-sound.mp3');
-        const sndOut = new Audio('/static/sounds/swoosh-sound.mp3');
-        sndIn.volume  = 0.35;
-        sndOut.volume = 0.25;
-        
+
         const pushEl = document.getElementById('push-notif');
         let pIdx = 0;
         
@@ -1973,13 +1985,22 @@ const P = {
             pushEl.classList.remove('exit');
             void pushEl.offsetWidth; // reflow
             pushEl.classList.add('enter');
-            try { sndIn.currentTime = 0; sndIn.play().catch(()=>{}); } catch(e){}
+            
+            // sndIn:
+            if (_cntIn < MAX_SND) {
+                try { sndIn.currentTime = 0; sndIn.play().catch(()=>{}); _cntIn++; } catch(e){}
+            }
             
             // After 3.5s — slide OUT to right  
             setTimeout(() => {
                 pushEl.classList.remove('enter');
                 pushEl.classList.add('exit');
-                try { sndOut.currentTime = 0; sndOut.play().catch(()=>{}); } catch(e){}
+                
+                // sndOut:
+                if (_cntOut < MAX_SND) {
+                    try { sndOut.currentTime = 0; sndOut.play().catch(()=>{}); _cntOut++; } catch(e){}
+                }
+
             }, 3500);
         };
         
