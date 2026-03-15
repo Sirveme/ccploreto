@@ -1121,6 +1121,11 @@ body{background:var(--bg);color:var(--tx);font-family:var(--ff);-webkit-font-smo
     color: #ef4444 !important;
     animation: pulse-ring 1s infinite;
 }
+
+@keyframes onda {
+    0%,100% { transform: scaleY(.4); opacity:.5 }
+    50%      { transform: scaleY(1);  opacity:1  }
+}
 </style>
 
 
@@ -2076,8 +2081,20 @@ const A = {
                 this._setMicOff();
                 stream.getTracks().forEach(t => t.stop());
 
+                // Quitar indicador de grabación
                 document.getElementById('msg-grabando')?.remove();
-                this._addMsg('⚙️ Transcribiendo con Whisper...', 'bot', 'msg-transcribiendo');
+
+                // Mensaje de transcripción con contador de segundos
+                const msgTransc = this._addMsg('⚙️ Transcribiendo con Whisper... 0s', 'bot', 'msg-transcribiendo');
+                let segs = 0;
+                const timerTransc = setInterval(() => {
+                    segs++;
+                    const el = document.getElementById('msg-transcribiendo');
+                    if (el) {
+                        const span = el.querySelector('.msg-texto');
+                        if (span) span.textContent = `⚙️ Transcribiendo con Whisper... ${segs}s`;
+                    }
+                }, 1000);
 
                 const blob = new Blob(this._grabarChunks, { type: 'audio/webm' });
                 const fd   = new FormData();
@@ -2086,15 +2103,24 @@ const A = {
                 try {
                     const r = await fetch('/api/portal/asistente/audio', { method: 'POST', body: fd });
                     const d = await r.json();
-                    document.getElementById('msg-transcribiendo')?.remove();  // ← AQUÍ
+
+                    // Limpiar timer y mensaje de transcripción
+                    clearInterval(timerTransc);
+                    document.getElementById('msg-transcribiendo')?.remove();
+
+                    // Mostrar lo que Whisper escuchó
                     if (d.transcripcion) {
-                        this._addMsg(`"${d.transcripcion}"`, 'user');
+                        this._addMsg(`🎙 "${d.transcripcion}"`, 'user');
                     }
+
+                    // Mostrar respuesta
                     this._addMsg(d.respuesta || 'No pude procesar el audio.', 'bot');
                     this._hablar(d.respuesta);
+
                 } catch(e) {
-                    document.getElementById('msg-transcribiendo')?.remove();  // ← Y AQUÍ en el catch
-                    this._addMsg('Error procesando el audio.', 'bot');
+                    clearInterval(timerTransc);
+                    document.getElementById('msg-transcribiendo')?.remove();
+                    this._addMsg('❌ Error procesando el audio. Intenta de nuevo.', 'bot');
                 }
             },
 
@@ -2137,11 +2163,37 @@ const A = {
     // ── Helpers UI ────────────────────────────────────────────────────
     _setMicOn() {
         const btn = document.getElementById('btn-voz');
+        const msgs = document.getElementById('asist-msgs');
         btn.classList.add('grabando');
         document.getElementById('mic-icon').className = 'ph ph-stop-circle';
-        btn.title = 'Detener grabación';
+        btn.title = 'Toca para detener';
+
+        // Crear indicador visual de grabación
+        const ind = document.createElement('div');
+        ind.id = 'ind-grabando';
+        ind.style.cssText = `
+            align-self:center; display:flex; flex-direction:column;
+            align-items:center; gap:8px; padding:16px;`;
+        ind.innerHTML = `
+            <div style="display:flex;gap:4px;align-items:center">
+                ${[0,0.15,0.3,0.15,0].map((d,i) => `
+                <div style="width:4px;background:#ef4444;border-radius:2px;
+                            animation:onda .8s ease infinite;
+                            animation-delay:${d}s;height:${[12,20,28,20,12][i]}px">
+                </div>`).join('')}
+            </div>
+            <div style="font-size:11px;color:#ef4444;font-weight:600">
+                Escuchando... toca 🔴 para detener
+            </div>
+            <div style="font-size:10px;color:#475569">
+                Habla claro y cerca del micrófono
+            </div>`;
+        msgs.appendChild(ind);
+        msgs.scrollTop = msgs.scrollHeight;
     },
+
     _setMicOff() {
+        document.getElementById('ind-grabando')?.remove();
         const btn = document.getElementById('btn-voz');
         btn.classList.remove('grabando');
         document.getElementById('mic-icon').className = 'ph ph-microphone';
@@ -2150,11 +2202,12 @@ const A = {
 
     _addMsg(texto, tipo, id = null) {
         const cont = document.getElementById('asist-msgs');
-        const now  = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        const now  = new Date().toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
         const div  = document.createElement('div');
         if (id) div.id = id;
         div.className = tipo === 'user' ? 'asist-msg-user' : 'asist-msg-bot';
-        div.innerHTML = texto + `<div style="font-size:9px;opacity:.4;margin-top:4px;text-align:right">${now}</div>`;
+        div.innerHTML = `<span class="msg-texto">${texto}</span>` +
+                        `<div style="font-size:9px;opacity:.4;margin-top:4px;text-align:right">${now}</div>`;
         cont.appendChild(div);
         cont.scrollTop = cont.scrollHeight;
         return div;
