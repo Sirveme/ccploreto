@@ -767,43 +767,26 @@ const Modales = {
 
     irAReportar() {
         if (!this.seleccion) return;
-        this.cerrar();
         const { n, cuotaMes, inicial } = this.seleccion;
 
-        if ($('rp-monto'))    $('rp-monto').value   = Math.round(inicial);
-        if ($('rp-concepto')) {
-            $('rp-concepto').value = 'fraccionamiento';
-            Modales.reportarPago.onConceptoChange('fraccionamiento');
-        }
+        const mat    = Portal.ctx.matricula || Portal.ctx.dni || '?';
+        const matCod = mat.replace(/[^0-9]/g, '').slice(-4);
+        const mes    = String(new Date().getMonth() + 1).padStart(2, '0');
+        const codigo = `${matCod}-F${n}M-${mes}`;
 
-        // Generar y mostrar código temporal
-        const mat     = Portal.ctx.matricula || Portal.ctx.dni || '?';
-        const matCod  = mat.replace(/[^0-9]/g, '').slice(-4);   // últimos 4 dígitos
-        const fecha   = new Date();
-        const mes     = String(fecha.getMonth() + 1).padStart(2, '0');
-        const codigo  = `${matCod}-F${n}M-${mes}`;  // Ej: 0274-F7M-03
+        sessionStorage.setItem('fracc_codigo', codigo);
+        sessionStorage.setItem('fracc_plan',   JSON.stringify({ n, cuotaMes, inicial }));
 
-        if ($('rp-fracc-cod-input')) {
-            $('rp-fracc-cod-input').value = codigo;
-        }
-        if ($('rp-fracc-resumen')) {
-            $('rp-fracc-resumen').innerHTML =
-                `<span style="color:#a78bfa">${n} meses · S/ ${Math.round(cuotaMes)}/mes</span>`;
-        }
-
-        // Guardar en sessionStorage por si el colegiado va a las oficinas
-        sessionStorage.setItem('fracc_codigo',  codigo);
-        sessionStorage.setItem('fracc_plan',    JSON.stringify({ n, cuotaMes, inicial }));
-
-        // Aviso en el asistente
         Asistente._addMsg(
             `📋 Tu código de fraccionamiento es <strong>${codigo}</strong> ` +
             `(${n} meses de S/ ${Math.round(cuotaMes)}/mes). ` +
-            `Guárdalo — también puedes decírselo al cajero.`,
+            `Guárdalo — también sirve en caja.`,
             'bot'
         );
 
-        Modales.reportarPago.abrir();
+        this.cerrar();
+        // Usar abrirConFraccion para pre-llenar todo correctamente
+        Modales.reportarPago.abrirConFraccion(inicial, n, cuotaMes, codigo);
     },
 
     async solicitar() {
@@ -1020,28 +1003,217 @@ catalogo: {
 
   /* ─── Reportar Pago ───────────────────────────────────── */
   reportarPago: {
-    metodo:  null,
-    archivo: null,
+    metodo:          null,
+    archivo:         null,
+    _idsSeleccionados: new Set(),
+    _filtroActual:   null,   // null = todos | 'cuota_ordinaria' | 'multa' | etc.
 
-    abrir()  { $('modal-reporte')?.classList.add('open'); },
+    /* ── Grupos de deuda para los tabs ───────────────────── */
+    _GRUPOS: {
+      cuota_ordinaria:       { icon: 'receipt_long',   label: 'Cuotas Ordinarias',       color: 'c-amber'   },
+      cuota_extraordinaria:  { icon: 'star',           label: 'Cuotas Extraordinarias',   color: 'c-blue'    },
+      multa:                 { icon: 'gavel',          label: 'Multas',                   color: 'c-red'     },
+      fraccionamiento:       { icon: 'calendar_month', label: 'Fraccionamiento',           color: 'c-violet'  },
+      otros:                 { icon: 'more_horiz',     label: 'Otros',                    color: 'c-dim'     },
+    },
+
+    /* abrir() — renderiza tabs + lista de deudas reales ── */
+    abrir() {
+      this._idsSeleccionados = new Set();
+      this._filtroActual     = null;
+      this._renderContenido();
+      $('modal-reporte')?.classList.add('open');
+    },
+
+    /* abrir desde fraccion.irAReportar() — pre-selecciona cuota inicial */
+    abrirConFraccion(inicial, n, cuotaMes, codigo) {
+      this._idsSeleccionados = new Set();
+      this._filtroActual     = 'fraccionamiento';
+      this._renderContenido();
+      // Pre-llenar monto y código
+      if ($('rp-monto'))          $('rp-monto').value          = Math.round(inicial);
+      if ($('rp-fracc-cod-input')) $('rp-fracc-cod-input').value = codigo;
+      if ($('rp-fracc-resumen'))
+        $('rp-fracc-resumen').innerHTML =
+          `<span style="color:var(--violet)">${n} cuotas · S/ ${Math.round(cuotaMes)}/mes</span>`;
+      if ($('rp-fracc-codigo')) $('rp-fracc-codigo').style.display = 'block';
+      this.recalcularTotal();
+      $('modal-reporte')?.classList.add('open');
+    },
+
     cerrar() { $('modal-reporte')?.classList.remove('open'); },
 
-    onConceptoChange(val) {
-        // Aviso productos físicos
-        const aviso = $('rp-aviso-producto');
-        if (aviso) aviso.style.display = val === 'mercaderia' ? 'block' : 'none';
-        // Bloque código fraccionamiento
-        const bloqFracc = $('rp-fracc-codigo');
-        if (bloqFracc) bloqFracc.style.display = val === 'fraccionamiento' ? 'block' : 'none';
-        // Si viene de irAReportar() ya tiene código pre-cargado
-        this.recalcularTotal();
+    /* ── Renderiza zona de deudas seleccionables ─────────── */
+    _renderContenido() {
+      const zona = $('rp-deudas-zona');
+      if (!zona) return;
+
+      const deudas = Portal.ctx.deudas || [];
+      if (!deudas.length) {
+        zona.innerHTML = '<div class="rp-empty">Sin deudas registradas. Si ya pagaste, escribe el monto manualmente.</div>';
+        return;
+      }
+
+      // Agrupar para los tabs
+      const grupos = {};
+      deudas.forEach(d => {
+        const tipo = (d.debt_type || 'otros').toLowerCase();
+        const grp  = this._GRUPOS[tipo] ? tipo : 'otros';
+        if (!grupos[grp]) grupos[grp] = [];
+        grupos[grp].push(d);
+      });
+
+      // Tabs
+      const tabsHtml = Object.keys(grupos).map(grp => {
+        const g = this._GRUPOS[grp];
+        const activo = this._filtroActual === grp ? 'active' : '';
+        return `<button class="rp-tab ${activo}" onclick="Modales.reportarPago._setFiltro('${grp}')">
+                  <span class="mi sm ${g.color}">${g.icon}</span>
+                  ${g.label}
+                  <span class="rp-tab-cnt">${grupos[grp].length}</span>
+                </button>`;
+      }).join('');
+
+      // Cuotas corrientes 2026 — verificar si existen
+      const tiene2026 = deudas.some(d => {
+        const tipo = (d.debt_type || '').toLowerCase();
+        return tipo === 'cuota_ordinaria' && (d.periodo || '').includes('2026');
+      });
+
+      const aviso2026 = !tiene2026 ? `
+        <div class="rp-aviso-2026">
+          <span class="mi sm c-amber">schedule</span>
+          Las cuotas ordinarias 2026 se habilitarán cuando el colegio las genere.
+          ${this._descuentoMesActual() > 0
+            ? `Hay descuento del <strong>${this._descuentoMesActual()}%</strong> si pagas anticipado este mes.`
+            : ''}
+        </div>` : '';
+
+      zona.innerHTML = `
+        <div class="rp-tabs" id="rp-tabs">${tabsHtml}</div>
+        ${aviso2026}
+        <div class="rp-check-all-row">
+          <label class="dl-check-all" for="rp-check-all">
+            <input type="checkbox" id="rp-check-all"
+                   onchange="Modales.reportarPago._toggleAll(this.checked)">
+            Seleccionar todas las deudas visibles
+          </label>
+          <span class="dl-header-cnt" id="rp-sel-cnt">0 seleccionadas</span>
+        </div>
+        <div class="dl-lista" id="rp-lista"></div>
+      `;
+
+      this._renderLista(this._filtroActual, grupos);
+    },
+
+    _descuentoMesActual() {
+      const m = new Date().getMonth() + 1;  // 1=Ene, 2=Feb, 3=Mar
+      if (m === 1) return 30;
+      if (m === 2) return 20;
+      if (m === 3) return 10;
+      return 0;
+    },
+
+    _setFiltro(filtro) {
+      this._filtroActual = filtro;
+      // Actualizar tabs
+      document.querySelectorAll('.rp-tab').forEach(t => {
+        t.classList.toggle('active', t.onclick?.toString().includes(`'${filtro}'`));
+      });
+      const deudas = Portal.ctx.deudas || [];
+      const grupos = {};
+      deudas.forEach(d => {
+        const tipo = (d.debt_type || 'otros').toLowerCase();
+        const grp  = this._GRUPOS[tipo] ? tipo : 'otros';
+        if (!grupos[grp]) grupos[grp] = [];
+        grupos[grp].push(d);
+      });
+      this._renderLista(filtro, grupos);
+    },
+
+    _renderLista(filtro, grupos) {
+      const lista = $('rp-lista');
+      if (!lista) return;
+      const deudas = Portal.ctx.deudas || [];
+      const visibles = filtro
+        ? (grupos[filtro] || [])
+        : deudas;
+
+      if (!visibles.length) {
+        lista.innerHTML = '<div class="rp-empty">Sin deudas en esta categoría.</div>';
+        return;
+      }
+
+      lista.innerHTML = visibles.map(deu => {
+        const condona  = esCondonable(deu);
+        const monto    = parseFloat(deu.balance || deu.amount || 0);
+        const sel      = this._idsSeleccionados.has(deu.id);
+        return `
+          <label class="dl-item ${sel ? 'dl-sel' : ''}" for="rp-chk-${deu.id}">
+            <input type="checkbox" class="dl-chk" id="rp-chk-${deu.id}"
+                   ${sel ? 'checked' : ''}
+                   value="${deu.id}" data-monto="${monto}"
+                   onchange="Modales.reportarPago._toggleDeuda(${deu.id}, ${monto}, this.checked)">
+            <div class="dl-info">
+              <div class="dl-concept">${deu.concept || '—'}</div>
+              <div class="dl-meta">${deu.period_label || deu.periodo || ''}</div>
+            </div>
+            <div class="dl-right">
+              ${condona ? '<span class="dl-badge-condona"><span class="mi sm" style="font-size:9px">auto_awesome</span>Condonable</span>' : ''}
+              <span class="dl-monto">S/ ${Math.round(monto)}</span>
+            </div>
+          </label>`;
+      }).join('');
+    },
+
+    _toggleDeuda(id, monto, checked) {
+      if (checked) {
+        this._idsSeleccionados.add(id);
+      } else {
+        this._idsSeleccionados.delete(id);
+        const chkAll = $('rp-check-all');
+        if (chkAll) chkAll.checked = false;
+      }
+      this._actualizarContador();
+      this.recalcularTotal();
+    },
+
+    _toggleAll(checked) {
+      // Toggle solo los visibles (filtro actual)
+      document.querySelectorAll('#rp-lista .dl-chk').forEach(chk => {
+        chk.checked = checked;
+        const id    = parseInt(chk.value);
+        const monto = parseFloat(chk.dataset.monto || 0);
+        if (checked) this._idsSeleccionados.add(id);
+        else         this._idsSeleccionados.delete(id);
+      });
+      this._actualizarContador();
+      this.recalcularTotal();
+    },
+
+    _actualizarContador() {
+      const el = $('rp-sel-cnt');
+      if (el) el.textContent = this._idsSeleccionados.size + ' seleccionadas';
     },
 
     recalcularTotal() {
-        const monto    = parseFloat($('rp-monto')?.value || 0);
-        const addConst = $('rp-constancia-check')?.checked ? 10 : 0;
-        const total    = Math.round(monto) + addConst;
-        if ($('rp-total')) $('rp-total').textContent = 'S/ ' + total;
+      // Sumar desde IDs seleccionados (si hay), sino desde input manual
+      let montoBase = 0;
+      if (this._idsSeleccionados.size > 0) {
+        const deudas = Portal.ctx.deudas || [];
+        deudas.forEach(d => {
+          if (this._idsSeleccionados.has(d.id))
+            montoBase += parseFloat(d.balance || d.amount || 0);
+        });
+        montoBase = Math.round(montoBase);
+        // Actualizar campo monto
+        if ($('rp-monto')) $('rp-monto').value = montoBase;
+      } else {
+        montoBase = parseFloat($('rp-monto')?.value || 0);
+      }
+      const addConst = $('rp-constancia-check')?.checked ? 10 : 0;
+      const total    = Math.round(montoBase) + addConst;
+      if ($('rp-total')) $('rp-total').textContent = 'S/ ' + total;
     },
 
     setMetodo(m, btn) {
@@ -1067,7 +1239,7 @@ catalogo: {
     async enviar() {
       const monto = parseFloat($('rp-monto')?.value || 0);
       if (!monto || monto <= 0) {
-        alert('Por favor ingresa el monto del pago.');
+        alert('Por favor selecciona deudas o ingresa el monto del pago.');
         return;
       }
       if (!this.metodo) {
@@ -1076,10 +1248,14 @@ catalogo: {
       }
 
       const fd = new FormData();
-      fd.append('concepto',    $('rp-concepto')?.value || 'deuda_total');
-      fd.append('monto',       monto);
-      fd.append('metodo',      this.metodo);
-      fd.append('nro_operacion', $('rp-nro-op')?.value || '');
+      // Concepto: derivado de deudas seleccionadas o fraccionamiento
+      const esFracc = $('rp-fracc-codigo')?.style.display === 'block';
+      fd.append('concepto',         esFracc ? 'fraccionamiento' : 'deudas_seleccionadas');
+      fd.append('monto',            monto);
+      fd.append('metodo',           this.metodo);
+      fd.append('nro_operacion',    $('rp-nro-op')?.value || '');
+      fd.append('deuda_ids',        [...this._idsSeleccionados].join(','));
+      fd.append('fracc_codigo',     $('rp-fracc-cod-input')?.value || '');
       fd.append('solicitar_constancia', $('rp-constancia-check')?.checked ? '1' : '0');
       if (this.archivo) fd.append('voucher', this.archivo);
 
@@ -1131,7 +1307,26 @@ catalogo: {
     _renderModoFijo(montoFijo) {
       const cuerpo = $('pl-cuerpo');
       if (!cuerpo) return;
-      cuerpo.innerHTML = `
+
+      // Recuperar código y plan generados en fraccion.pagarConTarjeta()
+      const codigo = sessionStorage.getItem('fracc_codigo') || '';
+      const plan   = (() => {
+        try { return JSON.parse(sessionStorage.getItem('fracc_plan') || 'null'); } catch(_) { return null; }
+      })();
+
+      const codigoHtml = codigo ? `
+        <div class="pl-fracc-codigo">
+          <div class="pl-fracc-codigo-head">
+            <span class="mi sm c-violet">confirmation_number</span>
+            Código de fraccionamiento
+          </div>
+          <div class="pl-fracc-codigo-val">${codigo}</div>
+          <div class="pl-fracc-codigo-sub">
+            ${plan ? plan.n + ' cuotas de S/ ' + Math.round(plan.cuotaMes) + '/mes · ' : ''}Guárdalo — también vale en caja
+          </div>
+        </div>` : '';
+
+      cuerpo.innerHTML = codigoHtml + `
         <div class="pl-monto-fijo-card">
           <span class="mi sm c-blue">calendar_month</span>
           <div class="pl-monto-fijo-info">
