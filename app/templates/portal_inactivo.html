@@ -344,12 +344,31 @@
 
       <div class="rp-field">
         <label class="rp-lbl">¿Qué estás pagando?</label>
-        <select class="rp-select" id="rp-concepto">
-          <option value="deuda_total">Deuda total</option>
-          <option value="fraccionamiento">Cuota de fraccionamiento</option>
-          <option value="cuota_ordinaria">Cuota ordinaria</option>
-          <option value="otro">Otro concepto</option>
-        </select>
+        <div class="rp-field">
+            <label class="rp-lbl">¿Qué estás pagando?</label>
+            <select class="rp-select" id="rp-concepto" onchange="Modales.reportarPago.onConceptoChange(this.value)">
+                <option value="">— Selecciona un concepto —</option>
+                <optgroup label="Deudas">
+                    <option value="deuda_total">Deuda total</option>
+                    <option value="cuota_ordinaria">Cuota ordinaria</option>
+                    <option value="fraccionamiento">Cuota de fraccionamiento</option>
+                    <option value="multa">Multa</option>
+                    </optgroup>
+                <optgroup label="Servicios" id="opt-servicios">
+                <!-- Se llena dinámicamente -->
+                </optgroup>
+                <optgroup label="Productos" id="opt-productos">
+                <!-- Se llena dinámicamente -->
+                </optgroup>
+            </select>
+            <!-- Aviso para productos físicos -->
+            <div id="rp-aviso-producto" style="display:none;margin-top:8px;padding:10px 12px;
+                background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);
+                border-radius:8px;font-size:11px;color:#f59e0b;line-height:1.6">
+                📦 Para recoger tu producto, acércate a las oficinas del Colegio
+                con tu <strong>N° de Operación o voucher</strong>.
+            </div>
+        </div>
       </div>
 
       <div class="rp-row">
@@ -393,7 +412,7 @@
       </div>
 
       <div class="rp-constancia">
-        <input type="checkbox" id="rp-constancia-check" checked>
+        <input type="checkbox" id="rp-constancia-check">
         <div>
           <div style="font-weight:600;font-size:12px">
             <span class="mi sm c-emerald">verified</span>
@@ -448,7 +467,7 @@
       </div>
 
       <div class="pl-incluir">
-        <input type="checkbox" id="pl-incluir-constancia" checked>
+        <input type="checkbox" id="pl-incluir-constancia">
         <div>
           <div style="font-weight:600;font-size:12px">Incluir Constancia de Habilidad</div>
           <div class="pl-incluir-sub">+S/ 10 · PDF descargable al instante</div>
@@ -581,6 +600,67 @@
     </div>
   </div>
 </div>
+
+
+<!-- ══ MODAL: CATÁLOGO ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-catalogo">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-head-inner">
+        <div class="modal-head-icon" style="background:rgba(16,185,129,.12)">
+          <span class="mi c-emerald">storefront</span>
+        </div>
+        <div>
+          <div class="modal-title">Servicios y Productos</div>
+          <div class="modal-sub">Selecciona y paga en línea o reporta tu pago</div>
+        </div>
+      </div>
+      <button class="btn-modal-close" onclick="Modales.catalogo.cerrar()">
+        <span class="mi sm">close</span>
+      </button>
+    </div>
+
+    <!-- Filter pills por categoría -->
+    <div id="cat-filtros" style="display:flex;gap:8px;overflow-x:auto;
+         padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.06);
+         scrollbar-width:none"></div>
+
+    <!-- Lista de items -->
+    <div class="modal-body" id="cat-lista"
+         style="display:grid;gap:10px;padding:16px 20px;max-height:55vh;overflow-y:auto">
+      <div style="text-align:center;color:#64748b;padding:24px">
+        <span class="mi" style="font-size:32px;display:block;margin-bottom:8px">hourglass_empty</span>
+        Cargando catálogo...
+      </div>
+    </div>
+
+    <!-- Footer: total seleccionado -->
+    <div class="modal-footer" id="cat-footer" style="display:none;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  padding:0 4px;font-size:14px">
+        <span style="color:#94a3b8">Total seleccionado:</span>
+        <span id="cat-total" style="font-size:20px;font-weight:800;color:#22c55e">S/ 0</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-pagar-tarjeta" style="flex:1" onclick="Modales.catalogo.pagarTarjeta()">
+          <span style="display:flex;align-items:center;gap:6px">
+            <span class="mi">credit_card</span>Pagar con Tarjeta
+          </span>
+          <span class="btn-arrow mi">arrow_forward</span>
+        </button>
+        <button class="btn-pagar-tarjeta"
+                style="flex:1;background:transparent;border:1px solid rgba(245,158,11,.3);color:#f59e0b"
+                onclick="Modales.catalogo.reportar()">
+          <span style="display:flex;align-items:center;gap:6px">
+            <span class="mi">upload</span>Ya pagué
+          </span>
+          <span class="btn-arrow mi">arrow_forward</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- ══ SCRIPTS ════════════════════════════════════════════════
      ORDEN:
