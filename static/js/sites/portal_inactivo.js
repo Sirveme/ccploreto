@@ -27,6 +27,30 @@ const hora = () =>
 const $ = id => document.getElementById(id);
 
 
+/* ────────────────────────────────────────────────────────────
+   esCondonable(deu) — Acuerdo 007-2026
+   Misma lógica que loadDeuda(). Función global para reusar
+   en cualquier módulo sin duplicar.
+──────────────────────────────────────────────────────────── */
+function esCondonable(deu) {
+  const tipo     = (deu.debt_type || '').toLowerCase();
+  const concepto = (deu.concept   || '').toLowerCase();
+  const periodo  = (deu.periodo   || '');
+
+  if (tipo === 'multa') {
+    // Multas de elecciones/votaciones: NUNCA condonables
+    return !concepto.includes('elecci') &&
+           !concepto.includes('votaci') &&
+           !concepto.includes('elección');
+  }
+  if (tipo === 'cuota_ordinaria') {
+    const m = periodo.match(/(\d{4})/);
+    return !!(m && parseInt(m[1]) <= 2019);
+  }
+  return false;
+}
+
+
 /* ════════════════════════════════════════════════════════════
    PORTAL — carga de perfil y deuda
 ════════════════════════════════════════════════════════════ */
@@ -1077,99 +1101,217 @@ catalogo: {
   /* ─── Pago en Línea ───────────────────────────────────── */
   pagoLinea: {
 
+    _montoFijo:        null,    // != null → modo fraccionamiento (cuota inicial fija)
+    _idsSeleccionados: new Set(),
+
+    /* abrir(montoFijo)
+       - montoFijo !== null : viene de fraccionamiento → monto fijo, sin lista
+       - montoFijo === null : viene de PAGAR AHORA → lista con checkboxes        */
     abrir(montoFijo = null) {
-      const fracc  = Portal.ctx.deuda_fraccionable || 0;
-      const cond   = Portal.ctx.deuda_condonable   || 0;
-      const total  = Portal.ctx.deuda_total         || 0;
-      const montoMax = cond > 0 ? fracc : total;
+      this._montoFijo        = montoFijo;
+      this._idsSeleccionados = new Set();
 
-      // Aviso condonable
-      const aviso = $('pl-aviso-fracc');
-      if (aviso) {
-          aviso.style.display = cond > 0 ? 'block' : 'none';
-          aviso.innerHTML = `
-              <span class="mi sm" style="vertical-align:middle;color:#a78bfa">info</span>
-              Tu deuda real a fraccionar es <strong>S/ ${Math.round(fracc)}</strong>.
-              Si pagas solo ese monto, podrías acceder a fraccionamiento.
-              Las deudas condonables (<strong>S/ ${Math.round(cond)}</strong>)
-              se eliminan automáticamente. No pagues de más.`;
+      if (montoFijo !== null) {
+        this._renderModoFijo(montoFijo);
+      } else {
+        this._renderModoLista();
       }
 
-      // Labels informativos
-      if ($('pl-lbl-deuda-total')) $('pl-lbl-deuda-total').textContent = 'S/ ' + Math.round(total);
-      if ($('pl-lbl-deuda-fracc')) $('pl-lbl-deuda-fracc').textContent = 'S/ ' + Math.round(fracc);
-
-      // Radio "Mi deuda" por defecto — asigna montoMax al input
-      const radioDeuda = document.querySelector('input[name="pl-tipo"][value="deuda"]');
-      if (radioDeuda) { radioDeuda.checked = true; this.onTipoChange('deuda'); }
-
-      // ── montoFijo SIEMPRE al final, después de onTipoChange ──
-      const inputMonto = $('pl-monto');
-      if (inputMonto) {
-          inputMonto.max   = montoFijo !== null ? montoFijo : montoMax;
-          inputMonto.value = Math.round(montoFijo !== null ? montoFijo : montoMax);
-      }
-
-      // Constancia sin marcar
+      // Constancia sin marcar por defecto
       const chk = $('pl-incluir-constancia');
       if (chk) chk.checked = false;
 
       this.recalcular();
       $('modal-pago-linea')?.classList.add('open');
-  },
+    },
 
     cerrar() { $('modal-pago-linea')?.classList.remove('open'); },
 
-    onTipoChange(tipo) {
-        const wrap = $('pl-monto-libre-wrap');
-        if (tipo === 'deuda') {
-            if (wrap) wrap.style.display = 'none';
-            // Pre-cargar con deuda total
-            if ($('pl-monto')) $('pl-monto').value = Math.round(Portal.ctx.deuda_total || 0);
-        } else {
-            if (wrap) wrap.style.display = 'block';
-            if ($('pl-monto')) $('pl-monto').value = '';
-        }
-        this.recalcular();
+    /* ── Modo fijo (cuota inicial de fraccionamiento) ─────── */
+    _renderModoFijo(montoFijo) {
+      const cuerpo = $('pl-cuerpo');
+      if (!cuerpo) return;
+      cuerpo.innerHTML = `
+        <div class="pl-monto-fijo-card">
+          <span class="mi sm c-blue">calendar_month</span>
+          <div class="pl-monto-fijo-info">
+            <div class="pl-monto-fijo-lbl">Cuota inicial de fraccionamiento</div>
+            <div class="pl-monto-fijo-sub">Al pagar, quedas HÁBIL ese mismo día</div>
+          </div>
+          <div class="pl-monto-fijo-amt">S/ ${Math.round(montoFijo)}</div>
+        </div>
+        <input type="hidden" id="pl-monto" value="${Math.round(montoFijo)}">
+      `;
+    },
+
+    /* ── Modo lista (PAGAR AHORA) ─────────────────────────── */
+    _renderModoLista() {
+      const cuerpo = $('pl-cuerpo');
+      if (!cuerpo) return;
+      const deudas = Portal.ctx.deudas || [];
+
+      if (!deudas.length) {
+        cuerpo.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">Sin deudas registradas.</div>';
+        return;
+      }
+
+      const rows = deudas.map(deu => {
+        const condona = esCondonable(deu);
+        const monto   = parseFloat(deu.balance || deu.amount || 0);
+        return `
+          <label class="dl-item" for="dl-chk-${deu.id}">
+            <input type="checkbox" class="dl-chk" id="dl-chk-${deu.id}"
+                   value="${deu.id}" data-monto="${monto}" data-condona="${condona}"
+                   onchange="Modales.pagoLinea._toggleDeuda(${deu.id}, ${monto}, ${condona}, this.checked)">
+            <div class="dl-info">
+              <div class="dl-concept">${deu.concept || deu.concepto || '—'}</div>
+              <div class="dl-meta">${deu.period_label || deu.periodo || ''}</div>
+            </div>
+            <div class="dl-right">
+              ${condona ? `<span class="dl-badge-condona">
+                             <span class="mi sm" style="font-size:10px">auto_awesome</span>
+                             Condonable</span>` : ''}
+              <span class="dl-monto">S/ ${Math.round(monto)}</span>
+            </div>
+          </label>`;
+      }).join('');
+
+      cuerpo.innerHTML = `
+        <div class="dl-header">
+          <label class="dl-check-all" for="pl-check-all">
+            <input type="checkbox" id="pl-check-all"
+                   onchange="Modales.pagoLinea._toggleAll(this.checked)">
+            Seleccionar todas las deudas
+          </label>
+          <span class="dl-header-cnt">${deudas.length} conceptos</span>
+        </div>
+        <div class="dl-lista" id="pl-lista">${rows}</div>
+        <div id="pl-aviso-condona" class="pl-aviso-condona" style="display:none"></div>
+      `;
+    },
+
+    _toggleDeuda(id, monto, condona, checked) {
+      if (checked) {
+        this._idsSeleccionados.add(id);
+      } else {
+        this._idsSeleccionados.delete(id);
+        // Desmarcar "todas"
+        const chkAll = $('pl-check-all');
+        if (chkAll) chkAll.checked = false;
+      }
+      this.recalcular();
+    },
+
+    _toggleAll(checked) {
+      const deudas = Portal.ctx.deudas || [];
+      document.querySelectorAll('.dl-chk').forEach(chk => { chk.checked = checked; });
+      if (checked) {
+        deudas.forEach(d => this._idsSeleccionados.add(d.id));
+      } else {
+        this._idsSeleccionados.clear();
+      }
+      this.recalcular();
     },
 
     recalcular() {
-        const monto    = parseFloat($('pl-monto')?.value || 0);
-        const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
-        const total    = Math.round(monto) + addConst;
-        if ($('pl-total')) $('pl-total').textContent = 'S/ ' + total.toFixed(2);
+      let montoBase    = 0;
+      let condonaEnSel = 0;
+
+      if (this._montoFijo !== null) {
+        // Modo fijo
+        montoBase = this._montoFijo;
+      } else {
+        // Modo lista — sumar seleccionadas
+        const deudas = Portal.ctx.deudas || [];
+        deudas.forEach(d => {
+          if (this._idsSeleccionados.has(d.id)) {
+            const bal = parseFloat(d.balance || d.amount || 0);
+            montoBase += bal;
+            if (esCondonable(d)) condonaEnSel += bal;
+          }
+        });
+      }
+
+      // Aviso condonable en selección
+      const avisoEl = $('pl-aviso-condona');
+      if (avisoEl) {
+        if (condonaEnSel > 0) {
+          avisoEl.style.display = 'flex';
+          avisoEl.innerHTML = `
+            <span class="mi sm c-violet" style="flex-shrink:0">info</span>
+            De tu selección, <strong style="color:var(--violet)">S/ ${Math.round(condonaEnSel)}</strong>
+            se condonan automáticamente si fraccionas (Acuerdo 007-2026).
+            <span class="pl-link-fracc"
+                  onclick="Modales.pagoLinea.cerrar();Modales.fraccion.abrir()">
+              Ver fraccionamiento
+            </span>`;
+        } else {
+          avisoEl.style.display = 'none';
+        }
+      }
+
+      const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
+      const total    = Math.round(montoBase) + addConst;
+      if ($('pl-total')) $('pl-total').textContent = 'S/ ' + total.toFixed(2);
+
+      // Habilitar/deshabilitar botón pagar
+      const btnPagar = $('pl-btn-pagar');
+      if (btnPagar) btnPagar.disabled = (montoBase <= 0);
     },
 
     async pagar() {
-        const monto = parseFloat($('pl-monto')?.value || 0);
-        if (!monto || monto <= 0) {
-            alert('Por favor ingresa o selecciona el monto a pagar.');
-            return;
-        }
-        const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
+      let monto    = 0;
+      let deudaIds = '';
 
-        try {
-            const r = await fetch('/pagos/openpay/iniciar', {
-                method:  'POST',
-                headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body:    new URLSearchParams({
-                    monto_directo:      monto,
-                    incluir_constancia: addConst > 0 ? '1' : '0',
-                    deuda_ids:          '',
-                }),
-            });
-            const hxRedir = r.headers.get('HX-Redirect');
-            if (hxRedir)     { location.href = hxRedir; return; }
-            if (r.redirected) { location.href = r.url;   return; }
-            const d = await r.json().catch(() => ({}));
-            if (d.redirect_url) { location.href = d.redirect_url; }
-            else Asistente._addMsg('Error al conectar con el procesador de pagos.', 'bot');
-        } catch(e) {
-            this.cerrar();
-            Asistente._addMsg('Error de conexión al procesar el pago.', 'bot');
+      if (this._montoFijo !== null) {
+        // Modo fijo — cuota inicial del fraccionamiento
+        monto    = this._montoFijo;
+        deudaIds = '';
+      } else {
+        // Modo lista — IDs seleccionados
+        if (this._idsSeleccionados.size === 0) {
+          alert('Selecciona al menos una deuda para pagar.');
+          return;
         }
+        const deudas = Portal.ctx.deudas || [];
+        deudas.forEach(d => {
+          if (this._idsSeleccionados.has(d.id)) {
+            monto += parseFloat(d.balance || d.amount || 0);
+          }
+        });
+        monto    = Math.round(monto);
+        deudaIds = [...this._idsSeleccionados].join(',');
+      }
+
+      if (!monto || monto <= 0) {
+        alert('El monto a pagar debe ser mayor a cero.');
+        return;
+      }
+
+      const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
+
+      try {
+        const r = await fetch('/pagos/openpay/iniciar', {
+          method:  'POST',
+          headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
+          body:    new URLSearchParams({
+            monto_directo:      monto,
+            incluir_constancia: addConst > 0 ? '1' : '0',
+            deuda_ids:          deudaIds,
+          }),
+        });
+        const hxRedir = r.headers.get('HX-Redirect');
+        if (hxRedir)      { location.href = hxRedir; return; }
+        if (r.redirected)  { location.href = r.url;   return; }
+        const d = await r.json().catch(() => ({}));
+        if (d.redirect_url) { location.href = d.redirect_url; }
+        else Asistente._addMsg('Error al conectar con el procesador de pagos.', 'bot');
+      } catch(e) {
+        this.cerrar();
+        Asistente._addMsg('Error de conexión al procesar el pago.', 'bot');
+      }
     },
-},
+  },
 
   /* ─── Elegir tipo de pago ─────────────────────────────── */
     elegirPago: {
