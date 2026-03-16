@@ -1144,3 +1144,127 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
   font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
   margin-left: 6px; vertical-align: middle;
 }
+/* ══════════════════════════════════════════════════════════════
+   LISTA DE DEUDAS — modal Pago en Línea
+══════════════════════════════════════════════════════════════ */
+
+/* Header — checkbox "todas" + contador */
+.dl-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.dl-check-all {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-dim); cursor: pointer;
+  user-select: none;
+}
+.dl-check-all input { accent-color: var(--verde-soft); width: 15px; height: 15px; cursor: pointer; }
+.dl-header-cnt { font-size: 10px; color: var(--text-muted); }
+
+/* Lista con scroll */
+.dl-lista {
+  display: flex; flex-direction: column; gap: 5px;
+  max-height: 290px; overflow-y: auto;
+  padding-right: 2px;
+}
+.dl-lista::-webkit-scrollbar { width: 3px; }
+.dl-lista::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
+
+/* Fila de deuda */
+.dl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 9px; cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.dl-item:hover { border-color: var(--border-2); background: var(--surface-3); }
+
+/* Estado seleccionado — using :has() con fallback via JS data-attr si hace falta */
+.dl-item:has(.dl-chk:checked) {
+  border-color: rgba(27,77,53,.45);
+  background: rgba(27,77,53,.14);
+}
+
+.dl-chk {
+  accent-color: var(--verde-soft);
+  width: 16px; height: 16px; flex-shrink: 0; cursor: pointer;
+}
+
+.dl-info { flex: 1; min-width: 0; }
+.dl-concept {
+  font-size: 12px; font-weight: 500; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dl-meta { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+
+.dl-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 4px; flex-shrink: 0;
+}
+.dl-monto {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px; font-weight: 700; color: var(--amber-soft);
+}
+.dl-badge-condona {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 700;
+  padding: 2px 6px; border-radius: 10px;
+  background: var(--violet-tint);
+  border: 1px solid rgba(139,92,246,.22);
+  color: var(--violet); white-space: nowrap;
+}
+
+/* Aviso condonable en selección */
+.pl-aviso-condona {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 12px; border-radius: 9px; margin-top: 10px;
+  background: var(--violet-tint);
+  border: 1px solid rgba(139,92,246,.22);
+  font-size: 11px; color: #c4b5fd; line-height: 1.6;
+  flex-wrap: wrap;
+}
+.pl-link-fracc {
+  color: var(--violet); font-weight: 700; cursor: pointer;
+  text-decoration: underline; margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* Modo fijo — cuota inicial fraccionamiento */
+.pl-monto-fijo-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-radius: var(--r); margin-bottom: 16px;
+  background: var(--blue-tint);
+  border: 1px solid rgba(59,130,246,.25);
+}
+.pl-monto-fijo-info { flex: 1; }
+.pl-monto-fijo-lbl { font-size: 13px; font-weight: 600; color: var(--blue-soft); }
+.pl-monto-fijo-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.pl-monto-fijo-amt {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px; font-weight: 800; color: var(--blue-soft);
+  flex-shrink: 0;
+}
+
+/* Botón "Ya pagué" en footer del modal */
+.btn-ya-pague {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px 14px; border-radius: var(--r); cursor: pointer;
+  background: var(--amber-tint);
+  border: 1px solid rgba(245,158,11,.28);
+  color: var(--amber-soft);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  transition: all .2s;
+}
+.btn-ya-pague:hover { background: rgba(245,158,11,.22); border-color: rgba(245,158,11,.45); }
+
+/* Footer del modal pago — dos botones en fila */
+.modal-footer-row {
+  display: flex; gap: 8px; align-items: stretch;
+}
+.modal-footer-row .btn-pagar-tarjeta { flex: 2; }
+.modal-footer-row .btn-ya-pague      { flex: 1; }
