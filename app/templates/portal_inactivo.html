@@ -472,120 +472,73 @@
 <!-- ══ MODAL: PAGO EN LÍNEA ══════════════════════════════════ -->
 <div class="modal-overlay" id="modal-pago-linea">
   <div class="modal-box">
+ 
     <div class="modal-head">
       <div class="modal-head-inner">
         <div class="modal-head-icon" style="background:var(--emerald-tint)">
           <span class="mi c-emerald">bolt</span>
         </div>
         <div>
-          <div class="modal-title">Pago en línea — Activación inmediata</div>
-          <div class="modal-sub">Procesado por OpenPay Perú</div>
+          <div class="modal-title">Pagar en línea</div>
+          <div class="modal-sub">Activación inmediata · OpenPay Perú</div>
         </div>
       </div>
       <button class="btn-modal-close" onclick="Modales.pagoLinea.cerrar()">
         <span class="mi sm">close</span>
       </button>
     </div>
+ 
     <div class="modal-body">
-
-      <!-- Aviso deuda fraccionable si aplica -->
-      <div id="pl-aviso-fracc" style="display:none;margin-bottom:12px;padding:10px 14px;
-            background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);
-            border-radius:10px;font-size:12px;color:#a78bfa;line-height:1.6">
-            <span class="mi sm" style="vertical-align:middle">info</span>
-            Tu deuda real a fraccionar es <strong id="pl-deuda-fracc-monto">S/ 0</strong>.
-            Si pagas solo ese monto, podrías acceder a fraccionamiento.
-            Las deudas condonables (S/ <span id="pl-deuda-cond-monto">0</span>) se eliminan automáticamente.
-      </div> 
-
-      <!-- Constancia -->
-        <div class="pl-constancia-card">
-            <div class="pl-constancia-info">
-            <div class="pl-constancia-title">
-                <span class="mi sm c-emerald">verified</span>
-                Constancia de Habilidad — emisión inmediata
-            </div>
-            <div class="pl-constancia-sub">Se emite automáticamente al confirmar tu pago</div>
-            </div>
-            <div class="pl-constancia-price">S/ 10</div>
+ 
+      <!-- Zona dinámica:
+           - Modo lista  : _renderModoLista()  → checkboxes de deudas
+           - Modo fijo   : _renderModoFijo()   → card con cuota inicial fija
+           JS inyecta aquí en abrir() -->
+      <div id="pl-cuerpo"></div>
+ 
+      <!-- Constancia (siempre visible) -->
+      <div class="pl-incluir" style="margin-top:12px">
+        <input type="checkbox" id="pl-incluir-constancia"
+               onchange="Modales.pagoLinea.recalcular()">
+        <div>
+          <div style="font-weight:600;font-size:12px">
+            <span class="mi sm c-emerald">verified</span>
+            Incluir Constancia de Habilidad
+          </div>
+          <div class="pl-incluir-sub">+S/ 10 · PDF descargable al instante</div>
         </div>
-        <div class="pl-incluir">
-            <input type="checkbox" id="pl-incluir-constancia"
-                onchange="Modales.pagoLinea.recalcular()">
-            <div>
-            <div style="font-weight:600;font-size:12px">Incluir Constancia de Habilidad</div>
-            <div class="pl-incluir-sub">+S/ 10 · PDF descargable al instante</div>
-            </div>
-        </div>
-
-        <!-- Selector de qué pagar -->
-        <div class="pl-monto-field">
-            <div class="pl-monto-lbl">¿Qué estás pagando?</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-
-            <!-- Opción 1: deuda -->
-            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
-                    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
-                    border-radius:10px;cursor:pointer" id="pl-opt-deuda">
-                <input type="radio" name="pl-tipo" value="deuda"
-                    onchange="Modales.pagoLinea.onTipoChange('deuda')"
-                    style="accent-color:#3b82f6">
-                <div style="flex:1">
-                <div style="font-size:13px;font-weight:600">Mi deuda</div>
-                <div style="font-size:11px;color:#64748b">
-                    Total: <span id="pl-lbl-deuda-total">S/ 0</span>
-                    · Fraccionable: <span id="pl-lbl-deuda-fracc">S/ 0</span>
-                </div>
-                </div>
-            </label>
-
-            <!-- Opción 2: otro monto -->
-            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
-                    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
-                    border-radius:10px;cursor:pointer">
-                <input type="radio" name="pl-tipo" value="libre"
-                    onchange="Modales.pagoLinea.onTipoChange('libre')"
-                    style="accent-color:#3b82f6">
-                <div style="font-size:13px;font-weight:600">Otro monto / Servicio o producto</div>
-            </label>
-
-            </div>
-        </div>
-
-        <!-- Input monto libre — solo visible si elige "libre" -->
-        <div id="pl-monto-libre-wrap" style="display:none">
-            <div class="pl-monto-lbl" style="margin-top:8px">Monto a pagar (S/)</div>
-            <input type="number" class="pl-monto-input" id="pl-monto" placeholder="0.00"
-                step="1" min="0" oninput="Modales.pagoLinea.recalcular()">
-            <div style="font-size:11px;color:#64748b;margin-top:4px">
-            Servicios disponibles:
-            <button onclick="Modales.catalogo.abrir()"
-                    style="background:none;border:none;color:#22c55e;cursor:pointer;
-                            font-size:11px;font-weight:600;padding:0 4px">
-                Ver catálogo →
-            </button>
-            </div>
-        </div>
-
-        <div class="pl-total">
-            <span class="pl-total-lbl">Total a pagar:</span>
-            <span class="pl-total-monto" id="pl-total">S/ 0.00</span>
-        </div>
-
-    </div>
-
+      </div>
+ 
+      <!-- Total final -->
+      <div class="pl-total" style="margin-top:10px">
+        <span class="pl-total-lbl">Total a pagar:</span>
+        <span class="pl-total-monto" id="pl-total">S/ 0.00</span>
+      </div>
+ 
+    </div><!-- /modal-body -->
+ 
     <div class="modal-footer">
-      <button class="btn-pagar-tarjeta" onclick="Modales.pagoLinea.pagar()">
-        <span style="display:flex;align-items:center;gap:8px">
-          <span class="mi">credit_card</span>
-          Pagar con Tarjeta
-        </span>
-        <span class="btn-arrow mi">arrow_forward</span>
-      </button>
-      <div class="openpay-badge">
+      <div class="modal-footer-row">
+        <button class="btn-pagar-tarjeta" id="pl-btn-pagar"
+                onclick="Modales.pagoLinea.pagar()" disabled>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="mi">credit_card</span>
+            Pagar con Tarjeta
+          </span>
+          <span class="btn-arrow mi">arrow_forward</span>
+        </button>
+        <button class="btn-ya-pague"
+                onclick="Modales.pagoLinea.cerrar();Modales.reportarPago.abrir()"
+                title="Ya realicé este pago — quiero reportarlo">
+          <span class="mi sm">upload</span>
+          Ya pagué
+        </button>
+      </div>
+      <div class="openpay-badge" style="margin-top:8px">
         🔒 Pago procesado con cifrado SSL · OpenPay Perú
       </div>
     </div>
+ 
   </div>
 </div>
 
