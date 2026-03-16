@@ -196,13 +196,13 @@ def _build_system_prompt_from_db(member, db) -> str:
 def _system_prompt_base( nombre, condicion, deuda_total, cuotas_pend,
     deuda_otras, condonable, deuda_real,
     min_inicial, tiene_fracc, califica) -> str:
-    saldo_tras_inicial = round(deuda_real - min_inicial)  # entero
+    saldo_tras_inicial = math.ceil(deuda_real - min_inicial)
     
     planes_lineas = []
     for n in range(2, 13):
-        cuota_m = round(saldo_tras_inicial / n)
+        cuota_m = math.ceil(saldo_tras_inicial / n)   # ceil, NO round
         if cuota_m >= 100:
-            planes_lineas.append(f"  {n} meses → S/ {cuota_m}/mes  (SON {n} CUOTAS MENSUALES, no {n-1})")
+            planes_lineas.append(f"  {n} meses → S/ {cuota_m}/mes")
     planes_txt = "\n".join(planes_lineas) or "  No hay planes disponibles"
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
@@ -261,6 +261,12 @@ INSTRUCCIONES:
 - La cuota inicial es un pago PREVIO y SEPARADO, NO cuenta como cuota mensual número 1.
   Si alguien pide 8 meses → paga la inicial + OCHO cuotas mensuales. Total: 9 pagos.
 - Nunca digas "X-1 cuotas" ni restes 1 al número de meses solicitado.
+- "Inhábil" significa que NO puede ejercer derechos gremiales, pero SÍ puede y debe pagar su deuda.
+  NUNCA digas que "no puede pagar". Siempre puede pagar — en línea, fraccionando, o en ventanilla.
+- Al pagar la cuota inicial del fraccionamiento queda HÁBIL ese mismo día.
+- Al mencionar cuotas: di SOLO "N cuotas de S/ X cada una". 
+  NUNCA listes ni sumes pagos individuales. NUNCA digas "harías N+1 pagos".
+  La cuota inicial y las cuotas mensuales son conceptos separados — no los sumes.
 
 ESTRATEGIA DE ENGAGEMENT:
 - Si el colegiado menciona que no tenía dinero, estaba fuera de Loreto, tenía problemas personales
