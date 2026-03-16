@@ -190,6 +190,9 @@ const Portal = {
 
         Modales.fraccion._setDeuda(fraccio, cuotaMin);
 
+        const btnFracc = $('btn-fracc');
+        if (btnFracc) btnFracc.style.display = fraccio >= 500 ? 'flex' : 'none';
+
     } catch(e) {
         console.error('[Portal.loadDeuda]', e);
     }
@@ -715,6 +718,26 @@ const Modales = {
       if (btnSol) btnSol.style.display = 'flex';
     },
 
+    pagarConTarjeta() {
+        if (!this.seleccion) return;
+        this.cerrar();
+        const plMonto = $('pl-monto');
+        if (plMonto) plMonto.value = Math.round(this.seleccion.inicial);
+        Modales.pagoLinea.recalcular();
+        Modales.pagoLinea.abrir();
+    },
+
+    irAReportar() {
+        if (!this.seleccion) return;
+        this.cerrar();
+        // Pre-cargar monto y concepto en reportar pago
+        const rpMonto = $('rp-monto');
+        if (rpMonto) rpMonto.value = Math.round(this.seleccion.inicial);
+        const rpConcepto = $('rp-concepto');
+        if (rpConcepto) rpConcepto.value = 'cuota_fraccionamiento';
+        Modales.reportarPago.abrir();
+    },
+
     async solicitar() {
       if (!this.seleccion) return;
       const { n, cuotaMes, inicial } = this.seleccion;
@@ -864,7 +887,28 @@ const Modales = {
       }
     },
   },
-};
+
+  /* ─── Elegir tipo de pago ─────────────────────────────── */
+    elegirPago: {
+    abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
+    cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
+
+    conTarjeta() {
+        this.cerrar();
+        // Pre-cargar con deuda total
+        const plMonto = $('pl-monto');
+        if (plMonto) plMonto.value = Math.round(Portal.ctx.deuda_total);
+        Modales.pagoLinea.recalcular();
+        Modales.pagoLinea.abrir();
+    },
+
+    reportarPago() {
+        this.cerrar();
+        Modales.reportarPago.abrir();
+    },
+    },
+
+    };
 
 
 /* ════════════════════════════════════════════════════════════
