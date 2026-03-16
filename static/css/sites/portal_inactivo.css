@@ -1268,3 +1268,105 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
 }
 .modal-footer-row .btn-pagar-tarjeta { flex: 2; }
 .modal-footer-row .btn-ya-pague      { flex: 1; }
+
+/* ══════════════════════════════════════════════════════════════
+   REPORTAR PAGO — tabs + lista de deudas reales
+══════════════════════════════════════════════════════════════ */
+
+/* Tabs de categoría */
+.rp-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.rp-tab {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 20px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 11px; font-weight: 500;
+  transition: all .18s; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.rp-tab:hover { background: var(--surface-3); color: var(--text); }
+.rp-tab.active {
+  background: var(--verde-tint);
+  border-color: rgba(27,77,53,.4);
+  color: var(--verde-soft);
+}
+.rp-tab-cnt {
+  font-size: 9px; font-weight: 700;
+  background: rgba(255,255,255,.08); border-radius: 20px;
+  padding: 1px 5px; min-width: 16px; text-align: center;
+}
+
+/* Fila checkbox all + contador */
+.rp-check-all-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0 8px;
+}
+
+/* Lista de deudas en reportar pago */
+#rp-lista {
+  max-height: 220px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#rp-lista::-webkit-scrollbar { width: 3px; }
+#rp-lista::-webkit-scrollbar-thumb { background: var(--surface-3); }
+
+/* Estado seleccionado para dl-item (clase extra vía JS) */
+.dl-item.dl-sel {
+  border-color: rgba(27,77,53,.45);
+  background: rgba(27,77,53,.14);
+}
+
+/* Aviso cuotas 2026 pendientes */
+.rp-aviso-2026 {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 12px; border-radius: 9px; margin-bottom: 10px;
+  background: var(--amber-tint);
+  border: 1px solid rgba(245,158,11,.2);
+  font-size: 11px; color: var(--amber-soft); line-height: 1.55;
+}
+
+/* Empty state */
+.rp-empty {
+  text-align: center; color: var(--text-dim);
+  font-size: 12px; padding: 20px 0;
+}
+
+/* Código de fraccionamiento en modal pago en línea */
+.pl-fracc-codigo {
+  padding: 12px 14px; border-radius: var(--r); margin-bottom: 12px;
+  background: var(--violet-tint);
+  border: 1px solid rgba(139,92,246,.25);
+}
+.pl-fracc-codigo-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; color: var(--violet);
+  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px;
+}
+.pl-fracc-codigo-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 800; color: var(--text);
+  letter-spacing: 1px; margin-bottom: 4px;
+}
+.pl-fracc-codigo-sub {
+  font-size: 11px; color: var(--text-dim);
+}
+
+/* Monto + Total en Reportar Pago — orden correcto */
+.rp-monto-total-wrap {
+  display: flex; flex-direction: column; gap: 0;
+}
+.rp-monto-total-wrap .rp-row { margin-bottom: 10px; }
+.rp-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: var(--r); margin-bottom: 12px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.rp-total-lbl { font-size: 13px; font-weight: 500; }
+.rp-total-monto {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px; font-weight: 800; color: var(--emerald-soft);
+}
