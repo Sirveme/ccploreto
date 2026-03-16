@@ -824,13 +824,31 @@ catalogo: {
 
   async _cargar() {
     try {
-      const r = await fetch('/api/portal/catalogo');
-      const d = await r.json();
-      this.items = d.catalogo || [];
+        const r = await fetch('/portal/catalogo');
+        if (!r.ok) { console.error('[Catalogo] HTTP', r.status); return; }
+        const d = await r.json();
+        this.items = d.catalogo || [];
+        console.log('[Catalogo] items:', this.items.length);
+
+        // Llenar optgroups del select rp-concepto
+        const servicios = this.items.filter(i => i.categoria !== 'mercaderia');
+        const productos  = this.items.filter(i => i.categoria === 'mercaderia');
+        const optServ = $('opt-servicios');
+        const optProd = $('opt-productos');
+        if (optServ) {
+            optServ.innerHTML = servicios.map(i =>
+                `<option value="serv_${i.id}">${i.nombre} — S/ ${Math.round(i.monto_base)}</option>`
+            ).join('');
+        }
+        if (optProd) {
+            optProd.innerHTML = productos.map(i =>
+                `<option value="prod_${i.id}">${i.nombre} — S/ ${Math.round(i.monto_base)}</option>`
+            ).join('');
+        }
     } catch(e) {
-      console.error('[Catalogo]', e);
+        console.error('[Catalogo]', e);
     }
-  },
+},
 
   _renderFiltros() {
     const el = $('cat-filtros');
@@ -1075,22 +1093,42 @@ elegirPago: {
   pagoLinea: {
 
     abrir() {
-        // Mostrar aviso fraccionable si aplica
         const fracc  = Portal.ctx.deuda_fraccionable || 0;
         const cond   = Portal.ctx.deuda_condonable   || 0;
         const total  = Portal.ctx.deuda_total         || 0;
-        const aviso  = $('pl-aviso-fracc');
-        if (aviso) aviso.style.display = cond > 0 ? 'block' : 'none';
-        if ($('pl-deuda-fracc-monto')) $('pl-deuda-fracc-monto').textContent = 'S/ ' + Math.round(fracc);
-        if ($('pl-deuda-cond-monto'))  $('pl-deuda-cond-monto').textContent  = Math.round(cond);
-        if ($('pl-lbl-deuda-total'))   $('pl-lbl-deuda-total').textContent   = 'S/ ' + Math.round(total);
-        if ($('pl-lbl-deuda-fracc'))   $('pl-lbl-deuda-fracc').textContent   = 'S/ ' + Math.round(fracc);
 
-        // Seleccionar opción "deuda" por defecto y pre-cargar monto
+        // ── Monto máximo ético ──────────────────────────────
+        // Si hay condonable, el colegiado NO debe pagar más
+        // que la deuda fraccionable — los condonables se
+        // eliminan automáticamente al fraccionar
+        const montoMax = cond > 0 ? fracc : total;
+        const inputMonto = $('pl-monto');
+        if (inputMonto) {
+            inputMonto.max = montoMax;
+            inputMonto.value = Math.round(montoMax);
+        }
+
+        // Aviso si hay condonable
+        const aviso = $('pl-aviso-fracc');
+        if (aviso) {
+            aviso.style.display = cond > 0 ? 'block' : 'none';
+            aviso.innerHTML = `
+                <span class="mi sm" style="vertical-align:middle;color:#a78bfa">info</span>
+                Tu deuda real a fraccionar es <strong>S/ ${Math.round(fracc)}</strong>.
+                Si pagas solo ese monto, podrías acceder a fraccionamiento.
+                Las deudas condonables (<strong>S/ ${Math.round(cond)}</strong>)
+                se eliminan automáticamente. No pagues de más.`;
+        }
+
+        // Labels informativos
+        if ($('pl-lbl-deuda-total')) $('pl-lbl-deuda-total').textContent = 'S/ ' + Math.round(total);
+        if ($('pl-lbl-deuda-fracc')) $('pl-lbl-deuda-fracc').textContent = 'S/ ' + Math.round(fracc);
+
+        // Radio "Mi deuda" por defecto
         const radioDeuda = document.querySelector('input[name="pl-tipo"][value="deuda"]');
         if (radioDeuda) { radioDeuda.checked = true; this.onTipoChange('deuda'); }
 
-        // Checkbox constancia sin marcar por defecto
+        // Constancia sin marcar
         const chk = $('pl-incluir-constancia');
         if (chk) chk.checked = false;
 
