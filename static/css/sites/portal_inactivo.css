@@ -1370,3 +1370,13 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
   font-family: 'Playfair Display', serif;
   font-size: 20px; font-weight: 800; color: var(--emerald-soft);
 }
+
+/* ── Flash visual al cambiar tab de deudas ───────────────── */
+@keyframes lista-flash {
+  0%   { background: rgba(27,77,53,.22); box-shadow: inset 0 0 0 1px rgba(74,222,128,.35); }
+  100% { background: transparent; box-shadow: none; }
+}
+.rp-lista-flash {
+  border-radius: 9px;
+  animation: lista-flash .55s ease-out forwards;
+}
