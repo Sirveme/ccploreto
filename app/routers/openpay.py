@@ -718,18 +718,33 @@ async def consultar_openpay_directo(
         # Si OpenPay dice completed pero BD no lo tiene → procesar
         if estado_op == "completed" and payment.status != "pagado":
             logger.warning(f"[ConsultaOpenPay] Webhook no llegó — procesando payment={payment_id}")
-            # Actualizar BD directamente
+
             db.execute(text("""
-                UPDATE payments
-                SET status = 'pagado', paid_at = NOW()
+                UPDATE payments SET status = 'pagado', paid_at = NOW()
                 WHERE id = :pid
             """), {"pid": payment_id})
             db.commit()
 
-            # Recalcular habilidad
+            # ── Imputar a deudas — igual que el webhook ──────────
+            from app.services.deuda_cuotas_service import imputar_pago_a_deudas
+            resultado = imputar_pago_a_deudas(
+                colegiado_id    = payment.colegiado_id,
+                organization_id = payment.organization_id,
+                monto_pagado    = float(payment.amount),
+                payment_id      = payment_id,
+                db              = db,
+            )
+            logger.info(
+                f"[ConsultaOpenPay] Imputación: "
+                f"{resultado['deudas_cerradas']} deudas cerradas, "
+                f"S/{resultado['monto_imputado']:.2f} imputado, "
+                f"sobrante S/{resultado['monto_sobrante']:.2f}"
+            )
+
+            # ── Recalcular habilidad ──────────────────────────────
             try:
-                from app.services.deuda_cuotas_service import calcular_deuda_total
                 from app.services.evaluar_habilidad import evaluar_habilidad
+                from app.services.deuda_cuotas_service import calcular_deuda_total
                 from app.models import Colegiado, Organization
 
                 col_obj = db.query(Colegiado).filter(
@@ -741,7 +756,7 @@ async def consultar_openpay_directo(
 
                 if col_obj and org_obj:
                     deuda_info = calcular_deuda_total(col_obj.id, org_obj.id, db)
-                    eval_hab   = evaluar_habilidad(deuda_info, dict(org_obj._mapping), col_obj)
+                    eval_hab   = evaluar_habilidad(deuda_info, dict(org_obj.__dict__), col_obj)
                     if not eval_hab.debe_inhabilitar:
                         db.execute(text("""
                             UPDATE colegiados SET condicion = 'habil'
