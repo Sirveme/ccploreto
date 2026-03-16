@@ -772,6 +772,195 @@ const Modales = {
     },
   },
 
+
+  /* ─── Catálogo ────────────────────────────────────────── */
+catalogo: {
+  items:       [],
+  seleccion:   [],   // [{id, nombre, monto, es_mercaderia}]
+  filtroActual: null,
+
+  async abrir() {
+    $('modal-catalogo')?.classList.add('open');
+    if (this.items.length === 0) await this._cargar();
+    this._renderFiltros();
+    this._renderItems(this.filtroActual);
+  },
+
+  cerrar() {
+    $('modal-catalogo')?.classList.remove('open');
+    this.seleccion = [];
+    this._actualizarFooter();
+  },
+
+  async _cargar() {
+    try {
+      const r = await fetch('/api/portal/catalogo');
+      const d = await r.json();
+      this.items = d.catalogo || [];
+    } catch(e) {
+      console.error('[Catalogo]', e);
+    }
+  },
+
+  _renderFiltros() {
+    const el = $('cat-filtros');
+    if (!el) return;
+    const cats = [...new Set(this.items.map(i => i.categoria))];
+    const labels = {
+      mercaderia: '🛍 Productos', constancias: '📜 Constancias',
+      capacitacion: '🎓 Capacitación', derechos: '📋 Derechos',
+      otros: '📦 Otros',
+    };
+    el.innerHTML = `
+      <button class="cat-pill ${!this.filtroActual ? 'active' : ''}"
+              onclick="Modales.catalogo._renderItems(null)">
+        Todos (${this.items.length})
+      </button>
+      ${cats.map(c => `
+        <button class="cat-pill ${this.filtroActual === c ? 'active' : ''}"
+                onclick="Modales.catalogo._renderItems('${c}')">
+          ${labels[c] || c} (${this.items.filter(i => i.categoria === c).length})
+        </button>`).join('')}`;
+  },
+
+  _renderItems(filtro) {
+    this.filtroActual = filtro;
+    // Actualizar pills activos
+    document.querySelectorAll('.cat-pill').forEach(p => {
+      p.classList.toggle('active',
+        (!filtro && p.textContent.startsWith('Todos')) ||
+        p.getAttribute('onclick')?.includes(`'${filtro}'`));
+    });
+
+    const lista  = $('cat-lista');
+    const items  = filtro ? this.items.filter(i => i.categoria === filtro) : this.items;
+
+    if (!items.length) {
+      lista.innerHTML = `<div style="text-align:center;color:#64748b;padding:24px">
+        Sin items disponibles</div>`;
+      return;
+    }
+
+    lista.innerHTML = items.map(item => {
+      const sel     = this.seleccion.find(s => s.id === item.id);
+      const monto   = item.monto_colegiado || item.monto_base;
+      const sinStock = item.maneja_stock && item.stock_actual === 0;
+      return `
+        <div class="cat-item ${sel ? 'cat-sel' : ''} ${sinStock ? 'cat-agotado' : ''}"
+             onclick="${sinStock ? '' : `Modales.catalogo._toggle(${item.id})`}">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#e2eaf7;margin-bottom:2px">
+              ${item.nombre}
+              ${item.es_mercaderia ? '<span class="cat-badge-prod">Producto físico</span>' : ''}
+            </div>
+            ${item.descripcion ? `<div style="font-size:11px;color:#64748b">${item.descripcion}</div>` : ''}
+            ${sinStock ? `<div style="font-size:10px;color:#ef4444;margin-top:2px">Sin stock</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+            <div style="font-size:14px;font-weight:700;color:${sel ? '#22c55e' : '#f1f5f9'}">
+              S/ ${Math.round(monto)}
+            </div>
+            <div style="width:20px;height:20px;border-radius:50%;
+                        background:${sel ? '#22c55e' : 'rgba(255,255,255,.08)'};
+                        border:2px solid ${sel ? '#22c55e' : 'rgba(255,255,255,.2)'};
+                        display:flex;align-items:center;justify-content:center">
+              ${sel ? '<span class="mi" style="font-size:12px;color:#fff">check</span>' : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  },
+
+  _toggle(id) {
+    const item = this.items.find(i => i.id === id);
+    if (!item) return;
+    const idx  = this.seleccion.findIndex(s => s.id === id);
+    if (idx >= 0) {
+      this.seleccion.splice(idx, 1);
+    } else {
+      this.seleccion.push({
+        id,
+        nombre:        item.nombre,
+        monto:         item.monto_colegiado || item.monto_base,
+        es_mercaderia: item.es_mercaderia,
+      });
+    }
+    this._renderItems(this.filtroActual);
+    this._actualizarFooter();
+  },
+
+  _actualizarFooter() {
+    const total  = this.seleccion.reduce((s, i) => s + i.monto, 0);
+    const footer = $('cat-footer');
+    if ($('cat-total')) $('cat-total').textContent = 'S/ ' + Math.round(total);
+    if (footer) footer.style.display = this.seleccion.length > 0 ? 'flex' : 'none';
+  },
+
+  _hayMercaderia() {
+    return this.seleccion.some(i => i.es_mercaderia);
+  },
+
+  pagarTarjeta() {
+    if (!this.seleccion.length) return;
+    const total    = Math.round(this.seleccion.reduce((s, i) => s + i.monto, 0));
+    const concepto = this.seleccion.map(i => i.nombre).join(', ');
+    this.cerrar();
+    if ($('pl-monto'))   $('pl-monto').value = total;
+    // Guardar nota de mercadería para mostrar aviso post-pago
+    if (this._hayMercaderia()) {
+      sessionStorage.setItem('hay_mercaderia', '1');
+      sessionStorage.setItem('items_mercaderia', JSON.stringify(
+        this.seleccion.filter(i => i.es_mercaderia).map(i => i.nombre)
+      ));
+    }
+    Modales.pagoLinea.recalcular();
+    Modales.pagoLinea.abrir();
+  },
+
+  reportar() {
+    if (!this.seleccion.length) return;
+    const total    = Math.round(this.seleccion.reduce((s, i) => s + i.monto, 0));
+    const nombres  = this.seleccion.map(i => i.nombre).join(', ');
+    const hayMerc  = this._hayMercaderia();
+    this.cerrar();
+    if ($('rp-monto'))    $('rp-monto').value    = total;
+    if ($('rp-concepto')) $('rp-concepto').value  = hayMerc ? 'mercaderia' : 'otro';
+    // Mostrar aviso de retiro si hay productos físicos
+    const aviso = $('rp-aviso-producto');
+    if (aviso) aviso.style.display = hayMerc ? 'block' : 'none';
+    Modales.reportarPago.abrir();
+  },
+},
+
+/* ─── Elegir tipo de pago ─────────────────────────────── */
+elegirPago: {
+  abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
+  cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
+
+  conTarjeta() {
+    this.cerrar();
+    if ($('pl-monto')) $('pl-monto').value = Math.round(Portal.ctx.deuda_total);
+    Modales.pagoLinea.recalcular();
+    Modales.pagoLinea.abrir();
+  },
+
+ reportarPago() {
+  this.cerrar();
+  // Resetear concepto y aviso de mercadería
+  const concepto = $('rp-concepto');
+  if (concepto) concepto.value = '';
+  const aviso = $('rp-aviso-producto');
+  if (aviso) aviso.style.display = 'none';
+  Modales.reportarPago.abrir();
+},
+
+  verCatalogo() {
+    this.cerrar();
+    Modales.catalogo.abrir();
+  },
+},
+
+
   /* ─── Reportar Pago ───────────────────────────────────── */
   reportarPago: {
     metodo:  null,
@@ -779,6 +968,11 @@ const Modales = {
 
     abrir()  { $('modal-reporte')?.classList.add('open'); },
     cerrar() { $('modal-reporte')?.classList.remove('open'); },
+
+    onConceptoChange(val) {
+        const aviso = $('rp-aviso-producto');
+        if (aviso) aviso.style.display = val === 'mercaderia' ? 'block' : 'none';
+    },
 
     setMetodo(m, btn) {
       this.metodo = m;
@@ -890,25 +1084,25 @@ const Modales = {
 
   /* ─── Elegir tipo de pago ─────────────────────────────── */
     elegirPago: {
-    abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
-    cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
+        abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
+        cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
 
-    conTarjeta() {
-        this.cerrar();
-        // Pre-cargar con deuda total
-        const plMonto = $('pl-monto');
-        if (plMonto) plMonto.value = Math.round(Portal.ctx.deuda_total);
-        Modales.pagoLinea.recalcular();
-        Modales.pagoLinea.abrir();
+        conTarjeta() {
+            this.cerrar();
+            // Pre-cargar con deuda total
+            const plMonto = $('pl-monto');
+            if (plMonto) plMonto.value = Math.round(Portal.ctx.deuda_total);
+            Modales.pagoLinea.recalcular();
+            Modales.pagoLinea.abrir();
+        },
+
+        reportarPago() {
+            this.cerrar();
+            Modales.reportarPago.abrir();
+        },
     },
 
-    reportarPago() {
-        this.cerrar();
-        Modales.reportarPago.abrir();
-    },
-    },
-
-    };
+};
 
 
 /* ════════════════════════════════════════════════════════════
