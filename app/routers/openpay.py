@@ -129,8 +129,8 @@ async def openpay_iniciar_pago(
             return _err_html("El monto mínimo de pago es S/ 1.00.")
 
         monto_base  = float(monto_directo)
-        conceptos   = "Abono a deuda"
-        notas_pago  = f"OpenPay directo | S/ {monto_base:.2f}"
+        conceptos  = f"Abono a deuda - Mat. {col.codigo_matricula}"
+        notas_pago = f"OpenPay directo | S/ {monto_base:.2f} | {col.apellidos_nombres}"
         debt_ids_db = []
 
     else:
