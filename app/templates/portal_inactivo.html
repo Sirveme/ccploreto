@@ -326,7 +326,7 @@
 ══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-reporte">
   <div class="modal-box">
-
+ 
     <div class="modal-head">
       <div class="modal-head-inner">
         <div class="modal-head-icon" style="background:var(--amber-tint)">
@@ -341,9 +341,9 @@
         <span class="mi sm">close</span>
       </button>
     </div>
-
+ 
     <div class="modal-body">
-
+ 
       <!-- Alerta validación -->
       <div class="rp-alerta">
         <span class="mi c-amber" style="flex-shrink:0;margin-top:1px">info</span>
@@ -351,17 +351,17 @@
         <strong>&nbsp;Constancia de Habilidad&nbsp;</strong>
         automáticamente en la app.
       </div>
-
+ 
       <!-- DNI / Matrícula (read-only) -->
       <div class="rp-field">
         <label class="rp-lbl">DNI / N° Colegiatura</label>
         <input type="text" class="rp-input" id="rp-dni-mat" readonly>
       </div>
-
+ 
       <!-- ─── ZONA DINÁMICA: tabs + lista de deudas reales ─── -->
       <!-- JS inyecta aquí en abrir() / abrirConFraccion()     -->
       <div id="rp-deudas-zona" style="margin-bottom:12px"></div>
-
+ 
       <!-- ─── Código de fraccionamiento (visible solo cuando viene de irAReportar) -->
       <div id="rp-fracc-codigo" style="display:none;margin-bottom:12px">
         <div class="pl-fracc-codigo">
@@ -374,7 +374,7 @@
           <div class="pl-fracc-codigo-sub" id="rp-fracc-resumen"></div>
         </div>
       </div>
-
+ 
       <!-- Constancia de Habilidad -->
       <div class="rp-constancia">
         <input type="checkbox" id="rp-constancia-check"
@@ -390,13 +390,13 @@
         </div>
         <span class="rp-constancia-badge">S/ 10</span>
       </div>
-
+ 
       <!-- Total a reportar (DESPUÉS de constancia) -->
       <div class="rp-total-row" style="margin-top:10px">
         <span class="rp-total-lbl">Total a reportar:</span>
         <span class="rp-total-monto" id="rp-total">S/ 0</span>
       </div>
-
+ 
       <!-- Monto manual + N° Operación -->
       <div class="rp-row">
         <div class="rp-field">
@@ -406,11 +406,11 @@
                  oninput="Modales.reportarPago.recalcularTotal()">
         </div>
         <div class="rp-field">
-          <label class="rp-lbl">N° Operación</label>
-          <input type="text" class="rp-input" id="rp-nro-op" placeholder="Opcional">
+          <label class="rp-lbl">N° Operación <span style="color:var(--red-soft)">*</span></label>
+          <input type="text" class="rp-input" id="rp-nro-op" placeholder="Requerido" required>
         </div>
       </div>
-
+ 
       <!-- Método de pago -->
       <div class="rp-field">
         <label class="rp-lbl">Método usado</label>
@@ -429,7 +429,7 @@
           </button>
         </div>
       </div>
-
+ 
       <!-- Voucher -->
       <div class="rp-field">
         <label class="rp-lbl">Voucher / Captura</label>
@@ -445,9 +445,9 @@
                style="display:none"
                onchange="Modales.reportarPago.handleFile(this.files[0])">
       </div>
-
+ 
     </div><!-- /modal-body -->
-
+ 
     <div class="modal-footer">
       <button class="btn-pagar-tarjeta" onclick="Modales.reportarPago.enviar()">
         <span style="display:flex;align-items:center;gap:8px">
@@ -457,7 +457,7 @@
         <span class="btn-arrow mi">arrow_forward</span>
       </button>
     </div>
-
+ 
   </div>
 </div>
 
