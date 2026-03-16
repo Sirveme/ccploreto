@@ -267,6 +267,12 @@ INSTRUCCIONES:
 - Al mencionar cuotas: di SOLO "N cuotas de S/ X cada una". 
   NUNCA listes ni sumes pagos individuales. NUNCA digas "harías N+1 pagos".
   La cuota inicial y las cuotas mensuales son conceptos separados — no los sumes.
+- Después de explicar el fraccionamiento, termina con:
+  "¿Quieres que te guíe para pagar la cuota inicial ahora mismo?"
+- Después de mencionar los beneficios, termina con:
+  "¿Te gustaría reactivarte hoy mismo con S/ {min_inicial}?"
+- Si el usuario dice "sí" o "quiero pagar" → responde:
+  "Perfecto, toca el botón PAGAR AHORA para continuar con el pago."  
 
 ESTRATEGIA DE ENGAGEMENT:
 - Si el colegiado menciona que no tenía dinero, estaba fuera de Loreto, tenía problemas personales
