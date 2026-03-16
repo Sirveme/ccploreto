@@ -1,125 +1,142 @@
-<!-- app/templates/partials/pago_resultado_publico.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resultado de Pago — CCPL</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body {
-      font-family:'Source Sans 3',sans-serif;
-      background:#0f2318;
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
-    }
-    .card {
-      background:#fff;
-      border-radius:16px;
-      padding:40px 32px;
-      max-width:440px;
-      width:100%;
-      text-align:center;
-      box-shadow:0 20px 60px rgba(0,0,0,.3);
-    }
-    .icon { font-size:56px; margin-bottom:16px; display:block; }
-    h2 { font-size:22px; font-weight:800; margin-bottom:8px; color:#1a2e22; }
-    p  { font-size:14px; color:#5a7060; margin-bottom:24px; line-height:1.6; }
-    .ref-box {
-      background:#f0f8f4; border-radius:8px; padding:14px;
-      margin-bottom:24px; text-align:left;
-    }
-    .ref-label { font-size:10px; font-weight:700; color:#5a7060;
-      text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
-    .ref-val { font-size:12px; color:#1b4d35; font-family:monospace; }
-    .btn-home {
-      display:inline-flex; align-items:center; gap:8px;
-      background:#1b4d35; color:white; padding:12px 28px;
-      border-radius:8px; text-decoration:none; font-size:14px;
-      font-weight:700; transition:background .2s;
-    }
-    .btn-home:hover { background:#256847; }
-    .btn-sec {
-      display:inline-flex; align-items:center; gap:6px;
-      background:transparent; color:#5a7060; padding:10px 20px;
-      border:1.5px solid #d8e8dc; border-radius:8px; text-decoration:none;
-      font-size:13px; font-weight:600; margin-left:8px; transition:all .2s;
-    }
-    .btn-sec:hover { border-color:#1b4d35; color:#1b4d35; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .spinner {
-      width:48px; height:48px; border:5px solid #d8e8dc;
-      border-top-color:#1b4d35; border-radius:50%;
-      animation:spin .8s linear infinite; margin:0 auto 16px;
-    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Source Sans 3',sans-serif;background:#0f2318;min-height:100vh;
+         display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+    .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:440px;
+          width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .icon{font-size:56px;margin-bottom:16px;display:block}
+    h2{font-size:22px;font-weight:800;margin-bottom:8px;color:#1a2e22}
+    p{font-size:14px;color:#5a7060;margin-bottom:24px;line-height:1.6}
+    .ref-box{background:#f0f8f4;border-radius:8px;padding:14px;margin-bottom:24px;text-align:left}
+    .ref-label{font-size:10px;font-weight:700;color:#5a7060;text-transform:uppercase;
+               letter-spacing:.5px;margin-bottom:4px}
+    .ref-val{font-size:12px;color:#1b4d35;font-family:monospace}
+    .btn-home{display:inline-flex;align-items:center;gap:8px;background:#1b4d35;
+              color:white;padding:12px 28px;border-radius:8px;text-decoration:none;
+              font-size:14px;font-weight:700;transition:background .2s}
+    .btn-home:hover{background:#256847}
+    .btn-sec{display:inline-flex;align-items:center;gap:6px;background:transparent;
+             color:#5a7060;padding:10px 20px;border:1.5px solid #d8e8dc;border-radius:8px;
+             text-decoration:none;font-size:13px;font-weight:600;margin-left:8px;transition:all .2s}
+    .btn-sec:hover{border-color:#1b4d35;color:#1b4d35}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{width:48px;height:48px;border:5px solid #d8e8dc;border-top-color:#1b4d35;
+             border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+    .status-txt{font-size:12px;color:#7a9080;margin-top:8px}
   </style>
 </head>
 <body>
 
 {% if not pago %}
-  <!-- Sin datos de pago -->
   <div class="card">
     <span class="icon">❓</span>
     <h2>Estado del Pago</h2>
-    <p>No se encontró información sobre este pago.<br>Si completaste el proceso, el equipo de CCPL lo verificará.</p>
+    <p>No se encontró información sobre este pago.<br>
+       Si completaste el proceso, el equipo de CCPL lo verificará.</p>
     <a href="/" class="btn-home">Volver al inicio</a>
   </div>
 
 {% elif pago.status == 'pagado' %}
-  <!-- CONFIRMADO -->
   <div class="card">
     <span class="icon">✅</span>
     <h2 style="color:#166534;">¡Pago Confirmado!</h2>
-    <p>
-      El pago de <strong>{{ pago.apellidos_nombres }}</strong><br>
-      por <strong style="color:#1b4d35;font-size:18px;">S/ {{ "%.2f"|format(pago.amount) }}</strong>
-      fue procesado exitosamente.
-    </p>
+    <p>El pago de <strong>{{ pago.apellidos_nombres }}</strong><br>
+       por <strong style="color:#1b4d35;font-size:18px;">S/ {{ "%.2f"|format(pago.amount) }}</strong>
+       fue procesado exitosamente.</p>
     <div class="ref-box">
       <div class="ref-label">Referencia OpenPay</div>
       <div class="ref-val">{{ pago.openpay_transaction_id or '—' }}</div>
       {% if pago.codigo_matricula %}
-      <div class="ref-label" style="margin-top:8px;">Matrícula</div>
+      <div class="ref-label" style="margin-top:8px">Matrícula</div>
       <div class="ref-val">{{ pago.codigo_matricula }}</div>
       {% endif %}
     </div>
     <p style="font-size:12px;color:#7a9080;margin-bottom:20px;">
-      El colegiado recibirá confirmación. Si requiere constancia de habilidad,<br>
-      puede solicitarla ingresando a su portal.
-    </p>
+      Si requiere constancia de habilidad, puede solicitarla ingresando a su portal.</p>
     <a href="/" class="btn-home">Ir al inicio</a>
-    <a href="/login" class="btn-sec">Portal colegiado</a>
+    <a href="/login" class="btn-sec">Ver Nuevo Saldo</a>
   </div>
 
 {% elif pago.status in ('esperando_pago', 'pendiente_openpay') %}
-  <!-- VERIFICANDO -->
-  <div class="card"
-       hx-get="/pagos/resultado?payment={{ pago.id }}"
-       hx-trigger="every 5s"
-       hx-target="body"
-       hx-swap="innerHTML">
+  <div class="card" id="polling-card">
     <div class="spinner"></div>
     <h2>Verificando pago...</h2>
-    <p>
-      Confirmando el pago de <strong>S/ {{ "%.2f"|format(pago.amount) }}</strong>.<br>
-      Esta página se actualiza automáticamente.
-    </p>
+    <p>Confirmando el pago de <strong>S/ {{ "%.2f"|format(pago.amount) }}</strong>.<br>
+       Esta página se actualiza automáticamente.</p>
     <div class="ref-box">
       <div class="ref-label">Colegiado</div>
       <div class="ref-val">{{ pago.apellidos_nombres }}</div>
+      {% if pago.openpay_transaction_id %}
+      <div class="ref-label" style="margin-top:8px">Referencia</div>
+      <div class="ref-val">{{ pago.openpay_transaction_id }}</div>
+      {% endif %}
     </div>
-    <a href="/" class="btn-sec" style="margin-left:0;">Volver al inicio</a>
+    <p class="status-txt" id="polling-msg">Consultando estado...</p>
+    <a href="/" class="btn-sec" style="margin-left:0">Volver al inicio</a>
   </div>
 
+  <script>
+  (function() {
+    const PID  = {{ pago.id }};
+    const TRID = "{{ pago.openpay_transaction_id or '' }}";
+    const MAX  = 24;   // 2 minutos (24 × 5s)
+    let   intentos = 0;
+
+    const msg = document.getElementById('polling-msg');
+
+    async function verificar() {
+      intentos++;
+      if (msg) msg.textContent = 'Verificando... intento ' + intentos + ' de ' + MAX;
+
+      if (intentos >= MAX) {
+        if (msg) msg.innerHTML =
+          '⚠ No se pudo confirmar automáticamente.<br>' +
+          'El pago será revisado por el equipo CCPL en las próximas horas.';
+        return;
+      }
+
+      try {
+        // 1. Consultar estado en BD (normal)
+        const r = await fetch('/pagos/resultado/estado?payment=' + PID);
+        const d = await r.json();
+
+        if (d.status === 'pagado') {
+          // Pago confirmado → recargar para mostrar pantalla de éxito
+          window.location.reload();
+          return;
+        }
+
+        // 2. Si sigue pendiente y tenemos tx_id → consultar OpenPay directamente
+        if (TRID && d.status !== 'pagado') {
+          const rOp = await fetch('/pagos/openpay/consultar/' + PID);
+          const dOp = await rOp.json();
+          if (dOp.status === 'pagado') {
+            window.location.reload();
+            return;
+          }
+        }
+
+      } catch(e) {
+        console.error('[Polling]', e);
+      }
+
+      // Continuar polling
+      setTimeout(verificar, 5000);
+    }
+
+    // Iniciar después de 3s (dar tiempo al webhook)
+    setTimeout(verificar, 3000);
+  })();
+  </script>
+
 {% else %}
-  <!-- ERROR u otro estado -->
   <div class="card">
     <span class="icon">⚠️</span>
     <h2>Pago no completado</h2>
