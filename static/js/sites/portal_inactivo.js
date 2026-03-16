@@ -1075,55 +1075,81 @@ elegirPago: {
   pagoLinea: {
 
     abrir() {
-      this.recalcular();
-      $('modal-pago-linea')?.classList.add('open');
+        // Mostrar aviso fraccionable si aplica
+        const fracc  = Portal.ctx.deuda_fraccionable || 0;
+        const cond   = Portal.ctx.deuda_condonable   || 0;
+        const total  = Portal.ctx.deuda_total         || 0;
+        const aviso  = $('pl-aviso-fracc');
+        if (aviso) aviso.style.display = cond > 0 ? 'block' : 'none';
+        if ($('pl-deuda-fracc-monto')) $('pl-deuda-fracc-monto').textContent = 'S/ ' + Math.round(fracc);
+        if ($('pl-deuda-cond-monto'))  $('pl-deuda-cond-monto').textContent  = Math.round(cond);
+        if ($('pl-lbl-deuda-total'))   $('pl-lbl-deuda-total').textContent   = 'S/ ' + Math.round(total);
+        if ($('pl-lbl-deuda-fracc'))   $('pl-lbl-deuda-fracc').textContent   = 'S/ ' + Math.round(fracc);
+
+        // Seleccionar opción "deuda" por defecto y pre-cargar monto
+        const radioDeuda = document.querySelector('input[name="pl-tipo"][value="deuda"]');
+        if (radioDeuda) { radioDeuda.checked = true; this.onTipoChange('deuda'); }
+
+        // Checkbox constancia sin marcar por defecto
+        const chk = $('pl-incluir-constancia');
+        if (chk) chk.checked = false;
+
+        this.recalcular();
+        $('modal-pago-linea')?.classList.add('open');
     },
 
     cerrar() { $('modal-pago-linea')?.classList.remove('open'); },
 
+    onTipoChange(tipo) {
+        const wrap = $('pl-monto-libre-wrap');
+        if (tipo === 'deuda') {
+            if (wrap) wrap.style.display = 'none';
+            // Pre-cargar con deuda total
+            if ($('pl-monto')) $('pl-monto').value = Math.round(Portal.ctx.deuda_total || 0);
+        } else {
+            if (wrap) wrap.style.display = 'block';
+            if ($('pl-monto')) $('pl-monto').value = '';
+        }
+        this.recalcular();
+    },
+
     recalcular() {
-      const monto    = parseFloat($('pl-monto')?.value || 0);
-      const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
-      const total    = monto + addConst;
-      if ($('pl-total')) $('pl-total').textContent = 'S/ ' + fmt(total);
+        const monto    = parseFloat($('pl-monto')?.value || 0);
+        const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
+        const total    = Math.round(monto) + addConst;
+        if ($('pl-total')) $('pl-total').textContent = 'S/ ' + total.toFixed(2);
     },
 
     async pagar() {
-      const monto = parseFloat($('pl-monto')?.value || 0);
-      if (!monto || monto <= 0) {
-        alert('Por favor ingresa el monto a pagar.');
-        return;
-      }
-      const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
-      const total    = monto + addConst;
-
-      try {
-        const r = await fetch('/pagos/openpay/iniciar', {
-          method: 'POST',
-          headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            monto_directo:       monto,
-            incluir_constancia:  addConst > 0 ? '1' : '0',
-            deuda_ids:           '',
-          }),
-        });
-        // OpenPay responde con HX-Redirect
-        const hxRedir = r.headers.get('HX-Redirect');
-        if (hxRedir) { location.href = hxRedir; return; }
-        if (r.redirected) { location.href = r.url; return; }
-
-        const d = await r.json().catch(() => ({}));
-        if (d.redirect_url) {
-          location.href = d.redirect_url;
-        } else {
-          Asistente._addMsg('Error al conectar con el procesador de pagos. Intenta más tarde.', 'bot');
+        const monto = parseFloat($('pl-monto')?.value || 0);
+        if (!monto || monto <= 0) {
+            alert('Por favor ingresa o selecciona el monto a pagar.');
+            return;
         }
-      } catch(e) {
-        this.cerrar();
-        Asistente._addMsg('Error de conexión al procesar el pago.', 'bot');
-      }
+        const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
+
+        try {
+            const r = await fetch('/pagos/openpay/iniciar', {
+                method:  'POST',
+                headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body:    new URLSearchParams({
+                    monto_directo:      monto,
+                    incluir_constancia: addConst > 0 ? '1' : '0',
+                    deuda_ids:          '',
+                }),
+            });
+            const hxRedir = r.headers.get('HX-Redirect');
+            if (hxRedir)     { location.href = hxRedir; return; }
+            if (r.redirected) { location.href = r.url;   return; }
+            const d = await r.json().catch(() => ({}));
+            if (d.redirect_url) { location.href = d.redirect_url; }
+            else Asistente._addMsg('Error al conectar con el procesador de pagos.', 'bot');
+        } catch(e) {
+            this.cerrar();
+            Asistente._addMsg('Error de conexión al procesar el pago.', 'bot');
+        }
     },
-  },
+},
 
   /* ─── Elegir tipo de pago ─────────────────────────────── */
     elegirPago: {
