@@ -719,10 +719,27 @@ const Modales = {
     },
 
     pagarConTarjeta() {
-        if (!this.seleccion) return;
-        this.cerrar();
-        Modales.pagoLinea.abrir(this.seleccion.inicial);
-    },
+      if (!this.seleccion) return;
+      const { n, cuotaMes, inicial } = this.seleccion;
+
+      // Generar código y notificar en el asistente
+      const mat    = Portal.ctx.matricula || Portal.ctx.dni || '?';
+      const matCod = mat.replace(/[^0-9]/g, '').slice(-4);
+      const mes    = String(new Date().getMonth() + 1).padStart(2, '0');
+      const codigo = `${matCod}-F${n}M-${mes}`;
+      sessionStorage.setItem('fracc_codigo', codigo);
+      sessionStorage.setItem('fracc_plan', JSON.stringify({ n, cuotaMes, inicial }));
+
+      Asistente._addMsg(
+          `📋 Tu código de plan es <strong>${codigo}</strong> ` +
+          `(${n} meses · S/ ${Math.round(cuotaMes)}/mes). ` +
+          `Guárdalo por si necesitas comunicarte con el colegio.`,
+          'bot'
+      );
+
+      this.cerrar();
+      Modales.pagoLinea.abrir(inicial);
+  },
 
     irAReportar() {
         if (!this.seleccion) return;
@@ -1061,45 +1078,45 @@ catalogo: {
   pagoLinea: {
 
     abrir(montoFijo = null) {
-        const fracc  = Portal.ctx.deuda_fraccionable || 0;
-        const cond   = Portal.ctx.deuda_condonable   || 0;
-        const total  = Portal.ctx.deuda_total         || 0;
+      const fracc  = Portal.ctx.deuda_fraccionable || 0;
+      const cond   = Portal.ctx.deuda_condonable   || 0;
+      const total  = Portal.ctx.deuda_total         || 0;
+      const montoMax = cond > 0 ? fracc : total;
 
-        // Monto máximo ético
-        const montoMax   = cond > 0 ? fracc : total;
-        const inputMonto = $('pl-monto');
-        if (inputMonto) {
-            inputMonto.max   = montoMax;
-            inputMonto.value = Math.round(montoFijo !== null ? montoFijo : montoMax);
-        }
+      // Aviso condonable
+      const aviso = $('pl-aviso-fracc');
+      if (aviso) {
+          aviso.style.display = cond > 0 ? 'block' : 'none';
+          aviso.innerHTML = `
+              <span class="mi sm" style="vertical-align:middle;color:#a78bfa">info</span>
+              Tu deuda real a fraccionar es <strong>S/ ${Math.round(fracc)}</strong>.
+              Si pagas solo ese monto, podrías acceder a fraccionamiento.
+              Las deudas condonables (<strong>S/ ${Math.round(cond)}</strong>)
+              se eliminan automáticamente. No pagues de más.`;
+      }
 
-        // Aviso si hay condonable
-        const aviso = $('pl-aviso-fracc');
-        if (aviso) {
-            aviso.style.display = cond > 0 ? 'block' : 'none';
-            aviso.innerHTML = `
-                <span class="mi sm" style="vertical-align:middle;color:#a78bfa">info</span>
-                Tu deuda real a fraccionar es <strong>S/ ${Math.round(fracc)}</strong>.
-                Si pagas solo ese monto, podrías acceder a fraccionamiento.
-                Las deudas condonables (<strong>S/ ${Math.round(cond)}</strong>)
-                se eliminan automáticamente. No pagues de más.`;
-        }
+      // Labels informativos
+      if ($('pl-lbl-deuda-total')) $('pl-lbl-deuda-total').textContent = 'S/ ' + Math.round(total);
+      if ($('pl-lbl-deuda-fracc')) $('pl-lbl-deuda-fracc').textContent = 'S/ ' + Math.round(fracc);
 
-        // Labels informativos
-        if ($('pl-lbl-deuda-total')) $('pl-lbl-deuda-total').textContent = 'S/ ' + Math.round(total);
-        if ($('pl-lbl-deuda-fracc')) $('pl-lbl-deuda-fracc').textContent = 'S/ ' + Math.round(fracc);
+      // Radio "Mi deuda" por defecto — asigna montoMax al input
+      const radioDeuda = document.querySelector('input[name="pl-tipo"][value="deuda"]');
+      if (radioDeuda) { radioDeuda.checked = true; this.onTipoChange('deuda'); }
 
-        // Radio "Mi deuda" por defecto
-        const radioDeuda = document.querySelector('input[name="pl-tipo"][value="deuda"]');
-        if (radioDeuda) { radioDeuda.checked = true; this.onTipoChange('deuda'); }
+      // ── montoFijo SIEMPRE al final, después de onTipoChange ──
+      const inputMonto = $('pl-monto');
+      if (inputMonto) {
+          inputMonto.max   = montoFijo !== null ? montoFijo : montoMax;
+          inputMonto.value = Math.round(montoFijo !== null ? montoFijo : montoMax);
+      }
 
-        // Constancia sin marcar
-        const chk = $('pl-incluir-constancia');
-        if (chk) chk.checked = false;
+      // Constancia sin marcar
+      const chk = $('pl-incluir-constancia');
+      if (chk) chk.checked = false;
 
-        this.recalcular();
-        $('modal-pago-linea')?.classList.add('open');
-    },
+      this.recalcular();
+      $('modal-pago-linea')?.classList.add('open');
+  },
 
     cerrar() { $('modal-pago-linea')?.classList.remove('open'); },
 
