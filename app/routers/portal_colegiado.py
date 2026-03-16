@@ -11,7 +11,8 @@ from sqlalchemy import and_
 from app.models_debt_management import Debt, Fraccionamiento, EstadoFraccionamiento, FraccionamientoCuota
 from app.models import Colegiado, Member, ConceptoCobro, Organization
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 
@@ -433,3 +434,40 @@ async def crear_fraccionamiento(
             f"Realiza el pago inicial de S/ {data.cuota_inicial:.2f} para reactivarte."
         ),
     }
+
+
+
+
+@router.get("/api/portal/catalogo")
+async def get_catalogo_portal(
+    request: Request,
+    member:  Member  = Depends(get_current_member),
+    db:      Session = Depends(get_db),
+):
+    """Catálogo de servicios y productos para el portal inactivo."""
+    from sqlalchemy import or_
+    from app.models import ConceptoCobro
+
+    items = db.query(ConceptoCobro).filter(
+        ConceptoCobro.organization_id == member.organization_id,
+        ConceptoCobro.activo == True,
+        or_(ConceptoCobro.genera_deuda == False, ConceptoCobro.genera_deuda == None),
+    ).order_by(ConceptoCobro.categoria, ConceptoCobro.orden).all()
+
+    resultado = []
+    for c in items:
+        resultado.append({
+            "id":               c.id,
+            "codigo":           c.codigo,
+            "nombre":           c.nombre,
+            "descripcion":      c.descripcion or "",
+            "categoria":        c.categoria,
+            "monto_base":       float(c.monto_base or 0),
+            "monto_colegiado":  float(c.monto_colegiado or c.monto_base or 0),
+            "permite_monto_libre": bool(c.permite_monto_libre),
+            "maneja_stock":     bool(c.maneja_stock),
+            "stock_actual":     c.stock_actual if c.maneja_stock else None,
+            "es_mercaderia":    c.categoria == "mercaderia",
+        })
+
+    return JSONResponse({"catalogo": resultado})
