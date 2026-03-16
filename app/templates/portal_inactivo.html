@@ -314,8 +314,19 @@
 </div>
 
 <!-- ══ MODAL: REPORTAR PAGO ══════════════════════════════════ -->
+<!-- ══ MODAL: REPORTAR PAGO ══════════════════════════════════
+     Reemplaza el <div class="modal-overlay" id="modal-reporte"> existente.
+
+     Cambios clave vs versión anterior:
+       - Eliminado: <select id="rp-concepto"> y optgroups
+       - Agregado:  <div id="rp-deudas-zona"> — JS renderiza tabs + lista
+       - rp-monto ahora tiene oninput="Modales.reportarPago.recalcularTotal()"
+       - "Total a reportar" movido DEBAJO de monto + constancia
+       - rp-fracc-codigo sigue presente para cuando viene de irAReportar()
+══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-reporte">
   <div class="modal-box">
+
     <div class="modal-head">
       <div class="modal-head-inner">
         <div class="modal-head-icon" style="background:var(--amber-tint)">
@@ -330,94 +341,69 @@
         <span class="mi sm">close</span>
       </button>
     </div>
+
     <div class="modal-body">
 
+      <!-- Alerta validación -->
       <div class="rp-alerta">
         <span class="mi c-amber" style="flex-shrink:0;margin-top:1px">info</span>
-        Al aprobar tu pago recibirás tu <strong>Constancia de Habilidad</strong> automáticamente en la app.
+        Al aprobar tu pago recibirás tu
+        <strong>&nbsp;Constancia de Habilidad&nbsp;</strong>
+        automáticamente en la app.
       </div>
 
+      <!-- DNI / Matrícula (read-only) -->
       <div class="rp-field">
         <label class="rp-lbl">DNI / N° Colegiatura</label>
         <input type="text" class="rp-input" id="rp-dni-mat" readonly>
       </div>
 
-     <div class="rp-field">
-            <label class="rp-lbl">¿Qué estás pagando?</label>
-            <select class="rp-select" id="rp-concepto"
-                    onchange="Modales.reportarPago.onConceptoChange(this.value)">
-                <option value="">— Selecciona un concepto —</option>
-                <optgroup label="Deudas">
-                    <option value="deuda_total">Deuda total</option>
-                    <option value="cuota_ordinaria">Cuota ordinaria</option>
-                    <option value="fraccionamiento">Cuota de fraccionamiento</option>
-                    <option value="multa">Multa</option>
-                </optgroup>
-                <optgroup label="Servicios" id="opt-servicios"></optgroup>
-                <optgroup label="Productos" id="opt-productos"></optgroup>
-            </select>
+      <!-- ─── ZONA DINÁMICA: tabs + lista de deudas reales ─── -->
+      <!-- JS inyecta aquí en abrir() / abrirConFraccion()     -->
+      <div id="rp-deudas-zona" style="margin-bottom:12px"></div>
 
-            <!-- Código temporal fraccionamiento — visible solo cuando concepto=fraccionamiento -->
-            <div id="rp-fracc-codigo" style="display:none;margin-top:8px;padding:12px 14px;
-                background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);
-                border-radius:8px;">
-                <div style="font-size:11px;color:#a78bfa;font-weight:700;margin-bottom:6px">
-                    📋 Código de tu plan de fraccionamiento
-                </div>
-                <div style="display:flex;align-items:center;gap:10px">
-                    <input type="text" id="rp-fracc-cod-input"
-                        placeholder="Ej: 10-0274-F1"
-                        class="rp-input" style="flex:1;font-family:monospace;font-weight:700">
-                    <div id="rp-fracc-resumen" style="font-size:11px;color:#64748b"></div>
-                </div>
-                <div style="font-size:10px;color:#64748b;margin-top:4px">
-                    Si no tienes el código, puedes usar tu matrícula y el colegio lo verificará.
-                </div>
-            </div>
-
-            <!-- Aviso productos físicos -->
-            <div id="rp-aviso-producto" style="display:none;margin-top:8px;padding:10px 12px;
-                background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);
-                border-radius:8px;font-size:11px;color:#f59e0b;line-height:1.6">
-                📦 Para recoger tu producto, acércate a las oficinas del Colegio
-                con tu <strong>N° de Operación o voucher</strong>.
-            </div>
+      <!-- ─── Código de fraccionamiento (visible solo cuando viene de irAReportar) -->
+      <div id="rp-fracc-codigo" style="display:none;margin-bottom:12px">
+        <div class="pl-fracc-codigo">
+          <div class="pl-fracc-codigo-head">
+            <span class="mi sm c-violet">confirmation_number</span>
+            Código de fraccionamiento
+          </div>
+          <input type="text" class="fraccio-input" id="rp-fracc-cod-input"
+                 readonly style="font-size:18px;margin:6px 0 4px">
+          <div class="pl-fracc-codigo-sub" id="rp-fracc-resumen"></div>
         </div>
+      </div>
 
-        <!-- Campo constancia CON cálculo de total -->
-        <div class="rp-constancia">
-            <input type="checkbox" id="rp-constancia-check"
-                onchange="Modales.reportarPago.recalcularTotal()">
-            <div>
-                <div style="font-weight:600;font-size:12px">
-                    <span class="mi sm c-emerald">verified</span>
-                    Solicitar Constancia de Habilidad
-                </div>
-                <div style="font-size:11px;color:#64748b">
-                    Se emite al validar tu pago · 24h · PDF descargable · <strong>+S/ 10</strong>
-                </div>
-            </div>
-            <span style="margin-left:auto;background:rgba(34,197,94,.1);color:#22c55e;
-                        font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">
-                S/ 10
-            </span>
+      <!-- Constancia de Habilidad -->
+      <div class="rp-constancia">
+        <input type="checkbox" id="rp-constancia-check"
+               onchange="Modales.reportarPago.recalcularTotal()">
+        <div>
+          <div style="font-weight:600;font-size:12px">
+            <span class="mi sm c-emerald">verified</span>
+            Solicitar Constancia de Habilidad
+          </div>
+          <div style="font-size:10px;color:var(--text-dim)">
+            Se emite al validar tu pago · 24h · PDF descargable
+          </div>
         </div>
+        <span class="rp-constancia-badge">S/ 10</span>
+      </div>
 
-        <!-- Total dinámico -->
-        <div id="rp-total-wrap" style="background:rgba(255,255,255,.04);
-            border:1px solid rgba(255,255,255,.08);border-radius:10px;
-            padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:13px;color:#94a3b8">Total a reportar:</span>
-            <span id="rp-total" style="font-size:20px;font-weight:800;color:#22c55e">
-                S/ 0
-            </span>
-        </div>
+      <!-- Total a reportar (DESPUÉS de constancia) -->
+      <div class="rp-total-row" style="margin-top:10px">
+        <span class="rp-total-lbl">Total a reportar:</span>
+        <span class="rp-total-monto" id="rp-total">S/ 0</span>
+      </div>
 
+      <!-- Monto manual + N° Operación -->
       <div class="rp-row">
         <div class="rp-field">
-          <label class="rp-lbl">Monto (S/)</label>
-          <input type="number" class="rp-input" id="rp-monto" placeholder="0.00"
-            step="1" min="0" oninput="Modales.reportarPago.recalcularTotal()">
+          <label class="rp-lbl">Monto (S/) — editable</label>
+          <input type="number" class="rp-input" id="rp-monto"
+                 placeholder="0.00" step="0.01" min="0"
+                 oninput="Modales.reportarPago.recalcularTotal()">
         </div>
         <div class="rp-field">
           <label class="rp-lbl">N° Operación</label>
@@ -425,21 +411,26 @@
         </div>
       </div>
 
+      <!-- Método de pago -->
       <div class="rp-field">
         <label class="rp-lbl">Método usado</label>
         <div class="metodos">
-          <button class="metodo-btn metodo-yape" onclick="Modales.reportarPago.setMetodo('yape', this)">
+          <button class="metodo-btn metodo-yape"
+                  onclick="Modales.reportarPago.setMetodo('yape', this)">
             <span class="metodo-ico">💜</span>Yape
           </button>
-          <button class="metodo-btn metodo-plin" onclick="Modales.reportarPago.setMetodo('plin', this)">
+          <button class="metodo-btn metodo-plin"
+                  onclick="Modales.reportarPago.setMetodo('plin', this)">
             <span class="metodo-ico">💚</span>Plin
           </button>
-          <button class="metodo-btn metodo-transf" onclick="Modales.reportarPago.setMetodo('transferencia', this)">
+          <button class="metodo-btn metodo-transf"
+                  onclick="Modales.reportarPago.setMetodo('transferencia', this)">
             <span class="metodo-ico mi">account_balance</span>Transf.
           </button>
         </div>
       </div>
 
+      <!-- Voucher -->
       <div class="rp-field">
         <label class="rp-lbl">Voucher / Captura</label>
         <div class="voucher-drop" id="voucher-drop"
@@ -450,13 +441,13 @@
           <span class="mi c-dim">photo_camera</span>
           <p id="voucher-label">Adjuntar voucher (recomendado)</p>
         </div>
-        <input type="file" id="voucher-input" accept="image/*,.pdf" style="display:none"
+        <input type="file" id="voucher-input" accept="image/*,.pdf"
+               style="display:none"
                onchange="Modales.reportarPago.handleFile(this.files[0])">
       </div>
 
-      
+    </div><!-- /modal-body -->
 
-    </div>
     <div class="modal-footer">
       <button class="btn-pagar-tarjeta" onclick="Modales.reportarPago.enviar()">
         <span style="display:flex;align-items:center;gap:8px">
@@ -466,6 +457,7 @@
         <span class="btn-arrow mi">arrow_forward</span>
       </button>
     </div>
+
   </div>
 </div>
 
