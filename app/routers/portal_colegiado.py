@@ -438,7 +438,7 @@ async def crear_fraccionamiento(
 
 
 
-@router.get("/api/portal/catalogo")
+@router.get("/catalogo")
 async def get_catalogo_portal(
     request: Request,
     member:  Member  = Depends(get_current_member),
