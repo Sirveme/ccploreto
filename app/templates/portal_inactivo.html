@@ -416,7 +416,8 @@
       <div class="rp-row">
         <div class="rp-field">
           <label class="rp-lbl">Monto (S/)</label>
-          <input type="number" class="rp-input" id="rp-monto" placeholder="0.00" step="0.01" min="0">
+          <input type="number" class="rp-input" id="rp-monto" placeholder="0.00"
+            step="1" min="0" oninput="Modales.reportarPago.recalcularTotal()">
         </div>
         <div class="rp-field">
           <label class="rp-lbl">N° Operación</label>
@@ -453,17 +454,7 @@
                onchange="Modales.reportarPago.handleFile(this.files[0])">
       </div>
 
-      <div class="rp-constancia">
-        <input type="checkbox" id="rp-constancia-check">
-        <div>
-          <div style="font-weight:600;font-size:12px">
-            <span class="mi sm c-emerald">verified</span>
-            Solicitar Constancia de Habilidad
-          </div>
-          <div style="font-size:10px;color:var(--text-dim)">Se emite al validar tu pago · 24h · PDF descargable</div>
-        </div>
-        <span class="rp-constancia-badge">S/ 10</span>
-      </div>
+      
 
     </div>
     <div class="modal-footer">
@@ -497,44 +488,92 @@
     </div>
     <div class="modal-body">
 
-      <div class="pl-constancia-card">
-        <div class="pl-constancia-info">
-          <div class="pl-constancia-title">
-            <span class="mi sm c-emerald">verified</span>
-            Constancia de Habilidad — emisión inmediata
-          </div>
-          <div class="pl-constancia-sub">Se emite automáticamente al confirmar tu pago</div>
+      <!-- Aviso deuda fraccionable si aplica -->
+      <div id="pl-aviso-fracc" style="display:none;margin-bottom:12px;padding:10px 14px;
+            background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);
+            border-radius:10px;font-size:12px;color:#a78bfa;line-height:1.6">
+            <span class="mi sm" style="vertical-align:middle">info</span>
+            Tu deuda real a fraccionar es <strong id="pl-deuda-fracc-monto">S/ 0</strong>.
+            Si pagas solo ese monto, podrías acceder a fraccionamiento.
+            Las deudas condonables (S/ <span id="pl-deuda-cond-monto">0</span>) se eliminan automáticamente.
+      </div> 
+
+      <!-- Constancia -->
+        <div class="pl-constancia-card">
+            <div class="pl-constancia-info">
+            <div class="pl-constancia-title">
+                <span class="mi sm c-emerald">verified</span>
+                Constancia de Habilidad — emisión inmediata
+            </div>
+            <div class="pl-constancia-sub">Se emite automáticamente al confirmar tu pago</div>
+            </div>
+            <div class="pl-constancia-price">S/ 10</div>
         </div>
-        <div class="pl-constancia-price">S/ 10</div>
-      </div>
-
-      <div class="pl-incluir">
-        <input type="checkbox" id="pl-incluir-constancia">
-        <div>
-          <div style="font-weight:600;font-size:12px">Incluir Constancia de Habilidad</div>
-          <div class="pl-incluir-sub">+S/ 10 · PDF descargable al instante</div>
+        <div class="pl-incluir">
+            <input type="checkbox" id="pl-incluir-constancia"
+                onchange="Modales.pagoLinea.recalcular()">
+            <div>
+            <div style="font-weight:600;font-size:12px">Incluir Constancia de Habilidad</div>
+            <div class="pl-incluir-sub">+S/ 10 · PDF descargable al instante</div>
+            </div>
         </div>
-      </div>
 
-      <div class="pl-monto-field">
-        <div class="pl-monto-lbl">Monto a pagar (pago parcial o total)</div>
-        <input type="number" class="pl-monto-input" id="pl-monto" placeholder="0.00"
-               oninput="Modales.pagoLinea.recalcular()">
-      </div>
-      <div class="pl-deuda-ref">
-        Deuda total: <strong id="pl-deuda-ref" style="color:var(--amber-soft)">S/ 0.00</strong>
-      </div>
-      <div class="pl-deudas-nota" id="pl-deudas-nota">
-        Deudas seleccionadas en la lista de arriba<br>
-        <strong>Ninguna — usa los checkboxes o el monto libre</strong>
-      </div>
+        <!-- Selector de qué pagar -->
+        <div class="pl-monto-field">
+            <div class="pl-monto-lbl">¿Qué estás pagando?</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
 
-      <div class="pl-total">
-        <span class="pl-total-lbl">Total a pagar:</span>
-        <span class="pl-total-monto" id="pl-total">S/ 0.00</span>
-      </div>
+            <!-- Opción 1: deuda -->
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+                    border-radius:10px;cursor:pointer" id="pl-opt-deuda">
+                <input type="radio" name="pl-tipo" value="deuda"
+                    onchange="Modales.pagoLinea.onTipoChange('deuda')"
+                    style="accent-color:#3b82f6">
+                <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">Mi deuda</div>
+                <div style="font-size:11px;color:#64748b">
+                    Total: <span id="pl-lbl-deuda-total">S/ 0</span>
+                    · Fraccionable: <span id="pl-lbl-deuda-fracc">S/ 0</span>
+                </div>
+                </div>
+            </label>
+
+            <!-- Opción 2: otro monto -->
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+                    border-radius:10px;cursor:pointer">
+                <input type="radio" name="pl-tipo" value="libre"
+                    onchange="Modales.pagoLinea.onTipoChange('libre')"
+                    style="accent-color:#3b82f6">
+                <div style="font-size:13px;font-weight:600">Otro monto / Servicio o producto</div>
+            </label>
+
+            </div>
+        </div>
+
+        <!-- Input monto libre — solo visible si elige "libre" -->
+        <div id="pl-monto-libre-wrap" style="display:none">
+            <div class="pl-monto-lbl" style="margin-top:8px">Monto a pagar (S/)</div>
+            <input type="number" class="pl-monto-input" id="pl-monto" placeholder="0.00"
+                step="1" min="0" oninput="Modales.pagoLinea.recalcular()">
+            <div style="font-size:11px;color:#64748b;margin-top:4px">
+            Servicios disponibles:
+            <button onclick="Modales.catalogo.abrir()"
+                    style="background:none;border:none;color:#22c55e;cursor:pointer;
+                            font-size:11px;font-weight:600;padding:0 4px">
+                Ver catálogo →
+            </button>
+            </div>
+        </div>
+
+        <div class="pl-total">
+            <span class="pl-total-lbl">Total a pagar:</span>
+            <span class="pl-total-monto" id="pl-total">S/ 0.00</span>
+        </div>
 
     </div>
+
     <div class="modal-footer">
       <button class="btn-pagar-tarjeta" onclick="Modales.pagoLinea.pagar()">
         <span style="display:flex;align-items:center;gap:8px">
@@ -575,7 +614,7 @@
 
 <!-- ══ MODAL: ELEGIR TIPO DE PAGO ═══════════════════════════ -->
 <div class="modal-overlay" id="modal-elegir-pago">
-  <div class="modal-sheet">
+  <div class="modal-sheet" style="box-shadow:0 0 0 1px rgba(255,255,255,.1),0 32px 80px rgba(0,0,0,.7)">
     <div class="modal-header">
       <div class="modal-title">
         <span class="mi sm">payments</span>
