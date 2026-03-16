@@ -730,11 +730,41 @@ const Modales = {
     irAReportar() {
         if (!this.seleccion) return;
         this.cerrar();
-        // Pre-cargar monto y concepto en reportar pago
-        const rpMonto = $('rp-monto');
-        if (rpMonto) rpMonto.value = Math.round(this.seleccion.inicial);
-        const rpConcepto = $('rp-concepto');
-        if (rpConcepto) rpConcepto.value = 'cuota_fraccionamiento';
+        const { n, cuotaMes, inicial } = this.seleccion;
+
+        if ($('rp-monto'))    $('rp-monto').value   = Math.round(inicial);
+        if ($('rp-concepto')) {
+            $('rp-concepto').value = 'fraccionamiento';
+            Modales.reportarPago.onConceptoChange('fraccionamiento');
+        }
+
+        // Generar y mostrar código temporal
+        const mat     = Portal.ctx.matricula || Portal.ctx.dni || '?';
+        const matCod  = mat.replace(/[^0-9]/g, '').slice(-4);   // últimos 4 dígitos
+        const fecha   = new Date();
+        const mes     = String(fecha.getMonth() + 1).padStart(2, '0');
+        const codigo  = `${matCod}-F${n}M-${mes}`;  // Ej: 0274-F7M-03
+
+        if ($('rp-fracc-cod-input')) {
+            $('rp-fracc-cod-input').value = codigo;
+        }
+        if ($('rp-fracc-resumen')) {
+            $('rp-fracc-resumen').innerHTML =
+                `<span style="color:#a78bfa">${n} meses · S/ ${Math.round(cuotaMes)}/mes</span>`;
+        }
+
+        // Guardar en sessionStorage por si el colegiado va a las oficinas
+        sessionStorage.setItem('fracc_codigo',  codigo);
+        sessionStorage.setItem('fracc_plan',    JSON.stringify({ n, cuotaMes, inicial }));
+
+        // Aviso en el asistente
+        Asistente._addMsg(
+            `📋 Tu código de fraccionamiento es <strong>${codigo}</strong> ` +
+            `(${n} meses de S/ ${Math.round(cuotaMes)}/mes). ` +
+            `Guárdalo — también puedes decírselo al cajero.`,
+            'bot'
+        );
+
         Modales.reportarPago.abrir();
     },
 
@@ -970,8 +1000,21 @@ elegirPago: {
     cerrar() { $('modal-reporte')?.classList.remove('open'); },
 
     onConceptoChange(val) {
+        // Aviso productos físicos
         const aviso = $('rp-aviso-producto');
         if (aviso) aviso.style.display = val === 'mercaderia' ? 'block' : 'none';
+        // Bloque código fraccionamiento
+        const bloqFracc = $('rp-fracc-codigo');
+        if (bloqFracc) bloqFracc.style.display = val === 'fraccionamiento' ? 'block' : 'none';
+        // Si viene de irAReportar() ya tiene código pre-cargado
+        this.recalcularTotal();
+    },
+
+    recalcularTotal() {
+        const monto    = parseFloat($('rp-monto')?.value || 0);
+        const addConst = $('rp-constancia-check')?.checked ? 10 : 0;
+        const total    = Math.round(monto) + addConst;
+        if ($('rp-total')) $('rp-total').textContent = 'S/ ' + total;
     },
 
     setMetodo(m, btn) {
