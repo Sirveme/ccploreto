@@ -721,10 +721,7 @@ const Modales = {
     pagarConTarjeta() {
         if (!this.seleccion) return;
         this.cerrar();
-        const plMonto = $('pl-monto');
-        if (plMonto) plMonto.value = Math.round(this.seleccion.inicial);
-        Modales.pagoLinea.recalcular();
-        Modales.pagoLinea.abrir();
+        Modales.pagoLinea.abrir(this.seleccion.inicial);
     },
 
     irAReportar() {
@@ -824,7 +821,7 @@ catalogo: {
 
   async _cargar() {
     try {
-        const r = await fetch('/portal/catalogo');
+        const r = await fetch('/api/portal/catalogo');
         if (!r.ok) { console.error('[Catalogo] HTTP', r.status); return; }
         const d = await r.json();
         this.items = d.catalogo || [];
@@ -980,35 +977,6 @@ catalogo: {
   },
 },
 
-/* ─── Elegir tipo de pago ─────────────────────────────── */
-elegirPago: {
-  abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
-  cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
-
-  conTarjeta() {
-    this.cerrar();
-    if ($('pl-monto')) $('pl-monto').value = Math.round(Portal.ctx.deuda_total);
-    Modales.pagoLinea.recalcular();
-    Modales.pagoLinea.abrir();
-  },
-
- reportarPago() {
-  this.cerrar();
-  // Resetear concepto y aviso de mercadería
-  const concepto = $('rp-concepto');
-  if (concepto) concepto.value = '';
-  const aviso = $('rp-aviso-producto');
-  if (aviso) aviso.style.display = 'none';
-  Modales.reportarPago.abrir();
-},
-
-  verCatalogo() {
-    this.cerrar();
-    Modales.catalogo.abrir();
-  },
-},
-
-
   /* ─── Reportar Pago ───────────────────────────────────── */
   reportarPago: {
     metodo:  null,
@@ -1092,20 +1060,17 @@ elegirPago: {
   /* ─── Pago en Línea ───────────────────────────────────── */
   pagoLinea: {
 
-    abrir() {
+    abrir(montoFijo = null) {
         const fracc  = Portal.ctx.deuda_fraccionable || 0;
         const cond   = Portal.ctx.deuda_condonable   || 0;
         const total  = Portal.ctx.deuda_total         || 0;
 
-        // ── Monto máximo ético ──────────────────────────────
-        // Si hay condonable, el colegiado NO debe pagar más
-        // que la deuda fraccionable — los condonables se
-        // eliminan automáticamente al fraccionar
-        const montoMax = cond > 0 ? fracc : total;
+        // Monto máximo ético
+        const montoMax   = cond > 0 ? fracc : total;
         const inputMonto = $('pl-monto');
         if (inputMonto) {
-            inputMonto.max = montoMax;
-            inputMonto.value = Math.round(montoMax);
+            inputMonto.max   = montoMax;
+            inputMonto.value = Math.round(montoFijo !== null ? montoFijo : montoMax);
         }
 
         // Aviso si hay condonable
@@ -1196,11 +1161,7 @@ elegirPago: {
 
         conTarjeta() {
             this.cerrar();
-            // Pre-cargar con deuda total
-            const plMonto = $('pl-monto');
-            if (plMonto) plMonto.value = Math.round(Portal.ctx.deuda_total);
-            Modales.pagoLinea.recalcular();
-            Modales.pagoLinea.abrir();
+            Modales.pagoLinea.abrir();  // sin parámetro → usa montoMax
         },
 
         reportarPago() {
