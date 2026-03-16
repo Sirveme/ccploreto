@@ -13,6 +13,7 @@ Agregar en main.py:
     app.include_router(router_openpay)
 """
 
+import os
 import json
 import logging
 from datetime import datetime, timezone
@@ -423,8 +424,12 @@ async def openpay_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     event_type = data.get("type", "")
-    print(f">>> OPENPAY BODY: {json.dumps(data)}", flush=True)
-    logger.info(f"OpenPay webhook recibido: {event_type}")
+    # Verificación de webhook por OpenPay
+    if event_type == "verification":
+        code = data.get("verification_code", "")
+        logger.info(f"OpenPay webhook verificado: {code}")
+        return JSONResponse({"verification_code": code})
+    
 
     # Solo procesar pagos completados
     if event_type != "charge.succeeded":
@@ -640,6 +645,120 @@ async def pago_resultado_publico(
         "org":     org or {},
     })
 
+
+# ── Endpoint 1: consulta estado en BD (para el polling JS) ──
+@router.get("/pagos/resultado/estado")
+async def consultar_estado_pago(
+    payment: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Consulta rápida del estado de un payment en BD."""
+    from sqlalchemy import text
+    org = request.state.org
+    row = db.execute(text("""
+        SELECT status FROM payments
+        WHERE id = :pid AND organization_id = :oid
+    """), {"pid": payment, "oid": org["id"] if org else 0}).fetchone()
+
+    if not row:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    return JSONResponse({"status": row.status})
+
+
+# ── Endpoint 2: consultar OpenPay directamente (fallback webhook) ──
+@router.get("/pagos/openpay/consultar/{payment_id}")
+async def consultar_openpay_directo(
+    payment_id: int,
+    request:    Request,
+    db:         Session = Depends(get_db),
+):
+    """
+    Consulta el estado real del cargo en OpenPay (GET al charge).
+    Recomendación explícita del equipo OpenPay como fallback del webhook.
+    Si OpenPay dice 'completed' pero BD no lo tiene → procesar ahora.
+    """
+    from sqlalchemy import text
+    import httpx, base64
+
+    org     = request.state.org
+    payment = db.execute(text("""
+        SELECT id, status, openpay_transaction_id, colegiado_id, organization_id, amount
+        FROM payments
+        WHERE id = :pid AND organization_id = :oid
+    """), {"pid": payment_id, "oid": org["id"] if org else 0}).fetchone()
+
+    if not payment:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+
+    # Si ya está pagado en BD, devolver directo
+    if payment.status == "pagado":
+        return JSONResponse({"status": "pagado"})
+
+    tx_id = payment.openpay_transaction_id
+    if not tx_id:
+        return JSONResponse({"status": payment.status})
+
+    # Consultar directamente a OpenPay
+    try:
+        sk         = os.getenv("OPENPAY_SK", "")
+        merchant   = os.getenv("OPENPAY_MERCHANT_ID", "")
+        sandbox    = os.getenv("OPENPAY_SANDBOX", "true").lower() == "true"
+        base_url   = "https://sandbox-api.openpay.pe" if sandbox else "https://api.openpay.pe"
+        creds      = base64.b64encode(f"{sk}:".encode()).decode()
+        url        = f"{base_url}/v1/{merchant}/charges/{tx_id}"
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r    = await client.get(url, headers={"Authorization": f"Basic {creds}"})
+            data = r.json()
+
+        estado_op = data.get("status", "")
+        logger.info(f"[ConsultaOpenPay] payment={payment_id} tx={tx_id} estado={estado_op}")
+
+        # Si OpenPay dice completed pero BD no lo tiene → procesar
+        if estado_op == "completed" and payment.status != "pagado":
+            logger.warning(f"[ConsultaOpenPay] Webhook no llegó — procesando payment={payment_id}")
+            # Actualizar BD directamente
+            db.execute(text("""
+                UPDATE payments
+                SET status = 'pagado', paid_at = NOW()
+                WHERE id = :pid
+            """), {"pid": payment_id})
+            db.commit()
+
+            # Recalcular habilidad
+            try:
+                from app.services.deuda_cuotas_service import calcular_deuda_total
+                from app.services.evaluar_habilidad import evaluar_habilidad
+                from app.models import Colegiado, Organization
+
+                col_obj = db.query(Colegiado).filter(
+                    Colegiado.id == payment.colegiado_id
+                ).first()
+                org_obj = db.query(Organization).filter(
+                    Organization.id == payment.organization_id
+                ).first()
+
+                if col_obj and org_obj:
+                    deuda_info = calcular_deuda_total(col_obj.id, org_obj.id, db)
+                    eval_hab   = evaluar_habilidad(deuda_info, dict(org_obj._mapping), col_obj)
+                    if not eval_hab.debe_inhabilitar:
+                        db.execute(text("""
+                            UPDATE colegiados SET condicion = 'habil'
+                            WHERE id = :cid AND condicion = 'inhabil'
+                        """), {"cid": payment.colegiado_id})
+                        db.commit()
+                        logger.info(f"[ConsultaOpenPay] Colegiado {payment.colegiado_id} → HÁBIL")
+            except Exception as e:
+                logger.error(f"[ConsultaOpenPay] Error recalculando habilidad: {e}")
+
+            return JSONResponse({"status": "pagado", "fuente": "consulta_directa"})
+
+        return JSONResponse({"status": payment.status, "openpay_estado": estado_op})
+
+    except Exception as e:
+        logger.error(f"[ConsultaOpenPay] Error: {e}")
+        return JSONResponse({"status": payment.status})
 
 
 # CAMBIAR TEMPORALMENTE en app/routers/openpay.py:
