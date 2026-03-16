@@ -1080,14 +1080,14 @@ catalogo: {
         return tipo === 'cuota_ordinaria' && (d.periodo || '').includes('2026');
       });
 
-      const aviso2026 = !tiene2026 ? `
-        <div class="rp-aviso-2026">
-          <span class="mi sm c-amber">schedule</span>
-          Las cuotas ordinarias 2026 se habilitarán cuando el colegio las genere.
-          ${this._descuentoMesActual() > 0
-            ? `Hay descuento del <strong>${this._descuentoMesActual()}%</strong> si pagas anticipado este mes.`
-            : ''}
-        </div>` : '';
+      const desc2026   = this._descuentoMesActual();
+      const aviso2026 = !tiene2026 ? (
+        '<div class="rp-aviso-2026">' +
+        '<span class="mi sm c-amber">schedule</span>' +
+        'Las cuotas ordinarias 2026 se habilitarán cuando el colegio las genere.' +
+        (desc2026 > 0 ? ' Hay descuento del <strong>' + desc2026 + '%</strong> si pagas anticipado este mes.' : '') +
+        '</div>'
+      ) : '';
 
       zona.innerHTML = `
         <div class="rp-tabs" id="rp-tabs">${tabsHtml}</div>
@@ -1134,6 +1134,11 @@ catalogo: {
     _renderLista(filtro, grupos) {
       const lista = $('rp-lista');
       if (!lista) return;
+      // Efecto visual: flash de color al cambiar filtro
+      lista.classList.remove('rp-lista-flash');
+      // Forzar reflow para reiniciar la animación
+      void lista.offsetWidth;
+      lista.classList.add('rp-lista-flash');
       const deudas = Portal.ctx.deudas || [];
       const visibles = filtro
         ? (grupos[filtro] || [])
@@ -1237,13 +1242,24 @@ catalogo: {
     },
 
     async enviar() {
-      const monto = parseFloat($('rp-monto')?.value || 0);
+      const monto  = parseFloat($('rp-monto')?.value || 0);
+      const nroOp  = ($('rp-nro-op')?.value || '').trim();
+      const voucher = $('voucher-input');
       if (!monto || monto <= 0) {
         alert('Por favor selecciona deudas o ingresa el monto del pago.');
         return;
       }
+      if (!nroOp) {
+        alert('El N° de operación es obligatorio. Lo encontrarás en tu voucher de pago.');
+        $('rp-nro-op')?.focus();
+        return;
+      }
       if (!this.metodo) {
         alert('Por favor selecciona el método de pago.');
+        return;
+      }
+      if (!this.archivo) {
+        alert('Por favor adjunta la captura o voucher del pago.');
         return;
       }
 
