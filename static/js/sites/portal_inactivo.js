@@ -1511,8 +1511,14 @@ catalogo: {
 
       if (montoFijo !== null) {
         this._renderModoFijo(montoFijo);
+        // Modo fraccionamiento: ocultar "Ya pagué"
+        const btnYP = document.querySelector('#modal-pago-linea .btn-ya-pague');
+        if (btnYP) btnYP.style.display = 'none';
       } else {
         this._renderModoLista();
+        // Modo lista: mostrar "Ya pagué"
+        const btnYP = document.querySelector('#modal-pago-linea .btn-ya-pague');
+        if (btnYP) btnYP.style.display = 'flex';
       }
 
       // Constancia sin marcar por defecto
@@ -1735,9 +1741,14 @@ catalogo: {
         abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
         cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
 
+        fraccionar() {
+            this.cerrar();
+            Modales.fraccion.abrir();
+        },
+
         conTarjeta() {
             this.cerrar();
-            Modales.pagoLinea.abrir();  // sin parámetro → usa montoMax
+            Modales.pagoLinea.abrir();  // sin parámetro → lista completa
         },
 
         reportarPago() {
