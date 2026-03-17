@@ -1380,3 +1380,61 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
   border-radius: 9px;
   animation: lista-flash .55s ease-out forwards;
 }
+
+/* ── OCR estado ─────────────────────────────────────────── */
+.rp-ocr-estado {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border-radius: 8px; margin-top: 7px;
+  background: var(--amber-tint);
+  border: 1px solid rgba(245,158,11,.18);
+  font-size: 11px; color: var(--amber-soft);
+}
+
+/* ── Banco detectado badge ──────────────────────────────── */
+.rp-banco-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 20px;
+  background: var(--emerald-tint);
+  border: 1px solid rgba(52,211,153,.2);
+  font-size: 11px; color: var(--emerald-soft);
+}
+
+/* ── Tipo comprobante ───────────────────────────────────── */
+.rp-comprobante-opts {
+  display: flex; gap: 10px;
+}
+.rp-comp-opt {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  gap: 7px; padding: 11px 14px; border-radius: var(--r);
+  background: var(--surface-2); border: 1px solid var(--border);
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-dim);
+  transition: all .18s; user-select: none;
+}
+.rp-comp-opt:hover { background: var(--surface-3); color: var(--text); }
+.rp-comp-opt.rp-comp-selected {
+  border-color: var(--verde-soft);
+  background: var(--verde-tint);
+  color: var(--verde-soft);
+}
+.rp-comp-opt input[type="radio"] { display: none; }
+
+/* ── Modal elegir tipo de pago ──────────────────────────── */
+.elegir-pago-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r);
+  background: var(--surface-2); border: 1px solid var(--border);
+  cursor: pointer; text-align: left; width: 100%;
+  transition: all .18s; font-family: 'DM Sans', sans-serif;
+}
+.elegir-pago-opt:hover {
+  background: var(--surface-3);
+  border-color: var(--border-2);
+  transform: translateX(3px);
+}
+.ep-icon {
+  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.ep-info   { flex: 1; }
+.ep-title  { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.ep-sub    { font-size: 11px; color: var(--text-dim); }
