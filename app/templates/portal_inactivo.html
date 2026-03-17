@@ -98,7 +98,7 @@
           <span class="mi sm c-dim">chevron_right</span>
         </button>
 
-        <button class="accion-btn accion-linea" onclick="Modales.pagoLinea.abrir()">
+        <button class="accion-btn accion-linea" onclick="Modales.elegirPago.abrir()">
           <div class="accion-icon"><span class="mi c-emerald">bolt</span></div>
           <div class="accion-text">
             <div class="accion-title">Pagar en línea</div>
@@ -623,72 +623,73 @@
   </button>
 </div>
 
-<!-- ══ MODAL: ELEGIR TIPO DE PAGO ═══════════════════════════ -->
+
+<!-- ══ MODAL: ELEGIR TIPO DE PAGO ═══════════════════════════    
+ TAMBIÉN cambiar en el bottom bar:
+       onclick="Modales.pagoLinea.abrir()"
+     por:
+       onclick="Modales.elegirPago.abrir()"
+══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-elegir-pago">
-  <div class="modal-sheet" style="box-shadow:0 0 0 1px rgba(255,255,255,.1),0 32px 80px rgba(0,0,0,.7)">
-    <div class="modal-header">
-      <div class="modal-title">
-        <span class="mi sm">payments</span>
-        ¿Cómo quieres pagar?
+  <div class="modal-box" style="max-width:440px">
+
+    <div class="modal-head">
+      <div class="modal-head-inner">
+        <div class="modal-head-icon" style="background:var(--emerald-tint)">
+          <span class="mi c-emerald">payments</span>
+        </div>
+        <div>
+          <div class="modal-title">¿Cómo quieres pagar?</div>
+        </div>
       </div>
       <button class="btn-modal-close" onclick="Modales.elegirPago.cerrar()">
         <span class="mi sm">close</span>
       </button>
     </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;padding:24px">
 
-      <!-- Opción 1: Tarjeta -->
-      <button onclick="Modales.elegirPago.conTarjeta()"
-              style="display:flex;align-items:center;gap:16px;
-                     padding:18px 20px;background:#0c1626;
-                     border:1px solid rgba(59,130,246,.2);border-radius:14px;
-                     cursor:pointer;transition:all .2s;text-align:left;width:100%"
-              onmouseover="this.style.borderColor='rgba(59,130,246,.5)'"
-              onmouseout="this.style.borderColor='rgba(59,130,246,.2)'">
-        <div style="width:44px;height:44px;border-radius:12px;flex-shrink:0;
-                    background:linear-gradient(135deg,#3b82f6,#6366f1);
-                    display:flex;align-items:center;justify-content:center">
-          <span class="mi" style="color:#fff;font-size:22px">credit_card</span>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;padding-bottom:20px">
+
+      <!-- Opción 1: Fraccionar -->
+      <button class="elegir-pago-opt" id="btn-fracc"
+              onclick="Modales.elegirPago.fraccionar()">
+        <div class="ep-icon" style="background:var(--blue-tint)">
+          <span class="mi c-blue">calendar_month</span>
         </div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px">
-            Pagar con Tarjeta
-          </div>
-          <div style="font-size:12px;color:#64748b">
-            Visa, Mastercard · Activación inmediata · OpenPay Perú
-          </div>
+        <div class="ep-info">
+          <div class="ep-title">Fraccionar mi deuda</div>
+          <div class="ep-sub">Cuota inicial · desde S/ 100/mes · máx. 12 cuotas</div>
         </div>
-        <span class="mi" style="color:#64748b">arrow_forward</span>
+        <span class="mi sm c-dim">chevron_right</span>
       </button>
 
-      <!-- Opción 2: Ya pagué -->
-      <button onclick="Modales.elegirPago.reportarPago()"
-              style="display:flex;align-items:center;gap:16px;
-                     padding:18px 20px;background:#0c1626;
-                     border:1px solid rgba(245,158,11,.2);border-radius:14px;
-                     cursor:pointer;transition:all .2s;text-align:left;width:100%"
-              onmouseover="this.style.borderColor='rgba(245,158,11,.5)'"
-              onmouseout="this.style.borderColor='rgba(245,158,11,.2)'">
-        <div style="width:44px;height:44px;border-radius:12px;flex-shrink:0;
-                    background:linear-gradient(135deg,#f59e0b,#d97706);
-                    display:flex;align-items:center;justify-content:center">
-          <span class="mi" style="color:#fff;font-size:22px">upload</span>
+      <!-- Opción 2: Pagar con Tarjeta (en línea) -->
+      <button class="elegir-pago-opt" onclick="Modales.elegirPago.conTarjeta()">
+        <div class="ep-icon" style="background:var(--emerald-tint)">
+          <span class="mi c-emerald">credit_card</span>
         </div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px">
-            Ya pagué (Yape / Plin / Transferencia)
-          </div>
-          <div style="font-size:12px;color:#64748b">
-            Adjunta tu voucher · Validación en hasta 24h
-          </div>
+        <div class="ep-info">
+          <div class="ep-title">Pagar con Tarjeta</div>
+          <div class="ep-sub">Visa, Mastercard · Activación inmediata · OpenPay Perú</div>
         </div>
-        <span class="mi" style="color:#64748b">arrow_forward</span>
+        <span class="mi sm c-dim">chevron_right</span>
       </button>
 
-      <!-- Info -->
-      <div style="font-size:11px;color:#475569;text-align:center;padding:4px 0">
+      <!-- Opción 3: Ya pagué -->
+      <button class="elegir-pago-opt" onclick="Modales.elegirPago.reportarPago()">
+        <div class="ep-icon" style="background:var(--amber-tint)">
+          <span class="mi c-amber">upload</span>
+        </div>
+        <div class="ep-info">
+          <div class="ep-title">Ya pagué (Yape / Plin / Transferencia)</div>
+          <div class="ep-sub">Adjunta tu voucher · Validación en hasta 24h</div>
+        </div>
+        <span class="mi sm c-dim">chevron_right</span>
+      </button>
+
+      <div style="text-align:center;font-size:10px;color:var(--text-dim);margin-top:4px">
         🔒 Tus datos están protegidos con cifrado SSL
       </div>
+
     </div>
   </div>
 </div>
