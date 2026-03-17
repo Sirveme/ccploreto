@@ -324,9 +324,13 @@
        - "Total a reportar" movido DEBAJO de monto + constancia
        - rp-fracc-codigo sigue presente para cuando viene de irAReportar()
 ══════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL: REPORTAR PAGO — reemplaza el bloque existente en portal_inactivo.html
+     id="modal-reporte"
+══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-reporte">
   <div class="modal-box">
- 
+
     <div class="modal-head">
       <div class="modal-head-inner">
         <div class="modal-head-icon" style="background:var(--amber-tint)">
@@ -334,35 +338,48 @@
         </div>
         <div>
           <div class="modal-title">Reportar pago realizado</div>
-          <div class="modal-sub">Validación en hasta 24h</div>
+          <div class="modal-sub" id="rp-sub">Validación en hasta 24h</div>
         </div>
       </div>
       <button class="btn-modal-close" onclick="Modales.reportarPago.cerrar()">
         <span class="mi sm">close</span>
       </button>
     </div>
- 
+
     <div class="modal-body">
- 
-      <!-- Alerta validación -->
-      <div class="rp-alerta">
-        <span class="mi c-amber" style="flex-shrink:0;margin-top:1px">info</span>
-        Al aprobar tu pago recibirás tu
-        <strong>&nbsp;Constancia de Habilidad&nbsp;</strong>
-        automáticamente en la app.
+
+      <!-- 1. VOUCHER — primero para disparar OCR ──────────────────────────── -->
+      <div class="rp-field">
+        <label class="rp-lbl">
+          Voucher / Captura
+          <span style="color:var(--red-soft)">*</span>
+        </label>
+        <div class="voucher-drop" id="voucher-drop"
+             onclick="document.getElementById('voucher-input').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="Modales.reportarPago.handleDrop(event)">
+          <span class="mi c-dim" id="voucher-icon">photo_camera</span>
+          <p id="voucher-label">Toca para adjuntar o arrastra aquí</p>
+        </div>
+        <input type="file" id="voucher-input" accept="image/*,.pdf" style="display:none"
+               onchange="Modales.reportarPago.handleFile(this.files[0])">
+        <div id="ocr-estado" class="rp-ocr-estado" style="display:none">
+          <span class="mi sm c-amber" id="ocr-ico">hourglass_empty</span>
+          <span id="ocr-txt">Analizando con IA...</span>
+        </div>
       </div>
- 
-      <!-- DNI / Matrícula (read-only) -->
+
+      <!-- DNI / Matrícula read-only -->
       <div class="rp-field">
         <label class="rp-lbl">DNI / N° Colegiatura</label>
         <input type="text" class="rp-input" id="rp-dni-mat" readonly>
       </div>
- 
-      <!-- ─── ZONA DINÁMICA: tabs + lista de deudas reales ─── -->
-      <!-- JS inyecta aquí en abrir() / abrirConFraccion()     -->
+
+      <!-- 2. DEUDAS — tabs + lista ────────────────────────────────────────── -->
       <div id="rp-deudas-zona" style="margin-bottom:12px"></div>
- 
-      <!-- ─── Código de fraccionamiento (visible solo cuando viene de irAReportar) -->
+
+      <!-- Código fraccionamiento (visible solo desde irAReportar) -->
       <div id="rp-fracc-codigo" style="display:none;margin-bottom:12px">
         <div class="pl-fracc-codigo">
           <div class="pl-fracc-codigo-head">
@@ -374,46 +391,33 @@
           <div class="pl-fracc-codigo-sub" id="rp-fracc-resumen"></div>
         </div>
       </div>
- 
-      <!-- Constancia de Habilidad -->
-      <div class="rp-constancia">
-        <input type="checkbox" id="rp-constancia-check"
-               onchange="Modales.reportarPago.recalcularTotal()">
-        <div>
-          <div style="font-weight:600;font-size:12px">
-            <span class="mi sm c-emerald">verified</span>
-            Solicitar Constancia de Habilidad
-          </div>
-          <div style="font-size:10px;color:var(--text-dim)">
-            Se emite al validar tu pago · 24h · PDF descargable
-          </div>
-        </div>
-        <span class="rp-constancia-badge">S/ 10</span>
-      </div>
- 
-      <!-- Total a reportar (DESPUÉS de constancia) -->
-      <div class="rp-total-row" style="margin-top:10px">
-        <span class="rp-total-lbl">Total a reportar:</span>
-        <span class="rp-total-monto" id="rp-total">S/ 0</span>
-      </div>
- 
-      <!-- Monto manual + N° Operación -->
+
+      <!-- 3. MONTO + N° OPERACIÓN ─────────────────────────────────────────── -->
       <div class="rp-row">
         <div class="rp-field">
-          <label class="rp-lbl">Monto (S/) — editable</label>
+          <label class="rp-lbl">Monto (S/) <span style="color:var(--red-soft)">*</span></label>
           <input type="number" class="rp-input" id="rp-monto"
                  placeholder="0.00" step="0.01" min="0"
                  oninput="Modales.reportarPago.recalcularTotal()">
         </div>
         <div class="rp-field">
           <label class="rp-lbl">N° Operación <span style="color:var(--red-soft)">*</span></label>
-          <input type="text" class="rp-input" id="rp-nro-op" placeholder="Requerido" required>
+          <input type="text" class="rp-input" id="rp-nro-op"
+                 placeholder="Requerido" required>
         </div>
       </div>
- 
-      <!-- Método de pago -->
+
+      <!-- Banco detectado por OCR -->
+      <div id="rp-banco-row" style="display:none;margin-bottom:10px">
+        <span class="rp-banco-badge">
+          <span class="mi sm c-emerald">auto_awesome</span>
+          IA detectó: <strong id="rp-banco-txt"></strong>
+        </span>
+      </div>
+
+      <!-- 4. MÉTODO ───────────────────────────────────────────────────────── -->
       <div class="rp-field">
-        <label class="rp-lbl">Método usado</label>
+        <label class="rp-lbl">Método usado <span style="color:var(--red-soft)">*</span></label>
         <div class="metodos">
           <button class="metodo-btn metodo-yape"
                   onclick="Modales.reportarPago.setMetodo('yape', this)">
@@ -429,35 +433,97 @@
           </button>
         </div>
       </div>
- 
-      <!-- Voucher -->
+
+      <!-- 5. TIPO DE COMPROBANTE — sin default ────────────────────────────── -->
       <div class="rp-field">
-        <label class="rp-lbl">Voucher / Captura</label>
-        <div class="voucher-drop" id="voucher-drop"
-             onclick="document.getElementById('voucher-input').click()"
-             ondragover="event.preventDefault();this.classList.add('drag')"
-             ondragleave="this.classList.remove('drag')"
-             ondrop="Modales.reportarPago.handleDrop(event)">
-          <span class="mi c-dim">photo_camera</span>
-          <p id="voucher-label">Adjuntar voucher (recomendado)</p>
+        <label class="rp-lbl">
+          Tipo de comprobante
+          <span style="color:var(--red-soft)">*</span>
+        </label>
+        <div class="rp-comprobante-opts">
+          <label class="rp-comp-opt" id="opt-boleta">
+            <input type="radio" name="rp-tipo-comp" value="boleta"
+                   onchange="Modales.reportarPago.onTipoComprobante('boleta')">
+            <span class="mi sm">receipt</span>
+            Boleta
+          </label>
+          <label class="rp-comp-opt" id="opt-factura">
+            <input type="radio" name="rp-tipo-comp" value="factura"
+                   onchange="Modales.reportarPago.onTipoComprobante('factura')">
+            <span class="mi sm">description</span>
+            Factura
+          </label>
         </div>
-        <input type="file" id="voucher-input" accept="image/*,.pdf"
-               style="display:none"
-               onchange="Modales.reportarPago.handleFile(this.files[0])">
       </div>
- 
-    </div><!-- /modal-body -->
- 
+
+      <!-- 6. DATOS DE FACTURA (solo si eligió Factura) ────────────────────── -->
+      <div id="rp-factura-datos" style="display:none">
+
+        <div class="rp-field">
+          <label class="rp-lbl">RUC <span style="color:var(--red-soft)">*</span></label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="text" class="rp-input" id="rp-ruc"
+                   placeholder="11 dígitos" maxlength="11" style="flex:1"
+                   oninput="Modales.reportarPago.onRucInput(this.value)">
+            <span id="rp-ruc-spin" style="display:none;flex-shrink:0">
+              <span class="mi sm c-dim" style="animation:spin-ring .8s linear infinite">
+                hourglass_empty
+              </span>
+            </span>
+          </div>
+          <div id="rp-ruc-estado" style="font-size:10px;color:var(--text-dim);margin-top:3px"></div>
+        </div>
+
+        <div class="rp-field">
+          <label class="rp-lbl">Razón Social / Nombre <span style="color:var(--red-soft)">*</span></label>
+          <input type="text" class="rp-input" id="rp-razon-social"
+                 placeholder="Se completará automáticamente">
+        </div>
+
+        <div class="rp-field">
+          <label class="rp-lbl">
+            Dirección
+            <span id="rp-dir-hint" style="font-size:9px;color:var(--text-dim);font-weight:400;margin-left:4px"></span>
+          </label>
+          <input type="text" class="rp-input" id="rp-direccion"
+                 placeholder="Dirección fiscal">
+        </div>
+
+      </div>
+
+      <!-- 7. CONSTANCIA DE HABILIDAD ─────────────────────────────────────── -->
+      <div class="rp-constancia">
+        <input type="checkbox" id="rp-constancia-check"
+               onchange="Modales.reportarPago.recalcularTotal()">
+        <div>
+          <div style="font-weight:600;font-size:12px">
+            <span class="mi sm c-emerald">verified</span>
+            Solicitar Constancia de Habilidad
+          </div>
+          <div style="font-size:10px;color:var(--text-dim)">
+            Se emite al validar tu pago · PDF descargable
+          </div>
+        </div>
+        <span class="rp-constancia-badge">S/ 10</span>
+      </div>
+
+      <!-- 8. TOTAL ─────────────────────────────────────────────────────────── -->
+      <div class="rp-total-row" style="margin-top:10px">
+        <span class="rp-total-lbl">Total a reportar:</span>
+        <span class="rp-total-monto" id="rp-total">S/ 0</span>
+      </div>
+
+    </div>
+
     <div class="modal-footer">
       <button class="btn-pagar-tarjeta" onclick="Modales.reportarPago.enviar()">
         <span style="display:flex;align-items:center;gap:8px">
-          <span class="mi">send</span>
-          Enviar reporte
+          <span class="mi">send</span>Enviar reporte
         </span>
         <span class="btn-arrow mi">arrow_forward</span>
       </button>
     </div>
- 
+
   </div>
 </div>
 
