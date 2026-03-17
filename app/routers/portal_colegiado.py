@@ -811,8 +811,8 @@ async def consultar_ruc_portal(ruc: str):
 
         async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(
-                f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}",
-                headers=headers,
+                f"https://api.apis.net.pe/v1/ruc?numero={ruc}",
+                headers={"Accept": "application/json"},
             )
 
         if r.status_code == 200:
@@ -820,8 +820,8 @@ async def consultar_ruc_portal(ruc: str):
             return JSONResponse({
                 "ok":        True,
                 "ruc":       ruc,
-                "nombre":    d.get("razonSocial") or d.get("nombre") or "",
-                "direccion": d.get("direccion") or "",   # vacío para RUC 10 — esperado
+                "nombre":    d.get("nombre") or d.get("razonSocial") or "",
+                "direccion": d.get("direccion") or "",
                 "estado":    d.get("estado", "ACTIVO"),
                 "tipo_ruc":  tipo_ruc,
             })
