@@ -1,33 +1,27 @@
 """
 app/routers/dev_tools.py — ColegiosPro
-Herramientas de desarrollo — SOLO activas fuera de producción.
+Herramientas de desarrollo — SOLO activas fuera de produccion.
 
 Registrar en main.py:
     import os
     if os.getenv("ENVIRONMENT", "development") != "production":
         from app.routers.dev_tools import router as dev_router
         app.include_router(dev_router)
-
-Endpoints disponibles en /docs cuando ENVIRONMENT != production:
-  POST /dev/simular-email-banco    → procesa email pegado como texto
-  GET  /dev/notificaciones         → lista últimas notificaciones bancarias en BD
-  GET  /dev/reportes-pago          → lista últimos reportes de pago
 """
 
-import os
+import json as _json
 import logging
-from datetime import datetime
+import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 
-logger   = logging.getLogger(__name__)
-router   = APIRouter(prefix="/dev", tags=["🛠 Dev Tools"])
-IS_DEV   = os.getenv("ENVIRONMENT", "development") != "production"
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/dev", tags=["Dev Tools"])
+IS_DEV = os.getenv("ENVIRONMENT", "development") != "production"
 
 
 def _check_dev():
@@ -37,77 +31,82 @@ def _check_dev():
 
 
 # ── Simular email bancario ─────────────────────────────────────────────────────
-class EmailSimulado(BaseModel):
-    raw_email:       str    # texto completo — pegar el email reenviado por Walter
-    organization_id: int  = 1
-    marcar_leido:    bool = False   # si True, no re-procesa si lo vuelves a enviar
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "raw_email": (
-                    "From: BBVA <procesos@bbva.com.pe>\n"
-                    "Subject: Transferencia recibida en tu cuenta\n"
-                    "Message-ID: <test-001@bbva.com.pe>\n"
-                    "\n"
-                    "Hola, CCPL\n"
-                    "TRANSFERENCIA RECIBIDA\n"
-                    "Fecha y hora 16/03/2026 14:32:10\n"
-                    "Numero de operacion OP-2026031600123\n"
-                    "Importe 500.00\n"
-                    "Ordenante JUAN CARLOS PEREZ LOPEZ\n"
-                    "Concepto Cuota ordinaria mat 10-0274\n"
-                ),
-                "organization_id": 1,
-            }
-        }
-
-
 @router.post("/simular-email-banco", summary="Simula llegada de email bancario")
 async def simular_email_banco(
-    payload: EmailSimulado,
-    db:      Session = Depends(get_db),
+    request: Request,
+    organization_id: int = 1,
+    db: Session = Depends(get_db),
 ):
+    """
+    Acepta dos formatos:
+
+    **text/plain** (recomendado) — pegar el email tal cual con saltos de linea reales.
+
+    **application/json** — enviar {"raw_email": "...", "organization_id": 1}
+    usando \\n para los saltos de linea.
+    """
     _check_dev()
 
-    from app.services.email_parser  import parsear_email
+    from app.services.email_parser import parsear_email
     from app.services.imap_listener import guardar_notificacion
 
-    # Parchar ORG_ID en el listener para esta simulación
-    import app.services.imap_listener as _listener
-    org_original     = _listener.ORG_ID
-    _listener.ORG_ID = payload.organization_id
+    content_type = request.headers.get("content-type", "")
+    body_bytes = await request.body()
 
-    raw_bytes = payload.raw_email.encode("utf-8")
+    if not body_bytes.strip():
+        return JSONResponse({"ok": False, "error": "Body vacio"}, status_code=400)
+
+    # Determinar raw_bytes y org_id segun content-type
+    if "application/json" in content_type:
+        try:
+            payload = _json.loads(body_bytes)
+            raw_text = payload.get("raw_email", "")
+            org_id = int(payload.get("organization_id", organization_id))
+            # Reemplazar \n literales (JSON) por saltos de linea reales
+            raw_bytes = raw_text.replace("\\n", "\n").encode("utf-8")
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"JSON invalido: {e}"}, status_code=400)
+    else:
+        # text/plain — bytes tal cual, el parser los maneja directamente
+        raw_bytes = body_bytes
+        org_id = organization_id
+
+    if not raw_bytes.strip():
+        return JSONResponse({"ok": False, "error": "Email vacio tras procesar"}, status_code=400)
+
+    # Parchear ORG_ID temporalmente para esta simulacion
+    import app.services.imap_listener as _listener
+    org_original = _listener.ORG_ID
+    _listener.ORG_ID = org_id
 
     try:
-        pago = parsear_email(raw_bytes, organization_id=payload.organization_id)
+        pago = parsear_email(raw_bytes, organization_id=org_id)
 
         if not pago:
             return JSONResponse({
-                "ok":     False,
-                "motivo": "Parser descartó el email — no parece bancario o es operación propia.",
+                "ok": False,
+                "motivo": "Parser descarto el email — no parece bancario o es operacion propia.",
             })
 
         if not pago.es_valido:
             return JSONResponse({
-                "ok":          False,
-                "motivo":      "Email parseado pero sin monto válido.",
+                "ok": False,
+                "motivo": "Email parseado pero sin monto valido.",
                 "parse_result": {
-                    "banco":     pago.banco,
-                    "monto":     pago.monto,
-                    "nro_op":    pago.nro_operacion,
+                    "banco": pago.banco,
+                    "monto": pago.monto,
+                    "nro_op": pago.nro_operacion,
                     "confianza": pago.confianza,
                 },
             })
 
         if not pago.es_pago_recibido:
             return JSONResponse({
-                "ok":          False,
-                "motivo":      f"Operación propia descartada (tipo: {pago.tipo_operacion}).",
+                "ok": False,
+                "motivo": f"Operacion propia descartada (tipo: {pago.tipo_operacion}).",
                 "parse_result": {
-                    "banco":          pago.banco,
-                    "monto":          pago.monto,
+                    "banco": pago.banco,
+                    "monto": pago.monto,
                     "tipo_operacion": pago.tipo_operacion,
                 },
             })
@@ -115,32 +114,36 @@ async def simular_email_banco(
         guardado = guardar_notificacion(pago, from_header="simulado@dev.test", db=db)
 
         return JSONResponse({
-            "ok":       True,
+            "ok": True,
             "guardado": guardado,
-            "parse":    {
-                "banco":           pago.banco,
-                "monto":           pago.monto,
-                "nro_operacion":   pago.nro_operacion,
-                "fecha":           str(pago.fecha_operacion),
-                "remitente":       pago.remitente_nombre,
-                "concepto":        pago.concepto,
-                "tipo_operacion":  pago.tipo_operacion,
-                "confianza":       f"{pago.confianza}%",
-                "es_recibido":     pago.es_pago_recibido,
+            "parse": {
+                "banco": pago.banco,
+                "monto": pago.monto,
+                "nro_operacion": pago.nro_operacion,
+                "fecha": str(pago.fecha_operacion),
+                "remitente": pago.remitente_nombre,
+                "concepto": pago.concepto,
+                "tipo_operacion": pago.tipo_operacion,
+                "confianza": f"{pago.confianza}%",
+                "es_recibido": pago.es_pago_recibido,
             },
-            "nota": "Guardado en notificaciones_bancarias." if guardado else "Duplicado — ya existía.",
+            "nota": "Guardado en notificaciones_bancarias." if guardado else "Duplicado — ya existia.",
         })
+
+    except Exception as e:
+        logger.error(f"[SimularEmail] Error: {e}", exc_info=True)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     finally:
         _listener.ORG_ID = org_original  # restaurar siempre
 
 
 # ── Ver notificaciones bancarias ───────────────────────────────────────────────
-@router.get("/notificaciones", summary="Últimas notificaciones bancarias en BD")
+@router.get("/notificaciones", summary="Ultimas notificaciones bancarias en BD")
 async def ver_notificaciones(
-    limite: int      = 20,
-    estado: str      = "",
-    db:     Session  = Depends(get_db),
+    limite: int = 20,
+    estado: str = "",
+    db: Session = Depends(get_db),
 ):
     _check_dev()
     from app.models import NotificacionBancaria
@@ -151,25 +154,25 @@ async def ver_notificaciones(
     registros = q.limit(limite).all()
 
     return JSONResponse([{
-        "id":              r.id,
-        "banco":           r.banco,
-        "monto":           float(r.monto),
-        "codigo_op":       r.codigo_operacion,
-        "fecha_op":        str(r.fecha_operacion),
-        "remitente":       r.remitente_nombre,
-        "estado":          r.estado,
-        "payment_id":      r.payment_id,
-        "confianza":       r.observaciones,
-        "email_subject":   r.email_subject,
-        "created_at":      str(r.created_at),
+        "id": r.id,
+        "banco": r.banco,
+        "monto": float(r.monto),
+        "codigo_op": r.codigo_operacion,
+        "fecha_op": str(r.fecha_operacion),
+        "remitente": r.remitente_nombre,
+        "estado": r.estado,
+        "payment_id": r.payment_id,
+        "confianza": r.observaciones,
+        "email_subject": r.email_subject,
+        "created_at": str(r.created_at),
     } for r in registros])
 
 
-# ── Ver reportes de pago (payments con método = voucher) ──────────────────────
-@router.get("/reportes-pago", summary="Últimos reportes de pago del portal")
+# ── Ver reportes de pago ───────────────────────────────────────────────────────
+@router.get("/reportes-pago", summary="Ultimos reportes de pago del portal")
 async def ver_reportes_pago(
-    limite: int     = 20,
-    db:     Session = Depends(get_db),
+    limite: int = 20,
+    db: Session = Depends(get_db),
 ):
     _check_dev()
     from app.models import Payment
@@ -179,13 +182,13 @@ async def ver_reportes_pago(
     ).order_by(Payment.created_at.desc()).limit(limite).all()
 
     return JSONResponse([{
-        "id":             p.id,
-        "colegiado_id":   p.colegiado_id,
-        "monto":          p.amount,
-        "metodo":         p.payment_method,
-        "nro_op":         p.operation_code,
-        "status":         p.status,
-        "voucher":        p.voucher_url,
-        "notes":          p.notes,
-        "created_at":     str(p.created_at),
+        "id": p.id,
+        "colegiado_id": p.colegiado_id,
+        "monto": p.amount,
+        "metodo": p.payment_method,
+        "nro_op": p.operation_code,
+        "status": p.status,
+        "voucher": p.voucher_url,
+        "notes": p.notes,
+        "created_at": str(p.created_at),
     } for p in pagos])
