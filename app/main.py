@@ -336,3 +336,8 @@ async def portal_inactivo_page(request: Request):
 @app.get("/finanzas/guia")
 async def guia_finanzas(request: Request):
     return templates.TemplateResponse("pages/finanzas/guia.html", {"request": request})
+
+
+if os.getenv("ENVIRONMENT", "development") != "production":
+    from app.routers.dev_tools import router as dev_router
+    app.include_router(dev_router)
