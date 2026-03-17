@@ -471,3 +471,215 @@ async def get_catalogo_portal(
         })
 
     return JSONResponse({"catalogo": resultado})
+
+
+
+"""
+Agregar a app/routers/portal_colegiado.py
+
+Endpoint: POST /api/portal/reportar-pago
+- Recibe: monto, nro_operacion, metodo, deuda_ids, voucher (imagen), solicitar_constancia
+- Sube voucher a GCS
+- Crea Payment (status='review')
+- Intenta matching automático con notificaciones_bancarias
+- Si nivel >= 2: auto-aprueba y notifica
+- Retorna JSON con estado y mensaje para el chat del portal
+"""
+
+import json
+import logging
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Colegiado, Member, Payment, NotificacionBancaria
+from app.routers.dashboard import get_current_member
+from app.utils.gcs import upload_documento
+from app.services.motor_matching import matching_al_reportar, aplicar_match
+
+logger = logging.getLogger(__name__)
+
+# ── Constantes ─────────────────────────────────────────────────────────────────
+METODOS_VALIDOS = {'yape', 'plin', 'transferencia', 'bbva', 'bcp', 'interbank', 'scotiabank'}
+MAX_VOUCHER_MB  = 10
+
+
+# ── Endpoint ───────────────────────────────────────────────────────────────────
+@router.post("/api/portal/reportar-pago")
+async def reportar_pago(
+    # Campos del formulario
+    monto:                float         = Form(...),
+    nro_operacion:        str           = Form(...),
+    metodo:               str           = Form(...),
+    deuda_ids:            str           = Form(""),       # "10259,10260,10261"
+    fracc_codigo:         Optional[str] = Form(None),     # código de fraccionamiento
+    concepto:             Optional[str] = Form(None),     # texto libre
+    solicitar_constancia: bool          = Form(False),
+    # Voucher obligatorio
+    voucher:              UploadFile    = File(...),
+    # Inyecciones FastAPI
+    member:               Member        = Depends(get_current_member),
+    db:                   Session       = Depends(get_db),
+):
+    # ── Validaciones ────────────────────────────────────────────────────────────
+    if monto <= 0:
+        return JSONResponse({"ok": False, "error": "El monto debe ser mayor a cero."}, status_code=400)
+
+    nro_operacion = nro_operacion.strip()
+    if not nro_operacion:
+        return JSONResponse({"ok": False, "error": "El N° de operación es obligatorio."}, status_code=400)
+
+    if metodo.lower() not in METODOS_VALIDOS:
+        return JSONResponse({"ok": False, "error": f"Método inválido: {metodo}"}, status_code=400)
+
+    if not voucher or not voucher.filename:
+        return JSONResponse({"ok": False, "error": "El voucher es obligatorio."}, status_code=400)
+
+    # Validar tamaño voucher
+    voucher_bytes = await voucher.read()
+    if len(voucher_bytes) > MAX_VOUCHER_MB * 1024 * 1024:
+        return JSONResponse(
+            {"ok": False, "error": f"El voucher no debe superar {MAX_VOUCHER_MB}MB."},
+            status_code=400
+        )
+
+    # ── Obtener colegiado ────────────────────────────────────────────────────────
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.member_id      == member.id,
+        Colegiado.organization_id == member.organization_id,
+    ).first()
+
+    if not colegiado:
+        return JSONResponse({"ok": False, "error": "Colegiado no encontrado."}, status_code=404)
+
+    # ── Subir voucher a GCS ──────────────────────────────────────────────────────
+    ts         = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    ext        = _extension_segura(voucher.content_type, voucher.filename)
+    blob_path  = f"{member.organization_id}/pagos/{colegiado.id}/voucher_{ts}.{ext}"
+    content_type = voucher.content_type or 'image/jpeg'
+
+    voucher_path = upload_documento(
+        file_bytes   = voucher_bytes,
+        content_type = content_type,
+        blob_path    = blob_path,
+    )
+
+    if not voucher_path:
+        # GCS no configurado o falló — continuar sin voucher en producción
+        # En desarrollo, alertar pero no bloquear
+        logger.warning(f'[ReportePago] GCS no disponible — voucher no subido para colegiado {colegiado.id}')
+        voucher_path = None
+
+    # ── Preparar notes con toda la info ─────────────────────────────────────────
+    notas = {
+        "deuda_ids":    [int(x) for x in deuda_ids.split(',') if x.strip().isdigit()],
+        "fracc_codigo": fracc_codigo or None,
+        "concepto":     concepto or None,
+    }
+
+    # ── Crear Payment ────────────────────────────────────────────────────────────
+    payment = Payment(
+        organization_id    = member.organization_id,
+        colegiado_id       = colegiado.id,
+        amount             = round(monto, 2),
+        currency           = 'PEN',
+        payment_method     = metodo.lower(),
+        operation_code     = nro_operacion.upper(),
+        voucher_url        = voucher_path,
+        pagador_tipo       = 'titular',
+        pagador_nombre     = colegiado.nombre_completo if hasattr(colegiado, 'nombre_completo') else None,
+        status             = 'review',
+        notes              = json.dumps(notas, ensure_ascii=False),
+    )
+    db.add(payment)
+    db.flush()   # obtener payment.id sin commit aún
+
+    # ── Matching automático ──────────────────────────────────────────────────────
+    nivel           = 0
+    notificacion    = None
+    estado_final    = 'review'
+    mensaje_usuario = None
+
+    try:
+        notificacion, nivel = matching_al_reportar(
+            nro_operacion   = nro_operacion,
+            monto           = round(monto, 2),
+            fecha_pago      = datetime.utcnow(),
+            metodo          = metodo,
+            organization_id = member.organization_id,
+            db              = db,
+        )
+
+        if notificacion and nivel >= 2:
+            estado_final = aplicar_match(
+                notificacion    = notificacion,
+                reporte_pago_id = payment.id,
+                nivel           = nivel,
+                conciliado_por  = 'auto',
+                db              = db,
+            )
+            payment.status = 'approved' if nivel == 3 else 'review'
+            # Vincular notificacion → payment
+            notificacion.payment_id = payment.id
+            db.flush()
+
+    except Exception as e:
+        logger.error(f'[ReportePago] Error en matching: {e}', exc_info=True)
+        # El pago se guarda igual, el matching falla silenciosamente
+
+    db.commit()
+
+    # ── Mensaje para el chat del asistente ───────────────────────────────────────
+    if nivel == 3:
+        mensaje_usuario = (
+            f'✅ ¡Pago verificado automáticamente! Tu N° de operación '
+            f'<strong>{nro_operacion}</strong> coincide con la notificación del banco. '
+            f'La caja revisará tu cuenta en breve.'
+        )
+    elif nivel == 2:
+        mensaje_usuario = (
+            f'✅ Pago reportado y verificación probable (monto S/ {monto:.2f} coincide '
+            f'con el banco). La caja lo confirmará en pocas horas.'
+        )
+    else:
+        mensaje_usuario = (
+            f'📤 Pago reportado correctamente. '
+            f'La caja validará tu voucher en hasta 24h y recibirás una notificación al aprobar.'
+        )
+
+    logger.info(
+        f'[ReportePago] payment_id={payment.id} colegiado={colegiado.id} '
+        f'monto={monto} nivel_match={nivel} estado={payment.status}'
+    )
+
+    return JSONResponse({
+        "ok":          True,
+        "payment_id":  payment.id,
+        "estado":      payment.status,
+        "nivel_match": nivel,
+        "mensaje":     mensaje_usuario,
+    })
+
+
+# ── Helper ─────────────────────────────────────────────────────────────────────
+def _extension_segura(content_type: str, filename: str) -> str:
+    """Devuelve extensión segura basada en content_type o nombre de archivo."""
+    ct_map = {
+        'image/jpeg':       'jpg',
+        'image/jpg':        'jpg',
+        'image/png':        'png',
+        'image/webp':       'webp',
+        'image/gif':        'gif',
+        'application/pdf':  'pdf',
+    }
+    ext = ct_map.get((content_type or '').lower())
+    if ext:
+        return ext
+    # Fallback: tomar extensión del nombre de archivo
+    if filename and '.' in filename:
+        return filename.rsplit('.', 1)[-1].lower()[:5]
+    return 'jpg'
