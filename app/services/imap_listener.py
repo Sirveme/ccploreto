@@ -93,7 +93,7 @@ def guardar_notificacion(pago, from_header: str, db) -> bool:
         email_message_id    = pago.email_message_id[:200] if pago.email_message_id else None,
         email_from          = from_header[:200] if from_header else '',
         email_subject       = pago.raw_subject[:500] if pago.raw_subject else '',
-        email_date          = datetime.utcnow(),
+        email_date          = pago.fecha_operacion or datetime.utcnow(),
         banco               = pago.banco,
         tipo_operacion      = tipo_op,
         monto               = pago.monto,
