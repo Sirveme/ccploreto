@@ -1002,36 +1002,48 @@ catalogo: {
 },
 
   /* ─── Reportar Pago ───────────────────────────────────── */
-  reportarPago: {
-    metodo:          null,
-    archivo:         null,
-    _idsSeleccionados: new Set(),
-    _filtroActual:   null,   // null = todos | 'cuota_ordinaria' | 'multa' | etc.
+  /* ════════════════════════════════════════════════════════════
+   Modales.reportarPago — REEMPLAZAR el bloque existente completo
+   en portal_inactivo.js
 
-    /* ── Grupos de deuda para los tabs ───────────────────── */
+   Nuevas funciones vs versión anterior:
+   · handleFile()     → sube voucher y llama OCR automáticamente
+   · _ocr()          → POST /api/portal/analizar-voucher
+   · onTipoComprobante() → muestra/oculta sección Factura
+   · onRucInput()    → consulta RUC con debounce 600ms
+   · _consultarRuc() → GET /api/portal/ruc/{ruc}
+   · Todo lo demás igual (tabs deudas, matching, enviar)
+════════════════════════════════════════════════════════════ */
+
+  reportarPago: {
+    metodo:           null,
+    archivo:          null,        // File object del voucher
+    _idsSeleccionados: new Set(),
+    _filtroActual:    null,
+    _tipoComp:        null,        // 'boleta' | 'factura' | null
+    _rucTimer:        null,        // debounce timer para consulta RUC
+    _rucTipo:         null,        // 'natural' | 'empresa'
+
     _GRUPOS: {
-      cuota_ordinaria:       { icon: 'receipt_long',   label: 'Cuotas Ordinarias',       color: 'c-amber'   },
-      cuota_extraordinaria:  { icon: 'star',           label: 'Cuotas Extraordinarias',   color: 'c-blue'    },
-      multa:                 { icon: 'gavel',          label: 'Multas',                   color: 'c-red'     },
-      fraccionamiento:       { icon: 'calendar_month', label: 'Fraccionamiento',           color: 'c-violet'  },
-      otros:                 { icon: 'more_horiz',     label: 'Otros',                    color: 'c-dim'     },
+      cuota_ordinaria:      { icon: 'receipt_long',   label: 'Cuotas Ordinarias',      color: 'c-amber'  },
+      cuota_extraordinaria: { icon: 'star',           label: 'Cuotas Extraordinarias', color: 'c-blue'   },
+      multa:                { icon: 'gavel',          label: 'Multas',                 color: 'c-red'    },
+      fraccionamiento:      { icon: 'calendar_month', label: 'Fraccionamiento',         color: 'c-violet' },
+      otros:                { icon: 'more_horiz',     label: 'Otros',                  color: 'c-dim'    },
     },
 
-    /* abrir() — renderiza tabs + lista de deudas reales ── */
+    /* ── Abrir ──────────────────────────────────────────── */
     abrir() {
-      this._idsSeleccionados = new Set();
-      this._filtroActual     = null;
+      this._reset();
       this._renderContenido();
       $('modal-reporte')?.classList.add('open');
     },
 
-    /* abrir desde fraccion.irAReportar() — pre-selecciona cuota inicial */
     abrirConFraccion(inicial, n, cuotaMes, codigo) {
-      this._idsSeleccionados = new Set();
-      this._filtroActual     = 'fraccionamiento';
+      this._reset();
+      this._filtroActual = 'fraccionamiento';
       this._renderContenido();
-      // Pre-llenar monto y código
-      if ($('rp-monto'))          $('rp-monto').value          = Math.round(inicial);
+      if ($('rp-monto'))           $('rp-monto').value           = Math.round(inicial);
       if ($('rp-fracc-cod-input')) $('rp-fracc-cod-input').value = codigo;
       if ($('rp-fracc-resumen'))
         $('rp-fracc-resumen').innerHTML =
@@ -1043,18 +1055,223 @@ catalogo: {
 
     cerrar() { $('modal-reporte')?.classList.remove('open'); },
 
-    /* ── Renderiza zona de deudas seleccionables ─────────── */
+    _reset() {
+      this.metodo           = null;
+      this.archivo          = null;
+      this._idsSeleccionados = new Set();
+      this._filtroActual    = null;
+      this._tipoComp        = null;
+      this._rucTipo         = null;
+      if (this._rucTimer) { clearTimeout(this._rucTimer); this._rucTimer = null; }
+
+      // Limpiar campos estáticos
+      ['rp-monto','rp-nro-op','rp-ruc','rp-razon-social','rp-direccion'].forEach(id => {
+        const el = $(id); if (el) { el.value = ''; el.readOnly = false; }
+      });
+      document.querySelectorAll('input[name="rp-tipo-comp"]')
+        .forEach(r => { r.checked = false; });
+      const chk = $('rp-constancia-check'); if (chk) chk.checked = false;
+
+      // Ocultar secciones condicionales
+      ['rp-factura-datos','rp-fracc-codigo','rp-banco-row','ocr-estado'].forEach(id => {
+        const el = $(id); if (el) el.style.display = 'none';
+      });
+
+      // Reset voucher UI
+      if ($('voucher-label')) $('voucher-label').textContent = 'Toca para adjuntar o arrastra aquí';
+      if ($('voucher-icon'))  $('voucher-icon').textContent  = 'photo_camera';
+      if ($('voucher-drop'))  $('voucher-drop').style.borderColor = '';
+
+      // Reset métodos
+      document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
+
+      // Reset comprobante opts
+      ['opt-boleta','opt-factura'].forEach(id => {
+        const el = $(id); if (el) el.classList.remove('rp-comp-selected');
+      });
+    },
+
+    /* ── Voucher + OCR ──────────────────────────────────── */
+    handleFile(file) {
+      if (!file) return;
+      this.archivo = file;
+      if ($('voucher-label')) $('voucher-label').textContent = '✅ ' + file.name;
+      if ($('voucher-icon'))  $('voucher-icon').textContent  = 'check_circle';
+      if ($('voucher-drop'))  $('voucher-drop').style.borderColor = 'var(--verde-soft)';
+      this._ocr(file);
+    },
+
+    handleDrop(e) {
+      e.preventDefault();
+      $('voucher-drop')?.classList.remove('drag');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) this.handleFile(file);
+    },
+
+    async _ocr(file) {
+      const estado = $('ocr-estado');
+      const ico    = $('ocr-ico');
+      const txt    = $('ocr-txt');
+      if (!estado) return;
+
+      estado.style.display = 'flex';
+      if (ico) ico.textContent = 'hourglass_empty';
+      if (txt) txt.textContent = 'Analizando voucher con IA...';
+
+      try {
+        const fd = new FormData();
+        fd.append('voucher', file);
+
+        const r = await fetch('/api/portal/analizar-voucher', { method: 'POST', body: fd });
+        const d = await r.json();
+
+        if (d.ok) {
+          // Pre-llenar campos con datos del OCR
+          if (d.amount && $('rp-monto') && !$('rp-monto').value) {
+            $('rp-monto').value = d.amount;
+            this.recalcularTotal();
+          }
+          if (d.operation_code && $('rp-nro-op') && !$('rp-nro-op').value) {
+            $('rp-nro-op').value = d.operation_code;
+          }
+          // Banco detectado — mostrar badge y auto-seleccionar método
+          if (d.bank) {
+            const bancoRow = $('rp-banco-row');
+            const bancoTxt = $('rp-banco-txt');
+            if (bancoRow) bancoRow.style.display = 'block';
+            if (bancoTxt) bancoTxt.textContent    = d.bank;
+            this._autoMetodo(d.bank);
+          }
+          if (ico) ico.textContent = 'check_circle';
+          if (txt) txt.textContent = 'Datos extraídos — revisa y corrige si hace falta';
+          ico.style.color = 'var(--emerald-soft)';
+        } else {
+          if (ico) ico.textContent = 'info';
+          if (txt) txt.textContent = d.msg || 'Ingresa los datos manualmente';
+        }
+      } catch(e) {
+        if (ico) ico.textContent = 'info';
+        if (txt) txt.textContent = 'OCR no disponible — ingresa los datos manualmente';
+      }
+    },
+
+    _autoMetodo(banco) {
+      // Auto-seleccionar método según banco detectado
+      const b = (banco || '').toLowerCase();
+      let btn = null;
+      if (b.includes('yape'))                                             btn = document.querySelector('.metodo-btn.metodo-yape');
+      else if (b.includes('plin'))                                        btn = document.querySelector('.metodo-btn.metodo-plin');
+      else if (b.includes('bbva')||b.includes('bcp')||b.includes('inter')) btn = document.querySelector('.metodo-btn.metodo-transf');
+      if (btn) {
+        const metodo = b.includes('yape') ? 'yape' : b.includes('plin') ? 'plin' : 'transferencia';
+        this.setMetodo(metodo, btn);
+      }
+    },
+
+    /* ── Comprobante ────────────────────────────────────── */
+    onTipoComprobante(tipo) {
+      this._tipoComp = tipo;
+      const datos = $('rp-factura-datos');
+
+      // Resaltar opción seleccionada
+      ['opt-boleta','opt-factura'].forEach(id => {
+        const el = $(id);
+        if (el) el.classList.toggle('rp-comp-selected',
+          (tipo === 'boleta' && id === 'opt-boleta') ||
+          (tipo === 'factura' && id === 'opt-factura')
+        );
+      });
+
+      if (tipo === 'factura') {
+        if (datos) datos.style.display = 'block';
+      } else {
+        if (datos) datos.style.display = 'none';
+        // Limpiar campos factura
+        ['rp-ruc','rp-razon-social','rp-direccion'].forEach(id => {
+          const el = $(id); if (el) { el.value = ''; el.readOnly = false; }
+        });
+        if ($('rp-ruc-estado')) $('rp-ruc-estado').textContent = '';
+      }
+    },
+
+    /* ── Consulta RUC con debounce ──────────────────────── */
+    onRucInput(ruc) {
+      const estado = $('rp-ruc-estado');
+      if (estado) estado.textContent = '';
+
+      if (this._rucTimer) clearTimeout(this._rucTimer);
+
+      if (ruc.length !== 11 || !/^\d+$/.test(ruc)) return;
+
+      this._rucTimer = setTimeout(() => this._consultarRuc(ruc), 600);
+    },
+
+    async _consultarRuc(ruc) {
+      const spin     = $('rp-ruc-spin');
+      const estado   = $('rp-ruc-estado');
+      const rsInput  = $('rp-razon-social');
+      const dirInput = $('rp-direccion');
+      const dirHint  = $('rp-dir-hint');
+
+      if (spin)  spin.style.display  = 'inline-flex';
+      if (estado) estado.textContent = 'Consultando...';
+
+      try {
+        const r = await fetch(`/api/portal/ruc/${ruc}`);
+        const d = await r.json();
+
+        this._rucTipo = d.tipo_ruc || (ruc.startsWith('10') ? 'natural' : 'empresa');
+
+        if (spin) spin.style.display = 'none';
+
+        if (d.ok && d.nombre) {
+          // Razón social → read-only con dato de API
+          if (rsInput) { rsInput.value = d.nombre; rsInput.readOnly = true; }
+
+          // Dirección
+          const esNatural = this._rucTipo === 'natural';
+          if (dirInput) {
+            dirInput.value    = d.direccion || '';
+            // RUC 10: siempre editable. RUC 20: read-only si API devolvió dirección
+            dirInput.readOnly = !esNatural && !!d.direccion;
+          }
+          if (dirHint) {
+            dirHint.textContent = esNatural
+              ? '(RUC Natural — ingresa tu dirección)'
+              : (d.direccion ? '' : 'API no devolvió dirección — ingresa manualmente');
+          }
+          if (estado) {
+            estado.textContent = `✅ ${d.estado || 'ACTIVO'} — ${d.condicion || ''}`;
+            estado.style.color = 'var(--emerald-soft)';
+          }
+        } else {
+          // API falló — todo editable
+          if (rsInput)  { rsInput.value  = ''; rsInput.readOnly  = false; }
+          if (dirInput) { dirInput.value = ''; dirInput.readOnly = false; }
+          if (dirHint)  dirHint.textContent = 'Ingresa los datos manualmente';
+          if (estado) {
+            estado.textContent = d.msg || 'No encontrado — ingresa los datos manualmente';
+            estado.style.color = 'var(--amber-soft)';
+          }
+        }
+      } catch(e) {
+        if (spin)   spin.style.display  = 'none';
+        if (estado) estado.textContent  = 'Error de conexión — ingresa los datos manualmente';
+        if ($('rp-razon-social')) { $('rp-razon-social').readOnly = false; }
+        if ($('rp-direccion'))    { $('rp-direccion').readOnly    = false; }
+      }
+    },
+
+    /* ── Tabs de deudas ─────────────────────────────────── */
     _renderContenido() {
       const zona = $('rp-deudas-zona');
       if (!zona) return;
-
       const deudas = Portal.ctx.deudas || [];
       if (!deudas.length) {
-        zona.innerHTML = '<div class="rp-empty">Sin deudas registradas. Si ya pagaste, escribe el monto manualmente.</div>';
+        zona.innerHTML = '<div class="rp-empty">Sin deudas registradas.</div>';
         return;
       }
 
-      // Agrupar para los tabs
       const grupos = {};
       deudas.forEach(d => {
         const tipo = (d.debt_type || 'otros').toLowerCase();
@@ -1063,27 +1280,24 @@ catalogo: {
         grupos[grp].push(d);
       });
 
-      // Tabs
       const tabsHtml = Object.keys(grupos).map(grp => {
         const g = this._GRUPOS[grp];
         const activo = this._filtroActual === grp ? 'active' : '';
-        return `<button class="rp-tab ${activo}" onclick="Modales.reportarPago._setFiltro('${grp}')">
+        return `<button class="rp-tab ${activo}"
+                        onclick="Modales.reportarPago._setFiltro('${grp}')">
                   <span class="mi sm ${g.color}">${g.icon}</span>
                   ${g.label}
                   <span class="rp-tab-cnt">${grupos[grp].length}</span>
                 </button>`;
       }).join('');
 
-      // Cuotas corrientes 2026 — verificar si existen
-      const tiene2026 = deudas.some(d => {
-        const tipo = (d.debt_type || '').toLowerCase();
-        return tipo === 'cuota_ordinaria' && (d.periodo || '').includes('2026');
-      });
-
-      const desc2026   = this._descuentoMesActual();
+      const desc2026 = this._descuentoMesActual();
+      const tiene2026 = deudas.some(d =>
+        (d.debt_type||'').toLowerCase() === 'cuota_ordinaria' &&
+        (d.periodo||'').includes('2026')
+      );
       const aviso2026 = !tiene2026 ? (
-        '<div class="rp-aviso-2026">' +
-        '<span class="mi sm c-amber">schedule</span>' +
+        '<div class="rp-aviso-2026"><span class="mi sm c-amber">schedule</span>' +
         'Las cuotas ordinarias 2026 se habilitarán cuando el colegio las genere.' +
         (desc2026 > 0 ? ' Hay descuento del <strong>' + desc2026 + '%</strong> si pagas anticipado este mes.' : '') +
         '</div>'
@@ -1102,23 +1316,18 @@ catalogo: {
         </div>
         <div class="dl-lista" id="rp-lista"></div>
       `;
-
       this._renderLista(this._filtroActual, grupos);
     },
 
     _descuentoMesActual() {
-      const m = new Date().getMonth() + 1;  // 1=Ene, 2=Feb, 3=Mar
-      if (m === 1) return 30;
-      if (m === 2) return 20;
-      if (m === 3) return 10;
-      return 0;
+      const m = new Date().getMonth() + 1;
+      return m === 1 ? 30 : m === 2 ? 20 : m === 3 ? 10 : 0;
     },
 
     _setFiltro(filtro) {
       this._filtroActual = filtro;
-      // Actualizar tabs
       document.querySelectorAll('.rp-tab').forEach(t => {
-        t.classList.toggle('active', t.onclick?.toString().includes(`'${filtro}'`));
+        t.classList.toggle('active', t.textContent.includes(this._GRUPOS[filtro]?.label || ''));
       });
       const deudas = Portal.ctx.deudas || [];
       const grupos = {};
@@ -1128,36 +1337,32 @@ catalogo: {
         if (!grupos[grp]) grupos[grp] = [];
         grupos[grp].push(d);
       });
+      const lista = $('rp-lista');
+      if (lista) {
+        lista.classList.remove('rp-lista-flash');
+        void lista.offsetWidth;
+        lista.classList.add('rp-lista-flash');
+      }
       this._renderLista(filtro, grupos);
     },
 
     _renderLista(filtro, grupos) {
-      const lista = $('rp-lista');
+      const lista   = $('rp-lista');
       if (!lista) return;
-      // Efecto visual: flash de color al cambiar filtro
-      lista.classList.remove('rp-lista-flash');
-      // Forzar reflow para reiniciar la animación
-      void lista.offsetWidth;
-      lista.classList.add('rp-lista-flash');
-      const deudas = Portal.ctx.deudas || [];
-      const visibles = filtro
-        ? (grupos[filtro] || [])
-        : deudas;
-
+      const deudas  = Portal.ctx.deudas || [];
+      const visibles = filtro ? (grupos[filtro] || []) : deudas;
       if (!visibles.length) {
         lista.innerHTML = '<div class="rp-empty">Sin deudas en esta categoría.</div>';
         return;
       }
-
       lista.innerHTML = visibles.map(deu => {
-        const condona  = esCondonable(deu);
-        const monto    = parseFloat(deu.balance || deu.amount || 0);
-        const sel      = this._idsSeleccionados.has(deu.id);
+        const condona = esCondonable(deu);
+        const monto   = parseFloat(deu.balance || deu.amount || 0);
+        const sel     = this._idsSeleccionados.has(deu.id);
         return `
           <label class="dl-item ${sel ? 'dl-sel' : ''}" for="rp-chk-${deu.id}">
             <input type="checkbox" class="dl-chk" id="rp-chk-${deu.id}"
-                   ${sel ? 'checked' : ''}
-                   value="${deu.id}" data-monto="${monto}"
+                   ${sel ? 'checked' : ''} value="${deu.id}" data-monto="${monto}"
                    onchange="Modales.reportarPago._toggleDeuda(${deu.id}, ${monto}, this.checked)">
             <div class="dl-info">
               <div class="dl-concept">${deu.concept || '—'}</div>
@@ -1172,23 +1377,16 @@ catalogo: {
     },
 
     _toggleDeuda(id, monto, checked) {
-      if (checked) {
-        this._idsSeleccionados.add(id);
-      } else {
-        this._idsSeleccionados.delete(id);
-        const chkAll = $('rp-check-all');
-        if (chkAll) chkAll.checked = false;
-      }
+      if (checked) this._idsSeleccionados.add(id);
+      else { this._idsSeleccionados.delete(id); const ca = $('rp-check-all'); if (ca) ca.checked = false; }
       this._actualizarContador();
       this.recalcularTotal();
     },
 
     _toggleAll(checked) {
-      // Toggle solo los visibles (filtro actual)
       document.querySelectorAll('#rp-lista .dl-chk').forEach(chk => {
         chk.checked = checked;
-        const id    = parseInt(chk.value);
-        const monto = parseFloat(chk.dataset.monto || 0);
+        const id = parseInt(chk.value);
         if (checked) this._idsSeleccionados.add(id);
         else         this._idsSeleccionados.delete(id);
       });
@@ -1201,24 +1399,21 @@ catalogo: {
       if (el) el.textContent = this._idsSeleccionados.size + ' seleccionadas';
     },
 
+    /* ── Recalcular total ───────────────────────────────── */
     recalcularTotal() {
-      // Sumar desde IDs seleccionados (si hay), sino desde input manual
       let montoBase = 0;
       if (this._idsSeleccionados.size > 0) {
-        const deudas = Portal.ctx.deudas || [];
-        deudas.forEach(d => {
+        (Portal.ctx.deudas || []).forEach(d => {
           if (this._idsSeleccionados.has(d.id))
             montoBase += parseFloat(d.balance || d.amount || 0);
         });
         montoBase = Math.round(montoBase);
-        // Actualizar campo monto
         if ($('rp-monto')) $('rp-monto').value = montoBase;
       } else {
         montoBase = parseFloat($('rp-monto')?.value || 0);
       }
       const addConst = $('rp-constancia-check')?.checked ? 10 : 0;
-      const total    = Math.round(montoBase) + addConst;
-      if ($('rp-total')) $('rp-total').textContent = 'S/ ' + total;
+      if ($('rp-total')) $('rp-total').textContent = 'S/ ' + (Math.round(montoBase) + addConst);
     },
 
     setMetodo(m, btn) {
@@ -1227,60 +1422,71 @@ catalogo: {
       btn.classList.add('active');
     },
 
-    handleFile(file) {
-      if (!file) return;
-      this.archivo = file;
-      if ($('voucher-label')) $('voucher-label').textContent = '✅ ' + file.name;
-      if ($('voucher-drop'))  $('voucher-drop').style.borderColor = 'var(--verde-soft)';
-    },
-
-    handleDrop(e) {
-      e.preventDefault();
-      $('voucher-drop')?.classList.remove('drag');
-      const file = e.dataTransfer?.files?.[0];
-      if (file) this.handleFile(file);
-    },
-
+    /* ── Validar y enviar ───────────────────────────────── */
     async enviar() {
       const monto  = parseFloat($('rp-monto')?.value || 0);
       const nroOp  = ($('rp-nro-op')?.value || '').trim();
-      const voucher = $('voucher-input');
+
+      if (!this.archivo) {
+        alert('El voucher es obligatorio.');
+        return;
+      }
       if (!monto || monto <= 0) {
-        alert('Por favor selecciona deudas o ingresa el monto del pago.');
+        alert('El monto debe ser mayor a cero.');
+        $('rp-monto')?.focus();
         return;
       }
       if (!nroOp) {
-        alert('El N° de operación es obligatorio. Lo encontrarás en tu voucher de pago.');
+        alert('El N° de operación es obligatorio.');
         $('rp-nro-op')?.focus();
         return;
       }
       if (!this.metodo) {
-        alert('Por favor selecciona el método de pago.');
+        alert('Selecciona el método de pago.');
         return;
       }
-      if (!this.archivo) {
-        alert('Por favor adjunta la captura o voucher del pago.');
+      if (!this._tipoComp) {
+        alert('Indica si deseas Boleta o Factura.');
         return;
+      }
+      if (this._tipoComp === 'factura') {
+        const ruc = ($('rp-ruc')?.value || '').trim();
+        const rs  = ($('rp-razon-social')?.value || '').trim();
+        if (!ruc || ruc.length !== 11) {
+          alert('Ingresa un RUC válido de 11 dígitos.');
+          $('rp-ruc')?.focus();
+          return;
+        }
+        if (!rs) {
+          alert('Ingresa la Razón Social.');
+          $('rp-razon-social')?.focus();
+          return;
+        }
       }
 
+      // Armar FormData
       const fd = new FormData();
-      // Concepto: derivado de deudas seleccionadas o fraccionamiento
-      const esFracc = $('rp-fracc-codigo')?.style.display === 'block';
-      fd.append('concepto',         esFracc ? 'fraccionamiento' : 'deudas_seleccionadas');
-      fd.append('monto',            monto);
-      fd.append('metodo',           this.metodo);
-      fd.append('nro_operacion',    $('rp-nro-op')?.value || '');
-      fd.append('deuda_ids',        [...this._idsSeleccionados].join(','));
-      fd.append('fracc_codigo',     $('rp-fracc-cod-input')?.value || '');
+      fd.append('monto',                monto);
+      fd.append('nro_operacion',        nroOp);
+      fd.append('metodo',               this.metodo);
+      fd.append('deuda_ids',            [...this._idsSeleccionados].join(','));
+      fd.append('fracc_codigo',         $('rp-fracc-cod-input')?.value || '');
+      fd.append('tipo_comprobante',     this._tipoComp);
       fd.append('solicitar_constancia', $('rp-constancia-check')?.checked ? '1' : '0');
-      if (this.archivo) fd.append('voucher', this.archivo);
+      fd.append('voucher',              this.archivo);
+
+      if (this._tipoComp === 'factura') {
+        fd.append('factura_ruc',         $('rp-ruc')?.value           || '');
+        fd.append('factura_razon_social', $('rp-razon-social')?.value || '');
+        fd.append('factura_direccion',   $('rp-direccion')?.value     || '');
+      }
 
       try {
         const r = await fetch('/api/portal/reportar-pago', { method: 'POST', body: fd });
         const d = await r.json();
         this.cerrar();
         Asistente._addMsg(
-          d.mensaje || '✅ Pago reportado. El colegio lo validará en hasta 24h. Recibirás una notificación al aprobar.',
+          d.mensaje || '✅ Pago reportado. La caja validará tu voucher en hasta 24h.',
           'bot'
         );
       } catch(e) {
