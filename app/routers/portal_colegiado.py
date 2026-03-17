@@ -839,3 +839,215 @@ async def consultar_ruc_portal(ruc: str):
         "tipo_ruc":  tipo_ruc,
         "msg":       "API no disponible — ingresa los datos manualmente.",
     })
+
+
+
+"""
+Agregar a app/routers/portal_colegiado.py (o a un router de admin)
+
+Endpoint: POST /api/portal/admin/generar-cuotas-ordinarias
+- Solo admin
+- Para cada colegiado inhábil, genera las cuotas mensuales 2026
+  que aún no estén cubiertas por ningún registro en debts
+- Idempotente: puede correrse varias veces sin duplicar
+
+Lógica de cobertura de periodos:
+  "2026"         → cubre meses 1-12
+  "2026-03"      → cubre mes 3
+  "2026-01:02"   → cubre meses 1 y 2
+  "2026-03:12"   → cubre meses 3 a 12
+
+Imports adicionales necesarios en portal_colegiado.py:
+  from app.models import ConceptoCobro  (ya importado)
+"""
+
+import calendar
+from datetime import date
+from typing import Optional
+
+
+# ── Helper: qué meses del año Y cubre un periodo ──────────────────────────────
+def _meses_cubiertos(periodo: str, anio: int) -> set[int]:
+    """
+    Retorna set de meses (1-12) que cubre el periodo dado para el año anio.
+
+    Ejemplos:
+      "2026"       → {1,2,...,12}
+      "2026-03"    → {3}
+      "2026-01:02" → {1, 2}
+      "2025-11:12" → {} (año diferente)
+      "2025"       → {} (año diferente)
+    """
+    if not periodo:
+        return set()
+
+    # Periodo de año completo: "2026"
+    if periodo == str(anio):
+        return set(range(1, 13))
+
+    # No es del año que buscamos
+    if not periodo.startswith(f"{anio}-"):
+        return set()
+
+    # Quitar el prefijo del año
+    resto = periodo[len(f"{anio}-"):]
+
+    # Rango: "01:02" → meses 1 al 2
+    if ":" in resto:
+        partes = resto.split(":")
+        try:
+            m_ini = int(partes[0])
+            m_fin = int(partes[1])
+            return set(range(m_ini, m_fin + 1))
+        except (ValueError, IndexError):
+            return set()
+
+    # Mes simple: "03" → {3}
+    try:
+        return {int(resto)}
+    except ValueError:
+        return set()
+
+
+# ── Helper: construir periodo y labels para un mes ────────────────────────────
+def _periodo_mes(anio: int, mes: int) -> tuple[str, str, str]:
+    """
+    Retorna (periodo, period_label, concept) para un mes dado.
+
+    Ejemplo: (2026, 3) → ("2026-03", "Marzo 2026", "Cuota Ordinaria Marzo 2026")
+    """
+    MESES_ES = [
+        "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    nombre_mes   = MESES_ES[mes]
+    periodo      = f"{anio}-{mes:02d}"
+    period_label = f"{nombre_mes} {anio}"
+    concept      = f"Cuota Ordinaria {nombre_mes} {anio}"
+    return periodo, period_label, concept
+
+
+# ── Endpoint admin ─────────────────────────────────────────────────────────────
+@router.post("/admin/generar-cuotas-ordinarias")
+async def generar_cuotas_ordinarias(
+    anio:     int     = None,     # default: año actual
+    mes_hasta: int    = None,     # default: mes actual
+    org_id:   int     = None,     # default: org del admin
+    dry_run:  bool    = False,    # True = solo simula, no inserta
+    member:   Member  = Depends(get_current_member),
+    db:       Session = Depends(get_db),
+):
+    """
+    Genera cuotas ordinarias mensuales faltantes para colegiados inhábiles.
+
+    Parámetros:
+    - anio:      Año a procesar (default: año actual)
+    - mes_hasta: Hasta qué mes generar (default: mes actual)
+    - org_id:    Organización (default: la del admin)
+    - dry_run:   Si True, solo reporta qué generaría sin insertar
+    """
+    if member.role not in ("admin", "superadmin"):
+        return JSONResponse({"error": "Solo administradores"}, status_code=403)
+
+    hoy        = date.today()
+    anio       = anio       or hoy.year
+    mes_hasta  = mes_hasta  or hoy.month
+    org_id     = org_id     or member.organization_id
+
+    if not (1 <= mes_hasta <= 12):
+        return JSONResponse({"error": "mes_hasta debe estar entre 1 y 12"}, status_code=400)
+
+    # Monto de la cuota ordinaria
+    concepto_ord = db.query(ConceptoCobro).filter(
+        ConceptoCobro.organization_id == org_id,
+        ConceptoCobro.codigo          == "CUOT-ORD",
+        ConceptoCobro.activo          == True,
+    ).first()
+
+    if not concepto_ord:
+        return JSONResponse(
+            {"error": "No se encontró el concepto CUOT-ORD en conceptos_cobro"},
+            status_code=404
+        )
+
+    monto_mes = float(concepto_ord.monto_base or 20.0)
+
+    # Colegiados inhábiles activos de la organización
+    colegiados = db.query(Colegiado).filter(
+        Colegiado.organization_id == org_id,
+        Colegiado.condicion.in_(["inhabil", "retirado"]),
+    ).all()
+
+    generados   = []
+    omitidos    = 0
+    meses_range = list(range(1, mes_hasta + 1))
+
+    for col in colegiados:
+        # Deudas de cuota_ordinaria que ya tiene este colegiado en el año
+        deudas_anio = db.query(Debt).filter(
+            Debt.colegiado_id == col.id,
+            Debt.debt_type    == "cuota_ordinaria",
+            Debt.periodo.like(f"{anio}%"),
+        ).all()
+
+        # Calcular qué meses ya están cubiertos
+        meses_cubiertos: set[int] = set()
+        for d in deudas_anio:
+            meses_cubiertos.update(_meses_cubiertos(d.periodo or "", anio))
+
+        # Generar los meses faltantes
+        for mes in meses_range:
+            if mes in meses_cubiertos:
+                omitidos += 1
+                continue
+
+            periodo, period_label, concept = _periodo_mes(anio, mes)
+
+            # Fecha de vencimiento: día 15 del mes
+            ultimo_dia = calendar.monthrange(anio, mes)[1]
+            due_date   = date(anio, mes, min(15, ultimo_dia))
+
+            if not dry_run:
+                nueva_deuda = Debt(
+                    organization_id = org_id,
+                    colegiado_id    = col.id,
+                    concept         = concept,
+                    period_label    = period_label,
+                    periodo         = periodo,
+                    debt_type       = "cuota_ordinaria",
+                    amount          = monto_mes,
+                    balance         = monto_mes,
+                    status          = "pending",
+                    estado_gestion  = "vigente",
+                    due_date        = due_date,
+                    es_exigible     = (due_date <= hoy),
+                    dias_mora       = max(0, (hoy - due_date).days) if due_date < hoy else 0,
+                )
+                db.add(nueva_deuda)
+
+            generados.append({
+                "colegiado_id": col.id,
+                "matricula":    col.codigo_matricula,
+                "periodo":      periodo,
+                "monto":        monto_mes,
+            })
+
+    if not dry_run and generados:
+        db.commit()
+
+    return JSONResponse({
+        "ok":           True,
+        "dry_run":      dry_run,
+        "anio":         anio,
+        "mes_hasta":    mes_hasta,
+        "generados":    len(generados),
+        "omitidos":     omitidos,
+        "monto_mes":    monto_mes,
+        "detalle":      generados if dry_run else [],
+        "mensaje":      (
+            f"{'[DRY RUN] ' if dry_run else ''}"
+            f"Se {'generarían' if dry_run else 'generaron'} "
+            f"{len(generados)} cuotas ordinarias de S/ {monto_mes} "
+            f"para {anio} (meses 1-{mes_hasta})."
+        ),
+    })    
