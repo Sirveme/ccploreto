@@ -9,11 +9,10 @@ Registrar en main.py:
         app.include_router(dev_router)
 """
 
-import json as _json
 import logging
 import os
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -33,48 +32,35 @@ def _check_dev():
 # ── Simular email bancario ─────────────────────────────────────────────────────
 @router.post("/simular-email-banco", summary="Simula llegada de email bancario")
 async def simular_email_banco(
-    request: Request,
+    raw_email: str = Body(
+        ...,
+        media_type="text/plain",
+        description=(
+            "Pega el email completo tal como llega del banco, con saltos de linea reales.\n\n"
+            "Ejemplo:\n\n"
+            "From: BBVA <procesos@bbva.com.pe>\n"
+            "Subject: Transferencia recibida\n"
+            "Message-ID: <test-001>\n\n"
+            "Importe 500.00\n"
+            "Numero de operacion OP-123456\n"
+            "Fecha y hora 16/03/2026 14:32:10\n"
+            "Ordenante JUAN PEREZ GARCIA"
+        ),
+    ),
     organization_id: int = 1,
     db: Session = Depends(get_db),
 ):
-    """
-    Acepta dos formatos:
-
-    **text/plain** (recomendado) — pegar el email tal cual con saltos de linea reales.
-
-    **application/json** — enviar {"raw_email": "...", "organization_id": 1}
-    usando \\n para los saltos de linea.
-    """
     _check_dev()
 
     from app.services.email_parser import parsear_email
     from app.services.imap_listener import guardar_notificacion
 
-    content_type = request.headers.get("content-type", "")
-    body_bytes = await request.body()
+    if not raw_email or not raw_email.strip():
+        return JSONResponse({"ok": False, "error": "Email vacio"}, status_code=400)
 
-    if not body_bytes.strip():
-        return JSONResponse({"ok": False, "error": "Body vacio"}, status_code=400)
+    raw_bytes = raw_email.encode("utf-8")
+    org_id    = organization_id
 
-    # Determinar raw_bytes y org_id segun content-type
-    if "application/json" in content_type:
-        try:
-            payload = _json.loads(body_bytes)
-            raw_text = payload.get("raw_email", "")
-            org_id = int(payload.get("organization_id", organization_id))
-            # Reemplazar \n literales (JSON) por saltos de linea reales
-            raw_bytes = raw_text.replace("\\n", "\n").encode("utf-8")
-        except Exception as e:
-            return JSONResponse({"ok": False, "error": f"JSON invalido: {e}"}, status_code=400)
-    else:
-        # text/plain — bytes tal cual, el parser los maneja directamente
-        raw_bytes = body_bytes
-        org_id = organization_id
-
-    if not raw_bytes.strip():
-        return JSONResponse({"ok": False, "error": "Email vacio tras procesar"}, status_code=400)
-
-    # Parchear ORG_ID temporalmente para esta simulacion
     import app.services.imap_listener as _listener
     org_original = _listener.ORG_ID
     _listener.ORG_ID = org_id
@@ -93,9 +79,9 @@ async def simular_email_banco(
                 "ok": False,
                 "motivo": "Email parseado pero sin monto valido.",
                 "parse_result": {
-                    "banco": pago.banco,
-                    "monto": pago.monto,
-                    "nro_op": pago.nro_operacion,
+                    "banco":     pago.banco,
+                    "monto":     pago.monto,
+                    "nro_op":    pago.nro_operacion,
                     "confianza": pago.confianza,
                 },
             })
@@ -105,8 +91,8 @@ async def simular_email_banco(
                 "ok": False,
                 "motivo": f"Operacion propia descartada (tipo: {pago.tipo_operacion}).",
                 "parse_result": {
-                    "banco": pago.banco,
-                    "monto": pago.monto,
+                    "banco":          pago.banco,
+                    "monto":          pago.monto,
                     "tipo_operacion": pago.tipo_operacion,
                 },
             })
@@ -114,18 +100,18 @@ async def simular_email_banco(
         guardado = guardar_notificacion(pago, from_header="simulado@dev.test", db=db)
 
         return JSONResponse({
-            "ok": True,
+            "ok":      True,
             "guardado": guardado,
             "parse": {
-                "banco": pago.banco,
-                "monto": pago.monto,
-                "nro_operacion": pago.nro_operacion,
-                "fecha": str(pago.fecha_operacion),
-                "remitente": pago.remitente_nombre,
-                "concepto": pago.concepto,
+                "banco":          pago.banco,
+                "monto":          pago.monto,
+                "nro_operacion":  pago.nro_operacion,
+                "fecha":          str(pago.fecha_operacion),
+                "remitente":      pago.remitente_nombre,
+                "concepto":       pago.concepto,
                 "tipo_operacion": pago.tipo_operacion,
-                "confianza": f"{pago.confianza}%",
-                "es_recibido": pago.es_pago_recibido,
+                "confianza":      f"{pago.confianza}%",
+                "es_recibido":    pago.es_pago_recibido,
             },
             "nota": "Guardado en notificaciones_bancarias." if guardado else "Duplicado — ya existia.",
         })
@@ -135,7 +121,7 @@ async def simular_email_banco(
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     finally:
-        _listener.ORG_ID = org_original  # restaurar siempre
+        _listener.ORG_ID = org_original
 
 
 # ── Ver notificaciones bancarias ───────────────────────────────────────────────
@@ -154,17 +140,17 @@ async def ver_notificaciones(
     registros = q.limit(limite).all()
 
     return JSONResponse([{
-        "id": r.id,
-        "banco": r.banco,
-        "monto": float(r.monto),
-        "codigo_op": r.codigo_operacion,
-        "fecha_op": str(r.fecha_operacion),
-        "remitente": r.remitente_nombre,
-        "estado": r.estado,
-        "payment_id": r.payment_id,
-        "confianza": r.observaciones,
+        "id":            r.id,
+        "banco":         r.banco,
+        "monto":         float(r.monto),
+        "codigo_op":     r.codigo_operacion,
+        "fecha_op":      str(r.fecha_operacion),
+        "remitente":     r.remitente_nombre,
+        "estado":        r.estado,
+        "payment_id":    r.payment_id,
+        "confianza":     r.observaciones,
         "email_subject": r.email_subject,
-        "created_at": str(r.created_at),
+        "created_at":    str(r.created_at),
     } for r in registros])
 
 
@@ -182,13 +168,13 @@ async def ver_reportes_pago(
     ).order_by(Payment.created_at.desc()).limit(limite).all()
 
     return JSONResponse([{
-        "id": p.id,
+        "id":           p.id,
         "colegiado_id": p.colegiado_id,
-        "monto": p.amount,
-        "metodo": p.payment_method,
-        "nro_op": p.operation_code,
-        "status": p.status,
-        "voucher": p.voucher_url,
-        "notes": p.notes,
-        "created_at": str(p.created_at),
+        "monto":        p.amount,
+        "metodo":       p.payment_method,
+        "nro_op":       p.operation_code,
+        "status":       p.status,
+        "voucher":      p.voucher_url,
+        "notes":        p.notes,
+        "created_at":   str(p.created_at),
     } for p in pagos])

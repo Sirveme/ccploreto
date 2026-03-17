@@ -509,101 +509,113 @@ MAX_VOUCHER_MB  = 10
 
 
 # ── Endpoint ───────────────────────────────────────────────────────────────────
-@router.post("/api/portal/reportar-pago")
+@router.post("/reportar-pago")
 async def reportar_pago(
-    # Campos del formulario
     monto:                float         = Form(...),
     nro_operacion:        str           = Form(...),
     metodo:               str           = Form(...),
-    deuda_ids:            str           = Form(""),       # "10259,10260,10261"
-    fracc_codigo:         Optional[str] = Form(None),     # código de fraccionamiento
-    concepto:             Optional[str] = Form(None),     # texto libre
+    deuda_ids:            str           = Form(""),
+    fracc_codigo:         Optional[str] = Form(None),
+    concepto:             Optional[str] = Form(None),
     solicitar_constancia: bool          = Form(False),
-    # Voucher obligatorio
     voucher:              UploadFile    = File(...),
-    # Inyecciones FastAPI
     member:               Member        = Depends(get_current_member),
     db:                   Session       = Depends(get_db),
 ):
-    # ── Validaciones ────────────────────────────────────────────────────────────
+    # ── Validaciones ─────────────────────────────────────────────────────────
     if monto <= 0:
-        return JSONResponse({"ok": False, "error": "El monto debe ser mayor a cero."}, status_code=400)
-
+        return JSONResponse(
+            {"ok": False, "error": "El monto debe ser mayor a cero."},
+            status_code=400
+        )
+ 
     nro_operacion = nro_operacion.strip()
     if not nro_operacion:
-        return JSONResponse({"ok": False, "error": "El N° de operación es obligatorio."}, status_code=400)
-
+        return JSONResponse(
+            {"ok": False, "error": "El N° de operación es obligatorio."},
+            status_code=400
+        )
+ 
     if metodo.lower() not in METODOS_VALIDOS:
-        return JSONResponse({"ok": False, "error": f"Método inválido: {metodo}"}, status_code=400)
-
+        return JSONResponse(
+            {"ok": False, "error": f"Método inválido: {metodo}"},
+            status_code=400
+        )
+ 
     if not voucher or not voucher.filename:
-        return JSONResponse({"ok": False, "error": "El voucher es obligatorio."}, status_code=400)
-
-    # Validar tamaño voucher
+        return JSONResponse(
+            {"ok": False, "error": "El voucher es obligatorio."},
+            status_code=400
+        )
+ 
     voucher_bytes = await voucher.read()
     if len(voucher_bytes) > MAX_VOUCHER_MB * 1024 * 1024:
         return JSONResponse(
             {"ok": False, "error": f"El voucher no debe superar {MAX_VOUCHER_MB}MB."},
             status_code=400
         )
-
-    # ── Obtener colegiado ────────────────────────────────────────────────────────
+ 
+    # ── Obtener colegiado ─────────────────────────────────────────────────────
     colegiado = db.query(Colegiado).filter(
-        Colegiado.member_id      == member.id,
+        Colegiado.member_id       == member.id,
         Colegiado.organization_id == member.organization_id,
     ).first()
-
+ 
     if not colegiado:
-        return JSONResponse({"ok": False, "error": "Colegiado no encontrado."}, status_code=404)
-
-    # ── Subir voucher a GCS ──────────────────────────────────────────────────────
-    ts         = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-    ext        = _extension_segura(voucher.content_type, voucher.filename)
-    blob_path  = f"{member.organization_id}/pagos/{colegiado.id}/voucher_{ts}.{ext}"
+        return JSONResponse(
+            {"ok": False, "error": "Colegiado no encontrado."},
+            status_code=404
+        )
+ 
+    # ── Subir voucher a GCS ───────────────────────────────────────────────────
+    ts           = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    ext          = _ext_segura(voucher.content_type, voucher.filename)
+    blob_path    = f"{member.organization_id}/pagos/{colegiado.id}/voucher_{ts}.{ext}"
     content_type = voucher.content_type or 'image/jpeg'
-
+ 
     voucher_path = upload_documento(
         file_bytes   = voucher_bytes,
         content_type = content_type,
         blob_path    = blob_path,
     )
-
+ 
     if not voucher_path:
-        # GCS no configurado o falló — continuar sin voucher en producción
-        # En desarrollo, alertar pero no bloquear
-        logger.warning(f'[ReportePago] GCS no disponible — voucher no subido para colegiado {colegiado.id}')
-        voucher_path = None
-
-    # ── Preparar notes con toda la info ─────────────────────────────────────────
+        logger.warning(
+            f'[ReportePago] GCS no disponible — '
+            f'voucher no subido para colegiado {colegiado.id}'
+        )
+ 
+    # ── Preparar notas ────────────────────────────────────────────────────────
     notas = {
         "deuda_ids":    [int(x) for x in deuda_ids.split(',') if x.strip().isdigit()],
         "fracc_codigo": fracc_codigo or None,
         "concepto":     concepto or None,
     }
-
-    # ── Crear Payment ────────────────────────────────────────────────────────────
+ 
+    # ── Crear Payment ─────────────────────────────────────────────────────────
+    nombre_colegiado = getattr(colegiado, 'nombre_completo', None) \
+                    or getattr(colegiado, 'nombres', None)
+ 
     payment = Payment(
-        organization_id    = member.organization_id,
-        colegiado_id       = colegiado.id,
-        amount             = round(monto, 2),
-        currency           = 'PEN',
-        payment_method     = metodo.lower(),
-        operation_code     = nro_operacion.upper(),
-        voucher_url        = voucher_path,
-        pagador_tipo       = 'titular',
-        pagador_nombre     = colegiado.nombre_completo if hasattr(colegiado, 'nombre_completo') else None,
-        status             = 'review',
-        notes              = json.dumps(notas, ensure_ascii=False),
+        organization_id = member.organization_id,
+        colegiado_id    = colegiado.id,
+        amount          = round(monto, 2),
+        currency        = 'PEN',
+        payment_method  = metodo.lower(),
+        operation_code  = nro_operacion.upper(),
+        voucher_url     = voucher_path,
+        pagador_tipo    = 'titular',
+        pagador_nombre  = nombre_colegiado,
+        status          = 'review',
+        notes           = json.dumps(notas, ensure_ascii=False),
     )
     db.add(payment)
-    db.flush()   # obtener payment.id sin commit aún
-
-    # ── Matching automático ──────────────────────────────────────────────────────
-    nivel           = 0
-    notificacion    = None
-    estado_final    = 'review'
-    mensaje_usuario = None
-
+    db.flush()  # necesitamos payment.id antes del commit
+ 
+    # ── Matching automático con notificaciones bancarias ──────────────────────
+    nivel        = 0
+    notificacion = None
+ 
     try:
         notificacion, nivel = matching_al_reportar(
             nro_operacion   = nro_operacion,
@@ -613,73 +625,217 @@ async def reportar_pago(
             organization_id = member.organization_id,
             db              = db,
         )
-
+ 
         if notificacion and nivel >= 2:
-            estado_final = aplicar_match(
+            aplicar_match(
                 notificacion    = notificacion,
                 reporte_pago_id = payment.id,
                 nivel           = nivel,
                 conciliado_por  = 'auto',
                 db              = db,
             )
-            payment.status = 'approved' if nivel == 3 else 'review'
-            # Vincular notificacion → payment
+            # Nivel 3 = aprobación automática, nivel 2 = sigue en review para caja
+            if nivel == 3:
+                payment.status = 'approved'
             notificacion.payment_id = payment.id
             db.flush()
-
+ 
     except Exception as e:
         logger.error(f'[ReportePago] Error en matching: {e}', exc_info=True)
-        # El pago se guarda igual, el matching falla silenciosamente
-
+        # El pago se guarda igual aunque el matching falle
+ 
     db.commit()
-
-    # ── Mensaje para el chat del asistente ───────────────────────────────────────
+ 
+    # ── Mensaje para el chat ──────────────────────────────────────────────────
     if nivel == 3:
-        mensaje_usuario = (
-            f'✅ ¡Pago verificado automáticamente! Tu N° de operación '
-            f'<strong>{nro_operacion}</strong> coincide con la notificación del banco. '
-            f'La caja revisará tu cuenta en breve.'
+        mensaje = (
+            f'✅ ¡Pago verificado automáticamente! El N° de operación '
+            f'<strong>{nro_operacion}</strong> coincide con la notificación '
+            f'del banco. Tu cuenta será actualizada en breve.'
         )
     elif nivel == 2:
-        mensaje_usuario = (
-            f'✅ Pago reportado y verificación probable (monto S/ {monto:.2f} coincide '
-            f'con el banco). La caja lo confirmará en pocas horas.'
+        mensaje = (
+            f'✅ Pago reportado. El monto S/ {monto:.2f} coincide con un '
+            f'registro del banco. La caja confirmará en pocas horas.'
         )
     else:
-        mensaje_usuario = (
-            f'📤 Pago reportado correctamente. '
-            f'La caja validará tu voucher en hasta 24h y recibirás una notificación al aprobar.'
+        mensaje = (
+            f'📤 Pago reportado correctamente. La caja validará tu voucher '
+            f'en hasta 24h y recibirás una notificación al aprobar.'
         )
-
+ 
     logger.info(
         f'[ReportePago] payment_id={payment.id} colegiado={colegiado.id} '
-        f'monto={monto} nivel_match={nivel} estado={payment.status}'
+        f'monto={monto} nivel_match={nivel} status={payment.status}'
     )
-
+ 
     return JSONResponse({
         "ok":          True,
         "payment_id":  payment.id,
         "estado":      payment.status,
         "nivel_match": nivel,
-        "mensaje":     mensaje_usuario,
+        "mensaje":     mensaje,
     })
-
-
-# ── Helper ─────────────────────────────────────────────────────────────────────
-def _extension_segura(content_type: str, filename: str) -> str:
-    """Devuelve extensión segura basada en content_type o nombre de archivo."""
+ 
+ 
+def _ext_segura(content_type: str, filename: str) -> str:
     ct_map = {
-        'image/jpeg':       'jpg',
-        'image/jpg':        'jpg',
-        'image/png':        'png',
-        'image/webp':       'webp',
-        'image/gif':        'gif',
-        'application/pdf':  'pdf',
+        'image/jpeg':      'jpg',
+        'image/jpg':       'jpg',
+        'image/png':       'png',
+        'image/webp':      'webp',
+        'image/gif':       'gif',
+        'application/pdf': 'pdf',
     }
     ext = ct_map.get((content_type or '').lower())
     if ext:
         return ext
-    # Fallback: tomar extensión del nombre de archivo
     if filename and '.' in filename:
         return filename.rsplit('.', 1)[-1].lower()[:5]
     return 'jpg'
+
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AGREGAR A app/routers/portal_colegiado.py
+#
+# Imports adicionales:
+#   import base64, json
+#   from openai import OpenAI
+#   import httpx
+# ══════════════════════════════════════════════════════════════════════════════
+
+import base64
+import json
+import httpx
+import os
+import logging
+
+from fastapi import File, UploadFile
+from fastapi.responses import JSONResponse
+from openai import OpenAI
+
+logger = logging.getLogger(__name__)
+
+OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY", "")
+APIS_NET_PE_KEY = os.getenv("APIS_NET_PE_KEY", "")   # opcional — sin token igual funciona
+
+
+# ── OCR del voucher ────────────────────────────────────────────────────────────
+@router.post("/analizar-voucher")
+async def analizar_voucher(
+    voucher: UploadFile = File(...),
+    member:  Member     = Depends(get_current_member),
+):
+    """
+    Recibe imagen del voucher, devuelve JSON con datos extraídos:
+    { amount, operation_code, date, bank, ok }
+    """
+    if not OPENAI_API_KEY:
+        return JSONResponse({"ok": False, "msg": "OCR no configurado"}, status_code=503)
+
+    try:
+        contents     = await voucher.read()
+        base64_image = base64.b64encode(contents).decode("utf-8")
+        content_type = voucher.content_type or "image/jpeg"
+
+        client = OpenAI(api_key=OPENAI_API_KEY)
+
+        prompt = """
+Analiza esta imagen de un comprobante de pago (Yape, Plin, Transferencia BCP/Interbank/BBVA/Scotiabank).
+Extrae estrictamente en formato JSON:
+- "amount": monto total (número decimal, sin símbolo de moneda, ej: 500.00)
+- "operation_code": número de operación o ID de transacción (string)
+- "date": fecha y hora si es visible (formato YYYY-MM-DD HH:MM), si no: null
+- "bank": nombre del banco o billetera digital detectada (string corto, ej: "BBVA", "Yape", "BCP")
+
+Si no encuentras algún dato, pon null. No inventes datos.
+Responde SOLO el JSON, sin texto adicional ni markdown.
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:{content_type};base64,{base64_image}"
+                    }},
+                ],
+            }],
+            max_tokens=300,
+        )
+
+        raw     = response.choices[0].message.content
+        clean   = raw.replace("```json", "").replace("```", "").strip()
+        data    = json.loads(clean)
+
+        logger.info(f"[OCR] colegiado={member.id} banco={data.get('bank')} monto={data.get('amount')}")
+
+        return JSONResponse({
+            "ok":             True,
+            "amount":         data.get("amount"),
+            "operation_code": data.get("operation_code"),
+            "date":           data.get("date"),
+            "bank":           data.get("bank"),
+        })
+
+    except json.JSONDecodeError:
+        logger.warning(f"[OCR] Respuesta no parseable: {raw[:200]}")
+        return JSONResponse({"ok": False, "msg": "No se pudo leer el voucher. Ingresa los datos manualmente."})
+    except Exception as e:
+        logger.error(f"[OCR] Error: {e}", exc_info=True)
+        return JSONResponse({"ok": False, "msg": "Error al analizar el voucher."})
+
+
+# ── Consulta RUC (apis.net.pe) ─────────────────────────────────────────────────
+@router.get("/ruc/{ruc}")
+async def consultar_ruc_portal(ruc: str):
+    """
+    Consulta RUC en apis.net.pe.
+    Retorna: { ok, ruc, nombre, direccion, estado, tipo_ruc }
+    tipo_ruc: 'natural' (RUC 10) | 'empresa' (RUC 20)
+    Para RUC 10 la dirección puede venir vacía — el frontend la deja editable.
+    """
+    if len(ruc) != 11 or not ruc.isdigit():
+        return JSONResponse({"ok": False, "error": "RUC inválido"}, status_code=400)
+
+    tipo_ruc = "natural" if ruc.startswith("10") else "empresa"
+
+    try:
+        headers = {"Accept": "application/json"}
+        if APIS_NET_PE_KEY:
+            headers["Authorization"] = f"Bearer {APIS_NET_PE_KEY}"
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}",
+                headers=headers,
+            )
+
+        if r.status_code == 200:
+            d = r.json()
+            return JSONResponse({
+                "ok":        True,
+                "ruc":       ruc,
+                "nombre":    d.get("razonSocial") or d.get("nombre") or "",
+                "direccion": d.get("direccion") or "",   # vacío para RUC 10 — esperado
+                "estado":    d.get("estado", "ACTIVO"),
+                "tipo_ruc":  tipo_ruc,
+            })
+
+    except Exception as e:
+        logger.warning(f"[RUC] Error consultando {ruc}: {e}")
+
+    # Fallback — dejar campos editables
+    return JSONResponse({
+        "ok":        False,
+        "ruc":       ruc,
+        "nombre":    "",
+        "direccion": "",
+        "estado":    "NO VERIFICADO",
+        "tipo_ruc":  tipo_ruc,
+        "msg":       "API no disponible — ingresa los datos manualmente.",
+    })
