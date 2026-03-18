@@ -1758,8 +1758,149 @@ catalogo: {
 
   /* ─── Elegir tipo de pago ─────────────────────────────── */
     elegirPago: {
-        abrir()  { $('modal-elegir-pago')?.classList.add('open'); },
-        cerrar() { $('modal-elegir-pago')?.classList.remove('open'); },
+        _rucTimer: null,
+
+        abrir() {
+            this._resetPaso1();
+            $('ep-paso1').style.display = 'block';
+            $('ep-paso2').style.display = 'none';
+            if ($('ep-titulo'))   $('ep-titulo').textContent   = 'Comprobante de pago';
+            if ($('ep-paso-ind')) $('ep-paso-ind').textContent = 'Paso 1 de 2';
+            $('modal-elegir-pago')?.classList.add('open');
+        },
+
+        cerrar() {
+            $('modal-elegir-pago')?.classList.remove('open');
+            this._resetPaso1();
+        },
+
+        _resetPaso1() {
+            // Limpiar selección
+            document.querySelectorAll('input[name="ep-tipo-comp"]')
+                .forEach(r => { r.checked = false; });
+            ['ep-opt-boleta','ep-opt-factura','ep-opt-ninguno'].forEach(id => {
+                $( id)?.classList.remove('rp-comp-selected');
+                const chk = $(id)?.querySelector('.ep-check');
+                if (chk) chk.textContent = 'radio_button_unchecked';
+            });
+            if ($('ep-factura-datos')) $('ep-factura-datos').style.display = 'none';
+            ['ep-ruc','ep-razon-social','ep-direccion'].forEach(id => {
+                const el = $(id); if (el) { el.value = ''; el.readOnly = false; }
+            });
+            if ($('ep-ruc-estado'))  $('ep-ruc-estado').textContent  = '';
+            if ($('ep-dir-hint'))    $('ep-dir-hint').textContent    = '';
+            if ($('ep-btn-continuar')) $('ep-btn-continuar').disabled = true;
+        },
+
+        onTipoComp(tipo) {
+            // Actualizar visual de opciones
+            const map = { boleta: 'ep-opt-boleta', factura: 'ep-opt-factura', '': 'ep-opt-ninguno' };
+            Object.keys(map).forEach(k => {
+                const el  = $(map[k]);
+                const chk = el?.querySelector('.ep-check');
+                const sel = k === tipo;
+                el?.classList.toggle('rp-comp-selected', sel);
+                if (chk) chk.textContent = sel ? 'radio_button_checked' : 'radio_button_unchecked';
+            });
+            // Mostrar/ocultar datos de factura
+            if ($('ep-factura-datos'))
+                $('ep-factura-datos').style.display = tipo === 'factura' ? 'block' : 'none';
+            // Habilitar continuar — factura requiere RUC válido
+            if (tipo === 'factura') {
+                this._actualizarContinuar();
+            } else {
+                if ($('ep-btn-continuar')) $('ep-btn-continuar').disabled = false;
+            }
+        },
+
+        onRucInput(ruc) {
+            if ($('ep-ruc-estado')) $('ep-ruc-estado').textContent = '';
+            if ($('ep-btn-continuar')) $('ep-btn-continuar').disabled = true;
+            if (this._rucTimer) clearTimeout(this._rucTimer);
+            if (ruc.length !== 11 || !/^\d+$/.test(ruc)) return;
+            this._rucTimer = setTimeout(() => this._consultarRuc(ruc), 600);
+        },
+
+        async _consultarRuc(ruc) {
+            const spin  = $('ep-ruc-spin');
+            const est   = $('ep-ruc-estado');
+            const rsEl  = $('ep-razon-social');
+            const dirEl = $('ep-direccion');
+            const hint  = $('ep-dir-hint');
+            if (spin) spin.style.display = 'inline-flex';
+            if (est)  est.textContent    = 'Consultando...';
+            try {
+                const r = await fetch(`/api/portal/ruc/${ruc}`);
+                const d = await r.json();
+                if (spin) spin.style.display = 'none';
+                const esNatural = (d.tipo_ruc === 'natural') || ruc.startsWith('10');
+                if (d.ok && d.nombre) {
+                    if (rsEl)  { rsEl.value  = d.nombre;     rsEl.readOnly  = true; }
+                    if (dirEl) {
+                        dirEl.value    = d.direccion || '';
+                        dirEl.readOnly = !esNatural && !!d.direccion;
+                    }
+                    if (hint) hint.textContent = esNatural
+                        ? '(Persona natural — ingresa tu dirección)'
+                        : (d.direccion ? '' : 'Ingresa la dirección manualmente');
+                    if (est) { est.textContent = `✅ ${d.estado || 'ACTIVO'}`; est.style.color = 'var(--emerald-soft)'; }
+                } else {
+                    if (rsEl)  { rsEl.value  = ''; rsEl.readOnly  = false; }
+                    if (dirEl) { dirEl.value = ''; dirEl.readOnly = false; }
+                    if (hint)  hint.textContent = 'Ingresa los datos manualmente';
+                    if (est)   { est.textContent = d.msg || 'No encontrado'; est.style.color = 'var(--amber-soft)'; }
+                }
+            } catch(e) {
+                if (spin) spin.style.display = 'none';
+                if (est)  est.textContent = 'Error — ingresa los datos manualmente';
+                if (rsEl)  rsEl.readOnly  = false;
+                if (dirEl) dirEl.readOnly = false;
+            }
+            this._actualizarContinuar();
+        },
+
+        _actualizarContinuar() {
+            const tipo  = document.querySelector('input[name="ep-tipo-comp"]:checked')?.value;
+            const btn   = $('ep-btn-continuar');
+            if (!btn) return;
+            if (tipo === 'factura') {
+                const ruc = ($('ep-ruc')?.value || '').trim();
+                const rs  = ($('ep-razon-social')?.value || '').trim();
+                btn.disabled = !(ruc.length === 11 && rs.length > 0);
+            } else {
+                btn.disabled = false;
+            }
+        },
+
+        irPaso2() {
+            const tipo = document.querySelector('input[name="ep-tipo-comp"]:checked')?.value;
+            if (tipo === undefined) return;
+            // Guardar en Portal.ctx
+            Portal.ctx.tipo_comprobante     = tipo || null;
+            Portal.ctx.factura_ruc          = tipo === 'factura' ? ($('ep-ruc')?.value || '')          : '';
+            Portal.ctx.factura_razon_social = tipo === 'factura' ? ($('ep-razon-social')?.value || '') : '';
+            Portal.ctx.factura_direccion    = tipo === 'factura' ? ($('ep-direccion')?.value || '')    : '';
+            // Actualizar resumen
+            const icono = tipo === 'boleta'  ? 'receipt'
+                        : tipo === 'factura' ? 'description' : 'block';
+            const texto = tipo === 'boleta'  ? 'Boleta Electrónica'
+                        : tipo === 'factura' ? `Factura · RUC ${Portal.ctx.factura_ruc}`
+                        : 'Sin comprobante';
+            if ($('ep-comp-icono')) $('ep-comp-icono').textContent = icono;
+            if ($('ep-comp-texto')) $('ep-comp-texto').textContent = texto;
+            // Mostrar paso 2
+            $('ep-paso1').style.display = 'none';
+            $('ep-paso2').style.display = 'block';
+            if ($('ep-titulo'))   $('ep-titulo').textContent   = '¿Cómo quieres pagar?';
+            if ($('ep-paso-ind')) $('ep-paso-ind').textContent = 'Paso 2 de 2';
+        },
+
+        volverPaso1() {
+            $('ep-paso1').style.display = 'block';
+            $('ep-paso2').style.display = 'none';
+            if ($('ep-titulo'))   $('ep-titulo').textContent   = 'Comprobante de pago';
+            if ($('ep-paso-ind')) $('ep-paso-ind').textContent = 'Paso 1 de 2';
+        },
 
         fraccionar() {
             this.cerrar();
@@ -1768,11 +1909,19 @@ catalogo: {
 
         conTarjeta() {
             this.cerrar();
-            Modales.pagoLinea.abrir();  // sin parámetro → lista completa
+            Modales.pagoLinea.abrir();
         },
 
         reportarPago() {
             this.cerrar();
+            // Pre-llenar datos de comprobante en el modal de reportar pago
+            if (Portal.ctx.tipo_comprobante && Modales.reportarPago._tipoComp === null) {
+                Modales.reportarPago._tipoComp = Portal.ctx.tipo_comprobante;
+                // Actualizar visual del modal de reportar pago si ya está inicializado
+                const evt = new Event('change');
+                document.querySelector(`input[name="rp-tipo-comp"][value="${Portal.ctx.tipo_comprobante}"]`)
+                    ?.dispatchEvent(evt);
+            }
             Modales.reportarPago.abrir();
         },
     },
