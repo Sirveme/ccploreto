@@ -1508,6 +1508,11 @@ catalogo: {
     abrir(montoFijo = null) {
       this._montoFijo        = montoFijo;
       this._idsSeleccionados = new Set();
+      // Limpiar campos de comprobante pendientes (se llenan en recalcular)
+      Portal._tipoCompPendiente   = '';
+      Portal._facturaRucPendiente = '';
+      Portal._facturaRsPendiente  = '';
+      Portal._facturaDirPendiente = '';
 
       if (montoFijo !== null) {
         this._renderModoFijo(montoFijo);
@@ -1637,6 +1642,16 @@ catalogo: {
     },
 
     recalcular() {
+      // Capturar datos de comprobante del modal de Reportar Pago si el colegiado ya los eligió
+      // Esto permite que pagoLinea (OpenPay) también los envíe al backend
+      const tipoComp = Modales.reportarPago?._tipoComp;
+      if (tipoComp) {
+        Portal._tipoCompPendiente   = tipoComp;
+        Portal._facturaRucPendiente = document.getElementById('rp-ruc')?.value || '';
+        Portal._facturaRsPendiente  = document.getElementById('rp-razon-social')?.value || '';
+        Portal._facturaDirPendiente = document.getElementById('rp-direccion')?.value || '';
+      }
+
       let montoBase    = 0;
       let condonaEnSel = 0;
 
@@ -1718,9 +1733,14 @@ catalogo: {
           method:  'POST',
           headers: { 'HX-Request': 'true', 'Content-Type': 'application/x-www-form-urlencoded' },
           body:    new URLSearchParams({
-            monto_directo:      monto,
-            incluir_constancia: addConst > 0 ? '1' : '0',
-            deuda_ids:          deudaIds,
+            monto_directo:        monto,
+            incluir_constancia:   addConst > 0 ? '1' : '0',
+            deuda_ids:            deudaIds,
+            // Comprobante — datos del modal Reportar Pago reutilizados aquí
+            tipo_comprobante:     Portal._tipoCompPendiente      || '',
+            factura_ruc:          Portal._facturaRucPendiente    || '',
+            factura_razon_social: Portal._facturaRsPendiente     || '',
+            factura_direccion:    Portal._facturaDirPendiente    || '',
           }),
         });
         const hxRedir = r.headers.get('HX-Redirect');
