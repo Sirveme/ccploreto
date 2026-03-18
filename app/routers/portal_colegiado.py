@@ -518,6 +518,11 @@ async def reportar_pago(
     fracc_codigo:         Optional[str] = Form(None),
     concepto:             Optional[str] = Form(None),
     solicitar_constancia: bool          = Form(False),
+    # Comprobante electrónico
+    tipo_comprobante:     Optional[str] = Form(None),   # 'boleta' | 'factura'
+    factura_ruc:          Optional[str] = Form(None),
+    factura_razon_social: Optional[str] = Form(None),
+    factura_direccion:    Optional[str] = Form(None),
     voucher:              UploadFile    = File(...),
     member:               Member        = Depends(get_current_member),
     db:                   Session       = Depends(get_db),
@@ -587,9 +592,13 @@ async def reportar_pago(
  
     # ── Preparar notas ────────────────────────────────────────────────────────
     notas = {
-        "deuda_ids":    [int(x) for x in deuda_ids.split(',') if x.strip().isdigit()],
-        "fracc_codigo": fracc_codigo or None,
-        "concepto":     concepto or None,
+        "deuda_ids":            [int(x) for x in deuda_ids.split(',') if x.strip().isdigit()],
+        "fracc_codigo":         fracc_codigo or None,
+        "concepto":             concepto or None,
+        "tipo_comprobante":     tipo_comprobante or None,
+        "factura_ruc":          factura_ruc or None,
+        "factura_razon_social": factura_razon_social or None,
+        "factura_direccion":    factura_direccion or None,
     }
  
     # ── Crear Payment ─────────────────────────────────────────────────────────
@@ -644,14 +653,60 @@ async def reportar_pago(
         logger.error(f'[ReportePago] Error en matching: {e}', exc_info=True)
         # El pago se guarda igual aunque el matching falle
  
+    # ── Emitir comprobante si pago auto-aprobado (nivel 3) ─────────────────────
+    comprobante_info = None
+    if payment.status == 'approved' and tipo_comprobante in ('boleta', 'factura'):
+        try:
+            from app.services.facturacion import FacturacionService
+            svc = FacturacionService(db, member.organization_id)
+            if svc.esta_configurado():
+                tipo_doc     = "01" if tipo_comprobante == "factura" else "03"
+                forzar_datos = None
+                if tipo_comprobante == "factura" and factura_ruc:
+                    forzar_datos = {
+                        "tipo_doc":  "6",
+                        "num_doc":   factura_ruc,
+                        "nombre":    factura_razon_social or "CLIENTE",
+                        "direccion": factura_direccion or "",
+                        "email":     None,
+                    }
+                comprobante_info = await svc.emitir_comprobante_por_pago(
+                    payment.id,
+                    tipo                 = tipo_doc,
+                    forzar_datos_cliente = forzar_datos,
+                )
+                if comprobante_info.get("success"):
+                    logger.info(
+                        f'[ReportePago] Comprobante emitido: '
+                        f'{comprobante_info.get("numero_formato")} '
+                        f'pdf={comprobante_info.get("pdf_url")}'
+                    )
+                else:
+                    logger.warning(
+                        f'[ReportePago] Comprobante no emitido: '
+                        f'{comprobante_info.get("error")}'
+                    )
+        except Exception as e:
+            logger.error(f'[ReportePago] Error emitiendo comprobante: {e}', exc_info=True)
+
     db.commit()
  
     # ── Mensaje para el chat ──────────────────────────────────────────────────
     if nivel == 3:
+        pdf_link = ""
+        if comprobante_info and comprobante_info.get("success") and comprobante_info.get("pdf_url"):
+            num_fmt  = comprobante_info.get("numero_formato", "")
+            pdf_url  = comprobante_info["pdf_url"]
+            tipo_nom = "Factura" if tipo_comprobante == "factura" else "Boleta"
+            pdf_link = (
+                f'<br>📄 <a href="{pdf_url}" target="_blank" '
+                f'style="color:var(--emerald-soft)">'
+                f'{tipo_nom} {num_fmt} — Descargar PDF</a>'
+            )
         mensaje = (
             f'✅ ¡Pago verificado automáticamente! El N° de operación '
             f'<strong>{nro_operacion}</strong> coincide con la notificación '
-            f'del banco. Tu cuenta será actualizada en breve.'
+            f'del banco. Tu cuenta será actualizada en breve.{pdf_link}'
         )
     elif nivel == 2:
         mensaje = (
@@ -1050,4 +1105,4 @@ async def generar_cuotas_ordinarias(
             f"{len(generados)} cuotas ordinarias de S/ {monto_mes} "
             f"para {anio} (meses 1-{mes_hasta})."
         ),
-    })    
+    })
