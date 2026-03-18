@@ -624,12 +624,11 @@
 </div>
 
 
-<!-- ══ MODAL: ELEGIR TIPO DE PAGO ═══════════════════════════    
- TAMBIÉN cambiar en el bottom bar:
-       onclick="Modales.pagoLinea.abrir()"
-     por:
-       onclick="Modales.elegirPago.abrir()"
-══════════════════════════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: ELEGIR TIPO DE PAGO — 2 pasos ═══════════════════════════════════
+     Paso 1: Comprobante (Boleta / Factura / Ninguno) + datos RUC si factura
+     Paso 2: Método de pago (Fraccionar / Tarjeta / Ya pagué)
+     Los datos se guardan en Portal.ctx antes de cualquier flujo.
+══════════════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-elegir-pago">
   <div class="modal-box" style="max-width:440px">
 
@@ -639,7 +638,8 @@
           <span class="mi c-emerald">payments</span>
         </div>
         <div>
-          <div class="modal-title">¿Cómo quieres pagar?</div>
+          <div class="modal-title" id="ep-titulo">Comprobante de pago</div>
+          <div class="modal-sub" id="ep-paso-ind">Paso 1 de 2</div>
         </div>
       </div>
       <button class="btn-modal-close" onclick="Modales.elegirPago.cerrar()">
@@ -647,48 +647,178 @@
       </button>
     </div>
 
-    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;padding-bottom:20px">
+    <div class="modal-body" style="padding-bottom:20px">
 
-      <!-- Opción 1: Fraccionar -->
-      <button class="elegir-pago-opt" id="btn-fracc"
-              onclick="Modales.elegirPago.fraccionar()">
-        <div class="ep-icon" style="background:var(--blue-tint)">
-          <span class="mi c-blue">calendar_month</span>
-        </div>
-        <div class="ep-info">
-          <div class="ep-title">Fraccionar mi deuda</div>
-          <div class="ep-sub">Cuota inicial · desde S/ 100/mes · máx. 12 cuotas</div>
-        </div>
-        <span class="mi sm c-dim">chevron_right</span>
-      </button>
+      <!-- PASO 1: Tipo de comprobante -->
+      <div id="ep-paso1">
 
-      <!-- Opción 2: Pagar con Tarjeta (en línea) -->
-      <button class="elegir-pago-opt" onclick="Modales.elegirPago.conTarjeta()">
-        <div class="ep-icon" style="background:var(--emerald-tint)">
-          <span class="mi c-emerald">credit_card</span>
-        </div>
-        <div class="ep-info">
-          <div class="ep-title">Pagar con Tarjeta</div>
-          <div class="ep-sub">Visa, Mastercard · Activación inmediata · OpenPay Perú</div>
-        </div>
-        <span class="mi sm c-dim">chevron_right</span>
-      </button>
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+          Selecciona el comprobante que necesitas. Podrás descargarlo al completar el pago.
+        </p>
 
-      <!-- Opción 3: Ya pagué -->
-      <button class="elegir-pago-opt" onclick="Modales.elegirPago.reportarPago()">
-        <div class="ep-icon" style="background:var(--amber-tint)">
-          <span class="mi c-amber">upload</span>
-        </div>
-        <div class="ep-info">
-          <div class="ep-title">Ya pagué (Yape / Plin / Transferencia)</div>
-          <div class="ep-sub">Adjunta tu voucher · Validación en hasta 24h</div>
-        </div>
-        <span class="mi sm c-dim">chevron_right</span>
-      </button>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
 
-      <div style="text-align:center;font-size:10px;color:var(--text-dim);margin-top:4px">
-        🔒 Tus datos están protegidos con cifrado SSL
-      </div>
+          <label class="ep-comp-opt" id="ep-opt-boleta">
+            <input type="radio" name="ep-tipo-comp" value="boleta"
+                   onchange="Modales.elegirPago.onTipoComp('boleta')">
+            <div class="ep-icon" style="background:var(--blue-tint)">
+              <span class="mi c-blue">receipt</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">Boleta Electrónica</div>
+              <div class="ep-sub">Para personas naturales · A tu nombre y DNI</div>
+            </div>
+            <span class="mi sm c-dim ep-check">radio_button_unchecked</span>
+          </label>
+
+          <label class="ep-comp-opt" id="ep-opt-factura">
+            <input type="radio" name="ep-tipo-comp" value="factura"
+                   onchange="Modales.elegirPago.onTipoComp('factura')">
+            <div class="ep-icon" style="background:var(--violet-tint)">
+              <span class="mi c-violet">description</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">Factura Electrónica</div>
+              <div class="ep-sub">Para empresas o personas con RUC activo</div>
+            </div>
+            <span class="mi sm c-dim ep-check">radio_button_unchecked</span>
+          </label>
+
+          <label class="ep-comp-opt" id="ep-opt-ninguno">
+            <input type="radio" name="ep-tipo-comp" value=""
+                   onchange="Modales.elegirPago.onTipoComp('')">
+            <div class="ep-icon" style="background:var(--surface-3)">
+              <span class="mi c-dim">block</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">No necesito comprobante</div>
+              <div class="ep-sub">Continuarás sin documento tributario</div>
+            </div>
+            <span class="mi sm c-dim ep-check">radio_button_unchecked</span>
+          </label>
+
+        </div>
+
+        <!-- Datos factura — solo visible si elige Factura -->
+        <div id="ep-factura-datos"
+             style="display:none;background:var(--surface-2);
+                    border:1px solid var(--border);border-radius:var(--r);
+                    padding:14px;margin-bottom:14px">
+
+          <div class="rp-field">
+            <label class="rp-lbl">
+              RUC <span style="color:var(--red-soft)">*</span>
+            </label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" class="rp-input" id="ep-ruc"
+                     placeholder="11 dígitos" maxlength="11" style="flex:1"
+                     oninput="Modales.elegirPago.onRucInput(this.value)">
+              <span id="ep-ruc-spin" style="display:none">
+                <span class="mi sm c-dim"
+                      style="animation:spin-ring .8s linear infinite">
+                  hourglass_empty
+                </span>
+              </span>
+            </div>
+            <div id="ep-ruc-estado"
+                 style="font-size:10px;color:var(--text-dim);margin-top:3px"></div>
+          </div>
+
+          <div class="rp-field">
+            <label class="rp-lbl">
+              Razón Social / Nombre <span style="color:var(--red-soft)">*</span>
+            </label>
+            <input type="text" class="rp-input" id="ep-razon-social"
+                   placeholder="Se completará automáticamente">
+          </div>
+
+          <div class="rp-field" style="margin-bottom:0">
+            <label class="rp-lbl">
+              Dirección
+              <span id="ep-dir-hint"
+                    style="font-size:9px;color:var(--text-dim);
+                           font-weight:400;margin-left:4px"></span>
+            </label>
+            <input type="text" class="rp-input" id="ep-direccion"
+                   placeholder="Dirección fiscal">
+          </div>
+
+        </div>
+
+        <button class="btn-pagar-tarjeta" id="ep-btn-continuar"
+                onclick="Modales.elegirPago.irPaso2()" disabled>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="mi">arrow_forward</span>Continuar
+          </span>
+          <span class="btn-arrow mi">chevron_right</span>
+        </button>
+
+      </div><!-- /ep-paso1 -->
+
+      <!-- PASO 2: Método de pago -->
+      <div id="ep-paso2" style="display:none">
+
+        <!-- Resumen del comprobante elegido -->
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;
+                    border-radius:9px;margin-bottom:14px;
+                    background:var(--surface-2);border:1px solid var(--border)">
+          <span class="mi sm" id="ep-comp-icono" style="color:var(--blue-soft)">receipt</span>
+          <span id="ep-comp-texto" style="font-size:12px;flex:1;color:var(--text)"></span>
+          <button onclick="Modales.elegirPago.volverPaso1()"
+                  style="background:none;border:none;color:var(--text-dim);
+                         font-size:11px;cursor:pointer;text-decoration:underline">
+            Cambiar
+          </button>
+        </div>
+
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+          ¿Cómo quieres realizar el pago?
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+
+          <button class="elegir-pago-opt" id="btn-fracc"
+                  onclick="Modales.elegirPago.fraccionar()">
+            <div class="ep-icon" style="background:var(--blue-tint)">
+              <span class="mi c-blue">calendar_month</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">Fraccionar mi deuda</div>
+              <div class="ep-sub">Cuota inicial · desde S/ 100/mes · máx. 12 cuotas</div>
+            </div>
+            <span class="mi sm c-dim">chevron_right</span>
+          </button>
+
+          <button class="elegir-pago-opt" onclick="Modales.elegirPago.conTarjeta()">
+            <div class="ep-icon" style="background:var(--emerald-tint)">
+              <span class="mi c-emerald">credit_card</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">Pagar con Tarjeta</div>
+              <div class="ep-sub">Visa, Mastercard · Activación inmediata · OpenPay Perú</div>
+            </div>
+            <span class="mi sm c-dim">chevron_right</span>
+          </button>
+
+          <button class="elegir-pago-opt" onclick="Modales.elegirPago.reportarPago()">
+            <div class="ep-icon" style="background:var(--amber-tint)">
+              <span class="mi c-amber">upload</span>
+            </div>
+            <div class="ep-info">
+              <div class="ep-title">Ya pagué (Yape / Plin / Transferencia)</div>
+              <div class="ep-sub">Adjunta tu voucher · Validación en hasta 24h</div>
+            </div>
+            <span class="mi sm c-dim">chevron_right</span>
+          </button>
+
+        </div>
+
+        <div style="text-align:center;font-size:10px;
+                    color:var(--text-dim);margin-top:12px">
+          🔒 Tus datos están protegidos con cifrado SSL
+        </div>
+
+      </div><!-- /ep-paso2 -->
 
     </div>
   </div>
