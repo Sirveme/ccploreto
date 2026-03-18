@@ -56,7 +56,11 @@ async def openpay_iniciar_pago(
     monto_directo:     float = Form(0.0),    # monto libre (pago directo o cuota inicial)
     fraccionamiento_id: int  = Form(None),   # si viene del simulador de fraccionamiento
     numero_cuota:      int   = Form(0),      # 0 = cuota inicial
-    incluir_constancia: str  = Form(""),     # "1" si quiere constancia (+S/10)
+    incluir_constancia:   str   = Form(""),     # "1" si quiere constancia (+S/10)
+    tipo_comprobante:     str   = Form(""),     # "boleta" | "factura" | ""
+    factura_ruc:          str   = Form(""),
+    factura_razon_social: str   = Form(""),
+    factura_direccion:    str   = Form(""),
     db: Session = Depends(get_db),
     current_member: Member = Depends(get_current_member),
 ):
@@ -105,7 +109,14 @@ async def openpay_iniciar_pago(
 
         monto_base  = sum(float(d.balance) for d in deudas)
         conceptos   = ", ".join(d.period_label or d.concept for d in deudas)
-        notas_pago  = f"OpenPay deudas | {conceptos[:100]}"
+        notas_pago  = {
+            "flujo":                "deudas",
+            "conceptos":            conceptos[:100],
+            "tipo_comprobante":     tipo_comprobante or None,
+            "factura_ruc":          factura_ruc or None,
+            "factura_razon_social": factura_razon_social or None,
+            "factura_direccion":    factura_direccion or None,
+        }
         debt_ids_db = [d.id for d in deudas]
 
     elif fraccionamiento_id and monto_directo > 0:
@@ -120,7 +131,15 @@ async def openpay_iniciar_pago(
 
         monto_base = float(monto_directo)
         conceptos  = f"Cuota inicial fracc. {fracc.numero_solicitud}"
-        notas_pago = f"OpenPay fracc | {fracc.numero_solicitud} | cuota {numero_cuota}"
+        notas_pago = {
+            "flujo":                "fraccionamiento",
+            "fracc_solicitud":      fracc.numero_solicitud,
+            "numero_cuota":         numero_cuota,
+            "tipo_comprobante":     tipo_comprobante or None,
+            "factura_ruc":          factura_ruc or None,
+            "factura_razon_social": factura_razon_social or None,
+            "factura_direccion":    factura_direccion or None,
+        }
         debt_ids_db = []
 
     elif monto_directo > 0:
@@ -130,7 +149,15 @@ async def openpay_iniciar_pago(
 
         monto_base  = float(monto_directo)
         conceptos  = f"Abono a deuda - Mat. {col.codigo_matricula}"
-        notas_pago = f"OpenPay directo | S/ {monto_base:.2f} | {col.apellidos_nombres}"
+        notas_pago = {
+            "flujo":                "directo",
+            "monto_base":           monto_base,
+            "titular":              col.apellidos_nombres,
+            "tipo_comprobante":     tipo_comprobante or None,
+            "factura_ruc":          factura_ruc or None,
+            "factura_razon_social": factura_razon_social or None,
+            "factura_direccion":    factura_direccion or None,
+        }
         debt_ids_db = []
 
     else:
@@ -139,7 +166,10 @@ async def openpay_iniciar_pago(
     # Sumar constancia si aplica
     monto_total = monto_base + (MONTO_CONSTANCIA if con_constancia else 0)
     if con_constancia:
-        notas_pago += " | +Constancia S/10"
+        if isinstance(notas_pago, dict):
+            notas_pago["con_constancia"] = True
+        else:
+            notas_pago += " | +Constancia S/10"
 
     # ── Registrar payment pendiente ────────────────────────────
     result = db.execute(text("""
@@ -156,7 +186,7 @@ async def openpay_iniciar_pago(
         "cid":    col.id,
         "mid":    current_member.id,
         "amount": monto_total,
-        "notes":  notas_pago,
+        "notes":  json.dumps(notas_pago, ensure_ascii=False) if isinstance(notas_pago, dict) else notas_pago,
     })
     db.commit()
     payment_id = result.fetchone()[0]
@@ -558,8 +588,91 @@ async def openpay_webhook(
         """), {"cid": payment.colegiado_id})
         logger.info(f"Colegiado {payment.colegiado_id} → HÁBIL tras pago OpenPay")
 
+    """
+PATCH: app/routers/openpay.py
+==============================
+Buscar este bloque en el webhook (al final, antes del return):
+
     db.commit()
     logger.info(f"✅ Pago OpenPay procesado: payment={payment.id} tx={tx_id} monto={monto}")
+    return JSONResponse({"received": True, "processed": True})
+
+Reemplazar por el bloque completo de abajo.
+"""
+
+# ── REEMPLAZAR desde db.commit() hasta el return ──────────────────────────────
+
+    db.commit()
+    logger.info(f"✅ Pago OpenPay procesado: payment={payment.id} tx={tx_id} monto={monto}")
+
+    # ── Emitir comprobante electrónico ────────────────────────────────────────
+    # Solo si el colegiado solicitó comprobante al iniciar el pago.
+    # Los datos de facturación se leen desde payment.notes (guardados en /iniciar).
+    try:
+        import json as _json
+        notas = {}
+        try:
+            # payment.notes puede ser string JSON o texto libre
+            raw_notes = db.execute(
+                text("SELECT notes FROM payments WHERE id = :pid"),
+                {"pid": payment.id}
+            ).scalar()
+            if raw_notes and raw_notes.strip().startswith("{"):
+                notas = _json.loads(raw_notes)
+        except Exception:
+            pass
+
+        tipo_comp = notas.get("tipo_comprobante")  # 'boleta' | 'factura' | None
+
+        if tipo_comp in ("boleta", "factura"):
+            from app.services.facturacion import FacturacionService
+            svc = FacturacionService(db, payment.organization_id)
+
+            if svc.esta_configurado():
+                tipo_doc     = "01" if tipo_comp == "factura" else "03"
+                forzar_datos = None
+
+                if tipo_comp == "factura":
+                    ruc  = notas.get("factura_ruc")
+                    rs   = notas.get("factura_razon_social") or "CLIENTE"
+                    dire = notas.get("factura_direccion") or ""
+                    if ruc:
+                        forzar_datos = {
+                            "tipo_doc":  "6",
+                            "num_doc":   ruc,
+                            "nombre":    rs,
+                            "direccion": dire,
+                            "email":     None,
+                        }
+
+                resultado_comp = await svc.emitir_comprobante_por_pago(
+                    payment.id,
+                    tipo                 = tipo_doc,
+                    forzar_datos_cliente = forzar_datos,
+                )
+
+                if resultado_comp.get("success"):
+                    logger.info(
+                        f"[OpenPay webhook] Comprobante emitido: "
+                        f"{resultado_comp.get('numero_formato')} "
+                        f"pdf={resultado_comp.get('pdf_url')}"
+                    )
+                else:
+                    logger.warning(
+                        f"[OpenPay webhook] Comprobante no emitido: "
+                        f"{resultado_comp.get('error')}"
+                    )
+        else:
+            logger.debug(
+                f"[OpenPay webhook] payment={payment.id} sin solicitud de comprobante"
+            )
+
+    except Exception as e:
+        # Error en facturación no revierte el pago — solo se registra
+        logger.error(
+            f"[OpenPay webhook] Error emitiendo comprobante payment={payment.id}: {e}",
+            exc_info=True
+        )
 
     return JSONResponse({"received": True, "processed": True})
 
