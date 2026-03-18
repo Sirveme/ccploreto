@@ -1438,3 +1438,23 @@ button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
 .ep-info   { flex: 1; }
 .ep-title  { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .ep-sub    { font-size: 11px; color: var(--text-dim); }
+
+/* ── Elegir pago — opciones de comprobante ──────────────────── */
+.ep-comp-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r);
+  background: var(--surface-2); border: 1px solid var(--border);
+  cursor: pointer; width: 100%; transition: all .18s; user-select: none;
+}
+.ep-comp-opt:hover { background: var(--surface-3); border-color: var(--border-2); }
+.ep-comp-opt.rp-comp-selected {
+  border-color: var(--verde-soft); background: var(--verde-tint);
+}
+.ep-comp-opt input[type="radio"] { display: none; }
+.ep-comp-opt .ep-check { margin-left: auto; flex-shrink: 0; }
+.ep-comp-opt.rp-comp-selected .ep-check { color: var(--verde-soft) !important; }
+
+/* btn-continuar deshabilitado */
+.btn-pagar-tarjeta:disabled {
+  opacity: .45; cursor: not-allowed; pointer-events: none;
+}
