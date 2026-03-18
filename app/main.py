@@ -32,7 +32,11 @@ from app.routers.reportes import router as reportes_router
 from app.routers.conciliacion import router as conciliacion_router
 from app.routers.finanzas import router as finanzas_router, ws_finanzas
 from app.routers.finanzas import router_views as finanzas_views
+
 from app.routers.portal_colegiado import router as portal_router
+from app.routers.portal_pagos import router as portal_pagos_router
+from app.routers.portal_admin import router as portal_admin_router
+
 from app.routers.fragments import router as fragments_router
 from app.routers.api_colegiado_pagos import router as api_colegiado_pagos_router
 from app.routers import consulta
@@ -197,6 +201,9 @@ app.include_router(router_mesa_partes)
 app.include_router(legal_router)
 
 app.include_router(asistente_router)
+
+app.include_router(portal_pagos_router)
+app.include_router(portal_admin_router)
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
 for route in app.routes:
