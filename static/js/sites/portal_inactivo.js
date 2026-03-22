@@ -1142,13 +1142,14 @@ catalogo: {
           if (d.operation_code && $('rp-nro-op')) {
             $('rp-nro-op').value = d.operation_code;
           }
-          // Banco detectado — mostrar badge y auto-seleccionar método
-          if (d.bank) {
+          // Banco detectado — mostrar badge con app_emisora, auto-seleccionar método
+          const appLabel = d.app_emisora || d.bank;
+          if (appLabel) {
             const bancoRow = $('rp-banco-row');
             const bancoTxt = $('rp-banco-txt');
             if (bancoRow) bancoRow.style.display = 'block';
-            if (bancoTxt) bancoTxt.textContent    = d.bank;
-            this._autoMetodo(d.bank);
+            if (bancoTxt) bancoTxt.textContent    = appLabel;  // muestra "Yape" no "BCP"
+            this._autoMetodo(appLabel);
           }
           if (ico) ico.textContent = 'check_circle';
           if (txt) txt.textContent = 'Datos extraídos — revisa y corrige si hace falta';
@@ -1457,6 +1458,32 @@ catalogo: {
         alert('Indica si deseas Boleta o Factura.');
         return;
       }
+
+      // Validar pago parcial — avisar si monto < total de deudas seleccionadas
+      if (this._idsSeleccionados.size > 0) {
+        const totalSeleccionado = [...this._idsSeleccionados].reduce((sum, id) => {
+          const d = (Portal.ctx.deudas || []).find(x => x.id === id);
+          return sum + parseFloat(d?.balance || d?.amount || 0);
+        }, 0);
+        const totalRedondeado = Math.round(totalSeleccionado);
+        if (monto < totalRedondeado * 0.99) {  // 1% tolerancia por redondeos
+          const diff = totalRedondeado - Math.round(monto);
+          const confirmar = confirm(
+            `⚠️ El monto reportado (S/ ${Math.round(monto)}) es menor al total ` +
+            `de las deudas seleccionadas (S/ ${totalRedondeado}).
+
+` +
+            `Diferencia: S/ ${diff}
+
+` +
+            `Se registrará como pago parcial y la caja lo revisará.
+` +
+            `¿Deseas continuar?`
+          );
+          if (!confirmar) return;
+        }
+      }
+
       if (this._tipoComp === 'factura') {
         const ruc = ($('rp-ruc')?.value || '').trim();
         const rs  = ($('rp-razon-social')?.value || '').trim();
