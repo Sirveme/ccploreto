@@ -57,6 +57,50 @@ REMITENTES_BANCO = {
     'notificaciones@plin.pe':            'plin',
 }
 
+# Dominios bancarios permitidos — Capa 2 de seguridad
+# Solo se procesan emails cuyo dominio From este en esta lista.
+DOMINIOS_BANCARIOS_VALIDOS = {
+    'bbva.com.pe',
+    'notificacionesbcp.com.pe',
+    'bcp.com.pe',
+    'interbank.com.pe',
+    'scotiabank.com.pe',
+    'pagos.yape.com.pe',
+    'yape.com.pe',
+    'plin.pe',
+    'banbif.com.pe',
+    'pichincha.com.pe',
+    'mibanco.com.pe',
+}
+
+
+def _extraer_dominio_from(from_header):
+    """
+    Extrae el dominio del campo From.
+    'BBVA <procesos@bbva.com.pe>' -> 'bbva.com.pe'
+    """
+    import re as _re
+    match = _re.search(r'<([^>]+)>', from_header)
+    email = match.group(1) if match else from_header.strip()
+    if '@' in email:
+        return email.split('@')[1].lower().strip()
+    return ''
+
+
+def validar_dominio_bancario(from_header):
+    """
+    Verifica que el remitente pertenece a un dominio bancario conocido.
+    Retorna True si es valido, False si debe descartarse.
+    """
+    dominio = _extraer_dominio_from(from_header)
+    if not dominio:
+        return False
+    for valido in DOMINIOS_BANCARIOS_VALIDOS:
+        if dominio == valido or dominio.endswith('.' + valido):
+            return True
+    return False
+
+
 # Subjects que indican PAGO RECIBIDO (no enviado/cajero)
 SUBJECTS_RECIBIDO = [
     'transferencia recibida',
@@ -330,6 +374,14 @@ def parsear_email(raw_bytes: bytes, organization_id: int = None) -> Optional[Pag
 
     # Email completo para análisis
     texto_completo = f"{subject}\n{body}"
+
+    # ── Capa 2: Validar dominio remitente ─────────────────────────────────────
+    if not validar_dominio_bancario(from_header):
+        logger.warning(
+            f'[Parser] SEGURIDAD — dominio no autorizado: '
+            f'{from_header[:80]} | {subject[:60]}'
+        )
+        return None
 
     # ── Identificar banco ──────────────────────────────────────────────────────
     banco = 'generico'

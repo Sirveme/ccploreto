@@ -190,21 +190,62 @@ def calcular_deuda_cuotas(colegiado_id, organization_id, db, hasta=None):
 
     pendientes = []
     for d in deudas_cuotas:
-        if not d.periodo or len(d.periodo) < 7 or d.periodo[4:5] != '-':
-            continue  # ignorar periodos malformados
-        anio, mes = int(d.periodo[:4]), int(d.periodo[5:7])
-        vencido = True  # Si está en pending y es histórico, está vencido
+        if not d.periodo:
+            continue
+
+        # Determinar año y mes para el label — soporta todos los formatos:
+        # 'YYYY'         → año completo (ej: '2025')
+        # 'YYYY-MM'      → mes específico (ej: '2025-03')
+        # 'YYYY-MM:MM'   → rango (ej: '2025-11:12')
+        # 'YYYY-MM,MM:MM'→ complejo (ej: '2025-01,03:12')
+        periodo = d.periodo.strip()
+        try:
+            anio = int(periodo[:4])
+        except (ValueError, IndexError):
+            continue  # periodo realmente malformado (ej: '0225')
+
+        # Extraer primer mes del periodo para el label
+        if len(periodo) == 4:
+            # Formato anual: '2025'
+            mes_ini, mes_fin = 1, 12
+            label     = f"Ene-Dic {anio}"
+            label_full = f"Enero-Diciembre {anio}"
+        elif len(periodo) >= 7 and periodo[4] == '-':
+            # Tiene parte de mes después del guión
+            resto = periodo[5:]
+            # Extraer primer mes (antes de ':', ',' o fin)
+            import re as _re
+            m_ini = _re.match(r'(\d{2})', resto)
+            mes_ini = int(m_ini.group(1)) if m_ini else 1
+            # Extraer último mes si hay rango
+            m_fin = _re.search(r':(\d{2})$', resto)
+            mes_fin = int(m_fin.group(1)) if m_fin else mes_ini
+            if mes_ini == 1 and mes_fin == 12:
+                label      = f"Ene-Dic {anio}"
+                label_full = f"Enero-Diciembre {anio}"
+            elif mes_ini == mes_fin:
+                label      = f"{MESES_LABEL.get(mes_ini,'')} {anio}"
+                label_full = f"{MESES_LABEL_FULL.get(mes_ini,'')} {anio}"
+            else:
+                label      = f"{MESES_LABEL.get(mes_ini,'')}-{MESES_LABEL.get(mes_fin,'')} {anio}"
+                label_full = f"{MESES_LABEL_FULL.get(mes_ini,'')}-{MESES_LABEL_FULL.get(mes_fin,'')} {anio}"
+        else:
+            # Formato desconocido — usar concepto como label
+            label = label_full = d.period_label or periodo
+            mes_ini, mes_fin = 1, 12
+
+        vencido = True
         dias_mora = (hoy - d.due_date.date()).days if d.due_date else 0
 
         pendientes.append({
-            'periodo': d.periodo,
-            'label': f"{MESES_LABEL.get(mes,'')} {anio}",
-            'label_full': f"{MESES_LABEL_FULL.get(mes,'')} {anio}",
-            'monto': d.balance,
-            'vencido': vencido,
-            'dias_mora': max(0, dias_mora),
+            'periodo':    periodo,
+            'label':      label,
+            'label_full': label_full,
+            'monto':      d.balance,
+            'vencido':    vencido,
+            'dias_mora':  max(0, dias_mora),
             'vencimiento': d.due_date.date().isoformat() if d.due_date else None,
-            'debt_id': d.id,
+            'debt_id':    d.id,
         })
 
     return {

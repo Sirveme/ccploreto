@@ -184,6 +184,25 @@ def esperar_idle(conn: imaplib.IMAP4_SSL, timeout_seg: int = RECONECTAR_EN) -> b
         return False
 
 
+# ── Capa 1: Verificacion DKIM ─────────────────────────────────────────────────
+def verificar_dkim(raw_bytes: bytes) -> bool:
+    # Verifica la firma DKIM. Requiere: pip install dkimpy
+    # Si no esta instalado, retorna True (Capa 2 dominio sigue activa).
+    try:
+        import dkim
+        resultado = dkim.verify(raw_bytes)
+        if not resultado:
+            logger.warning('[DKIM] Firma invalida o ausente')
+        return resultado
+    except ImportError:
+        logger.debug('[DKIM] dkimpy no disponible — omitido')
+        return True
+    except Exception as e:
+        logger.warning(f'[DKIM] Error: {e}')
+        return True
+
+
+
 # ── Procesamiento ──────────────────────────────────────────────────────────────
 def procesar_no_leidos(conn: imaplib.IMAP4_SSL, db):
     from app.services.email_parser import parsear_email
@@ -202,6 +221,16 @@ def procesar_no_leidos(conn: imaplib.IMAP4_SSL, db):
             msg      = _email.message_from_bytes(raw)
             from_hdr = msg.get('From', '')
 
+            # Capa 1: DKIM
+            if not verificar_dkim(raw):
+                logger.warning(
+                    f'[IMAP] SEGURIDAD — DKIM invalido, descartado: '
+                    f'From={from_hdr[:60]}'
+                )
+                marcar_leido(conn, uid)
+                continue
+
+            # Capa 2: dominio (en parser) + parseo
             pago = parsear_email(raw, organization_id=ORG_ID)
 
             if pago and pago.es_valido and pago.es_pago_recibido:
@@ -210,7 +239,7 @@ def procesar_no_leidos(conn: imaplib.IMAP4_SSL, db):
                 if pago:
                     motivo = 'no es recibido' if not pago.es_pago_recibido else 'sin monto'
                 else:
-                    motivo = 'no bancario'
+                    motivo = 'no bancario o dominio no autorizado'
                 logger.info(f'[IMAP] Descartado ({motivo}): {msg.get("Subject","")[:60]}')
 
             marcar_leido(conn, uid)
