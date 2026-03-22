@@ -762,7 +762,9 @@ const Modales = {
       );
 
       this.cerrar();
-      Modales.pagoLinea.abrir(inicial);
+      // Guardar monto fijo para que elegirPago lo pase a pagoLinea tras elegir comprobante
+      Portal.ctx._fraccMontoFijo = inicial;
+      Modales.elegirPago.abrir();
   },
 
     irAReportar() {
@@ -1864,9 +1866,19 @@ catalogo: {
             const btn   = $('ep-btn-continuar');
             if (!btn) return;
             if (tipo === 'factura') {
-                const ruc = ($('ep-ruc')?.value || '').trim();
-                const rs  = ($('ep-razon-social')?.value || '').trim();
-                btn.disabled = !(ruc.length === 11 && rs.length > 0);
+                const ruc  = ($('ep-ruc')?.value || '').trim();
+                const rs   = ($('ep-razon-social')?.value || '').trim();
+                const dir  = ($('ep-direccion')?.value || '').trim();
+                // Dirección obligatoria siempre — RUC 10 no la devuelve la API
+                btn.disabled = !(ruc.length === 11 && rs.length > 0 && dir.length > 0);
+                // Hint visual si falta dirección
+                const hint = $('ep-dir-hint');
+                if (hint && ruc.length === 11 && rs.length > 0 && dir.length === 0) {
+                    hint.textContent = '⚠ Obligatoria';
+                    hint.style.color = 'var(--red-soft)';
+                } else if (hint && dir.length > 0) {
+                    hint.textContent = '';
+                }
             } else {
                 btn.disabled = false;
             }
@@ -1909,7 +1921,10 @@ catalogo: {
 
         conTarjeta() {
             this.cerrar();
-            Modales.pagoLinea.abrir();
+            // Si viene de fraccionamiento, pasar el monto fijo
+            const montoFijo = Portal.ctx._fraccMontoFijo ?? null;
+            Portal.ctx._fraccMontoFijo = null;  // limpiar
+            Modales.pagoLinea.abrir(montoFijo);
         },
 
         reportarPago() {
