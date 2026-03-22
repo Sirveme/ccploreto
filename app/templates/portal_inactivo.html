@@ -313,17 +313,11 @@
   </div>
 </div>
 
-<!-- ══ MODAL: REPORTAR PAGO ══════════════════════════════════ -->
-<!-- ══ MODAL: REPORTAR PAGO ══════════════════════════════════
-     Reemplaza el <div class="modal-overlay" id="modal-reporte"> existente.
 
-     Cambios clave vs versión anterior:
-       - Eliminado: <select id="rp-concepto"> y optgroups
-       - Agregado:  <div id="rp-deudas-zona"> — JS renderiza tabs + lista
-       - rp-monto ahora tiene oninput="Modales.reportarPago.recalcularTotal()"
-       - "Total a reportar" movido DEBAJO de monto + constancia
-       - rp-fracc-codigo sigue presente para cuando viene de irAReportar()
-══════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL: REPORTAR PAGO — reemplaza el bloque existente en portal_inactivo.html
+     id="modal-reporte"
+══════════════════════════════════════════════════════════════════════════ -->
 <!-- ══════════════════════════════════════════════════════════════════════════
      MODAL: REPORTAR PAGO — reemplaza el bloque existente en portal_inactivo.html
      id="modal-reporte"
@@ -401,13 +395,13 @@
         <div class="rp-field">
           <label class="rp-lbl">
             Monto pagado (S/) <span style="color:var(--red-soft)">*</span>
-            <span style="font-size:9px;color:var(--text-dim);font-weight:400;margin-left:4px">
-              Pre-llenado por IA — edita si difiere
-            </span>
           </label>
           <input type="number" class="rp-input" id="rp-monto"
                  placeholder="0.00" step="0.01" min="0"
                  oninput="Modales.reportarPago.onMontoInput()">
+          <div style="font-size:9px;color:var(--text-dim);margin-top:3px">
+            ✏ Pre-llenado por IA
+          </div>
         </div>
         <div class="rp-field">
           <label class="rp-lbl">N° Operación <span style="color:var(--red-soft)">*</span></label>
