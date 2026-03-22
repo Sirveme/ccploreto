@@ -629,6 +629,11 @@
      Paso 2: Método de pago (Fraccionar / Tarjeta / Ya pagué)
      Los datos se guardan en Portal.ctx antes de cualquier flujo.
 ══════════════════════════════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: ELEGIR TIPO DE PAGO — 2 pasos ═══════════════════════════════════
+     Paso 1: Comprobante (Boleta / Factura / Ninguno) + datos RUC si factura
+     Paso 2: Método de pago (Fraccionar / Tarjeta / Ya pagué)
+     Los datos se guardan en Portal.ctx antes de cualquier flujo.
+══════════════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-elegir-pago">
   <div class="modal-box" style="max-width:440px">
 
@@ -740,7 +745,8 @@
                            font-weight:400;margin-left:4px"></span>
             </label>
             <input type="text" class="rp-input" id="ep-direccion"
-                   placeholder="Dirección fiscal">
+                   placeholder="Dirección fiscal (obligatoria)"
+                   oninput="Modales.elegirPago._actualizarContinuar()">
           </div>
 
         </div>
