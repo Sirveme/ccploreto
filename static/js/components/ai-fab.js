@@ -651,7 +651,6 @@ const AIFab = {
                     n_cuotas:      colegiado.deuda.cantidad_cuotas || 1,
                 })}'>` : ''}
 
-                // Añadir esto DESPUÉS del bloque meta_cuotas existente:
                 ${colegiado.deuda?.fraccionamiento_id != null ? `<input type="hidden" name="meta_fracc" value='${JSON.stringify({
                     fraccionamiento_id: colegiado.deuda.fraccionamiento_id,
                     numero_cuota:       colegiado.deuda.numero_cuota ?? 0,
