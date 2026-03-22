@@ -1100,6 +1100,12 @@ catalogo: {
       if ($('voucher-label')) $('voucher-label').textContent = '✅ ' + file.name;
       if ($('voucher-icon'))  $('voucher-icon').textContent  = 'check_circle';
       if ($('voucher-drop'))  $('voucher-drop').style.borderColor = 'var(--verde-soft)';
+      // Limpiar campos antes de analizar nuevo voucher
+      if ($('rp-monto'))   $('rp-monto').value  = '';
+      if ($('rp-nro-op'))  $('rp-nro-op').value = '';
+      if ($('rp-banco-row')) $('rp-banco-row').style.display = 'none';
+      document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
+      this.metodo = null;
       this._ocr(file);
     },
 
@@ -1128,12 +1134,12 @@ catalogo: {
         const d = await r.json();
 
         if (d.ok) {
-          // Pre-llenar campos con datos del OCR
-          if (d.amount && $('rp-monto') && !$('rp-monto').value) {
+          // Pre-llenar siempre — los campos ya fueron limpiados en handleFile
+          if (d.amount && $('rp-monto')) {
             $('rp-monto').value = d.amount;
             this.recalcularTotal();
           }
-          if (d.operation_code && $('rp-nro-op') && !$('rp-nro-op').value) {
+          if (d.operation_code && $('rp-nro-op')) {
             $('rp-nro-op').value = d.operation_code;
           }
           // Banco detectado — mostrar badge y auto-seleccionar método
