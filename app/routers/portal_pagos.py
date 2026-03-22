@@ -386,6 +386,7 @@ Responde SOLO el JSON, sin texto adicional ni markdown.
             "operation_code": data.get("operation_code"),
             "date":           data.get("date"),
             "bank":           data.get("bank"),
+            "app_emisora":    data.get("app_emisora"),
         })
 
     except json.JSONDecodeError:
