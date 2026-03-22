@@ -1136,8 +1136,11 @@ catalogo: {
         if (d.ok) {
           // Pre-llenar siempre — los campos ya fueron limpiados en handleFile
           if (d.amount && $('rp-monto')) {
-            $('rp-monto').value = d.amount;
-            this.recalcularTotal();
+            // Solo llenar monto del OCR si NO hay deudas seleccionadas
+            if (this._idsSeleccionados.size === 0) {
+              $('rp-monto').value = d.amount;
+              this.recalcularTotal();
+            }
           }
           if (d.operation_code && $('rp-nro-op')) {
             $('rp-nro-op').value = d.operation_code;
@@ -1408,21 +1411,54 @@ catalogo: {
       if (el) el.textContent = this._idsSeleccionados.size + ' seleccionadas';
     },
 
-    /* ── Recalcular total ───────────────────────────────── */
+    /* ── Recalcular — solo actualiza el panel informativo, NO el monto ── */
     recalcularTotal() {
-      let montoBase = 0;
+      // Calcular total de deudas seleccionadas (referencia informativa)
+      let totalDeudas = 0;
       if (this._idsSeleccionados.size > 0) {
         (Portal.ctx.deudas || []).forEach(d => {
           if (this._idsSeleccionados.has(d.id))
-            montoBase += parseFloat(d.balance || d.amount || 0);
+            totalDeudas += parseFloat(d.balance || d.amount || 0);
         });
-        montoBase = Math.round(montoBase);
-        if ($('rp-monto')) $('rp-monto').value = montoBase;
-      } else {
-        montoBase = parseFloat($('rp-monto')?.value || 0);
+        totalDeudas = Math.round(totalDeudas);
       }
-      const addConst = $('rp-constancia-check')?.checked ? 10 : 0;
-      if ($('rp-total')) $('rp-total').textContent = 'S/ ' + (Math.round(montoBase) + addConst);
+
+      // Actualizar panel informativo
+      const deudaRef    = $('rp-deuda-ref');
+      const totalDeEl   = $('rp-total-deudas');
+      const pctEl       = $('rp-cobertura-pct');
+      const msgEl       = $('rp-cobertura-msg');
+      const totalFooter = $('rp-total');
+
+      if (this._idsSeleccionados.size > 0 && deudaRef) {
+        deudaRef.style.display = 'block';
+        if (totalDeEl) totalDeEl.textContent = 'S/ ' + totalDeudas;
+
+        const montoPagado = parseFloat($('rp-monto')?.value || 0);
+        if (montoPagado > 0 && totalDeudas > 0) {
+          const pct = Math.round((montoPagado / totalDeudas) * 100);
+          if (pctEl) {
+            pctEl.textContent = pct + '%';
+            pctEl.style.color = pct >= 100 ? 'var(--emerald-soft)' : 'var(--amber-soft)';
+          }
+          if (msgEl) msgEl.style.display = montoPagado < totalDeudas * 0.99 ? 'flex' : 'none';
+        } else {
+          if (pctEl) pctEl.textContent = '—';
+          if (msgEl) msgEl.style.display = 'none';
+        }
+      } else if (deudaRef) {
+        deudaRef.style.display = 'none';
+      }
+
+      // Total del footer (monto pagado + constancia)
+      const montoBase   = parseFloat($('rp-monto')?.value || 0);
+      const addConst    = $('rp-constancia-check')?.checked ? 10 : 0;
+      if (totalFooter) totalFooter.textContent = 'S/ ' + (Math.round(montoBase) + addConst);
+    },
+
+    /* ── Cuando el usuario edita el monto manualmente ──── */
+    onMontoInput() {
+      this.recalcularTotal();
     },
 
     setMetodo(m, btn) {
