@@ -304,18 +304,16 @@ window.PagoFlowHabil = (() => {
   }
 
   function _p2() {
+    // Guardar datos de comprobante
     _ctx.facturaRuc = _ctx.tipoComp==='factura' ? ($('pfh-ruc')?.value||'') : '';
     _ctx.facturaRs  = _ctx.tipoComp==='factura' ? ($('pfh-rs')?.value||'')  : '';
     _ctx.facturaDir = _ctx.tipoComp==='factura' ? ($('pfh-dir')?.value||'') : '';
-    const ico = _ctx.tipoComp==='boleta'?'🧾':_ctx.tipoComp==='factura'?'📄':'🚫';
-    const txt = _ctx.tipoComp==='boleta'?'Boleta Electrónica'
-              : _ctx.tipoComp==='factura'?`Factura · RUC ${_ctx.facturaRuc}`:'Sin comprobante';
-    if ($('pfh-comp-ico')) $('pfh-comp-ico').textContent=ico;
-    if ($('pfh-comp-txt')) $('pfh-comp-txt').textContent=txt;
-    $('pfh-p1').style.display='none';
-    $('pfh-p2').style.display='block';
-    if ($('pfh-titulo')) $('pfh-titulo').textContent='¿Cómo quieres pagar?';
-    if ($('pfh-sub'))    $('pfh-sub').textContent='Paso 2 de 2';
+    // Ir directo según modo — no hay paso intermedio
+    if (_ctx.modo === 'online') {
+      _online();
+    } else {
+      _p3r();  // Siempre va al formulario de reporte
+    }
   }
 
   function _p1() {
@@ -489,14 +487,20 @@ window.PagoFlowHabil = (() => {
   return {
     iniciar({deudaId=null,deudaIds=[],monto=null,concepto=null}={}) {
       _ensureModal(); _reset();
+      _ctx.modo='reportar';
       _ctx.deudaId=deudaId;
       _ctx.deudaIds=deudaIds.length?deudaIds:(deudaId?[deudaId]:[]);
       _ctx.monto=monto; _ctx.concepto=concepto;
+      if ($('pfh-btn-cont')) $('pfh-btn-cont').textContent='Continuar — Reportar Pago →';
+      if ($('pfh-sub'))      $('pfh-sub').textContent='Selecciona el comprobante';
       $('pfh-modal')?.showModal();
     },
     iniciarOnline({deudaIds=[],monto=null,concepto=null}={}) {
       _ensureModal(); _reset();
+      _ctx.modo='online';
       _ctx.deudaIds=deudaIds; _ctx.monto=monto; _ctx.concepto=concepto;
+      if ($('pfh-btn-cont')) $('pfh-btn-cont').textContent='Continuar — Pagar con Tarjeta →';
+      if ($('pfh-sub'))      $('pfh-sub').textContent='Selecciona el comprobante';
       $('pfh-modal')?.showModal();
     },
     cerrar,
