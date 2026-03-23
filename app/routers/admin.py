@@ -33,7 +33,11 @@ async def admin_home(request: Request, member: Member = Depends(get_current_memb
 
     return templates.TemplateResponse("pages/admin/admin-config.html", {
         "request":  request,
-        "user":     member,
+        "user": {
+            "id":   member.id,
+            "name": member.user.name if member.user else "Admin",
+            "role": member.role,
+        },
         "org":      db.query(Organization).filter(      # ← agregar
                         Organization.id == member.organization_id
                     ).first(),
