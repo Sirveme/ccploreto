@@ -273,10 +273,11 @@
         // Consultar razón social
         let nombre = `Contribuyente ${ruc.slice(-4)}`;
         try {
-            const resp = await fetch(`/api/sunat/ruc/${ruc}`);
+            const resp = await fetch(`/api/portal/ruc/${ruc}`);
             if (resp.ok) {
                 const data = await resp.json();
                 if (data.nombre) nombre = data.nombre;
+                if (data.estado) nombre += ` (${data.estado})`;
             }
         } catch (e) {
             // Continuar con nombre genérico
