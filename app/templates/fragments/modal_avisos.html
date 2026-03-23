@@ -111,9 +111,14 @@
             <p class="tab-intro">Agrega los RUCs de tus clientes para monitorear sus vencimientos</p>
             <div class="add-ruc-form">
                 <input type="text" id="input-nuevo-ruc" placeholder="Ingresa RUC (11 dígitos)"
-                       maxlength="11" inputmode="numeric" pattern="[0-9]*"
-                       onkeypress="if(event.key==='Enter') AvisosApp.agregarRuc()">
+                    maxlength="11"
+                    oninput="if(this.value.length===11) AvisosApp.onRucInput(this.value)"
+                    onkeypress="if(event.key==='Enter') AvisosApp.agregarRuc()">
                 <button class="btn-add-ruc" onclick="AvisosApp.agregarRuc()"><i class="ph ph-plus"></i></button>
+
+                <div id="ruc-preview" style="font-size:11px;margin-top:4px;
+                    min-height:16px;color:var(--color-text-muted,#888)"></div>
+
             </div>
             <div class="rucs-list" id="lista-rucs"></div>
             <div class="empty-state" id="empty-rucs" style="display:none;">
