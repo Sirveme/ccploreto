@@ -32,14 +32,17 @@ async def admin_home(request: Request, member: Member = Depends(get_current_memb
     recent_bulletins = db.query(Bulletin).filter(Bulletin.organization_id == member.organization_id).order_by(Bulletin.created_at.desc()).limit(5).all()
 
     return templates.TemplateResponse("pages/admin/admin-config.html", {
-        "request": request,
-        "user": member,
-        "profiles": my_profiles, # <--- ENVIAR ESTO
-        "theme": current_theme,
+        "request":  request,
+        "user":     member,
+        "org":      db.query(Organization).filter(      # ← agregar
+                        Organization.id == member.organization_id
+                    ).first(),
+        "profiles": my_profiles,
+        "theme":    current_theme,
         "stats": {
-            "vecinos": total_members,
+            "vecinos":   total_members,
             "morosidad": "15%",
-            "caja": "S/ 12,400"
+            "caja":      "S/ 12,400"
         },
         "bulletins": recent_bulletins
     })
