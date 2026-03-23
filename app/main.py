@@ -348,3 +348,12 @@ async def guia_finanzas(request: Request):
 if os.getenv("ENVIRONMENT", "development") != "production":
     from app.routers.dev_tools import router as dev_router
     app.include_router(dev_router)
+
+
+# ==============================================================
+# GALERÍA VIDEOS - DEMO
+@router.get("/digital", response_class=HTMLResponse)
+async def galeria_digital(request: Request):
+    return templates.TemplateResponse("pages/public/digital.html", {
+        "request": request
+    })
