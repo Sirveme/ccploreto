@@ -536,14 +536,10 @@
 
     // ============================================
     // AUTO-REGISTRO
+    // El módulo es lazy — se carga justo antes de que el modal abra.
+    // Llamar init() directamente, no esperar modal:opened (que nunca se dispara).
     // ============================================
-    const modal = document.getElementById(MODAL_ID);
-    if (modal) {
-        modal.addEventListener('modal:opened', () => {
-            init();
-            if (initialized) renderProximos(); // Refrescar vencimientos cada apertura
-        });
-    }
+    init();  // Carga config, renderiza RUCs y vencimientos
 
     // ============================================
     // API PÚBLICA
