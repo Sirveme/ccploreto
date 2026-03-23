@@ -14,7 +14,7 @@ from pywebpush import webpush, WebPushException
 router = APIRouter(tags=["admin"])
 from app.models import Member, Bulletin, Device, Organization # <--- Agrega Organization
 
-@router.get("/admin")
+@router.get("/admin-legacy")
 async def admin_home(request: Request, member: Member = Depends(get_current_member), db: Session = Depends(get_db)):
     if member.role not in ("admin", "sote"):
         return templates.TemplateResponse("pages/errors/403.html", {"request": request})
