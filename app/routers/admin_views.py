@@ -14,6 +14,7 @@ from app.models import Organization, Colegiado, Payment, Member
 from app.routers.dashboard import get_current_member  # <-- Importar de dashboard
 
 router = APIRouter(tags=["admin-views"])
+@router.get("/admin", response_class=HTMLResponse)
 @router.get("/admin/config", response_class=HTMLResponse)
 async def admin_config_page(
     request: Request,
