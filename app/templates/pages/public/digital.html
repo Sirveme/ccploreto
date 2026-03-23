@@ -549,15 +549,18 @@
 //        Local:   '/static/videos/demo-portal.mp4'
 //        Vacío:   '' (muestra placeholder "Próximamente")
 // ══════════════════════════════════════════════════════════════
+
+// desc:     'Conoce cómo acceder a tu portal personal, consultar tu estado de habilidad, ver el detalle de tus deudas históricas y gestionar tu perfil profesional desde cualquier dispositivo.',
 const VIDEOS = [
   {
     tag:      'Introducción',
     titulo:   'Tu portal de colegiado',
-    desc:     'Conoce cómo acceder a tu portal personal, consultar tu estado de habilidad, ver el detalle de tus deudas históricas y gestionar tu perfil profesional desde cualquier dispositivo.',
+    thumb: '/static/videos/Bienvenida-0-Cover.jpg',
+    desc:     'Bienvenido a tu nuevo portal de colegiado. Empezamos una nueva gestión digital con una plataforma diseñada para que cada contador público de Loreto gestione su membresía, consulte sus obligaciones y realice pagos desde cualquier dispositivo.',
     icono:    '🎓',
-    duracion: '3:20',
+    duracion: '0:10',
     audiencia: { color: '#3db877', label: 'Todos los colegiados' },
-    url: 'https://www.youtube.com/embed/wSnppL19Wg4', // ← pegar URL aquí
+    url: 'https://www.youtube.com/embed/wSnppL19Wg4',
   },
   {
     tag:      'Pagos',
@@ -621,9 +624,10 @@ function renderVideos() {
   grid.innerHTML = VIDEOS.map((v, i) => `
     <div class="video-card" onclick="abrirModal(${i})" role="button" tabindex="0">
       <div class="video-thumb">
-        <div class="thumb-bg">
-          <span class="thumb-icon">${v.icono}</span>
-        </div>
+        ${v.thumb 
+            ? `<img src="${v.thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85">`
+            : `<div class="thumb-bg"><span class="thumb-icon">${v.icono}</span></div>`
+        }
         <div class="thumb-num">Demo ${String(i+1).padStart(2,'0')}</div>
         ${v.url ? `
           <button class="play-btn" aria-label="Reproducir">
