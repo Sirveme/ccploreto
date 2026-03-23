@@ -44,6 +44,7 @@
         aplicarConfigUI();
         renderRucs();
         renderProximos();
+        refrescarRucsSinNombre();  // Refrescar nombres pendientes
     }
 
     // ============================================
@@ -254,6 +255,36 @@
     // ============================================
     // RUCs
     // ============================================
+    // Preview del RUC mientras se escribe
+    let _rucPreview = null;
+    async function onRucInput(val) {
+        const ruc = val.trim();
+        const preview = document.getElementById('ruc-preview');
+        if (ruc.length !== 11 || !/^\d+$/.test(ruc)) {
+            if (preview) preview.textContent = '';
+            _rucPreview = null;
+            return;
+        }
+        if (preview) preview.textContent = 'Consultando...';
+        try {
+            const resp = await fetch(`/api/portal/ruc/${ruc}`);
+            const data = await resp.json();
+            if (data.ok && data.nombre) {
+                _rucPreview = { ruc, nombre: data.nombre, estado: data.estado || '', ultimoDigito: parseInt(ruc.slice(-1)) };
+                if (preview) {
+                    preview.textContent = data.nombre;
+                    preview.style.color = data.estado === 'ACTIVO' ? '#22c55e' : '#f59e0b';
+                }
+            } else {
+                _rucPreview = null;
+                if (preview) { preview.textContent = 'RUC no encontrado'; preview.style.color = '#ef4444'; }
+            }
+        } catch(e) {
+            _rucPreview = null;
+            if (preview) { preview.textContent = 'Error al consultar'; preview.style.color = '#ef4444'; }
+        }
+    }
+
     async function agregarRuc() {
         const input = document.getElementById('input-nuevo-ruc');
         if (!input) return;
@@ -270,32 +301,54 @@
             return;
         }
 
-        // Consultar razón social
-        let nombre = `Contribuyente ${ruc.slice(-4)}`;
-        try {
-            const resp = await fetch(`/api/portal/ruc/${ruc}`);
-            if (resp.ok) {
+        // Usar preview si ya está disponible, sino consultar
+        let entry = _rucPreview && _rucPreview.ruc === ruc
+            ? _rucPreview
+            : { ruc, nombre: `Contribuyente ${ruc.slice(-4)}`, estado: '', ultimoDigito: parseInt(ruc.slice(-1)) };
+
+        if (!_rucPreview || _rucPreview.ruc !== ruc) {
+            try {
+                const resp = await fetch(`/api/portal/ruc/${ruc}`);
                 const data = await resp.json();
-                if (data.nombre) nombre = data.nombre;
-                if (data.estado) nombre += ` (${data.estado})`;
-            }
-        } catch (e) {
-            // Continuar con nombre genérico
+                if (data.ok && data.nombre) {
+                    entry.nombre = data.nombre;
+                    entry.estado = data.estado || '';
+                }
+            } catch(e) {}
         }
 
-        config.rucs.push({
-            ruc: ruc,
-            nombre: nombre,
-            ultimoDigito: parseInt(ruc.slice(-1))
-        });
-
+        config.rucs.push(entry);
         input.value = '';
+        _rucPreview = null;
+        const preview = document.getElementById('ruc-preview');
+        if (preview) preview.textContent = '';
         renderRucs();
         SoundFX.play('success');
-        Toast.show('RUC agregado', 'success');
+        Toast.show(`✅ ${entry.nombre} agregado`, 'success');
 
         localStorage.setItem('avisos_config', JSON.stringify(config));
         guardarEnBackend();
+    }
+
+    // Refrescar RUCs que quedaron sin nombre (Cargando...)
+    async function refrescarRucsSinNombre() {
+        const pendientes = config.rucs.filter(r =>
+            !r.nombre || r.nombre === 'Cargando...' || r.nombre.startsWith('Contribuyente ')
+        );
+        for (const r of pendientes) {
+            try {
+                const resp = await fetch(`/api/portal/ruc/${r.ruc}`);
+                const data = await resp.json();
+                if (data.ok && data.nombre) {
+                    r.nombre = data.nombre;
+                    r.estado = data.estado || '';
+                }
+            } catch(e) {}
+        }
+        if (pendientes.length > 0) {
+            localStorage.setItem('avisos_config', JSON.stringify(config));
+            renderRucs();
+        }
     }
 
     function eliminarRuc(ruc) {
@@ -330,7 +383,7 @@
                 <div class="ruc-grupo" title="Grupo SUNAT">${grupo}</div>
                 <div class="ruc-data">
                     <div class="ruc-numero">${r.ruc}</div>
-                    <div class="ruc-nombre">${r.nombre}</div>
+                    <div class="ruc-nombre">${r.nombre}${r.estado ? ` <small style="color:${r.estado==='ACTIVO'?'#22c55e':'#f59e0b'};font-size:10px">${r.estado}</small>` : ''}</div>
                 </div>
                 <button class="btn-delete-ruc" onclick="window._avisosModule.eliminarRuc('${r.ruc}')">
                     <i class="ph ph-trash"></i>
@@ -499,6 +552,7 @@
         switchTab,
         guardarConfiguracion,
         agregarRuc,
+        onRucInput,
         eliminarRuc,
         recargar: renderProximos
     };
@@ -508,6 +562,7 @@
         switchTab,
         guardarConfiguracion,
         agregarRuc,
+        onRucInput,
         eliminarRuc,
         renderProximos
     };
