@@ -144,3 +144,11 @@ async def landing_colegiado(
         }
     )
 
+# ==============================================================
+# GALERÍA VIDEOS - DEMO
+# ==============================================================
+@router_landing.get("/digital", response_class=HTMLResponse)
+async def galeria_digital(request: Request):
+    return templates.TemplateResponse("pages/public/digital.html", {
+        "request": request
+    })
