@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ColegiosPro — Sistema de Gestión CCPL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:    #c8a84b;
+    --gold2:   #e8c96a;
+    --dark:    #0a0800;
+    --surface: #110f05;
+    --card:    #1a1608;
+    --border:  #2e2810;
+    --text:    #f0e8d0;
+    --muted:   #7a6e50;
+    --green:   #2d8a5a;
+    --green2:  #3db877;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grain overlay ────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: .6;
+  }
+
+  /* ── Hero ─────────────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    padding: 100px 40px 80px;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse at 50% 0%,
+      rgba(200,168,75,.18) 0%,
+      transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-seal {
+    width: 64px; height: 64px;
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    margin-bottom: 28px;
+    position: relative;
+    animation: pulse-seal 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-seal {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200,168,75,.4); }
+    50%       { box-shadow: 0 0 0 16px rgba(200,168,75,0); }
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 18px;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 900;
+    line-height: 1.05;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .hero-title span {
+    color: var(--gold2);
+    font-style: italic;
+  }
+
+  .hero-sub {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--gold2);
+    display: block;
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Divider ──────────────────────────────────────────────── */
+  .divider {
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 40px; margin-bottom: 60px;
+  }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text {
+    font-size: 11px; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── Grid de videos ───────────────────────────────────────── */
+  .videos-section { padding: 0 40px 100px; max-width: 1200px; margin: 0 auto; }
+
+  .videos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  /* Card destacada — primera */
+  .video-card:first-child {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 900px) {
+    .video-card:first-child {
+      grid-column: span 2;
+    }
+  }
+
+  .video-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .3s cubic-bezier(.23,1,.32,1),
+                border-color .3s, box-shadow .3s;
+    position: relative;
+  }
+
+  .video-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(200,168,75,.4);
+    box-shadow: 0 24px 60px rgba(0,0,0,.5),
+                0 0 0 1px rgba(200,168,75,.15);
+  }
+
+  .video-thumb {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #0d0b04;
+    overflow: hidden;
+  }
+
+  .video-card:first-child .video-thumb {
+    aspect-ratio: 21/9;
+  }
+
+  /* Thumbnail placeholder con gradiente */
+  .thumb-bg {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .thumb-icon {
+    font-size: 48px;
+    opacity: .15;
+    filter: grayscale(1);
+  }
+
+  .video-card:first-child .thumb-icon { font-size: 80px; }
+
+  /* Overlay con número */
+  .thumb-num {
+    position: absolute;
+    top: 16px; left: 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(200,168,75,.7);
+    background: rgba(0,0,0,.5);
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid rgba(200,168,75,.2);
+  }
+
+  /* Play button */
+  .play-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%) scale(.9);
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(200,168,75,.9);
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .25s, background .25s;
+    opacity: 0;
+  }
+
+  .video-card:hover .play-btn {
+    opacity: 1;
+    transform: translate(-50%,-50%) scale(1);
+  }
+
+  .play-btn svg {
+    width: 20px; height: 20px; fill: #0a0800;
+    margin-left: 3px;
+  }
+
+  .video-card:first-child .play-btn {
+    width: 80px; height: 80px;
+  }
+
+  /* Duration badge */
+  .thumb-dur {
+    position: absolute;
+    bottom: 12px; right: 12px;
+    font-size: 11px; font-weight: 600;
+    color: var(--text);
+    background: rgba(0,0,0,.75);
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  /* Sin video aún */
+  .thumb-soon {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    background: rgba(0,0,0,.3);
+  }
+
+  .soon-badge {
+    font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 12px; border-radius: 2px;
+  }
+
+  /* Card body */
+  .video-body {
+    padding: 20px 22px 22px;
+  }
+
+  .video-tag {
+    display: inline-block;
+    font-size: 9px; letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid rgba(200,168,75,.3);
+    padding: 3px 9px; border-radius: 2px;
+    margin-bottom: 10px;
+  }
+
+  .video-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .video-card:first-child .video-title { font-size: 24px; }
+
+  .video-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.65;
+    font-weight: 300;
+  }
+
+  .video-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .video-audience {
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .audience-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+
+  /* ── Modal de video ───────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.92);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1; pointer-events: all;
+  }
+
+  .modal-box {
+    width: 100%;
+    max-width: 900px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transform: scale(.95) translateY(20px);
+    transition: transform .35s cubic-bezier(.23,1,.32,1);
+  }
+
+  .modal-overlay.open .modal-box {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-title-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .modal-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s, color .2s;
+  }
+
+  .modal-close:hover { background: rgba(255,255,255,.1); color: var(--text); }
+
+  .modal-video-wrap {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #000;
+  }
+
+  .modal-video-wrap iframe,
+  .modal-video-wrap video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: none;
+  }
+
+  /* Placeholder cuando no hay URL */
+  .modal-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px;
+    background: var(--card);
+  }
+
+  .modal-placeholder-icon { font-size: 64px; opacity: .2; }
+  .modal-placeholder-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px; color: var(--muted);
+    font-style: italic;
+  }
+  .modal-placeholder-url {
+    font-size: 12px; color: var(--muted);
+    font-family: monospace;
+    background: rgba(255,255,255,.05);
+    padding: 8px 16px; border-radius: 4px;
+    border: 1px dashed var(--border);
+  }
+
+  .modal-footer {
+    padding: 14px 22px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Footer ───────────────────────────────────────────────── */
+  .page-footer {
+    text-align: center;
+    padding: 40px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── Animations ───────────────────────────────────────────── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeUp .7s cubic-bezier(.23,1,.32,1) forwards;
+  }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .video-card { animation: fadeUp .6s cubic-bezier(.23,1,.32,1) forwards; opacity: 0; }
+  .video-card:nth-child(1) { animation-delay: .1s; }
+  .video-card:nth-child(2) { animation-delay: .2s; }
+  .video-card:nth-child(3) { animation-delay: .3s; }
+  .video-card:nth-child(4) { animation-delay: .4s; }
+  .video-card:nth-child(5) { animation-delay: .5s; }
+  .video-card:nth-child(6) { animation-delay: .6s; }
+  .video-card:nth-child(7) { animation-delay: .7s; }
+
+  /* ── Responsive ───────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .hero { padding: 70px 20px 60px; }
+    .videos-section { padding: 0 16px 60px; }
+    .divider { padding: 0 16px; }
+    .hero-stats { gap: 28px; }
+    .videos-grid { grid-template-columns: 1fr; }
+    .video-card:first-child { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero fade-up">
+  <div class="hero-seal" style="border:none;width:80px;height:80px">
+    <img src="/static/images/logo-ccpl.png" 
+        alt="CCPL" style="width:100%;height:100%;border-radius:50%;object-fit:contain">
+  </div>
+  <p class="hero-eyebrow">Colegio de Contadores Públicos de Loreto</p>
+  <h1 class="hero-title">
+    Conoce tu nuevo<br>
+    <span>sistema de gestión</span>
+  </h1>
+  <p class="hero-sub">
+    Una plataforma diseñada para que cada colegiado gestione
+    su membresía, consulte sus obligaciones y realice pagos
+    desde cualquier dispositivo.
+  </p>
+  <div class="hero-stats">
+    <div class="stat">
+      <span class="stat-num">+2,400</span>
+      <span class="stat-lbl">Colegiados</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">100%</span>
+      <span class="stat-lbl">Digital</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">24/7</span>
+      <span class="stat-lbl">Disponible</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider">
+  <div class="divider-line"></div>
+  <span class="divider-text">Demos del sistema</span>
+  <div class="divider-line"></div>
+</div>
+
+<!-- GRID DE VIDEOS -->
+<section class="videos-section">
+  <div class="videos-grid" id="videos-grid">
+    <!-- Las cards se generan por JS desde el array de videos -->
+  </div>
+</section>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="cerrarModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title-text" id="modal-titulo">—</span>
+      <button class="modal-close" onclick="cerrarModal()">✕</button>
+    </div>
+    <div class="modal-video-wrap" id="modal-video-wrap">
+      <!-- Contenido inyectado por JS -->
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <span id="modal-tag"></span>
+      <span id="modal-desc-short"></span>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="page-footer">
+  ColegiosPro — Sistema de Gestión CCPL &nbsp;·&nbsp;
+  Desarrollado por Perú Sistemas PRO E.I.R.L. &nbsp;·&nbsp; Iquitos, Loreto
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// DATOS DE VIDEOS
+// Para agregar o editar un video, solo modifica este array.
+//
+// url: URL de YouTube (embed) o ruta de video local
+//      Ejemplos:
+//        YouTube: 'https://www.youtube.com/embed/XXXXXXXXXXX'
+//        Local:   '/static/videos/demo-portal.mp4'
+//        Vacío:   '' (muestra placeholder "Próximamente")
+// ══════════════════════════════════════════════════════════════
+const VIDEOS = [
+  {
+    tag:      'Introducción',
+    titulo:   'Tu portal de colegiado',
+    desc:     'Conoce cómo acceder a tu portal personal, consultar tu estado de habilidad, ver el detalle de tus deudas históricas y gestionar tu perfil profesional desde cualquier dispositivo.',
+    icono:    '🎓',
+    duracion: '3:20',
+    audiencia: { color: '#3db877', label: 'Todos los colegiados' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Pagos',
+    titulo:   'Reportar un pago',
+    desc:     'Sube tu voucher de Yape, Plin o transferencia. La inteligencia artificial extrae automáticamente el monto y número de operación.',
+    icono:    '📤',
+    duracion: '2:45',
+    audiencia: { color: '#3db877', label: 'Todos los colegiados' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Pagos',
+    titulo:   'Pagar con tarjeta en línea',
+    desc:     'Realiza el pago de tus cuotas con tarjeta Visa o Mastercard directamente desde el portal. Activación inmediata de tu habilidad.',
+    icono:    '💳',
+    duracion: '2:10',
+    audiencia: { color: '#3db877', label: 'Todos los colegiados' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Financiamiento',
+    titulo:   'Fraccionar tu deuda',
+    desc:     'Simula en tiempo real las cuotas mensuales de tu deuda. Elige el número de cuotas y obtén tu código de fraccionamiento al instante.',
+    icono:    '📅',
+    duracion: '3:00',
+    audiencia: { color: '#c8a84b', label: 'Colegiados con deuda' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Herramientas',
+    titulo:   'Mis Alertas Tributarias',
+    desc:     'Registra los RUCs de tus clientes y recibe alertas automáticas antes de cada vencimiento SUNAT: PDT 621, PLAME, AFP y más.',
+    icono:    '🔔',
+    duracion: '2:30',
+    audiencia: { color: '#60a5fa', label: 'Contadores — uso profesional' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Administración',
+    titulo:   'Panel del Decano',
+    desc:     'Indicadores en tiempo real: total de colegiados, porcentaje de habilidad, cartera de deuda y pagos en revisión.',
+    icono:    '📊',
+    duracion: '1:50',
+    audiencia: { color: '#f472b6', label: 'Directivos CCPL' },
+    url:      '', // ← pegar URL aquí
+  },
+  {
+    tag:      'Comprobantes',
+    titulo:   'Constancia de Habilidad',
+    desc:     'Solicita y descarga tu constancia de habilidad profesional al instante, directamente desde tu portal de colegiado.',
+    icono:    '📜',
+    duracion: '1:30',
+    audiencia: { color: '#3db877', label: 'Todos los colegiados' },
+    url:      '', // ← pegar URL aquí
+  },
+];
+
+// ── Renderizar cards ─────────────────────────────────────────
+function renderVideos() {
+  const grid = document.getElementById('videos-grid');
+  grid.innerHTML = VIDEOS.map((v, i) => `
+    <div class="video-card" onclick="abrirModal(${i})" role="button" tabindex="0">
+      <div class="video-thumb">
+        <div class="thumb-bg">
+          <span class="thumb-icon">${v.icono}</span>
+        </div>
+        <div class="thumb-num">Demo ${String(i+1).padStart(2,'0')}</div>
+        ${v.url ? `
+          <button class="play-btn" aria-label="Reproducir">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <span class="thumb-dur">${v.duracion}</span>
+        ` : `
+          <div class="thumb-soon">
+            <span class="soon-badge">Próximamente</span>
+          </div>
+        `}
+      </div>
+      <div class="video-body">
+        <span class="video-tag">${v.tag}</span>
+        <div class="video-title">${v.titulo}</div>
+        <div class="video-desc">${v.desc}</div>
+        <div class="video-footer">
+          <div class="video-audience">
+            <span class="audience-dot" style="background:${v.audiencia.color}"></span>
+            ${v.audiencia.label}
+          </div>
+          ${v.url ? `<span style="color:var(--gold);font-size:11px">▶ Ver demo</span>` : `<span style="color:var(--muted);font-size:11px">En preparación</span>`}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Modal ────────────────────────────────────────────────────
+function abrirModal(idx) {
+  const v    = VIDEOS[idx];
+  const wrap = document.getElementById('modal-video-wrap');
+
+  document.getElementById('modal-titulo').textContent = v.titulo;
+  document.getElementById('modal-tag').textContent    = v.tag;
+  document.getElementById('modal-desc-short').textContent = v.desc.substring(0, 80) + '…';
+
+  if (v.url) {
+    // YouTube embed o video local
+    if (v.url.includes('youtube.com') || v.url.includes('youtu.be')) {
+      wrap.innerHTML = `<iframe src="${v.url}?autoplay=1&rel=0" allowfullscreen allow="autoplay"></iframe>`;
+    } else {
+      wrap.innerHTML = `<video src="${v.url}" controls autoplay></video>`;
+    }
+  } else {
+    wrap.innerHTML = `
+      <div class="modal-placeholder">
+        <div class="modal-placeholder-icon">${v.icono}</div>
+        <div class="modal-placeholder-text">Video en preparación</div>
+        <div class="modal-placeholder-url">
+          Pegar URL en: VIDEOS[${idx}].url
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function cerrarModal(e) {
+  if (e && e.target !== document.getElementById('modal')) return;
+  const wrap = document.getElementById('modal-video-wrap');
+  wrap.innerHTML = ''; // detener video
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Cerrar con Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') cerrarModal();
+});
+
+// ── Init ─────────────────────────────────────────────────────
+renderVideos();
+</script>
+</body>
+</html>
