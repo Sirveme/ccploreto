@@ -325,6 +325,7 @@ window.PagoFlowHabil = (() => {
 
   // ── Paso 3: reportar ───────────────────────────────────────────────────────
   function _p3r() {
+    $('pfh-p1').style.display='none';
     $('pfh-p2').style.display='none';
     $('pfh-p3').style.display='block';
     if ($('pfh-titulo')) $('pfh-titulo').textContent='Reportar pago';
