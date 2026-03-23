@@ -567,4 +567,19 @@
         renderProximos
     };
 
+    // Conectar el input al cargarse el JS (el HTML ya puede estar en DOM)
+    function _bindRucInput() {
+        const input = document.getElementById('input-nuevo-ruc');
+        if (!input || input.dataset.pfhBound) return;
+        input.dataset.pfhBound = '1';
+        input.addEventListener('input', function() {
+            const val = this.value.replace(/\D/g,'');
+            if (val.length === 11) onRucInput(this.value.trim());
+        });
+    }
+    // Intentar ahora y también cuando el modal abra
+    _bindRucInput();
+    const _m = document.getElementById(MODAL_ID);
+    if (_m) _m.addEventListener('modal:opened', _bindRucInput);
+
 })();
