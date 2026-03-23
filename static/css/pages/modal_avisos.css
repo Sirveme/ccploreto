@@ -351,3 +351,108 @@
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Próximos vencimientos — cards */
+.proximo-card {
+    display: grid;
+    grid-template-columns: 36px 1fr 52px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    transition: border-color .15s;
+}
+.proximo-card.urgente { border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.05); }
+.proximo-card.pronto  { border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.04); }
+
+.proximo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+.proximo-icon.blue   { background: rgba(59,130,246,.15); color: #60a5fa; }
+.proximo-icon.green  { background: rgba(16,185,129,.15); color: #34d399; }
+.proximo-icon.orange { background: rgba(249,115,22,.15); color: #fb923c; }
+.proximo-icon.purple { background: rgba(139,92,246,.15); color: #a78bfa; }
+
+.proximo-info { min-width: 0; }
+.proximo-info strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.proximo-info small {
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.proximo-dias {
+    text-align: center;
+    flex-shrink: 0;
+}
+.dias-numero {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+}
+.dias-numero.urgente { color: #ef4444; }
+.dias-numero.pronto  { color: #f59e0b; }
+.dias-numero.ok      { color: #10b981; }
+.dias-texto {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+/* ruc-card — grupo SUNAT */
+.ruc-card {
+    display: grid;
+    grid-template-columns: 32px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+}
+.ruc-grupo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(251,191,36,.12);
+    border: 1px solid rgba(251,191,36,.25);
+    color: #fbbf24;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ruc-data { min-width: 0; }
+.ruc-numero {
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    font-family: monospace;
+}
+.ruc-nombre {
+    font-size: 11px;
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
