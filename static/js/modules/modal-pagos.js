@@ -205,8 +205,8 @@ window.ModalPagos = {
                                 ? `<small>de S/ ${this._fmt(d.monto_original)}</small>` : ''}
                         </span>
                         <button class="mp-btn-pagar" data-accion="pagar-deuda" data-id="${d.id}"
-                                title="Pago en ventanilla o POS">
-                            <i class="ph ph-buildings"></i> Ventanilla
+                                title="Reportar pago realizado">
+                            <i class="ph ph-upload"></i> Reportar Pago
                         </button>
                         <button class="mp-btn-pagar-online" data-accion="pagar-online" data-id="${d.id}"
                                 title="Pago con tarjeta en línea - OpenPay">
@@ -519,18 +519,18 @@ window.ModalPagos = {
     // ── PAGOS ─────────────────────────────────────────────────
     _pagarDeuda(id) {
         const deuda = this.data?.deudas?.find(d=>d.id===id);
-        if (!deuda || typeof AIFab==='undefined') return;
-        const col = this.data?.colegiado;
-        AIFab.openPagoFormPrellenado({
-            id: col?.id, nombre: col?.nombre, matricula: col?.matricula, dni: col?.dni,
-            deuda: {
-                deuda_total: deuda.balance, total: deuda.balance, cantidad_cuotas: 1,
-                en_revision: this.data.resumen?.en_revision||0,
-                debt_id: deuda.id,
-                concepto: deuda.concepto + (deuda.periodo?' '+deuda.periodo:''),
-            },
+        if (!deuda) return;
+        if (typeof PagoFlowHabil === 'undefined') {
+            console.warn('[ModalPagos] PagoFlowHabil no disponible');
+            return;
+        }
+        Modal.close('modal-pagos');
+        PagoFlowHabil.iniciar({
+            deudaId:  deuda.id,
+            deudaIds: [deuda.id],
+            monto:    deuda.balance,
+            concepto: deuda.concepto + (deuda.periodo ? ' · ' + deuda.periodo : ''),
         });
-        this._cerrar();
     },
 
     _pagarCuotas() {
@@ -577,7 +577,16 @@ window.ModalPagos = {
     _pagarDeudaOnline(id) {
         const deuda = this.data?.deudas?.find(d => d.id === id);
         if (!deuda) return;
-        this._iniciarPagoOpenpay([id], deuda.balance);
+        if (typeof PagoFlowHabil === 'undefined') {
+            this._iniciarPagoOpenpay([id], deuda.balance);
+            return;
+        }
+        Modal.close('modal-pagos');
+        PagoFlowHabil.iniciarOnline({
+            deudaIds: [id],
+            monto:    deuda.balance,
+            concepto: deuda.concepto + (deuda.periodo ? ' · ' + deuda.periodo : ''),
+        });
     },
 
     // ── PAGAR CUOTAS ORDINARIAS EN LÍNEA (OpenPay) ─────────────
