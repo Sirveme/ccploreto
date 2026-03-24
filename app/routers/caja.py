@@ -1840,13 +1840,24 @@ async def correccion_listar_casos(
                AND d.created_at < :corte)) as mixto
     """), {"org": org_id, "corte": FECHA_CORTE_CORRECCION}).fetchone()
 
-    return JSONResponse({
-        "casos": casos,
-        "totales": dict(total._mapping) if total else {},
-        "page": page,
-        "limit": limit,
-        "fecha_corte": "2026-03-31",
-    })
+    import decimal as _decimal, json as _json
+    from fastapi.responses import Response as _Response
+
+    def _serial(obj):
+        if isinstance(obj, _decimal.Decimal): return float(obj)
+        if hasattr(obj, 'isoformat'): return obj.isoformat()
+        raise TypeError(f"No serializable: {type(obj)}")
+
+    return _Response(
+        content=_json.dumps({
+            "casos":       casos,
+            "totales":     dict(total._mapping) if total else {},
+            "page":        page,
+            "limit":       limit,
+            "fecha_corte": "2026-03-31",
+        }, default=_serial),
+        media_type="application/json"
+    )
 
 
 @router.get("/correccion/deudas/{colegiado_id}")
