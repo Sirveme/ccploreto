@@ -545,7 +545,8 @@ async function buscar() {
     renderResultado(d);
 
   } catch(e) {
-    mostrarError('Error de conexión. Intenta nuevamente.');
+    console.log('Respuesta API:', d);
+    mostrarError('Error de conexión. Intenta nuevamente.',d);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Consultar';
