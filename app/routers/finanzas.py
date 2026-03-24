@@ -572,29 +572,8 @@ async def situacion_colegiado_caja(
 async def dashboard_finanzas_view(
     request: Request,
     db: Session = Depends(get_db),
-    # member: Member = Depends(get_current_member),  # ← comentado temporalmente
-):
-    # Colegiado en None mientras no hay auth
-    colegiado = None
-
-    return templates.TemplateResponse("pages/finanzas/dashboard_finanzas.html", {
-        "request": request,
-        "current_user": None,
-        "colegiado": colegiado,
-    })
-
-"""
-@router_views.get("/dashboard2")
-async def dashboard_finanzas_view2(
-    request: Request,
-    db: Session = Depends(get_db),
     member: Member = Depends(get_current_member),
 ):
-    # Verificar rol
-    if member.role not in ("admin", "director_finanzas", "superadmin"):
-        raise HTTPException(status_code=403, detail="Acceso denegado")
-
-    # Buscar si este directivo también es colegiado
     colegiado = db.query(Colegiado).filter(
         Colegiado.member_id == member.id,
         Colegiado.organization_id == member.organization_id,
@@ -605,7 +584,7 @@ async def dashboard_finanzas_view2(
         "current_user": member,
         "colegiado": colegiado,
     })
-"""
+
 @router_views.get("/mi-portal-colegiado")
 async def redirigir_portal_colegiado(
     member: Member = Depends(get_current_member),
