@@ -231,7 +231,7 @@
         <a href="/caja" class="access-btn">💰 Caja</a>
         <a href="/admin" class="access-btn">⚙ Administración</a>
         <a href="/directorio" class="access-btn">📋 Directorio</a>
-        <a href="/dashboard" class="access-btn">👤 Mi Perfil</a>
+        <a href="/dashboard" class="access-btn">🎓 Mi Portal de Colegiado</a>
       </div>
     </div>
 
@@ -250,6 +250,256 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+     COMPOSITOR DE COMUNICADOS — para dashboard del Decano
+     
+     Agregar dentro del panel "Accesos Rápidos" o como panel nuevo
+     en app/templates/pages/decano/dashboard.html
+══════════════════════════════════════════════════════════════════════ -->
+
+<div class="dec-panel" style="margin-top:20px">
+    <div class="dec-panel-header">📢 Nuevo Comunicado</div>
+    <div class="dec-panel-body">
+
+        <!-- Tipo / Prioridad -->
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button class="dec-tipo-btn active" data-p="info"
+                    onclick="decSelTipo('info',this)"
+                    style="flex:1;padding:7px;border-radius:6px;font-size:11px;
+                           font-weight:600;cursor:pointer;border:1px solid rgba(59,130,246,.3);
+                           background:rgba(59,130,246,.1);color:#60a5fa;transition:all .15s">
+                📢 Info
+            </button>
+            <button class="dec-tipo-btn" data-p="warning"
+                    onclick="decSelTipo('warning',this)"
+                    style="flex:1;padding:7px;border-radius:6px;font-size:11px;
+                           font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.1);
+                           background:rgba(255,255,255,.03);color:#888;transition:all .15s">
+                ⚠️ Aviso
+            </button>
+            <button class="dec-tipo-btn" data-p="alert"
+                    onclick="decSelTipo('alert',this)"
+                    style="flex:1;padding:7px;border-radius:6px;font-size:11px;
+                           font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.1);
+                           background:rgba(255,255,255,.03);color:#888;transition:all .15s">
+                🚨 Urgente
+            </button>
+        </div>
+
+        <!-- Título -->
+        <div style="margin-bottom:10px">
+            <label style="font-size:10px;color:#888;text-transform:uppercase;
+                          letter-spacing:.05em;display:block;margin-bottom:4px">
+                Título *
+            </label>
+            <input type="text" id="dec-com-titulo"
+                   placeholder="Ej: Invitación Asamblea General Ordinaria"
+                   maxlength="100"
+                   style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+                          border-radius:8px;padding:9px 12px;color:#eee;font-size:13px;
+                          font-family:inherit;box-sizing:border-box">
+        </div>
+
+        <!-- Contenido -->
+        <div style="margin-bottom:10px">
+            <label style="font-size:10px;color:#888;text-transform:uppercase;
+                          letter-spacing:.05em;display:block;margin-bottom:4px">
+                Mensaje *
+            </label>
+            <textarea id="dec-com-contenido" rows="3"
+                      placeholder="Escribe el mensaje para los colegiados..."
+                      style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+                             border-radius:8px;padding:9px 12px;color:#eee;font-size:13px;
+                             font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        </div>
+
+        <!-- URL de imagen (opcional) -->
+        <div style="margin-bottom:14px">
+            <label style="font-size:10px;color:#888;text-transform:uppercase;
+                          letter-spacing:.05em;display:block;margin-bottom:4px">
+                Imagen (URL opcional)
+            </label>
+            <input type="url" id="dec-com-imagen"
+                   placeholder="https://... (afiche, foto del evento)"
+                   style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+                          border-radius:8px;padding:9px 12px;color:#eee;font-size:13px;
+                          font-family:inherit;box-sizing:border-box">
+        </div>
+
+        <!-- Destinatarios -->
+        <div style="margin-bottom:14px">
+            <label style="font-size:10px;color:#888;text-transform:uppercase;
+                          letter-spacing:.05em;display:block;margin-bottom:6px">
+                Destinatarios
+            </label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="dec-seg-btn active" data-seg="todos"
+                        onclick="decToggleSeg(this)"
+                        style="padding:5px 12px;border-radius:16px;font-size:11px;
+                               font-weight:600;cursor:pointer;transition:all .15s;
+                               background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.3);
+                               color:#c8a84b">
+                    Todos
+                </button>
+                <button class="dec-seg-btn" data-seg="habiles"
+                        onclick="decToggleSeg(this)"
+                        style="padding:5px 12px;border-radius:16px;font-size:11px;
+                               font-weight:600;cursor:pointer;transition:all .15s;
+                               background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+                               color:#888">
+                    Solo hábiles
+                </button>
+                <button class="dec-seg-btn" data-seg="inhabiles"
+                        onclick="decToggleSeg(this)"
+                        style="padding:5px 12px;border-radius:16px;font-size:11px;
+                               font-weight:600;cursor:pointer;transition:all .15s;
+                               background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+                               color:#888">
+                    Solo inhábiles
+                </button>
+            </div>
+        </div>
+
+        <!-- Botón enviar -->
+        <button onclick="decEnviarComunicado()"
+                style="width:100%;padding:12px;background:linear-gradient(135deg,#c8a84b,#a07830);
+                       color:#000;border:none;border-radius:8px;font-family:inherit;
+                       font-size:14px;font-weight:700;cursor:pointer;
+                       display:flex;align-items:center;justify-content:center;gap:8px;
+                       transition:opacity .15s"
+                id="dec-com-btn">
+            📤 Enviar a todos los colegiados
+        </button>
+
+        <!-- Feedback -->
+        <div id="dec-com-feedback" style="display:none;margin-top:10px;
+             font-size:12px;text-align:center;padding:8px;border-radius:8px"></div>
+
+    </div>
+</div>
+
+<input type="hidden" id="dec-com-prioridad" value="info">
+<input type="hidden" id="dec-com-segmento" value="todos">
+
+<script>
+function decSelTipo(p, btn) {
+    document.getElementById('dec-com-prioridad').value = p;
+    document.querySelectorAll('.dec-tipo-btn').forEach(b => {
+        b.style.background = 'rgba(255,255,255,.03)';
+        b.style.borderColor = 'rgba(255,255,255,.1)';
+        b.style.color = '#888';
+    });
+    const colors = {
+        info:    ['rgba(59,130,246,.1)',  'rgba(59,130,246,.3)',  '#60a5fa'],
+        warning: ['rgba(245,158,11,.1)',  'rgba(245,158,11,.3)',  '#f59e0b'],
+        alert:   ['rgba(239,68,68,.1)',   'rgba(239,68,68,.3)',   '#ef4444'],
+    };
+    const [bg, border, color] = colors[p];
+    btn.style.background   = bg;
+    btn.style.borderColor  = border;
+    btn.style.color        = color;
+}
+
+function decToggleSeg(btn) {
+    // Si toca "Todos", desactivar los demás
+    if (btn.dataset.seg === 'todos') {
+        document.querySelectorAll('.dec-seg-btn').forEach(b => {
+            b.style.background   = 'rgba(255,255,255,.03)';
+            b.style.borderColor  = 'rgba(255,255,255,.1)';
+            b.style.color        = '#888';
+        });
+        btn.style.background  = 'rgba(200,168,75,.15)';
+        btn.style.borderColor = 'rgba(200,168,75,.3)';
+        btn.style.color       = '#c8a84b';
+        document.getElementById('dec-com-segmento').value = 'todos';
+        return;
+    }
+    // Desactivar "Todos"
+    const todosBtn = document.querySelector('.dec-seg-btn[data-seg="todos"]');
+    if (todosBtn) {
+        todosBtn.style.background  = 'rgba(255,255,255,.03)';
+        todosBtn.style.borderColor = 'rgba(255,255,255,.1)';
+        todosBtn.style.color       = '#888';
+    }
+    // Toggle este
+    const isActive = btn.style.color === 'rgb(200, 168, 75)' ||
+                     btn.style.color === '#c8a84b';
+    if (isActive) {
+        btn.style.background  = 'rgba(255,255,255,.03)';
+        btn.style.borderColor = 'rgba(255,255,255,.1)';
+        btn.style.color       = '#888';
+        document.getElementById('dec-com-segmento').value = 'todos';
+    } else {
+        btn.style.background  = 'rgba(200,168,75,.15)';
+        btn.style.borderColor = 'rgba(200,168,75,.3)';
+        btn.style.color       = '#c8a84b';
+        document.getElementById('dec-com-segmento').value = btn.dataset.seg;
+    }
+}
+
+async function decEnviarComunicado() {
+    const titulo    = document.getElementById('dec-com-titulo')?.value.trim();
+    const contenido = document.getElementById('dec-com-contenido')?.value.trim();
+    const prioridad = document.getElementById('dec-com-prioridad')?.value || 'info';
+    const imagen    = document.getElementById('dec-com-imagen')?.value.trim();
+    const segmento  = document.getElementById('dec-com-segmento')?.value || 'todos';
+
+    if (!titulo) {
+        decFeedback('El título es obligatorio', 'error');
+        return;
+    }
+    if (!contenido) {
+        decFeedback('El mensaje es obligatorio', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('dec-com-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite"></span> Enviando...';
+
+    try {
+        const r = await fetch('/api/comunicados/enviar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title:     titulo,
+                content:   contenido,
+                priority:  prioridad,
+                image_url: imagen || null,
+                segmento:  segmento,
+                target_criteria: { segmento },
+            }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+            decFeedback(`✅ Enviado a ${d.destinatarios} colegiados`, 'success');
+            document.getElementById('dec-com-titulo').value    = '';
+            document.getElementById('dec-com-contenido').value = '';
+            document.getElementById('dec-com-imagen').value    = '';
+        } else {
+            decFeedback(`Error: ${d.detail || d.mensaje}`, 'error');
+        }
+    } catch(e) {
+        decFeedback('Error de conexión', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '📤 Enviar a todos los colegiados';
+    }
+}
+
+function decFeedback(msg, tipo) {
+    const el = document.getElementById('dec-com-feedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.style.background = tipo === 'success'
+        ? 'rgba(0,217,126,.1)'  : 'rgba(239,68,68,.1)';
+    el.style.color = tipo === 'success' ? '#00d97e' : '#ef4444';
+    el.style.border = `1px solid ${tipo === 'success' ? 'rgba(0,217,126,.2)' : 'rgba(239,68,68,.2)'}`;
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+</script>
 
 </main>
 {% endblock %}
