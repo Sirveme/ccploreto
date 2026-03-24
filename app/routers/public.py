@@ -144,6 +144,17 @@ async def landing_colegiado(
         }
     )
 
+
+# ============================================================
+# pagina de reactivación - solo para profesionales que no están hábiles
+# ============================================================
+@router_landing.get("/reactivarse", response_class=HTMLResponse)
+async def pagina_reactivarse(request: Request):
+    return templates.TemplateResponse("pages/public/reactivarse.html", {
+        "request": request
+    })
+
+
 # ==============================================================
 # GALERÍA VIDEOS - DEMO
 # ==============================================================

@@ -114,3 +114,82 @@ async def verificar_habilidad_colegiado(matricula: str, db: Session = Depends(ge
         },
         "mensaje": "Colegiado HÁBIL" if es_habil else f"Colegiado {result.condicion.upper()}"
     })
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AGREGAR AL FINAL DE app/routers/api_publico.py
+# Endpoint público para página /reactivarse
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/reactivarse/consulta")
+async def consulta_reactivarse(
+    q: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Consulta pública por DNI, matrícula o nombre.
+    Devuelve: nombre, condicion, deuda_total, deuda_condonable, deuda_fraccionable.
+    No requiere autenticación.
+    """
+    from sqlalchemy import or_, func as _func
+    from app.models import Colegiado as _Col
+    from app.models_debt_management import Debt as _Debt
+
+    q = q.strip()
+    if len(q) < 6:
+        return JSONResponse({"encontrado": False, "mensaje": "Ingresa al menos 6 caracteres"})
+
+    # Buscar colegiado por DNI, matrícula o nombre
+    col = db.query(_Col).filter(
+        or_(
+            _Col.dni == q,
+            _Col.codigo_matricula == q,
+            _Col.codigo_matricula == f"10-{q.zfill(4)}",
+            _Col.apellidos_nombres.ilike(f"%{q}%"),
+        )
+    ).first()
+
+    if not col:
+        return JSONResponse({
+            "encontrado": False,
+            "mensaje": "No encontramos un colegiado con ese dato. Prueba con tu número de DNI."
+        })
+
+    # Calcular deudas
+    deudas = db.query(_Debt).filter(
+        _Debt.colegiado_id == col.id,
+        _Debt.status.in_(["pending", "partial"]),
+        _Debt.estado_gestion.in_(["vigente", "en_cobranza"]),
+    ).all()
+
+    deuda_total       = sum(float(d.balance) for d in deudas)
+    deuda_condonable  = sum(
+        float(d.balance) for d in deudas
+        if d.debt_type == "multa" or
+           (d.debt_type == "cuota_ordinaria" and d.periodo and
+            str(d.periodo)[:4].isdigit() and int(str(d.periodo)[:4]) <= 2019)
+    )
+    deuda_fraccionable = deuda_total - deuda_condonable
+
+    return JSONResponse({
+        "encontrado":       True,
+        "nombre":           col.apellidos_nombres or "—",
+        "dni":              col.dni or "—",
+        "matricula":        col.codigo_matricula,
+        "condicion":        col.condicion or "inhabil",
+        "deuda_total":      round(deuda_total, 2),
+        "deuda_condonable": round(deuda_condonable, 2),
+        "deuda_fraccionable": round(deuda_fraccionable, 2),
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AGREGAR EN app/routers/public.py (al final, en router_landing)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# @router_landing.get("/reactivarse", response_class=HTMLResponse)
+# async def pagina_reactivarse(request: Request):
+#     return templates.TemplateResponse("pages/public/reactivarse.html", {
+#         "request": request
+#     })
