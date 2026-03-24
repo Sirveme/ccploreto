@@ -47,7 +47,7 @@ const CorrPanel = (() => {
     lista.innerHTML = '<div style="text-align:center;color:#888;padding:40px;font-size:13px">Cargando...</div>';
 
     try {
-      const r = await fetch(`/caja/correccion/casos?tipo=${_tipo}&page=${_page}`);
+      const r = await fetch(`/api/caja/correccion/casos?tipo=${_tipo}&page=${_page}`);
       const d = await r.json();
 
       // Actualizar contadores en tabs
@@ -141,7 +141,7 @@ const CorrPanel = (() => {
     const cards = lista.querySelectorAll('[onclick]');
     // Buscar en DOM o usar fetch separado
     try {
-      const r = await fetch(`/caja/correccion/casos?tipo=todos&page=1`);
+      const r = await fetch(`/api/caja/correccion/casos?tipo=todos&page=1`);
       const d = await r.json();
       const col = d.casos.find(c => c.id === colId);
       if (col) {
@@ -156,7 +156,7 @@ const CorrPanel = (() => {
 
     // Cargar deudas corregibles
     try {
-      const r2 = await fetch(`/caja/correccion/deudas/${colId}`);
+      const r2 = await fetch(`/api/caja/correccion/deudas/${colId}`);
       _deudas = await r2.json();
       renderDeudas();
     } catch(e) {
@@ -253,7 +253,7 @@ const CorrPanel = (() => {
     }
 
     try {
-      const r = await fetch('/caja/correccion/aplicar', {
+      const r = await fetch('/api/caja/correccion/aplicar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -288,7 +288,7 @@ const CorrPanel = (() => {
     const lista = document.getElementById('corr-lista');
     lista.innerHTML = '<div style="text-align:center;color:#888;padding:40px;font-size:13px">Cargando log...</div>';
     try {
-      const r = await fetch('/caja/correccion/log');
+      const r = await fetch('/api/caja/correccion/log');
       const rows = await r.json();
       if (!rows.length) {
         lista.innerHTML = '<div style="text-align:center;color:#888;padding:40px;font-size:13px">Sin correcciones registradas aún</div>';
