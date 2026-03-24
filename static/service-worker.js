@@ -1,7 +1,7 @@
 // static/service-worker.js
 // v2 — PWA instalable + push comunicados + push pánico
 
-const CACHE_NAME = 'ccpl-v2';
+const CACHE_NAME = 'ccpl-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard',
