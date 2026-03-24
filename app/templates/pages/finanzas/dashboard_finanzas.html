@@ -654,14 +654,14 @@ body::before {
             <div class="switch-avatar">
             <!-- Iniciales del directivo, las mismas del login -->
             <!--<span>{{ current_user.initials or 'CO' }}</span> -->
-                <span>A.A.</span>
+                <span>{{ (colegiado.apellidos_nombres or 'CO')[:2].upper() }}</span>
             </div>
             <div class="switch-info">
             <span class="switch-label">Mi portal Colegiado</span>
             <!--<span class="switch-mat">Mat. {{ colegiado.codigo_matricula or '—' }}</span>-->
             <span class="switch-mat">Mat. 10-0637</span>
             </div>
-            <span class="switch-arrow">↗</span>
+            <span class="switch-mat">Mat. {{ colegiado.codigo_matricula or '—' }}</span>
         </a>
         </div>
     {% endif %}
