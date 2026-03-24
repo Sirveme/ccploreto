@@ -102,30 +102,38 @@ const ComunicadosFeed = (() => {
 
     // ── Recibir push en tiempo real (WebSocket) ──────────────
     function conectarWS() {
-        const intentar = (reintentos) => {
-            if (window._dashboardSocket) {
-                window._dashboardSocket.addEventListener('message', e => {
-                    try {
-                        const msg = JSON.parse(e.data);
-                        if (msg.type === 'BULLETIN') {
-                            setTimeout(cargar, 300);
-                            // Sonido según prioridad
-                            const sonidos = {
-                                alert:   '/static/sounds/sirena.mp3',
-                                warning: '/static/sounds/new-notification-sound.mp3',
-                                info:    '/static/sounds/ding-dong.mp3',
-                            };
-                            const src = sonidos[msg.priority] || sonidos.info;
-                            new Audio(src).play().catch(() => {});
-                            if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
-                        }
-                    } catch(err) {}
-                });
-            } else if (reintentos > 0) {
-                setTimeout(() => intentar(reintentos - 1), 1000);
-            }
-        };
-        intentar(8);
+        try {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws/alerta`);
+
+            ws.addEventListener('message', e => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === 'BULLETIN') {
+                        setTimeout(cargar, 300);
+                        const sonidos = {
+                            alert:   '/static/sounds/sirena.mp3',
+                            warning: '/static/sounds/new-notification-sound.mp3',
+                            info:    '/static/sounds/ding-dong.mp3',
+                        };
+                        new Audio(sonidos[msg.priority] || sonidos.info)
+                            .play().catch(() => {});
+                        if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
+                    }
+                } catch(err) {}
+            });
+
+            ws.addEventListener('close', () => {
+                setTimeout(conectarWS, 3000);
+            });
+
+            ws.addEventListener('error', () => {
+                setTimeout(conectarWS, 5000);
+            });
+
+        } catch(e) {
+            console.warn('[Comunicados] WS error:', e);
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────
