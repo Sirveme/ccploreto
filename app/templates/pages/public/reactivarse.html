@@ -586,10 +586,21 @@ function renderResultado(d) {
   document.getElementById('resultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   // Si ya está hábil, cambiar botón
-  if (esHabil && d.deuda_total === 0) {
-    document.getElementById('btn-instalar').textContent = '📲 Instalar App';
-    document.getElementById('btn-solo-pagar').textContent = 'Ir a mi portal →';
-  }
+  if (esHabil) {
+        document.getElementById('res-fracc-box').style.display = 'none';
+        document.getElementById('btn-instalar').innerHTML = '📲 Instalar App';
+        document.getElementById('btn-solo-pagar').textContent = 'Ver cómo usar el sistema →';
+        document.getElementById('btn-solo-pagar').onclick = () => {
+            window.location.href = '/digital';
+        };
+        // Mostrar mensaje especial
+        const body = document.querySelector('.result-body');
+        const msg = document.createElement('div');
+        msg.style.cssText = 'background:rgba(0,217,126,.08);border:1px solid rgba(0,217,126,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:#3db877;margin-bottom:14px;line-height:1.6';
+        msg.innerHTML = '✅ <strong>Estás al día.</strong> Tu condición es HÁBIL. Instala la app para recibir alertas y comunicados del Colegio.';
+        body.insertBefore(msg, body.firstChild);
+        document.getElementById('btn-instalar').onclick = instalarYPagar;
+    }
 }
 
 // ── Instalar y pagar ──────────────────────────────────────
