@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateConnectionUI('connecting');
         socket = new WebSocket(config.wsUrl);
+        window._dashboardSocket = socket;
 
         socket.onopen = () => {
             console.log("🟢 WS Conectado");
