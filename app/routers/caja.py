@@ -1706,3 +1706,300 @@ async def consulta_ruc(ruc: str):
             d = r.json()
             return {"razon_social": d.get("nombre"), "direccion": d.get("direccion")}
     return {"razon_social": None}
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AGREGAR AL FINAL DE app/routers/caja.py
+# Panel de corrección de datos — solo para registros antes del 01/04/2026
+# ══════════════════════════════════════════════════════════════════════════════
+
+from datetime import datetime as _dt
+
+FECHA_CORTE_CORRECCION = _dt(2026, 4, 1)  # Solo datos anteriores a esta fecha
+
+
+@router.get("/correccion/casos")
+async def correccion_listar_casos(
+    tipo: str = "todos",   # inhabil_sin_deuda | habil_con_deuda_alta | mixto | todos
+    page: int = 1,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """
+    Lista casos sospechosos para revisión de Caja.
+    Solo muestra registros creados antes del 01/04/2026.
+    """
+    from sqlalchemy import text as _text
+    org_id = member.organization_id
+    limit  = 30
+    offset = (page - 1) * limit
+
+    casos = []
+
+    if tipo in ("inhabil_sin_deuda", "todos"):
+        rows = db.execute(_text("""
+            SELECT
+                c.id, c.codigo_matricula, c.apellidos_nombres,
+                c.condicion, c.motivo_inhabilidad,
+                0::numeric as deuda_total,
+                0 as num_deudas,
+                'inhabil_sin_deuda' as tipo_caso,
+                'Inhábil sin deudas registradas' as descripcion_caso
+            FROM colegiados c
+            WHERE c.organization_id = :org
+              AND c.condicion = 'inhabil'
+              AND NOT EXISTS (
+                  SELECT 1 FROM debts d
+                  WHERE d.colegiado_id = c.id
+                    AND d.status IN ('pending','partial')
+                    AND d.estado_gestion IN ('vigente','en_cobranza')
+              )
+            ORDER BY c.codigo_matricula
+            LIMIT :lim OFFSET :off
+        """), {"org": org_id, "lim": limit, "off": offset}).fetchall()
+        casos += [dict(r._mapping) for r in rows]
+
+    if tipo in ("habil_con_deuda_alta", "todos"):
+        rows = db.execute(_text("""
+            SELECT
+                c.id, c.codigo_matricula, c.apellidos_nombres,
+                c.condicion, c.motivo_inhabilidad,
+                COALESCE(SUM(d.balance),0) as deuda_total,
+                COUNT(d.id) as num_deudas,
+                'habil_con_deuda_alta' as tipo_caso,
+                'Hábil con deuda > S/500 sin fraccionamiento activo' as descripcion_caso
+            FROM colegiados c
+            JOIN debts d ON d.colegiado_id = c.id
+                AND d.status IN ('pending','partial')
+                AND d.estado_gestion IN ('vigente','en_cobranza')
+            WHERE c.organization_id = :org
+              AND c.condicion = 'habil'
+              AND NOT EXISTS (
+                  SELECT 1 FROM fraccionamientos f
+                  WHERE f.colegiado_id = c.id AND f.estado = 'activo'
+              )
+            GROUP BY c.id, c.codigo_matricula, c.apellidos_nombres,
+                     c.condicion, c.motivo_inhabilidad
+            HAVING SUM(d.balance) > 500
+            ORDER BY deuda_total DESC
+            LIMIT :lim OFFSET :off
+        """), {"org": org_id, "lim": limit, "off": offset}).fetchall()
+        casos += [dict(r._mapping) for r in rows]
+
+    if tipo in ("mixto", "todos"):
+        rows = db.execute(_text("""
+            SELECT
+                c.id, c.codigo_matricula, c.apellidos_nombres,
+                c.condicion, c.motivo_inhabilidad,
+                0::numeric as deuda_total, 0 as num_deudas,
+                'mixto' as tipo_caso,
+                'Tiene deudas condonadas Y vigentes' as descripcion_caso
+            FROM colegiados c
+            WHERE c.organization_id = :org
+              AND EXISTS (
+                  SELECT 1 FROM debts d WHERE d.colegiado_id = c.id
+                  AND d.estado_gestion = 'condonada'
+                  AND d.created_at < :corte
+              )
+              AND EXISTS (
+                  SELECT 1 FROM debts d WHERE d.colegiado_id = c.id
+                  AND d.estado_gestion = 'vigente'
+                  AND d.status IN ('pending','partial')
+                  AND d.created_at < :corte
+              )
+            ORDER BY c.codigo_matricula
+            LIMIT :lim OFFSET :off
+        """), {"org": org_id, "lim": limit, "off": offset,
+               "corte": FECHA_CORTE_CORRECCION}).fetchall()
+        casos += [dict(r._mapping) for r in rows]
+
+    # Totales para paginación
+    total = db.execute(_text("""
+        SELECT
+          (SELECT COUNT(*) FROM colegiados c
+           WHERE c.organization_id = :org AND c.condicion='inhabil'
+           AND NOT EXISTS (SELECT 1 FROM debts d WHERE d.colegiado_id=c.id
+               AND d.status IN ('pending','partial')
+               AND d.estado_gestion IN ('vigente','en_cobranza'))) as inhabil_sin_deuda,
+          (SELECT COUNT(*) FROM (
+              SELECT c.id FROM colegiados c
+              JOIN debts d ON d.colegiado_id=c.id
+                  AND d.status IN ('pending','partial')
+                  AND d.estado_gestion IN ('vigente','en_cobranza')
+              WHERE c.organization_id=:org AND c.condicion='habil'
+              AND NOT EXISTS (SELECT 1 FROM fraccionamientos f
+                  WHERE f.colegiado_id=c.id AND f.estado='activo')
+              GROUP BY c.id HAVING SUM(d.balance)>500) x) as habil_con_deuda_alta,
+          (SELECT COUNT(*) FROM colegiados c
+           WHERE c.organization_id=:org
+           AND EXISTS (SELECT 1 FROM debts d WHERE d.colegiado_id=c.id
+               AND d.estado_gestion='condonada' AND d.created_at < :corte)
+           AND EXISTS (SELECT 1 FROM debts d WHERE d.colegiado_id=c.id
+               AND d.estado_gestion='vigente' AND d.status IN ('pending','partial')
+               AND d.created_at < :corte)) as mixto
+    """), {"org": org_id, "corte": FECHA_CORTE_CORRECCION}).fetchone()
+
+    return JSONResponse({
+        "casos": casos,
+        "totales": dict(total._mapping) if total else {},
+        "page": page,
+        "limit": limit,
+        "fecha_corte": "2026-03-31",
+    })
+
+
+@router.get("/correccion/deudas/{colegiado_id}")
+async def correccion_deudas_colegiado(
+    colegiado_id: int,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Deudas corregibles de un colegiado (solo antes del 01/04/2026)."""
+    from app.models_debt_management import Debt as _Debt
+    deudas = db.query(_Debt).filter(
+        _Debt.colegiado_id    == colegiado_id,
+        _Debt.organization_id == member.organization_id,
+        _Debt.created_at      < FECHA_CORTE_CORRECCION,
+        _Debt.status.in_(["pending", "partial"]),
+    ).order_by(_Debt.periodo).all()
+
+    return JSONResponse([{
+        "id":              d.id,
+        "concept":         d.concept,
+        "periodo":         d.periodo or "",
+        "period_label":    d.period_label or d.concept,
+        "debt_type":       d.debt_type,
+        "amount":          float(d.amount),
+        "balance":         float(d.balance),
+        "status":          d.status,
+        "estado_gestion":  d.estado_gestion,
+        "lote_migracion":  d.lote_migracion or "",
+        "created_at":      d.created_at.strftime("%Y-%m-%d") if d.created_at else "",
+    } for d in deudas])
+
+
+@router.post("/correccion/aplicar")
+async def correccion_aplicar(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """
+    Aplica correcciones a un colegiado.
+    Registra en log de auditoría.
+    Body JSON:
+    {
+      "colegiado_id": 123,
+      "condicion": "habil",          // opcional
+      "motivo_nota": "Revisión caja — estaba al día según Excel",
+      "deudas": [
+        {"id": 456, "estado_gestion": "condonada"},
+        {"id": 789, "estado_gestion": "vigente"}
+      ]
+    }
+    """
+    from sqlalchemy import text as _text
+    from app.models_debt_management import Debt as _Debt
+    from app.models import Colegiado as _Col
+
+    data = await request.json()
+    col_id   = data.get("colegiado_id")
+    condicion = data.get("condicion")
+    motivo   = (data.get("motivo_nota") or "").strip()
+    deudas   = data.get("deudas", [])
+
+    if not col_id:
+        return JSONResponse({"error": "colegiado_id requerido"}, status_code=400)
+    if not motivo:
+        return JSONResponse({"error": "motivo_nota obligatorio"}, status_code=400)
+
+    col = db.query(_Col).filter(
+        _Col.id == col_id,
+        _Col.organization_id == member.organization_id
+    ).first()
+    if not col:
+        return JSONResponse({"error": "Colegiado no encontrado"}, status_code=404)
+
+    cambios = []
+
+    # Cambio de condición
+    if condicion and condicion != col.condicion:
+        cambios.append(f"condicion: {col.condicion} → {condicion}")
+        col.condicion = condicion
+        if condicion == "habil":
+            col.motivo_inhabilidad = None
+            from datetime import date as _date
+            col.habilidad_vence = _date(2026, 12, 31)
+
+    # Cambios en deudas
+    for dc in deudas:
+        debt_id = dc.get("id")
+        nuevo_eg = dc.get("estado_gestion")
+        if not debt_id or not nuevo_eg:
+            continue
+        d = db.query(_Debt).filter(
+            _Debt.id == debt_id,
+            _Debt.colegiado_id == col_id,
+            _Debt.created_at < FECHA_CORTE_CORRECCION,
+        ).first()
+        if not d:
+            continue
+        if d.estado_gestion != nuevo_eg:
+            cambios.append(f"deuda#{debt_id} ({d.period_label or d.concept}): "
+                           f"{d.estado_gestion} → {nuevo_eg}")
+            d.estado_gestion = nuevo_eg
+
+    if not cambios:
+        return JSONResponse({"ok": True, "mensaje": "Sin cambios que aplicar"})
+
+    # Log de auditoría
+    db.execute(_text("""
+        INSERT INTO caja_correccion_log
+            (organization_id, colegiado_id, member_id, motivo, cambios, created_at)
+        VALUES
+            (:org, :col, :mem, :motivo, :cambios, NOW())
+    """), {
+        "org":    member.organization_id,
+        "col":    col_id,
+        "mem":    member.id,
+        "motivo": motivo,
+        "cambios": "\n".join(cambios),
+    })
+
+    db.commit()
+
+    return JSONResponse({
+        "ok":      True,
+        "mensaje": f"{len(cambios)} cambio(s) aplicado(s)",
+        "cambios": cambios,
+    })
+
+
+@router.get("/correccion/log")
+async def correccion_log(
+    page: int = 1,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Historial de correcciones realizadas."""
+    from sqlalchemy import text as _text
+    limit  = 50
+    offset = (page - 1) * limit
+    rows = db.execute(_text("""
+        SELECT
+            l.id, l.created_at,
+            c.codigo_matricula, c.apellidos_nombres,
+            m.role as operador_rol,
+            u.name as operador_nombre,
+            l.motivo, l.cambios
+        FROM caja_correccion_log l
+        JOIN colegiados c  ON c.id = l.colegiado_id
+        JOIN members m     ON m.id = l.member_id
+        JOIN users u       ON u.id = m.user_id
+        WHERE l.organization_id = :org
+        ORDER BY l.created_at DESC
+        LIMIT :lim OFFSET :off
+    """), {"org": member.organization_id, "lim": limit, "off": offset}).fetchall()
+
+    return JSONResponse([dict(r._mapping) for r in rows])
