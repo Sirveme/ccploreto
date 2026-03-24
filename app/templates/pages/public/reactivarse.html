@@ -1,0 +1,637 @@
+<!-- app/templates/pages/public/reactivarse.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reactívate — CCPL</title>
+<link rel="manifest" href="/manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --verde:   #1b4d35;
+  --verde2:  #2d7a55;
+  --gold:    #c8a84b;
+  --gold2:   #e8c96a;
+  --bg:      #0a0f0d;
+  --surface: #111a14;
+  --card:    #182318;
+  --border:  #1e3025;
+  --text:    #e8f0eb;
+  --muted:   #6b8a74;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Fondo decorativo ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(27,77,53,.35) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 35% at 80% 80%, rgba(200,168,75,.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ── Header ───────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  position: relative; z-index: 1;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-seal {
+  width: 36px; height: 36px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  color: var(--gold);
+}
+
+.logo-text {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.logo-sub {
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.top-login {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 20px;
+  transition: all .2s;
+}
+
+.top-login:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Hero ─────────────────────────────────────────── */
+.hero {
+  text-align: center;
+  padding: 48px 24px 32px;
+  position: relative; z-index: 1;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(200,168,75,.12);
+  border: 1px solid rgba(200,168,75,.25);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.hero h1 {
+  font-size: clamp(24px, 5vw, 40px);
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 14px;
+}
+
+.hero h1 span { color: var(--gold2); }
+
+.hero p {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 420px;
+  margin: 0 auto;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+/* ── Card de búsqueda ─────────────────────────────── */
+.search-card {
+  max-width: 460px;
+  margin: 0 auto 24px;
+  padding: 0 16px;
+  position: relative; z-index: 1;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.4);
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .04em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.dni-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dni-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 16px;
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: .08em;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.dni-input:focus { border-color: var(--verde2); }
+.dni-input::placeholder { color: var(--muted); font-weight: 300; letter-spacing: 0; }
+
+.btn-buscar {
+  padding: 13px 20px;
+  background: var(--verde2);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Sora', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+
+.btn-buscar:hover { background: #3d9a6a; }
+.btn-buscar:disabled { opacity: .5; cursor: not-allowed; }
+
+.search-hint {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Resultado ────────────────────────────────────── */
+#resultado { display: none; }
+
+.result-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,.4);
+  animation: slideUp .4s cubic-bezier(.23,1,.32,1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.result-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--verde);
+  border: 2px solid var(--verde2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.result-nombre { font-size: 14px; font-weight: 700; }
+.result-mat    { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  margin-left: auto;
+}
+
+.badge-habil   { background: rgba(45,122,85,.2); color: #3db877; border: 1px solid rgba(45,122,85,.3); }
+.badge-inhabil { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+
+.result-body { padding: 18px 22px; }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.kpi-lbl { font-size: 9px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+.kpi-val { font-size: 20px; font-weight: 700; }
+.kpi-val.danger { color: var(--red); }
+.kpi-val.warn   { color: var(--amber); }
+.kpi-val.safe   { color: #3db877; }
+
+/* Botón instalar + pagar */
+.btn-instalar {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, var(--verde2), #1b4d35);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Sora', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  transition: opacity .2s;
+  box-shadow: 0 4px 20px rgba(45,122,85,.3);
+}
+
+.btn-instalar:hover { opacity: .9; }
+
+.btn-solo-pagar {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.btn-solo-pagar:hover { border-color: var(--muted); color: var(--text); }
+
+/* ── Banner beneficios (si no instala) ────────────── */
+.beneficios-banner {
+  display: none;
+  background: rgba(200,168,75,.08);
+  border: 1px solid rgba(200,168,75,.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--gold);
+  line-height: 1.6;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ── Toast ────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform .3s;
+  z-index: 100;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── Error ────────────────────────────────────────── */
+.error-msg {
+  display: none;
+  text-align: center;
+  font-size: 13px;
+  color: var(--red);
+  padding: 12px;
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+/* ── Footer ───────────────────────────────────────── */
+.page-footer {
+  margin-top: auto;
+  text-align: center;
+  padding: 24px;
+  font-size: 10px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  position: relative; z-index: 1;
+}
+
+/* ── Spinner ──────────────────────────────────────── */
+.spin {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="top-bar">
+  <div class="logo">
+    <div class="logo-seal">⚖</div>
+    <div>
+      <div class="logo-text">CCPL</div>
+      <div class="logo-sub">Colegio de Contadores · Loreto</div>
+    </div>
+  </div>
+  <a href="/login" class="top-login">Iniciar sesión →</a>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">✨ Nueva era digital CCPL</div>
+  <h1>Reactívate hoy.<br><span>Paga en minutos.</span></h1>
+  <p>Consulta tu estado de habilidad y deuda pendiente ingresando tu número de DNI.</p>
+</div>
+
+<!-- BÚSQUEDA -->
+<div class="search-card" id="search-section">
+  <div class="card">
+    <div class="card-title">Ingresa tu DNI</div>
+    <div class="dni-row">
+      <input type="text" class="dni-input" id="dni-input"
+             placeholder="Ej: 09876543"
+             maxlength="12"
+             inputmode="numeric"
+             onkeydown="if(event.key==='Enter') buscar()"
+             oninput="this.value=this.value.replace(/\D/g,'')">
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">
+        Consultar
+      </button>
+    </div>
+    <div class="search-hint">Tu DNI · Matrícula · Nombre</div>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+</div>
+
+<!-- RESULTADO -->
+<div class="search-card" id="resultado">
+  <div class="result-card">
+
+    <div class="result-header">
+      <div class="result-avatar" id="res-avatar">—</div>
+      <div>
+        <div class="result-nombre" id="res-nombre">—</div>
+        <div class="result-mat" id="res-mat">—</div>
+      </div>
+      <span class="badge" id="res-badge">—</span>
+    </div>
+
+    <div class="result-body">
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-lbl">Deuda pendiente</div>
+          <div class="kpi-val danger" id="res-deuda">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Condonable</div>
+          <div class="kpi-val safe" id="res-cond">—</div>
+        </div>
+      </div>
+
+      <div id="res-fracc-box"
+           style="display:none;background:rgba(245,158,11,.08);
+                  border:1px solid rgba(245,158,11,.2);border-radius:10px;
+                  padding:10px 14px;font-size:12px;color:var(--amber);
+                  margin-bottom:14px;line-height:1.6">
+        ⚡ <span id="res-fracc-txt"></span>
+      </div>
+
+      <button class="btn-instalar" id="btn-instalar" onclick="instalarYPagar()">
+        📲 Instalar App y Pagar
+      </button>
+
+      <button class="btn-solo-pagar" onclick="soloPagar()">
+        Continuar sin instalar →
+      </button>
+
+      <div class="beneficios-banner" id="beneficios-banner">
+        🎁 <strong>Beneficio exclusivo al fraccionar:</strong><br>
+        Accede a <strong>Alertas Tributarias</strong> + <strong>Mi Sitio Web Profesional</strong>
+        al regularizar tu situación hoy mismo.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="page-footer">
+  Colegio de Contadores Públicos de Loreto · ColegiosPro · Iquitos, Perú
+</footer>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+let _deferredPrompt = null;
+let _matricula = null;
+
+// ── Capturar evento de instalación ────────────────────────
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  // Actualizar botón si ya tenemos resultado
+  const btn = document.getElementById('btn-instalar');
+  if (btn) btn.style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  showToast('✅ App instalada — abriendo portal...');
+  setTimeout(() => { window.location.href = '/login?msg=app_instalada'; }, 1500);
+});
+
+// ── Buscar ─────────────────────────────────────────────────
+async function buscar() {
+  const val = document.getElementById('dni-input').value.trim();
+  if (!val || val.length < 6) {
+    mostrarError('Ingresa tu DNI (mínimo 6 dígitos)');
+    return;
+  }
+
+  const btn = document.getElementById('btn-buscar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>';
+  ocultarError();
+
+  try {
+    const r   = await fetch(`/api/publico/reactivarse/consulta?q=${encodeURIComponent(val)}`);
+    const d   = await r.json();
+
+    if (!d.encontrado) {
+      mostrarError(d.mensaje || 'No encontramos un colegiado con ese DNI.');
+      return;
+    }
+
+    _matricula = d.matricula;
+    renderResultado(d);
+
+  } catch(e) {
+    mostrarError('Error de conexión. Intenta nuevamente.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Consultar';
+  }
+}
+
+function renderResultado(d) {
+  // Avatar
+  const inicial = (d.nombre || '?')[0].toUpperCase();
+  document.getElementById('res-avatar').textContent = inicial;
+
+  // Datos
+  document.getElementById('res-nombre').textContent = d.nombre;
+  document.getElementById('res-mat').textContent    = `Mat. ${d.matricula} · DNI ${d.dni}`;
+
+  // Badge
+  const badge = document.getElementById('res-badge');
+  const esHabil = d.condicion === 'habil' || d.condicion === 'vitalicio';
+  badge.textContent = esHabil ? '● HÁBIL' : '● INHÁBIL';
+  badge.className   = 'badge ' + (esHabil ? 'badge-habil' : 'badge-inhabil');
+
+  // KPIs
+  document.getElementById('res-deuda').textContent =
+    d.deuda_total > 0 ? `S/ ${fmt(d.deuda_total)}` : 'S/ 0';
+  document.getElementById('res-cond').textContent =
+    d.deuda_condonable > 0 ? `S/ ${fmt(d.deuda_condonable)}` : 'S/ 0';
+
+  // Caja de fraccionamiento
+  if (d.deuda_fraccionable > 0) {
+    const ini = Math.ceil(d.deuda_fraccionable * 0.20);
+    document.getElementById('res-fracc-txt').textContent =
+      `Acuerdo 007-2026: puedes regularizarte con solo S/ ${ini} de cuota inicial.`;
+    document.getElementById('res-fracc-box').style.display = 'block';
+  }
+
+  // Mostrar resultado
+  document.getElementById('resultado').style.display = 'block';
+  document.getElementById('resultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Si ya está hábil, cambiar botón
+  if (esHabil && d.deuda_total === 0) {
+    document.getElementById('btn-instalar').textContent = '📲 Instalar App';
+    document.getElementById('btn-solo-pagar').textContent = 'Ir a mi portal →';
+  }
+}
+
+// ── Instalar y pagar ──────────────────────────────────────
+async function instalarYPagar() {
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt();
+    const { outcome } = await _deferredPrompt.userChoice;
+    _deferredPrompt = null;
+    if (outcome === 'accepted') {
+      showToast('✅ Instalando app...');
+      return; // appinstalled event manejará el redirect
+    }
+  }
+  // Si no hay prompt (ya instalada o no soportado) → ir directo al portal
+  soloPagar();
+}
+
+// ── Solo pagar (sin instalar) ─────────────────────────────
+function soloPagar() {
+  document.getElementById('beneficios-banner').style.display = 'block';
+  showToast('🎁 Recuerda: instalar la app te da beneficios exclusivos');
+  setTimeout(() => {
+    window.location.href = '/login?next=/portal&msg=reactivarse';
+  }, 2000);
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function fmt(n) {
+  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function mostrarError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function ocultarError() {
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('resultado').style.display = 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
