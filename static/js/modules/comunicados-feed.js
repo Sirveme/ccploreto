@@ -102,14 +102,21 @@ const ComunicadosFeed = (() => {
 
     // ── Recibir push en tiempo real (WebSocket) ──────────────
     function conectarWS() {
-        // Esperar a que dashboard.js exponga el socket
         const intentar = (reintentos) => {
             if (window._dashboardSocket) {
                 window._dashboardSocket.addEventListener('message', e => {
                     try {
                         const msg = JSON.parse(e.data);
                         if (msg.type === 'BULLETIN') {
-                            setTimeout(cargar, 500);
+                            setTimeout(cargar, 300);
+                            // Sonido según prioridad
+                            const sonidos = {
+                                alert:   '/static/sounds/sirena.mp3',
+                                warning: '/static/sounds/new-notification-sound.mp3',
+                                info:    '/static/sounds/ding-dong.mp3',
+                            };
+                            const src = sonidos[msg.priority] || sonidos.info;
+                            new Audio(src).play().catch(() => {});
                             if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
                         }
                     } catch(err) {}
@@ -118,7 +125,7 @@ const ComunicadosFeed = (() => {
                 setTimeout(() => intentar(reintentos - 1), 1000);
             }
         };
-        intentar(5);
+        intentar(8);
     }
 
     // ── Helpers ──────────────────────────────────────────────
