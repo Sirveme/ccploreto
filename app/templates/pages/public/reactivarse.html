@@ -545,7 +545,6 @@ async function buscar() {
     renderResultado(d);
 
   } catch(e) {
-    console.log('Respuesta API:', d);
     mostrarError('Error de conexión. Intenta nuevamente.',d);
   } finally {
     btn.disabled = false;
