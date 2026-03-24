@@ -399,7 +399,12 @@ body::before {
 <!-- HEADER -->
 <div class="top-bar">
   <div class="logo">
-    <div class="logo-seal">⚖</div>
+    
+    <div class="logo-seal" style="border:none;width:36px;height:36px">
+        <img src="/static/img/logo-ccpl.png" alt="CCPL"
+            style="width:100%;height:100%;border-radius:50%;object-fit:contain">
+    </div>
+
     <div>
       <div class="logo-text">CCPL</div>
       <div class="logo-sub">Colegio de Contadores · Loreto</div>
@@ -421,8 +426,8 @@ body::before {
     <div class="card-title">Ingresa tu DNI</div>
     <div class="dni-row">
       <input type="text" class="dni-input" id="dni-input"
-             placeholder="Ej: 09876543"
-             maxlength="12"
+             placeholder="Ingresa tu número de DNI"
+             maxlength="8"
              inputmode="numeric"
              onkeydown="if(event.key==='Enter') buscar()"
              oninput="this.value=this.value.replace(/\D/g,'')">
@@ -430,7 +435,7 @@ body::before {
         Consultar
       </button>
     </div>
-    <div class="search-hint">Tu DNI · Matrícula · Nombre</div>
+    <div class="search-hint">Solo se acepta número de DNI</div>
     <div class="error-msg" id="error-msg"></div>
   </div>
 </div>
@@ -529,6 +534,7 @@ async function buscar() {
   try {
     const r   = await fetch(`/api/publico/reactivarse/consulta?q=${encodeURIComponent(val)}`);
     const d   = await r.json();
+    console.log('Respuesta API:', d);
 
     if (!d.encontrado) {
       mostrarError(d.mensaje || 'No encontramos un colegiado con ese DNI.');
