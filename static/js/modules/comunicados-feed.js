@@ -102,22 +102,23 @@ const ComunicadosFeed = (() => {
 
     // ── Recibir push en tiempo real (WebSocket) ──────────────
     function conectarWS() {
-        // Escuchar mensajes del WS global si existe
-        if (window._wsGlobal) {
-            window._wsGlobal.addEventListener('message', e => {
-                try {
-                    const msg = JSON.parse(e.data);
-                    if (msg.type === 'BULLETIN') {
-                        // Recargar feed
-                        setTimeout(cargar, 500);
-                        // Mostrar toast
-                        if (window.Toast) {
-                            Toast.show(`📢 ${msg.title}`, 'info');
+        // Esperar a que dashboard.js exponga el socket
+        const intentar = (reintentos) => {
+            if (window._dashboardSocket) {
+                window._dashboardSocket.addEventListener('message', e => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'BULLETIN') {
+                            setTimeout(cargar, 500);
+                            if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
                         }
-                    }
-                } catch(err) {}
-            });
-        }
+                    } catch(err) {}
+                });
+            } else if (reintentos > 0) {
+                setTimeout(() => intentar(reintentos - 1), 1000);
+            }
+        };
+        intentar(5);
     }
 
     // ── Helpers ──────────────────────────────────────────────
