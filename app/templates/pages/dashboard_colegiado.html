@@ -341,6 +341,25 @@
 <script src="/static/js/components/ai-fab.js"></script>
 <script src="/static/js/modules/comunicados-feed.js?v=3"></script>
 <script src="/static/js/modules/verificacion-pago.js?v=20260322a"></script>
+
+<!-- Desbloquear audio con primera interacción -->
+<script>
+(function() {
+    const desbloquear = () => {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume();
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+    };
+    document.addEventListener('touchstart', desbloquear, { once: true });
+    document.addEventListener('click', desbloquear, { once: true });
+})();
+</script>
+
+
 {% block extra_scripts %}{% endblock %}
 {% block mic_floating %}{% endblock %}
 {% endblock %}
