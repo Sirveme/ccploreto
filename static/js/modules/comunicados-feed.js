@@ -1,196 +1,118 @@
 /**
- * comunicados-feed.js
- * Feed de comunicados para dashboard_colegiado.html
+ * comunicados-feed.js  v3
  * static/js/modules/comunicados-feed.js
- * 
- * Agregar en dashboard_colegiado.html:
- * <script src="/static/js/modules/comunicados-feed.js?v=1"></script>
  */
 
 const ComunicadosFeed = (() => {
 
-    const ICONS = {
-        info:    '📢',
-        warning: '⚠️',
-        alert:   '🚨',
+    const ICONS = { info:'📢', warning:'⚠️', alert:'🚨' };
+    const SONIDOS = {
+        alert:   '/static/sounds/sirena.mp3',
+        warning: '/static/sounds/new-notification-sound.mp3',
+        info:    '/static/sounds/ding-dong.mp3',
     };
 
-    // ── Cargar comunicados ───────────────────────────────────
     async function cargar() {
         const lista = document.getElementById('comunicados-lista');
         if (!lista) return;
-
         try {
             const r = await fetch('/api/comunicados/recientes?limit=3');
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
-
             if (!data.comunicados || data.comunicados.length === 0) {
-                lista.innerHTML = `
-                    <div style="font-size:11px;color:var(--text-dim,#888);
-                                text-align:center;padding:12px 0;font-style:italic">
-                        Sin comunicados recientes
-                    </div>`;
+                lista.innerHTML = `<div style="font-size:11px;color:var(--text-dim,#888);text-align:center;padding:12px 0;font-style:italic">Sin comunicados recientes</div>`;
                 return;
             }
-
             lista.innerHTML = data.comunicados.map(c => renderCard(c)).join('');
-
-            // Marcar leídos al hacer click
             lista.querySelectorAll('.comunicado-card').forEach(card => {
                 card.addEventListener('click', () => {
-                    const id = card.dataset.id;
-                    marcarLeido(id);
-                    // Quitar punto de nuevo
+                    marcarLeido(card.dataset.id);
                     card.querySelector('.comunicado-nuevo')?.remove();
-                    // Abrir modal o ir a /comunicaciones
-                    if (card.dataset.url) {
-                        window.location.href = card.dataset.url;
-                    } else {
-                        window.location.href = '/comunicaciones';
-                    }
+                    window.location.href = card.dataset.url || '/comunicaciones';
                 });
             });
-
         } catch(e) {
-            lista.innerHTML = `
-                <div style="font-size:11px;color:var(--text-dim,#888);
-                            text-align:center;padding:10px 0">
-                    No se pudieron cargar los comunicados
-                </div>`;
+            lista.innerHTML = `<div style="font-size:11px;color:var(--text-dim,#888);text-align:center;padding:10px 0">No se pudieron cargar los comunicados</div>`;
         }
     }
 
     function renderCard(c) {
-        const esNuevo = !c.leido;
-        const fecha   = formatFecha(c.created_at);
-        const icono   = ICONS[c.priority] || '📢';
+        const icono      = ICONS[c.priority] || '📢';
         const badgeClass = `badge-${c.priority || 'info'}`;
-        const badgeLabel = {
-            info:    'INFO',
-            warning: 'AVISO',
-            alert:   'URGENTE',
-        }[c.priority] || 'INFO';
-
-        const imgHtml = c.image_url
+        const badgeLabel = { info:'INFO', warning:'AVISO', alert:'URGENTE' }[c.priority] || 'INFO';
+        const imgHtml    = c.image_url
             ? `<div class="comunicado-img"><img src="${c.image_url}" alt=""></div>`
             : `<div class="comunicado-img">${icono}</div>`;
-
         return `
-            <div class="comunicado-card"
-                 data-id="${c.id}"
-                 data-url="${c.action_payload || ''}">
+            <div class="comunicado-card" data-id="${c.id}" data-url="${c.action_payload || ''}">
                 ${imgHtml}
                 <div class="comunicado-body">
                     <div class="comunicado-titulo-text">${escapeHtml(c.title)}</div>
                     <div class="comunicado-resumen">${escapeHtml(c.content)}</div>
                     <div class="comunicado-meta">
                         <span class="comunicado-badge ${badgeClass}">${badgeLabel}</span>
-                        <span class="comunicado-fecha">${fecha}</span>
-                        ${esNuevo ? '<span class="comunicado-nuevo"></span>' : ''}
+                        <span class="comunicado-fecha">${formatFecha(c.created_at)}</span>
+                        ${!c.leido ? '<span class="comunicado-nuevo"></span>' : ''}
                     </div>
                 </div>
             </div>`;
     }
 
-    // ── Marcar como leído ────────────────────────────────────
     async function marcarLeido(id) {
-        try {
-            await fetch(`/api/comunicados/${id}/leer`, { method: 'POST' });
-        } catch(e) { /* silencioso */ }
+        try { await fetch(`/api/comunicados/${id}/leer`, { method: 'POST' }); } catch(e) {}
     }
 
-    // ── Recibir push en tiempo real (WebSocket) ──────────────
-    function conectarWS() {
-        try {
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${proto}//${location.host}/ws/alerta`);
+    function abrirWS() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws    = new WebSocket(`${proto}//${location.host}/ws/alerta`);
 
-            ws.addEventListener('message', e => {
-                try {
-                    const msg = JSON.parse(e.data);
-                    if (msg.type === 'BULLETIN') {
-                        setTimeout(() => ComunicadosFeed.cargar(), 300);
-                        const sonidos = {
-                            alert:   '/static/sounds/sirena.mp3',
-                            warning: '/static/sounds/new-notification-sound.mp3',
-                            info:    '/static/sounds/ding-dong.mp3',
-                        };
-                        new Audio(sonidos[msg.priority] || sonidos.info)
-                            .play().catch(() => {});
-                        if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
-                    }
-                } catch(err) {}
-            });
+        ws.onopen = () => console.log('[Comunicados] WS conectado');
 
-            ws.addEventListener('close', () => {
-                setTimeout(conectarWS, 3000);
-            });
+        ws.onmessage = e => {
+            console.log('[Comunicados] WS mensaje:', e.data.substring(0, 80));
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'BULLETIN') {
+                    setTimeout(cargar, 300);
+                    new Audio(SONIDOS[msg.priority] || SONIDOS.info).play().catch(() => {});
+                    if (window.Toast) Toast.show('📢 ' + msg.title, 'info');
+                }
+            } catch(err) {}
+        };
 
-            ws.addEventListener('error', () => {
-                setTimeout(conectarWS, 5000);
-            });
+        ws.onclose = e => {
+            console.log('[Comunicados] WS cerrado, reconectando...', e.code);
+            setTimeout(abrirWS, 3000);
+        };
 
-        } catch(e) {
-            console.warn('[Comunicados] WS error:', e);
-        }
+        ws.onerror = () => ws.close();
     }
 
-    // ── Helpers ──────────────────────────────────────────────
     function formatFecha(iso) {
         if (!iso) return '';
-        const d   = new Date(iso);
-        const now = new Date();
-        const diff = Math.floor((now - d) / 1000);
+        const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
         if (diff < 60)     return 'Ahora';
-        if (diff < 3600)   return `Hace ${Math.floor(diff/60)} min`;
-        if (diff < 86400)  return `Hace ${Math.floor(diff/3600)}h`;
-        if (diff < 604800) return `Hace ${Math.floor(diff/86400)}d`;
-        return d.toLocaleDateString('es-PE', { day:'numeric', month:'short' });
+        if (diff < 3600)   return 'Hace ' + Math.floor(diff/60) + ' min';
+        if (diff < 86400)  return 'Hace ' + Math.floor(diff/3600) + 'h';
+        if (diff < 604800) return 'Hace ' + Math.floor(diff/86400) + 'd';
+        return new Date(iso).toLocaleDateString('es-PE', { day:'numeric', month:'short' });
     }
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str
-            .replace(/&/g,'&amp;')
-            .replace(/</g,'&lt;')
-            .replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;');
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // ── Init ─────────────────────────────────────────────────
     function init() {
         cargar();
-        
-        // WS directo — sin depender de otros módulos
-        function abrirWS() {
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${proto}//${location.host}/ws/alerta`);
-
-            ws.onmessage = e => {
-                try {
-                    const msg = JSON.parse(e.data);
-                    if (msg.type === 'BULLETIN') {
-                        setTimeout(cargar, 300);
-                        const sonidos = {
-                            alert:   '/static/sounds/sirena.mp3',
-                            warning: '/static/sounds/new-notification-sound.mp3',
-                            info:    '/static/sounds/ding-dong.mp3',
-                        };
-                        new Audio(sonidos[msg.priority] || sonidos.info)
-                            .play().catch(() => {});
-                        if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
-                    }
-                } catch(err) {}
-            };
-
-            ws.onclose = () => setTimeout(abrirWS, 3000);
-            ws.onerror = () => ws.close();
-        }
-
         abrirWS();
-        // Refrescar cada 5 minutos como respaldo
         setInterval(cargar, 5 * 60 * 1000);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
 
     return { cargar, init };
