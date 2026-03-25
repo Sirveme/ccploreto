@@ -161,16 +161,36 @@ const ComunicadosFeed = (() => {
     // ── Init ─────────────────────────────────────────────────
     function init() {
         cargar();
-        conectarWS();
-        // Refrescar cada 5 minutos
-        setInterval(cargar, 5 * 60 * 1000);
-    }
+        
+        // WS directo — sin depender de otros módulos
+        function abrirWS() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws/alerta`);
 
-    // Auto-init cuando el DOM está listo
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+            ws.onmessage = e => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === 'BULLETIN') {
+                        setTimeout(cargar, 300);
+                        const sonidos = {
+                            alert:   '/static/sounds/sirena.mp3',
+                            warning: '/static/sounds/new-notification-sound.mp3',
+                            info:    '/static/sounds/ding-dong.mp3',
+                        };
+                        new Audio(sonidos[msg.priority] || sonidos.info)
+                            .play().catch(() => {});
+                        if (window.Toast) Toast.show(`📢 ${msg.title}`, 'info');
+                    }
+                } catch(err) {}
+            };
+
+            ws.onclose = () => setTimeout(abrirWS, 3000);
+            ws.onerror = () => ws.close();
+        }
+
+        abrirWS();
+        // Refrescar cada 5 minutos como respaldo
+        setInterval(cargar, 5 * 60 * 1000);
     }
 
     return { cargar, init };
