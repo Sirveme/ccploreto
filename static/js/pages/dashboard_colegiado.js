@@ -260,3 +260,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (icon) icon.className = 'ph ph-speaker-slash';
     }
 });
+
+
+// === PWA INSTALL PROMPT ===
+
+// En dashboard_colegiado.js o en un script inline
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _installPrompt = e;
+    // Mostrar botón de instalar
+    document.getElementById('btn-instalar-app')?.style.setProperty('display', 'flex');
+});
+
+window.addEventListener('appinstalled', () => {
+    // Ocultar botón
+    document.getElementById('btn-instalar-app')?.style.setProperty('display', 'none');
+});
+
+function instalarApp() {
+    if (_installPrompt) {
+        _installPrompt.prompt();
+        _installPrompt.userChoice.then(r => {
+            if (r.outcome === 'accepted') {
+                document.getElementById('btn-instalar-app')?.style.setProperty('display', 'none');
+            }
+        });
+    }
+}
