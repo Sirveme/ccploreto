@@ -261,6 +261,12 @@ class Bulletin(Base):
     
     expires_at = Column(DateTime(timezone=True), nullable=True) # Cuándo desaparece del muro
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    tipo                   = Column(String(30), default='comunicado')
+    fecha_evento           = Column(DateTime(timezone=True), nullable=True)
+    lugar_evento           = Column(String(200), nullable=True)
+    video_url              = Column(String(500), nullable=True)
+    requiere_confirmacion  = Column(Boolean, default=False)
+    genera_multa           = Column(Boolean, default=False)
     
     # Relaciones
     organization = relationship("Organization")
