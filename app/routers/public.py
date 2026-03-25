@@ -8,6 +8,9 @@ from app.utils.templates import templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
+from app.models import Member
+from app.routers.dashboard import get_current_member
+
 from ..database import get_db
 from ..models import Colegiado, Organization
 
@@ -162,4 +165,19 @@ async def pagina_reactivarse(request: Request):
 async def galeria_digital(request: Request):
     return templates.TemplateResponse("pages/public/digital.html", {
         "request": request
+    })
+
+
+
+@router_landing.get("/comunicaciones", response_class=HTMLResponse)
+async def pagina_comunicaciones(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    ROLES_EMISOR = ("decano","admin","director_finanzas","tesorero","secretaria","cajero","superadmin","sote")
+    es_emisor = member.role in ROLES_EMISOR
+    return templates.TemplateResponse("pages/comunicaciones.html", {
+        "request":   request,
+        "es_emisor": es_emisor,
     })

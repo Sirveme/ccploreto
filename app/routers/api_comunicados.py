@@ -200,3 +200,104 @@ async def enviar_comunicado(
         "destinatarios": destinatarios,
         "mensaje":      f"Comunicado enviado a {destinatarios} dispositivos",
     })
+
+
+# ── GET /api/comunicados/lista ───────────────────────────────
+@router.get("/lista")
+async def comunicados_lista(
+    tipo: str = None,
+    limit: int = 30,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Lista de comunicados para /comunicaciones."""
+    from app.models import Member as _Member
+    now = datetime.now(timezone.utc)
+
+    query = db.query(Bulletin).filter(
+        Bulletin.organization_id == member.organization_id,
+        (Bulletin.expires_at == None) | (Bulletin.expires_at > now),
+    )
+
+    if tipo and tipo != 'todos':
+        query = query.filter(Bulletin.tipo == tipo)
+
+    bulletins = query.order_by(Bulletin.created_at.desc()).limit(limit).all()
+
+    leidos = {
+        e.bulletin_id
+        for e in db.query(BulletinEvent).filter(
+            BulletinEvent.member_id   == member.id,
+            BulletinEvent.bulletin_id.in_([b.id for b in bulletins] or [0]),
+            BulletinEvent.status.in_(["read", "confirmed"]),
+        ).all()
+    }
+
+    return JSONResponse({
+        "comunicados": [{
+            "id":                    b.id,
+            "tipo":                  getattr(b, 'tipo', 'comunicado') or 'comunicado',
+            "title":                 b.title,
+            "content":               b.content or "",
+            "priority":              b.priority or "info",
+            "image_url":             b.image_url,
+            "video_url":             getattr(b, 'video_url', None),
+            "action_payload":        b.action_payload,
+            "fecha_evento":          getattr(b, 'fecha_evento', None).isoformat() if getattr(b, 'fecha_evento', None) else None,
+            "lugar_evento":          getattr(b, 'lugar_evento', None),
+            "requiere_confirmacion": getattr(b, 'requiere_confirmacion', False),
+            "genera_multa":          getattr(b, 'genera_multa', False),
+            "created_at":            b.created_at.isoformat() if b.created_at else None,
+            "leido":                 b.id in leidos,
+            "autor":                 None,
+        } for b in bulletins]
+    })
+
+
+
+# ── POST /api/comunicados/push/registrar ────────────────────
+class PushSubscripcion(BaseModel):
+    endpoint: str
+    p256dh:   str
+    auth:     str
+
+@router.post("/push/registrar")
+async def registrar_push(
+    data: PushSubscripcion,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Guarda o actualiza la suscripción push del dispositivo."""
+    from app.models import Device
+
+    device = db.query(Device).filter(
+        Device.push_endpoint == data.endpoint,
+    ).first()
+
+    if device:
+        device.push_p256dh = data.p256dh
+        device.push_auth   = data.auth
+        device.member_id   = member.id
+        device.is_active   = True
+    else:
+        device = Device(
+            organization_id = member.organization_id,
+            member_id       = member.id,
+            push_endpoint   = data.endpoint,
+            push_p256dh     = data.p256dh,
+            push_auth       = data.auth,
+            is_active       = True,
+        )
+        db.add(device)
+
+    db.commit()
+    return JSONResponse({"ok": True})
+
+# ══════════════════════════════════════════════════════════════════
+# También agregar en app/main.py la ruta con el prefijo correcto:
+# El router tiene prefix="/api/comunicados", entonces el endpoint
+# queda en: /api/comunicados/push/registrar
+#
+# En el JS del snippet, la URL debe ser:
+# fetch('/api/comunicados/push/registrar', ...)
+# ══════════════════════════════════════════════════════════════════
