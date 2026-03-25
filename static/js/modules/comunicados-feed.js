@@ -7,7 +7,7 @@ const ComunicadosFeed = (() => {
 
     const ICONS = { info:'📢', warning:'⚠️', alert:'🚨' };
     const SONIDOS = {
-        alert:   '/static/sounds/sirena.mp3',
+        alert:   '/static/sounds/swoosh-sound.mp3',
         warning: '/static/sounds/new-notification-sound.mp3',
         info:    '/static/sounds/ding-dong.mp3',
     };
@@ -74,7 +74,12 @@ const ComunicadosFeed = (() => {
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'BULLETIN') {
                     setTimeout(cargar, 300);
-                    new Audio(SONIDOS[msg.priority] || SONIDOS.info).play().catch(() => {});
+                    
+                    // REEMPLAZAR:
+                    const sndId = { alert:'snd-alert', warning:'snd-warning', info:'snd-info' }[msg.priority] || 'snd-info';
+                    const sndEl = document.getElementById(sndId);
+                    if (sndEl) sndEl.play().catch(() => {});
+                    
                     if (window.Toast) Toast.show('📢 ' + msg.title, 'info');
                 }
             } catch(err) {}
