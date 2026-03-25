@@ -110,7 +110,7 @@ const ComunicadosFeed = (() => {
                 try {
                     const msg = JSON.parse(e.data);
                     if (msg.type === 'BULLETIN') {
-                        setTimeout(cargar, 300);
+                        setTimeout(() => ComunicadosFeed.cargar(), 300);
                         const sonidos = {
                             alert:   '/static/sounds/sirena.mp3',
                             warning: '/static/sounds/new-notification-sound.mp3',
