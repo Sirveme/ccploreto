@@ -289,3 +289,34 @@ function instalarApp() {
         });
     }
 }
+
+
+// Registrar Push Notifications (para comunicados, avisos, urgencias, etc.)
+// Agregar en dashboard_colegiado.js o en un script del dashboard
+async function registrarPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const permiso = await Notification.requestPermission();
+        if (permiso !== 'granted') return;
+        
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: '{{ vapid_public_key }}'  // desde el backend
+        });
+        
+        // Guardar en BD
+        await fetch('/api/push/registrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                endpoint:  sub.endpoint,
+                p256dh:    btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+                auth:      btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
+            })
+        });
+    } catch(e) {
+        console.warn('[Push] Error al registrar:', e);
+    }
+}
