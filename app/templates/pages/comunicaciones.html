@@ -1,8 +1,14 @@
 {% extends "base.html" %}
+{% block container_width %}max-w-full{% endblock %}
 {% block title %}Comunicaciones — CCPL{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/css/pages/comunicaciones.css?v=3">
+<link rel="stylesheet" href="/static/css/pages/comunicaciones.css?v=2">
+<style>
+/* Fix overflow para sticky header/tabs */
+main { overflow: visible !important; }
+#content-area { overflow: visible !important; padding: 0 !important; }
+</style>
 {% endblock %}
 
 {% block content %}
