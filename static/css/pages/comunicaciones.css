@@ -1142,3 +1142,75 @@ body {
   .card-destacado .card-titulo { font-size: 20px; }
   .com-compositor-box { padding: 16px; }
 }
+
+
+
+/* ══════════════════════════════════════════════════════════════
+     CSS extra — agregar en comunicaciones.css o dashboard_colegiado.css
+══════════════════════════════════════════════════════════════ */
+
+.fomo-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    background: var(--c-card, #111720);
+    border: 1px solid var(--c-border, #1e2631);
+    border-left: 3px solid var(--c-gold, #d4a843);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-text, #e8edf5);
+    max-width: 320px;
+    pointer-events: all;
+    animation: fomoIn .35s cubic-bezier(.23,1,.32,1);
+    backdrop-filter: blur(8px);
+}
+ 
+.fomo-toast.out {
+    animation: fomoOut .3s ease forwards;
+}
+ 
+.fomo-toast-icono { font-size: 18px; flex-shrink: 0; }
+.fomo-toast-texto { flex: 1; line-height: 1.4; }
+ 
+@keyframes fomoIn {
+    from { opacity:0; transform:translateX(-20px) scale(.95); }
+    to   { opacity:1; transform:translateX(0) scale(1); }
+}
+ 
+@keyframes fomoOut {
+    from { opacity:1; transform:translateX(0) scale(1); }
+    to   { opacity:0; transform:translateX(-20px) scale(.95); }
+}
+ 
+/* Botón activar FOMO */
+.fomo-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--c-border, #1e2631);
+    border-radius: 9px;
+    color: var(--c-text2, #a0aec0);
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 6px;
+    transition: all .15s;
+    text-align: left;
+}
+ 
+.fomo-btn:hover {
+    background: rgba(212,168,67,.08);
+    border-color: rgba(212,168,67,.2);
+    color: var(--c-gold, #d4a843);
+}
+ 
+.fomo-btn-label { flex: 1; }
+.fomo-btn-desc { font-size: 10px; color: var(--c-muted, #4a5568); display: block; margin-top:1px; }
+.fomo-btn-send { font-size: 14px; opacity: .6; }
