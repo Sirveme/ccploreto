@@ -175,6 +175,9 @@ body {
 .com-tabs-bar {
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-border);
+  position: sticky;
+  top: 60px;   /* altura del header */
+  z-index: 49;
 }
 
 .com-tabs-inner {
@@ -224,11 +227,11 @@ body {
 .com-content {
   flex: 1;
   padding: 28px 24px;
-  max-width: 1280px;
+  max-width: 1060px;
   margin: 0 auto;
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 680px 1fr;
   gap: 28px;
   align-items: start;
 }
