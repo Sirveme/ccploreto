@@ -82,7 +82,25 @@ const ComunicadosFeed = (() => {
                     
                     if (window.Toast) Toast.show('📢 ' + msg.title, 'info');
                 }
+
+                if (msg.type === 'FOMO') {
+                    mostrarFOMO(msg.mensaje);
+                }
+
+                function mostrarFOMO(texto) {
+                    const t = document.createElement('div');
+                    t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+                        background:var(--surface,#1a1a2e);border:1px solid var(--gold,#c8a84b);
+                        color:var(--text,#eee);padding:10px 20px;border-radius:20px;font-size:12px;
+                        font-weight:600;z-index:9999;animation:fadeUp .3s ease;white-space:nowrap;
+                        box-shadow:0 8px 24px rgba(0,0,0,.4)`;
+                    t.textContent = texto;
+                    document.body.appendChild(t);
+                    setTimeout(() => t.remove(), 4000);
+                }
+
             } catch(err) {}
+            
         };
 
         ws.onclose = e => {
