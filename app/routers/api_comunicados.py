@@ -95,9 +95,16 @@ async def marcar_leido(
 class ComunicadoInput(BaseModel):
     title:           str
     content:         str
+    tipo:            str = "comunicado"
     priority:        str = "info"
     image_url:       Optional[str] = None
+    video_url:       Optional[str] = None  # ← agregar
     segmento:        str = "todos"
+    expires_at:      Optional[str] = None
+    fecha_evento:    Optional[str] = None
+    lugar_evento:    Optional[str] = None
+    requiere_confirmacion: bool = False
+    genera_multa:    bool = False
     target_criteria: Optional[dict] = None
 
 
@@ -325,4 +332,47 @@ async def subir_imagen(
 
 
 
+from app.services.fomo_engine import (
+    generar_fomo_automatico, FOMO_MANUALES,
+    _fomo_transparencia, _fomo_comunidad,
+    _fomo_tendencias, _fomo_eventos,
+    registrar_envio
+)
 
+@router.get("/fomo/opciones")
+async def fomo_opciones(member: Member = Depends(get_current_member)):
+    ROLES = ("decano","admin","secretaria","cajero","sote","superadmin")
+    if member.role not in ROLES:
+        return JSONResponse({"error":"Sin permiso"}, status_code=403)
+    return JSONResponse({"opciones": [
+        {"id": k, **v} for k, v in FOMO_MANUALES.items()
+    ]})
+
+@router.post("/fomo/activar")
+async def fomo_activar(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    ROLES = ("decano","admin","secretaria","cajero","sote","superadmin")
+    if member.role not in ROLES:
+        return JSONResponse({"error":"Sin permiso"}, status_code=403)
+    from app.routers.ws import manager
+    data = await request.json()
+    tipo = data.get("tipo","comunidad")
+    generadores = {
+        "transparencia": _fomo_transparencia,
+        "comunidad":     _fomo_comunidad,
+        "tendencias":    _fomo_tendencias,
+        "eventos":       _fomo_eventos,
+    }
+    fomo = await generadores.get(tipo, _fomo_comunidad)(db, member.organization_id)
+    if not fomo:
+        return JSONResponse({"ok":False,"mensaje":"Sin datos suficientes"})
+    await manager.broadcast({
+        "type":"FOMO","mensaje":fomo["mensaje"],
+        "icono":fomo.get("icono","📢"),"tipo":fomo["tipo"],
+        "org_id":member.organization_id,"duracion":5000,
+    })
+    registrar_envio(member.organization_id)
+    return JSONResponse({"ok":True,"mensaje":fomo["mensaje"]})
