@@ -74,8 +74,34 @@ const ComUI = (() => {
             <div class="com-card-evento-info">
                 <i class="ph ph-calendar-check"></i>
                 ${formatFechaEvento(c.fecha_evento)}
-                ${c.lugar_evento ? `· <i class="ph ph-map-pin"></i> ${c.lugar_evento}` : ''}
+                ${c.lugar_evento ? `· <i class="ph ph-map-pin"></i> ${escHtml(c.lugar_evento)}` : ''}
             </div>` : '';
+
+        const CHAT_DEST = {
+            evento: 'mesa_partes', comunicado: 'secretaria',
+            oferta_laboral: 'admin', convenio: 'admin',
+        };
+        const tienechat = !!CHAT_DEST[c.tipo];
+        const chatBtn = tienechat ? `
+            <button class="com-accion-btn com-accion-chat"
+                    onclick="event.stopPropagation();ComUI.iniciarChat(${c.id},'${c.tipo}')">
+                <i class="ph ph-chat-circle-dots"></i> Consultar
+            </button>` : '';
+
+        const acciones = `
+            <div class="com-card-acciones">
+                <button class="com-accion-btn"
+                        onclick="event.stopPropagation();ComUI.likeCard(${c.id},this)"
+                        data-liked="false">
+                    <i class="ph ph-thumbs-up"></i>
+                    <span class="like-count">${c.likes || 0}</span>
+                </button>
+                <button class="com-accion-btn"
+                        onclick="event.stopPropagation();ComUI.compartir(${c.id},'${escHtml(c.title)}')">
+                    <i class="ph ph-share-network"></i> Compartir
+                </button>
+                ${chatBtn}
+            </div>`;
 
         return `
             <div class="com-card" data-id="${c.id}"
@@ -91,11 +117,55 @@ const ComUI = (() => {
                     <div class="com-card-resumen">${escHtml(c.content)}</div>
                 </div>
                 ${eventoHtml}
+                ${acciones}
                 <div class="com-card-footer">
-                    <span>${c.autor || 'Directiva CCPL'}</span>
-                    <span><i class="ph ph-arrow-right"></i></span>
+                    <span><i class="ph ph-user-circle"></i> ${escHtml(c.autor || 'Directiva CCPL')}</span>
+                    <span style="color:var(--gold);font-size:11px">Ver más <i class="ph ph-arrow-right"></i></span>
                 </div>
             </div>`;
+    }
+
+    function likeCard(id, btn) {
+        const liked = btn.dataset.liked === 'true';
+        btn.dataset.liked = String(!liked);
+        const icon  = btn.querySelector('i');
+        const count = btn.querySelector('.like-count');
+        if (!liked) {
+            icon.className = 'ph ph-thumbs-up-fill';
+            btn.style.color = 'var(--gold)';
+            count.textContent = parseInt(count.textContent||0) + 1;
+        } else {
+            icon.className = 'ph ph-thumbs-up';
+            btn.style.color = '';
+            count.textContent = Math.max(0, parseInt(count.textContent||0) - 1);
+        }
+        fetch(`/api/comunicados/${id}/like`, { method: 'POST' }).catch(() => {});
+    }
+
+    function compartir(id, titulo) {
+        const url = `${location.origin}/comunicaciones?id=${id}`;
+        if (navigator.share) {
+            navigator.share({ title: titulo, url }).catch(() => {});
+        } else {
+            navigator.clipboard?.writeText(url);
+            if (window.Toast) Toast.show('🔗 Enlace copiado', 'success');
+        }
+    }
+
+    function iniciarChat(bulletinId, tipo) {
+        const DEST = {
+            evento: 'mesa_partes', comunicado: 'secretaria',
+            oferta_laboral: 'admin', convenio: 'admin',
+        };
+        const dest = DEST[tipo];
+        if (!dest) return;
+        const chatTab = document.querySelector('.com-tab[data-tipo="__chat__"]');
+        if (chatTab) {
+            chatTab.click();
+        } else {
+            window.location.href = '/dashboard?chat=' + dest;
+        }
+        window._chatContexto = { bulletin_id: bulletinId, tipo, dest };
     }
 
     // ── Detalle ──────────────────────────────────────────────
@@ -358,6 +428,10 @@ const ComUI = (() => {
     function init() {
         cargar('todos');
         conectarWS();
+        // Abrir detalle si viene con ?id= (desde /dashboard)
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        if (id) setTimeout(() => abrirDetalle(id), 700);
     }
 
     document.addEventListener('DOMContentLoaded', init);
@@ -368,6 +442,6 @@ const ComUI = (() => {
         abrirCompositor, cerrarCompositor,
         selTipo, selPrior, selSeg,
         cargarImagen, soltarImagen,
-        enviar,
+        enviar, likeCard, compartir, iniciarChat,
     };
 })();
