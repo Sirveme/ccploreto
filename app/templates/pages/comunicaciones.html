@@ -113,6 +113,26 @@ body { overflow-y: auto !important; }
 
       <!-- Estadísticas (solo emisores) -->
       {% if es_emisor %}
+      <div class="sidebar-widget" id="widget-fomo">
+            <div class="sidebar-widget-header">
+                <i class="ph ph-lightning"></i> FOMO — Notificaciones
+            </div>
+            <div class="sidebar-widget-body">
+                <p style="font-size:11px;color:var(--c-muted);margin-bottom:12px;line-height:1.5">
+                    Envía mensajes persuasivos que aparecen en el dashboard de todos los colegiados conectados.
+                </p>
+                <div id="fomo-opciones-lista">
+                    <div style="font-size:11px;color:var(--c-muted);text-align:center">
+                        Cargando opciones...
+                    </div>
+                </div>
+                <div id="fomo-feedback"
+                    style="display:none;margin-top:10px;padding:8px 10px;
+                            border-radius:8px;font-size:11px;text-align:center">
+                </div>
+            </div>
+        </div>
+
       <div class="sidebar-widget">
         <div class="sidebar-widget-header">
           <i class="ph ph-chart-bar"></i> Estadísticas
@@ -268,4 +288,5 @@ body { overflow-y: auto !important; }
 {% endif %}
 
 <script src="/static/js/pages/comunicaciones.js?v=2"></script>
+
 {% endblock %}
