@@ -473,7 +473,22 @@ const ComUI = (() => {
             const d=await r.json();
             if(d.ok){
                 feedback(`✅ Publicado — ${d.destinatarios} dispositivos notificados`,'success');
-                setTimeout(()=>{ cerrarCompositor(); cargar(_tipo); },2000);
+                
+                setTimeout(()=>{
+                    cerrarCompositor();
+                    cargar(_tipo);
+                    // Limpiar formulario
+                    ['comp-titulo','comp-contenido','comp-img-url','comp-video-url','comp-caduca',
+                    'comp-fecha-evento','comp-lugar'].forEach(id=>{
+                        const el=document.getElementById(id); if(el) el.value='';
+                    });
+                    document.getElementById('comp-img-preview').style.display='none';
+                    document.getElementById('comp-img-drop').innerHTML='<i class="ph ph-image"></i><span>Arrastra o toca para seleccionar</span>';
+                    document.getElementById('comp-requiere-conf').checked=false;
+                    document.getElementById('comp-genera-multa').checked=false;
+                },2000);
+
+
             } else {
                 feedback(`Error: ${d.error||d.mensaje}`,'error');
             }
