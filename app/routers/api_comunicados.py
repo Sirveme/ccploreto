@@ -14,6 +14,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from fastapi import UploadFile
+import shutil, uuid
+from pathlib import Path
+
 from app.database import get_db
 from app.models import Member, Bulletin, BulletinEvent
 from app.routers.dashboard import get_current_member
@@ -125,6 +129,14 @@ async def enviar_comunicado(
     )
     db.add(bulletin)
     db.commit()
+
+    # FOMO — broadcast a todos los conectados
+    await manager.broadcast({
+        "type":    "FOMO",
+        "mensaje": f"📢 Nueva publicación: {data.title[:40]}",
+        "tiempo":  4000,  # ms que permanece visible
+    })
+
     db.refresh(bulletin)
 
     # WebSocket — notificar en tiempo real
@@ -293,11 +305,23 @@ async def registrar_push(
     db.commit()
     return JSONResponse({"ok": True})
 
-# ══════════════════════════════════════════════════════════════════
-# También agregar en app/main.py la ruta con el prefijo correcto:
-# El router tiene prefix="/api/comunicados", entonces el endpoint
-# queda en: /api/comunicados/push/registrar
-#
-# En el JS del snippet, la URL debe ser:
-# fetch('/api/comunicados/push/registrar', ...)
-# ══════════════════════════════════════════════════════════════════
+
+
+@router.post("/subir-imagen")
+async def subir_imagen(
+    imagen: UploadFile,
+    member: Member = Depends(get_current_member),
+):
+    ext = imagen.filename.split('.')[-1].lower()
+    if ext not in ('jpg','jpeg','png','gif','webp'):
+        return JSONResponse({"error": "Formato no permitido"}, status_code=400)
+    nombre  = f"{uuid.uuid4().hex[:12]}.{ext}"
+    destino = Path(f"static/uploads/comunicados/{nombre}")
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with destino.open("wb") as f:
+        shutil.copyfileobj(imagen.file, f)
+    return JSONResponse({"url": f"/static/uploads/comunicados/{nombre}"})
+
+
+
+
