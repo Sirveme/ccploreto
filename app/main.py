@@ -1,6 +1,7 @@
 import json
 import os
 from fastapi import FastAPI, Request, Depends
+from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
@@ -56,7 +57,16 @@ from app.routers.api_comunicados import router as comunicados_router
 
 from app.utils.templates import templates
 
-app = FastAPI(title="Multi-Tenant SaaS")
+from contextlib import asynccontextmanager
+from app.services.fomo_scheduler import iniciar_scheduler
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    iniciar_scheduler()
+    yield
+
+app = FastAPI(title="Multi-Tenant SaaS", lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -208,6 +218,7 @@ app.include_router(portal_pagos_router)
 app.include_router(portal_admin_router)
 
 app.include_router(comunicados_router)
+
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
 for route in app.routes:
