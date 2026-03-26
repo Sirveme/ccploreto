@@ -303,7 +303,7 @@ const ComUI = (() => {
             ${imgHtml}
             <h2 class="com-modal-titulo">${esc(c.title)}</h2>
             ${eventoHtml}
-            <p class="com-modal-contenido">${esc(c.content)}</p>
+            <p class="com-modal-contenido">${linkificar(esc(c.content))}</p>
             ${videoHtml}
             <div class="com-modal-footer">
                 <i class="ph ph-user-circle"></i>
@@ -339,6 +339,14 @@ const ComUI = (() => {
             chat.style.display    = 'none';
             cargar(tipo);
         }
+    }
+
+    function linkificar(texto) {
+        return texto.replace(
+            /(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener" '
+            + 'style="color:var(--c-gold);text-decoration:underline">$1</a>'
+        );
     }
 
     // ── Acciones ─────────────────────────────────────────────
