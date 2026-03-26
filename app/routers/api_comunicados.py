@@ -125,6 +125,7 @@ async def enviar_comunicado(
         content         = data.content,
         priority        = data.priority,
         image_url       = data.image_url or None,
+        video_url       = data.video_url or None,
         target_criteria = data.target_criteria or {"segmento": data.segmento},
     )
     db.add(bulletin)
