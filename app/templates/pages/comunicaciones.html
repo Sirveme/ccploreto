@@ -2,172 +2,187 @@
 {% block title %}Comunicaciones — CCPL{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/css/pages/comunicaciones.css">
+<link rel="stylesheet" href="/static/css/pages/comunicaciones.css?v=2">
 {% endblock %}
 
 {% block content %}
-<div class="com-layout">
+<div class="com-page">
 
-  <!-- ── HEADER ──────────────────────────────────────────── -->
+  <!-- HEADER -->
   <header class="com-header">
-    <div class="com-header-left">
+    <div class="com-header-inner">
       <a href="/dashboard" class="com-back">
-        <i class="ph ph-arrow-left"></i>
+        <span class="com-back-icon"><i class="ph ph-arrow-left"></i></span>
+        <span>Inicio</span>
       </a>
-      <div>
+      <div class="com-header-brand">
         <div class="com-header-title">Central de Comunicaciones</div>
         <div class="com-header-sub">CCPL · Iquitos, Loreto</div>
       </div>
-    </div>
-    <div class="com-header-right">
-      <div class="com-bell" id="com-bell">
-        <i class="ph ph-bell"></i>
-        <span class="com-bell-dot" id="com-bell-dot" style="display:none"></span>
+      <div class="com-header-actions">
+        <button class="com-btn-bell" id="com-bell">
+          <i class="ph ph-bell"></i>
+          <span class="com-bell-dot" id="com-bell-dot" style="display:none"></span>
+        </button>
+        {% if es_emisor %}
+        <button class="com-btn-nuevo" onclick="ComUI.abrirCompositor()">
+          <i class="ph ph-plus"></i> Nuevo
+        </button>
+        {% endif %}
       </div>
-      {% if es_emisor %}
-      <button class="com-btn-nuevo" onclick="ComUI.abrirCompositor()">
-        <i class="ph ph-plus"></i>
-        <span>Nuevo</span>
-      </button>
-      {% endif %}
     </div>
   </header>
 
-  <!-- ── TABS FILTRO ─────────────────────────────────────── -->
-  <nav class="com-tabs" id="com-tabs">
-    <button class="com-tab active" data-tipo="todos" onclick="ComUI.filtrar('todos',this)">
-      <i class="ph ph-squares-four"></i> Todos
-    </button>
-    <button class="com-tab" data-tipo="evento" onclick="ComUI.filtrar('evento',this)">
-      <i class="ph ph-calendar-blank"></i> Eventos
-    </button>
-    <button class="com-tab" data-tipo="comunicado" onclick="ComUI.filtrar('comunicado',this)">
-      <i class="ph ph-megaphone"></i> Comunicados
-    </button>
-    <button class="com-tab" data-tipo="oferta_laboral" onclick="ComUI.filtrar('oferta_laboral',this)">
-      <i class="ph ph-briefcase"></i> Ofertas
-    </button>
-    <button class="com-tab" data-tipo="convenio" onclick="ComUI.filtrar('convenio',this)">
-      <i class="ph ph-handshake"></i> Convenios
-    </button>
-    {% if es_emisor %}
-    <button class="com-tab" data-tipo="__chat__" onclick="ComUI.filtrar('__chat__',this)">
-      <i class="ph ph-chat-circle-dots"></i> Chat
-      <span class="com-tab-badge" id="chat-badge" style="display:none">0</span>
-    </button>
-    {% endif %}
+  <!-- TABS -->
+  <nav class="com-tabs-bar">
+    <div class="com-tabs-inner">
+      <button class="com-tab active" data-tipo="todos" onclick="ComUI.filtrar('todos',this)">
+        <i class="ph ph-squares-four"></i> Todos
+      </button>
+      <button class="com-tab" data-tipo="evento" onclick="ComUI.filtrar('evento',this)">
+        <i class="ph ph-calendar-blank"></i> Eventos
+      </button>
+      <button class="com-tab" data-tipo="comunicado" onclick="ComUI.filtrar('comunicado',this)">
+        <i class="ph ph-megaphone"></i> Comunicados
+      </button>
+      <button class="com-tab" data-tipo="oferta_laboral" onclick="ComUI.filtrar('oferta_laboral',this)">
+        <i class="ph ph-briefcase"></i> Ofertas
+      </button>
+      <button class="com-tab" data-tipo="convenio" onclick="ComUI.filtrar('convenio',this)">
+        <i class="ph ph-handshake"></i> Convenios
+      </button>
+      <button class="com-tab" data-tipo="__chat__" onclick="ComUI.filtrar('__chat__',this)">
+        <i class="ph ph-chat-circle-dots"></i> Chat
+        <span class="com-tab-badge" id="chat-badge" style="display:none">0</span>
+      </button>
+    </div>
   </nav>
 
-  <!-- ── FEED PRINCIPAL ─────────────────────────────────── -->
-  <main class="com-feed" id="com-feed">
-    <div class="com-loading" id="com-loading">
-      <div class="com-skeleton"></div>
-      <div class="com-skeleton"></div>
-      <div class="com-skeleton"></div>
-    </div>
-  </main>
+  <!-- CONTENIDO PRINCIPAL -->
+  <div class="com-content">
 
-  <!-- ── PANEL CHAT (oculto por defecto) ────────────────── -->
-  <div class="com-chat-panel" id="com-chat-panel" style="display:none">
-    <div class="chat-cola" id="chat-cola">
-      <div class="chat-cola-header">
-        <span>Cola de chats</span>
-        <span class="chat-cola-count" id="chat-cola-count">0 activos</span>
-      </div>
-      <div id="chat-lista-conversaciones">
-        <div class="chat-empty">Sin conversaciones activas</div>
+    <!-- FEED -->
+    <main class="com-feed" id="com-feed">
+      <div class="com-skel com-skel-tall"></div>
+      <div class="com-skel com-skel-medium"></div>
+      <div class="com-skel com-skel-medium"></div>
+    </main>
+
+    <!-- CHAT (oculto por defecto) -->
+    <div id="com-chat-section" style="display:none; grid-column:1/-1">
+      <div class="com-chat-wrap">
+        <div class="chat-lista" id="chat-lista">
+          <div class="chat-lista-hdr">
+            <span>Conversaciones</span>
+            <span id="chat-activos-count">0 activos</span>
+          </div>
+          <div class="chat-empty-msg" id="chat-empty">
+            Sin conversaciones activas
+          </div>
+        </div>
+        <div class="chat-ventana" id="chat-ventana">
+          <div class="chat-ventana-empty">
+            <i class="ph ph-chat-circle-dots"></i>
+            <p>Selecciona una conversación<br>o inicia una desde un comunicado</p>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="chat-ventana" id="chat-ventana">
-      <div class="chat-ventana-empty">
-        <i class="ph ph-chat-circle-dots"></i>
-        <p>Selecciona una conversación</p>
+
+    <!-- SIDEBAR -->
+    <aside class="com-sidebar" id="com-sidebar">
+
+      <!-- Próximos eventos -->
+      <div class="sidebar-widget" id="sidebar-eventos">
+        <div class="sidebar-widget-header">
+          <i class="ph ph-calendar-check"></i> Próximos Eventos
+        </div>
+        <div class="sidebar-widget-body" id="sidebar-eventos-body">
+          <div style="font-size:12px;color:var(--c-muted);font-style:italic;text-align:center;padding:8px 0">
+            Sin eventos próximos
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-</div><!-- /com-layout -->
+      <!-- Estadísticas (solo emisores) -->
+      {% if es_emisor %}
+      <div class="sidebar-widget">
+        <div class="sidebar-widget-header">
+          <i class="ph ph-chart-bar"></i> Estadísticas
+        </div>
+        <div class="sidebar-widget-body" id="sidebar-stats">
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Publicados hoy</span>
+            <span class="sidebar-stat-val" id="stat-hoy">—</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Total este mes</span>
+            <span class="sidebar-stat-val" id="stat-mes">—</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">No leídos</span>
+            <span class="sidebar-stat-val" id="stat-noleidos">—</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
-<!-- ── MODAL DETALLE ────────────────────────────────────── -->
+    </aside>
+
+  </div><!-- /com-content -->
+
+</div><!-- /com-page -->
+
+<!-- MODAL DETALLE -->
 <div class="com-modal-overlay" id="com-modal" onclick="ComUI.cerrarDetalle(event)">
-  <div class="com-modal-sheet" id="com-modal-sheet">
+  <div class="com-modal-sheet">
     <div class="com-modal-handle"></div>
-    <div class="com-modal-body" id="com-modal-body">
-      <!-- Contenido dinámico -->
-    </div>
+    <div class="com-modal-body" id="com-modal-body"></div>
   </div>
 </div>
 
-<!-- ── COMPOSITOR ───────────────────────────────────────── -->
+<!-- COMPOSITOR -->
 {% if es_emisor %}
 <div class="com-compositor-overlay" id="com-compositor" style="display:none">
   <div class="com-compositor-box">
-
-    <div class="com-compositor-header">
+    <div class="com-compositor-hdr">
       <span>Nuevo comunicado</span>
-      <button onclick="ComUI.cerrarCompositor()">
-        <i class="ph ph-x"></i>
-      </button>
+      <button onclick="ComUI.cerrarCompositor()"><i class="ph ph-x"></i></button>
     </div>
 
-    <!-- Tipo -->
     <div class="comp-field">
-      <label>Tipo</label>
-      <div class="comp-tipo-grid" id="comp-tipo-grid">
-        <button class="comp-tipo-btn active" data-tipo="comunicado" onclick="ComUI.selTipo('comunicado',this)">
-          📢 Comunicado
-        </button>
-        <button class="comp-tipo-btn" data-tipo="evento" onclick="ComUI.selTipo('evento',this)">
-          📅 Evento
-        </button>
-        <button class="comp-tipo-btn" data-tipo="oferta_laboral" onclick="ComUI.selTipo('oferta_laboral',this)">
-          💼 Oferta Laboral
-        </button>
-        <button class="comp-tipo-btn" data-tipo="convenio" onclick="ComUI.selTipo('convenio',this)">
-          🤝 Convenio
-        </button>
-        <button class="comp-tipo-btn" data-tipo="fallecimiento" onclick="ComUI.selTipo('fallecimiento',this)">
-          🕊 Fallecimiento
-        </button>
-        <button class="comp-tipo-btn" data-tipo="alerta" onclick="ComUI.selTipo('alerta',this)">
-          ⚡ Alerta
-        </button>
+      <label>Tipo de comunicado</label>
+      <div class="comp-tipo-grid">
+        <button class="comp-tipo-btn active" data-tipo="comunicado" onclick="ComUI.selTipo('comunicado',this)">📢 Comunicado</button>
+        <button class="comp-tipo-btn" data-tipo="evento" onclick="ComUI.selTipo('evento',this)">📅 Evento</button>
+        <button class="comp-tipo-btn" data-tipo="oferta_laboral" onclick="ComUI.selTipo('oferta_laboral',this)">💼 Oferta Laboral</button>
+        <button class="comp-tipo-btn" data-tipo="convenio" onclick="ComUI.selTipo('convenio',this)">🤝 Convenio</button>
+        <button class="comp-tipo-btn" data-tipo="fallecimiento" onclick="ComUI.selTipo('fallecimiento',this)">🕊 Fallecimiento</button>
+        <button class="comp-tipo-btn" data-tipo="alerta" onclick="ComUI.selTipo('alerta',this)">⚡ Alerta</button>
       </div>
     </div>
 
-    <!-- Prioridad -->
     <div class="comp-field">
       <label>Urgencia</label>
-      <div class="comp-prior-row">
-        <button class="comp-prior-btn active" data-p="info" onclick="ComUI.selPrior('info',this)">
-          🟢 Normal
-        </button>
-        <button class="comp-prior-btn" data-p="warning" onclick="ComUI.selPrior('warning',this)">
-          🟡 Importante
-        </button>
-        <button class="comp-prior-btn" data-p="alert" onclick="ComUI.selPrior('alert',this)">
-          🔴 Urgente
-        </button>
+      <div class="comp-btn-row">
+        <button class="comp-prior-btn active" data-p="info" onclick="ComUI.selPrior('info',this)">🟢 Normal</button>
+        <button class="comp-prior-btn" data-p="warning" onclick="ComUI.selPrior('warning',this)">🟡 Importante</button>
+        <button class="comp-prior-btn" data-p="alert" onclick="ComUI.selPrior('alert',this)">🔴 Urgente</button>
       </div>
     </div>
 
-    <!-- Título -->
     <div class="comp-field">
       <label>Título *</label>
-      <input type="text" id="comp-titulo" maxlength="100"
-             placeholder="Ej: Asamblea General Ordinaria — Abril 2026">
+      <input type="text" id="comp-titulo" maxlength="100" placeholder="Título del comunicado">
     </div>
 
-    <!-- Contenido -->
     <div class="comp-field">
       <label>Mensaje *</label>
-      <textarea id="comp-contenido" rows="4"
-                placeholder="Escribe el mensaje completo..."></textarea>
+      <textarea id="comp-contenido" rows="4" placeholder="Escribe el mensaje completo..."></textarea>
     </div>
 
-    <!-- Campos de Evento (condicionales) -->
     <div id="comp-evento-fields" style="display:none">
-      <div class="comp-field-row">
+      <div class="comp-row">
         <div class="comp-field">
           <label>Fecha del evento</label>
           <input type="datetime-local" id="comp-fecha-evento">
@@ -177,7 +192,7 @@
           <input type="text" id="comp-lugar" placeholder="Auditorio CCPL...">
         </div>
       </div>
-      <div class="comp-field comp-checks">
+      <div class="comp-field" style="display:flex;flex-direction:column;gap:8px">
         <label class="comp-check">
           <input type="checkbox" id="comp-requiere-conf">
           Requiere confirmación de asistencia
@@ -189,7 +204,6 @@
       </div>
     </div>
 
-    <!-- Imagen -->
     <div class="comp-field">
       <label>Imagen / Afiche</label>
       <div class="comp-img-drop" id="comp-img-drop"
@@ -203,63 +217,48 @@
       <input type="file" id="comp-img-file" accept="image/*" style="display:none"
              onchange="ComUI.cargarImagen(this)">
       <input type="url" id="comp-img-url" placeholder="O pega una URL de imagen"
-             style="margin-top:6px">
+             style="margin-top:8px">
       <div id="comp-img-preview" style="display:none;margin-top:8px">
-        <img id="comp-img-preview-img"
-             style="width:100%;border-radius:8px;max-height:150px;object-fit:cover">
+        <img id="comp-img-preview-img" style="width:100%;border-radius:10px;max-height:160px;object-fit:cover">
       </div>
     </div>
 
-    <!-- Video URL -->
     <div class="comp-field">
-      <label>Video (URL YouTube)</label>
-      <input type="url" id="comp-video-url"
-             placeholder="https://www.youtube.com/embed/...">
+      <label>Video (YouTube embed URL)</label>
+      <input type="url" id="comp-video-url" placeholder="https://www.youtube.com/embed/...">
     </div>
 
-    <!-- Caducidad -->
     <div class="comp-field">
       <label>Caducidad (opcional)</label>
       <input type="datetime-local" id="comp-caduca">
       <small>El comunicado desaparece del feed tras esta fecha</small>
     </div>
 
-    <!-- Destinatarios -->
     <div class="comp-field">
       <label>Destinatarios</label>
-      <div class="comp-seg-row">
-        <button class="comp-seg-btn active" data-seg="todos" onclick="ComUI.selSeg('todos',this)">
-          Todos
-        </button>
-        <button class="comp-seg-btn" data-seg="habiles" onclick="ComUI.selSeg('habiles',this)">
-          Solo hábiles
-        </button>
-        <button class="comp-seg-btn" data-seg="inhabiles" onclick="ComUI.selSeg('inhabiles',this)">
-          Solo inhábiles
-        </button>
+      <div class="comp-btn-row">
+        <button class="comp-seg-btn active" data-seg="todos" onclick="ComUI.selSeg('todos',this)">Todos</button>
+        <button class="comp-seg-btn" data-seg="habiles" onclick="ComUI.selSeg('habiles',this)">Solo hábiles</button>
+        <button class="comp-seg-btn" data-seg="inhabiles" onclick="ComUI.selSeg('inhabiles',this)">Solo inhábiles</button>
       </div>
     </div>
 
-    <!-- Acciones -->
     <div class="comp-actions">
-      <button class="comp-btn-cancelar" onclick="ComUI.cerrarCompositor()">
-        Cancelar
-      </button>
-      <button class="comp-btn-enviar" id="comp-btn-enviar" onclick="ComUI.enviar()">
-        <i class="ph ph-paper-plane-tilt"></i>
-        Publicar y notificar
+      <button class="comp-btn-cancel" onclick="ComUI.cerrarCompositor()">Cancelar</button>
+      <button class="comp-btn-send" id="comp-btn-enviar" onclick="ComUI.enviar()">
+        <i class="ph ph-paper-plane-tilt"></i> Publicar y notificar
       </button>
     </div>
 
-    <div id="comp-feedback" style="display:none"></div>
+    <div id="comp-feedback" style="display:none;margin-top:12px;padding:10px;
+         border-radius:8px;font-size:12px;text-align:center"></div>
 
     <input type="hidden" id="comp-tipo-val" value="comunicado">
     <input type="hidden" id="comp-prior-val" value="info">
     <input type="hidden" id="comp-seg-val" value="todos">
-
   </div>
 </div>
 {% endif %}
 
-<script src="/static/js/pages/comunicaciones.js?v=1"></script>
+<script src="/static/js/pages/comunicaciones.js?v=2"></script>
 {% endblock %}
