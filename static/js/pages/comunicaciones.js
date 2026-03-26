@@ -303,7 +303,7 @@ const ComUI = (() => {
             ${imgHtml}
             <h2 class="com-modal-titulo">${esc(c.title)}</h2>
             ${eventoHtml}
-            <p class="com-modal-contenido">${linkificar(esc(c.content))}</p>
+            <p class="com-modal-contenido">${linkificar(c.content)}</p>
             ${videoHtml}
             <div class="com-modal-footer">
                 <i class="ph ph-user-circle"></i>
