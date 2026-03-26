@@ -28,7 +28,7 @@ const ComunicadosFeed = (() => {
                 card.addEventListener('click', () => {
                     marcarLeido(card.dataset.id);
                     card.querySelector('.comunicado-nuevo')?.remove();
-                    window.location.href = card.dataset.url || '/comunicaciones';
+                    window.location.href = `/comunicaciones?id=${card.dataset.id}`;
                 });
             });
         } catch(e) {
@@ -109,9 +109,12 @@ const ComunicadosFeed = (() => {
     }
 
     function init() {
-        cargar();
-        abrirWS();
-        setInterval(cargar, 5 * 60 * 1000);
+        cargar('todos');
+        conectarWS();
+        // Abrir detalle si viene con ?id=
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        if (id) setTimeout(() => abrirDetalle(id), 800);
     }
 
     if (document.readyState === 'loading') {
