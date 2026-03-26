@@ -176,7 +176,7 @@ body {
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-border);
   position: sticky;
-  top: 60px;   /* altura del header */
+  top: 60px;
   z-index: 49;
 }
 
@@ -227,13 +227,14 @@ body {
 .com-content {
   flex: 1;
   padding: 28px 24px;
-  max-width: 1060px;
+  max-width: 1280px;
   margin: 0 auto;
   width: 100%;
   display: grid;
-  grid-template-columns: 680px 1fr;
+  grid-template-columns: minmax(0,680px) 1fr;
   gap: 28px;
   align-items: start;
+  justify-content: center;
 }
 
 @media (max-width: 900px) {
