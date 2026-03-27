@@ -561,9 +561,14 @@ const ComUI = (() => {
     function init() {
         cargar('todos');
         conectarWS();
+        // Abrir compositor si viene desde el Decano
+        if (sessionStorage.getItem('abrirCompositor') === '1') {
+            sessionStorage.removeItem('abrirCompositor');
+            setTimeout(() => abrirCompositor(), 500);
+        }
         // Abrir detalle si viene con ?id=
-        const id=new URLSearchParams(location.search).get('id');
-        if(id) setTimeout(()=>abrirDetalle(id),700);
+        const id = new URLSearchParams(location.search).get('id');
+        if (id) setTimeout(() => abrirDetalle(id), 700);
     }
 
     document.addEventListener('DOMContentLoaded', init);
