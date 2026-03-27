@@ -432,7 +432,7 @@
         const p256dh = btoa(String.fromCharCode(...new Uint8Array(key)));
         const authB64 = btoa(String.fromCharCode(...new Uint8Array(auth)));
 
-        await fetch('/api/push/registrar', {
+        await fetch('/api/comunicados/push/registrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
