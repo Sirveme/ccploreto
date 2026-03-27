@@ -209,8 +209,9 @@ async def enviar_comunicado(
             except WebPushException as ex:
                 if ex.response and ex.response.status_code == 410:
                     dev.is_active = False
-            except Exception:
-                pass
+                print(f"[Push ERROR] {ex} — response: {ex.response.text if ex.response else 'none'}")
+            except Exception as ex:
+                print(f"[Push ERROR general] {ex}")
         db.commit()
         print(f"[Comunicados] Push enviado a {sent}/{len(devices)} dispositivos")
 
@@ -348,6 +349,11 @@ async def fomo_opciones(member: Member = Depends(get_current_member)):
         {"id": k, **v} for k, v in FOMO_MANUALES.items()
     ]})
 
+# ══════════════════════════════════════════════════════════════
+# REEMPLAZAR el endpoint @router.post("/fomo/activar")
+# en app/routers/api_comunicados.py
+# ══════════════════════════════════════════════════════════════
+
 @router.post("/fomo/activar")
 async def fomo_activar(
     request: Request,
@@ -357,22 +363,54 @@ async def fomo_activar(
     ROLES = ("decano","admin","secretaria","cajero","sote","superadmin")
     if member.role not in ROLES:
         return JSONResponse({"error":"Sin permiso"}, status_code=403)
+
     from app.routers.ws import manager
-    data = await request.json()
-    tipo = data.get("tipo","comunidad")
-    generadores = {
-        "transparencia": _fomo_transparencia,
-        "comunidad":     _fomo_comunidad,
-        "tendencias":    _fomo_tendencias,
-        "eventos":       _fomo_eventos,
-    }
-    fomo = await generadores.get(tipo, _fomo_comunidad)(db, member.organization_id)
-    if not fomo:
-        return JSONResponse({"ok":False,"mensaje":"Sin datos suficientes"})
+    from app.services.fomo_engine import (
+        _fomo_transparencia, _fomo_comunidad,
+        _fomo_tendencias, _fomo_eventos,
+        registrar_envio, generar_fomo_automatico
+    )
+
+    data    = await request.json()
+    tipo    = data.get("tipo", "comunidad")
+    modo    = data.get("modo", "oscuro")   # oscuro | claro
+    mensaje = data.get("mensaje", "")       # para custom
+    icono   = data.get("icono", "📢")       # para custom
+
+    # FOMO personalizado
+    if tipo == "custom":
+        if not mensaje.strip():
+            return JSONResponse({"ok": False, "mensaje": "Mensaje vacío"})
+        fomo = {"mensaje": mensaje.strip(), "icono": icono, "tipo": "custom"}
+
+    # FOMO automático (desde login)
+    elif tipo == "auto_login":
+        fomo = await generar_fomo_automatico(db, member.organization_id)
+        if not fomo:
+            return JSONResponse({"ok": False, "mensaje": "Sin datos"})
+
+    # FOMO predefinido por tipo
+    else:
+        generadores = {
+            "transparencia": _fomo_transparencia,
+            "comunidad":     _fomo_comunidad,
+            "tendencias":    _fomo_tendencias,
+            "eventos":       _fomo_eventos,
+        }
+        gen  = generadores.get(tipo, _fomo_comunidad)
+        fomo = await gen(db, member.organization_id)
+        if not fomo:
+            return JSONResponse({"ok": False, "mensaje": "Sin datos suficientes para este tipo"})
+
     await manager.broadcast({
-        "type":"FOMO","mensaje":fomo["mensaje"],
-        "icono":fomo.get("icono","📢"),"tipo":fomo["tipo"],
-        "org_id":member.organization_id,"duracion":5000,
+        "type":    "FOMO",
+        "mensaje": fomo["mensaje"],
+        "icono":   fomo.get("icono", icono),
+        "tipo":    fomo.get("tipo", tipo),
+        "modo":    modo,
+        "org_id":  member.organization_id,
+        "duracion": 6000,
     })
     registrar_envio(member.organization_id)
-    return JSONResponse({"ok":True,"mensaje":fomo["mensaje"]})
+
+    return JSONResponse({"ok": True, "mensaje": fomo["mensaje"]})
