@@ -6,6 +6,7 @@ Endpoints para el modal "Mis Pagos" del dashboard del colegiado.
 Sirve catálogo, deudas pendientes e historial de pagos.
 """
 
+import json as _json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -73,7 +74,8 @@ async def get_mis_pagos(
     # --- RESUMEN ---
     deudas_query = db.query(Debt).filter(
         Debt.colegiado_id == colegiado.id,
-        Debt.status.in_(["pending", "partial"])
+        Debt.status.in_(["pending", "partial"]),
+        Debt.estado_gestion.notin_(["condonada", "exonerada", "compensada", "fraccionada"]),
     )
     deuda_total = sum(d.balance for d in deudas_query.all()) if deudas_query.count() > 0 else 0
 
@@ -99,7 +101,8 @@ async def get_mis_pagos(
     # --- DEUDAS PENDIENTES ---
     deudas_raw = db.query(Debt).filter(
         Debt.colegiado_id == colegiado.id,
-        Debt.status.in_(["pending", "partial"])
+        Debt.status.in_(["pending", "partial"]),
+        Debt.estado_gestion.notin_(["condonada", "exonerada", "compensada", "fraccionada"]),
     ).order_by(Debt.due_date).all()
 
     deudas = []
@@ -169,26 +172,61 @@ async def get_mis_pagos(
 
     historial = []
     for p in pagos_raw:
+        # Extraer concepto legible desde notes (puede ser JSON o texto)
+        concepto_legible = "Pago"
+        if p.notes:
+            try:
+                notas = _json.loads(p.notes)
+                tipo_comp = notas.get("tipo_comprobante")
+                fracc     = notas.get("fracc_codigo")
+                ids_count = len(notas.get("deuda_ids") or [])
+                concepto_legible = (
+                    f"Fraccionamiento {fracc}"       if fracc else
+                    f"Pago de {ids_count} concepto{'s' if ids_count != 1 else ''}" if ids_count else
+                    "Pago de cuotas"
+                )
+            except Exception:
+                concepto_legible = str(p.notes)[:60]
+ 
+        # Buscar comprobante vinculado
+        comp = db.query(Comprobante).filter(
+            Comprobante.payment_id == p.id
+        ).first()
+ 
         historial.append({
-            "id":             p.id,
-            "fecha":          p.created_at.strftime("%d %b %Y") if p.created_at else "",
-            "concepto":       p.notes or "Pago",
-            "monto":          float(p.amount),
-            "metodo":         p.payment_method or "",
-            "operacion":      p.operation_code or "",
-            "estado":         p.status,
-            "rechazo_motivo": p.rejection_reason or None,
+            "id":              p.id,
+            "fecha":           p.created_at.strftime("%d %b %Y") if p.created_at else "",
+            "concepto":        concepto_legible,
+            "monto":           float(p.amount),
+            "metodo":          p.payment_method or "",
+            "operacion":       p.operation_code or "",
+            "estado":          p.status,
+            "rechazo_motivo":  p.rejection_reason or None,
+            "comprobante_url": comp.pdf_url if comp and comp.pdf_url else None,
+            "comprobante_num": f"{comp.serie}-{str(comp.numero).zfill(8)}" if comp else None,
         })
 
     
     # ── CUOTAS INFO (para tab Deudas de hábiles) ────────────────
     from datetime import date as dt_date
-
-    hoy             = dt_date.today()
-    anio_actual     = hoy.year
-    mes_pagado      = getattr(colegiado, 'mes_pagado_hasta', 0)  or 0
-    anio_pagado     = getattr(colegiado, 'anio_pagado_hasta', anio_actual) or anio_actual
-    monto_cuota     = getattr(colegiado, 'monto_cuota_mensual', None)
+    from app.services.deuda_cuotas_service import _meses_cubiertos
+    hoy         = dt_date.today()
+    anio_actual = hoy.year
+ 
+    # Calcular mes pagado desde debts (más preciso que campo en colegiado)
+    debts_pagados = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado.id,
+        Debt.debt_type    == 'cuota_ordinaria',
+        Debt.periodo.like(f'{anio_actual}%'),
+        Debt.status       == 'paid',
+    ).all()
+    meses_pagados_set = set()
+    for d in debts_pagados:
+        if d.periodo:
+            meses_pagados_set.update(_meses_cubiertos(d.periodo, anio_actual))
+ 
+    mes_pagado  = max(meses_pagados_set) if meses_pagados_set else 0
+    anio_pagado = anio_actual
 
     # Si no hay monto en el colegiado, buscarlo en conceptos
     if not monto_cuota:
