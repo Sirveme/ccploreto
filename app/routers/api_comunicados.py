@@ -302,12 +302,11 @@ async def registrar_push(
         device.is_active   = True
     else:
         device = Device(
-            organization_id = member.organization_id,
-            member_id       = member.id,
-            push_endpoint   = data.endpoint,
-            push_p256dh     = data.p256dh,
-            push_auth       = data.auth,
-            is_active       = True,
+            member_id     = member.id,
+            push_endpoint = data.endpoint,
+            push_p256dh   = data.p256dh,
+            push_auth     = data.auth,
+            is_active     = True,
         )
         db.add(device)
 
