@@ -341,14 +341,6 @@ const ComUI = (() => {
         }
     }
 
-    function linkificar(texto) {
-        return texto.replace(
-            /(https?:\/\/[^\s<]+)/g,
-            '<a href="$1" target="_blank" rel="noopener" '
-            + 'style="color:var(--c-gold);text-decoration:underline">$1</a>'
-        );
-    }
-
     // ── Acciones ─────────────────────────────────────────────
     function likeCard(id, btn) {
         const liked = btn.dataset.liked==='true';
@@ -442,14 +434,95 @@ const ComUI = (() => {
         } catch(e){}
     }
 
+
+    // ── Selector de media (imagen/video/pdf) ─────────────────
+    function selMedia(tipo) {
+        document.getElementById('comp-media-tipo').value = tipo;
+        // Tabs
+        ['imagen','video','pdf'].forEach(t => {
+            const tab = document.getElementById(`comp-media-tab-${t}`);
+            const panel = document.getElementById(`comp-media-${t}`);
+            if (tab)   tab.classList.toggle('active', t === tipo);
+            if (panel) panel.style.display = t === tipo ? 'block' : 'none';
+        });
+        // Limpiar el otro
+        if (tipo !== 'imagen') {
+            document.getElementById('comp-img-url').value = '';
+            document.getElementById('comp-img-preview').style.display = 'none';
+        }
+        if (tipo !== 'video') {
+            document.getElementById('comp-video-url').value = '';
+            document.getElementById('comp-video-preview').style.display = 'none';
+        }
+        if (tipo !== 'pdf') {
+            const pdfEl = document.getElementById('comp-pdf-url');
+            if (pdfEl) pdfEl.value = '';
+        }
+    }
+
+    function convertirYoutube(input) {
+        const raw = input.value.trim();
+        if (!raw) return;
+        const embedId = extraerYoutubeId(raw);
+        if (!embedId) return;
+        const embedUrl = `https://www.youtube.com/embed/${embedId}`;
+        // Mostrar preview
+        const iframe  = document.getElementById('comp-video-iframe');
+        const preview = document.getElementById('comp-video-preview');
+        if (iframe && preview) {
+            iframe.src = embedUrl;
+            preview.style.display = 'block';
+        }
+        // Guardar URL limpia en el campo (para que se envíe correctamente)
+        input.dataset.embedUrl = embedUrl;
+    }
+
+    function extraerYoutubeId(url) {
+        const patterns = [
+            /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+            /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+            /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+            /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+        ];
+        for (const p of patterns) {
+            const m = url.match(p);
+            if (m) return m[1];
+        }
+        return null;
+    }
+
+    function previewImgUrl(url) {
+        if (!url || !url.startsWith('http')) return;
+        const img     = document.getElementById('comp-img-preview-img');
+        const preview = document.getElementById('comp-img-preview');
+        if (img && preview) {
+            img.src = url;
+            preview.style.display = 'block';
+        }
+    }
+
+    function limpiarMedia() {
+        document.getElementById('comp-img-url').value = '';
+        document.getElementById('comp-img-preview').style.display = 'none';
+        document.getElementById('comp-video-url').value = '';
+        document.getElementById('comp-video-preview').style.display = 'none';
+        const iframe = document.getElementById('comp-video-iframe');
+        if (iframe) iframe.src = '';
+        const pdfEl = document.getElementById('comp-pdf-url');
+        if (pdfEl) pdfEl.value = '';
+    }
+
     async function enviar() {
         const titulo   =document.getElementById('comp-titulo')?.value.trim();
         const contenido=document.getElementById('comp-contenido')?.value.trim();
         const tipo     =document.getElementById('comp-tipo-val')?.value||'comunicado';
         const prioridad=document.getElementById('comp-prior-val')?.value||'info';
         const segmento =document.getElementById('comp-seg-val')?.value||'todos';
-        const imgUrl   =document.getElementById('comp-img-url')?.value.trim();
-        const videoUrl =document.getElementById('comp-video-url')?.value.trim();
+        const imgUrl   = document.getElementById('comp-img-url')?.value.trim();
+        const videoEl  = document.getElementById('comp-video-url');
+        const videoUrl = videoEl?.dataset.embedUrl || videoEl?.value.trim() || '';
+        const pdfUrl   = document.getElementById('comp-pdf-url')?.value.trim();
+        const mediaTipo = document.getElementById('comp-media-tipo')?.value || 'imagen';
         const caduca   =document.getElementById('comp-caduca')?.value;
         const fechaEv  =document.getElementById('comp-fecha-evento')?.value;
         const lugar    =document.getElementById('comp-lugar')?.value.trim();
@@ -481,22 +554,7 @@ const ComUI = (() => {
             const d=await r.json();
             if(d.ok){
                 feedback(`✅ Publicado — ${d.destinatarios} dispositivos notificados`,'success');
-                
-                setTimeout(()=>{
-                    cerrarCompositor();
-                    cargar(_tipo);
-                    // Limpiar formulario
-                    ['comp-titulo','comp-contenido','comp-img-url','comp-video-url','comp-caduca',
-                    'comp-fecha-evento','comp-lugar'].forEach(id=>{
-                        const el=document.getElementById(id); if(el) el.value='';
-                    });
-                    document.getElementById('comp-img-preview').style.display='none';
-                    document.getElementById('comp-img-drop').innerHTML='<i class="ph ph-image"></i><span>Arrastra o toca para seleccionar</span>';
-                    document.getElementById('comp-requiere-conf').checked=false;
-                    document.getElementById('comp-genera-multa').checked=false;
-                },2000);
-
-
+                setTimeout(()=>{ cerrarCompositor(); cargar(_tipo); },2000);
             } else {
                 feedback(`Error: ${d.error||d.mensaje}`,'error');
             }
@@ -552,6 +610,20 @@ const ComUI = (() => {
         });
     }
 
+    function linkificar(texto) {
+        if (!texto) return '';
+        // Escapar HTML primero excepto las URLs
+        const escaped = texto
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // Convertir URLs a links
+        return escaped.replace(
+            /(https?:\/\/[^\s&<>]+)/g,
+            '<a href="$1" target="_blank" rel="noopener" '
+            + 'style="color:var(--c-gold,#d4a843);text-decoration:underline;'
+            + 'word-break:break-all">$1</a>'
+        );
+    }
+
     function esc(str) {
         if(!str) return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -577,7 +649,8 @@ const ComUI = (() => {
         filtrar, cargar,
         abrirDetalle, cerrarDetalle,
         abrirCompositor, cerrarCompositor,
-        selTipo, selPrior, selSeg,
+        selTipo, selPrior, selSeg, selMedia,
+        convertirYoutube, previewImgUrl, limpiarMedia,
         cargarImagen, soltarImagen,
         enviar, likeCard, compartir, iniciarChat,
     };
