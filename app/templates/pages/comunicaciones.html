@@ -9,6 +9,60 @@
 main { overflow: visible !important; }
 #content-area { overflow: visible !important; padding: 0 !important; height: auto !important; }
 body { overflow-y: auto !important; }
+
+/* Fixes compositor */
+.comp-check-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.comp-check-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--c-text2, #a0aec0);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--c-border, #1e2631);
+  background: rgba(255,255,255,.02);
+  transition: border-color .15s;
+}
+.comp-check-label:hover { border-color: var(--c-border2, #2a3545); }
+.comp-check-label input[type=checkbox] {
+  width: 16px; height: 16px;
+  accent-color: var(--c-green, #2d8a5a);
+  flex-shrink: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Media excluyente */
+.comp-media-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.comp-media-tab {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--c-border, #1e2631);
+  background: rgba(255,255,255,.03);
+  color: var(--c-muted, #4a5568);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: 'Outfit', sans-serif;
+}
+.comp-media-tab.active {
+  background: rgba(212,168,67,.12);
+  border-color: rgba(212,168,67,.3);
+  color: var(--c-gold, #d4a843);
+}
 </style>
 {% endblock %}
 
@@ -111,28 +165,29 @@ body { overflow-y: auto !important; }
         </div>
       </div>
 
-      <!-- Estadísticas (solo emisores) -->
       {% if es_emisor %}
+      <!-- FOMO -->
       <div class="sidebar-widget" id="widget-fomo">
-            <div class="sidebar-widget-header">
-                <i class="ph ph-lightning"></i> FOMO — Notificaciones
-            </div>
-            <div class="sidebar-widget-body">
-                <p style="font-size:11px;color:var(--c-muted);margin-bottom:12px;line-height:1.5">
-                    Envía mensajes persuasivos que aparecen en el dashboard de todos los colegiados conectados.
-                </p>
-                <div id="fomo-opciones-lista">
-                    <div style="font-size:11px;color:var(--c-muted);text-align:center">
-                        Cargando opciones...
-                    </div>
-                </div>
-                <div id="fomo-feedback"
-                    style="display:none;margin-top:10px;padding:8px 10px;
-                            border-radius:8px;font-size:11px;text-align:center">
-                </div>
-            </div>
+        <div class="sidebar-widget-header">
+          <i class="ph ph-lightning"></i> FOMO — Notificaciones
         </div>
+        <div class="sidebar-widget-body">
+          <p style="font-size:11px;color:var(--c-muted);margin-bottom:12px;line-height:1.5">
+            Envía mensajes persuasivos a todos los colegiados conectados.
+          </p>
+          <div id="fomo-opciones-lista">
+            <div style="font-size:11px;color:var(--c-muted);text-align:center">
+              Cargando opciones...
+            </div>
+          </div>
+          <div id="fomo-feedback"
+               style="display:none;margin-top:10px;padding:8px 10px;
+                      border-radius:8px;font-size:11px;text-align:center">
+          </div>
+        </div>
+      </div>
 
+      <!-- Estadísticas -->
       <div class="sidebar-widget">
         <div class="sidebar-widget-header">
           <i class="ph ph-chart-bar"></i> Estadísticas
@@ -177,6 +232,7 @@ body { overflow-y: auto !important; }
       <button onclick="ComUI.cerrarCompositor()"><i class="ph ph-x"></i></button>
     </div>
 
+    <!-- Tipo -->
     <div class="comp-field">
       <label>Tipo de comunicado</label>
       <div class="comp-tipo-grid">
@@ -189,6 +245,7 @@ body { overflow-y: auto !important; }
       </div>
     </div>
 
+    <!-- Urgencia -->
     <div class="comp-field">
       <label>Urgencia</label>
       <div class="comp-btn-row">
@@ -198,16 +255,19 @@ body { overflow-y: auto !important; }
       </div>
     </div>
 
+    <!-- Título -->
     <div class="comp-field">
       <label>Título *</label>
       <input type="text" id="comp-titulo" maxlength="100" placeholder="Título del comunicado">
     </div>
 
+    <!-- Mensaje -->
     <div class="comp-field">
-      <label>Mensaje *</label>
-      <textarea id="comp-contenido" rows="4" placeholder="Escribe el mensaje completo..."></textarea>
+      <label>Mensaje * <small style="font-weight:400;text-transform:none;letter-spacing:0">(las URLs se convierten en links automáticamente)</small></label>
+      <textarea id="comp-contenido" rows="4" placeholder="Escribe el mensaje completo... Las URLs como https://... serán clickeables."></textarea>
     </div>
 
+    <!-- Campos de Evento -->
     <div id="comp-evento-fields" style="display:none">
       <div class="comp-row">
         <div class="comp-field">
@@ -219,48 +279,106 @@ body { overflow-y: auto !important; }
           <input type="text" id="comp-lugar" placeholder="Auditorio CCPL...">
         </div>
       </div>
-      <div class="comp-field" style="display:flex;flex-direction:column;gap:8px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--c-text2);cursor:pointer">
+      <div class="comp-check-row">
+        <label class="comp-check-label">
           <input type="checkbox" id="comp-requiere-conf">
-            Requiere confirmación de asistencia
+          <span>Requiere confirmación de asistencia</span>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--c-text2);cursor:pointer">
+        <label class="comp-check-label">
           <input type="checkbox" id="comp-genera-multa">
-            Genera multa por inasistencia
+          <span>La inasistencia genera multa</span>
         </label>
       </div>
     </div>
 
+    <!-- Media: imagen O video (excluyentes) -->
     <div class="comp-field">
-      <label>Imagen / Afiche</label>
-      <div class="comp-img-drop" id="comp-img-drop"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="ComUI.soltarImagen(event)"
-           onclick="document.getElementById('comp-img-file').click()">
-        <i class="ph ph-image"></i>
-        <span>Arrastra o toca para seleccionar</span>
+      <label>Contenido multimedia</label>
+      <div class="comp-media-tabs">
+        <button class="comp-media-tab active" id="comp-media-tab-img"
+                onclick="ComUI.selMedia('imagen')">
+          🖼 Imagen / Afiche
+        </button>
+        <button class="comp-media-tab" id="comp-media-tab-vid"
+                onclick="ComUI.selMedia('video')">
+          ▶ Video YouTube
+        </button>
+        <button class="comp-media-tab" id="comp-media-tab-pdf"
+                onclick="ComUI.selMedia('pdf')">
+          📄 PDF
+        </button>
       </div>
-      <input type="file" id="comp-img-file" accept="image/*" style="display:none"
-             onchange="ComUI.cargarImagen(this)">
-      <input type="url" id="comp-img-url" placeholder="O pega una URL de imagen"
-             style="margin-top:8px">
-      <div id="comp-img-preview" style="display:none;margin-top:8px">
-        <img id="comp-img-preview-img" style="width:100%;border-radius:10px;max-height:160px;object-fit:cover">
+
+      <!-- Panel imagen -->
+      <div id="comp-media-imagen">
+        <div class="comp-img-drop" id="comp-img-drop"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="ComUI.soltarImagen(event)"
+             onclick="document.getElementById('comp-img-file').click()">
+          <i class="ph ph-image"></i>
+          <span>Arrastra o toca para seleccionar</span>
+        </div>
+        <input type="file" id="comp-img-file" accept="image/*" style="display:none"
+               onchange="ComUI.cargarImagen(this)">
+        <input type="url" id="comp-img-url" placeholder="O pega una URL de imagen"
+               style="margin-top:8px"
+               oninput="ComUI.previewImgUrl(this.value)">
+        <div id="comp-img-preview" style="display:none;margin-top:8px">
+          <img id="comp-img-preview-img"
+               style="width:100%;border-radius:10px;max-height:160px;object-fit:cover">
+          <button onclick="ComUI.limpiarMedia()"
+                  style="margin-top:6px;width:100%;padding:6px;background:rgba(229,62,62,.1);
+                         border:1px solid rgba(229,62,62,.2);color:#fc8181;border-radius:8px;
+                         font-size:11px;cursor:pointer">
+            ✕ Quitar imagen
+          </button>
+        </div>
       </div>
+
+      <!-- Panel video -->
+      <div id="comp-media-video" style="display:none">
+        <input type="url" id="comp-video-url"
+               placeholder="Pega cualquier URL de YouTube (youtu.be/... o youtube.com/watch?v=...)"
+               oninput="ComUI.convertirYoutube(this)">
+        <small style="color:var(--c-muted);font-size:10px;margin-top:4px;display:block">
+          Se acepta cualquier formato de URL de YouTube — se convierte automáticamente
+        </small>
+        <div id="comp-video-preview" style="display:none;margin-top:10px">
+          <div style="position:relative;aspect-ratio:16/9">
+            <iframe id="comp-video-iframe"
+                    style="position:absolute;inset:0;width:100%;height:100%;
+                           border:none;border-radius:10px"
+                    allowfullscreen></iframe>
+          </div>
+          <button onclick="ComUI.limpiarMedia()"
+                  style="margin-top:6px;width:100%;padding:6px;background:rgba(229,62,62,.1);
+                         border:1px solid rgba(229,62,62,.2);color:#fc8181;border-radius:8px;
+                         font-size:11px;cursor:pointer">
+            ✕ Quitar video
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel PDF -->
+      <div id="comp-media-pdf" style="display:none">
+        <input type="url" id="comp-pdf-url"
+               placeholder="URL del PDF (Google Drive, Dropbox, servidor...)">
+        <small style="color:var(--c-muted);font-size:10px;margin-top:4px;display:block">
+          El PDF debe ser accesible públicamente por URL
+        </small>
+      </div>
+
     </div>
 
-    <div class="comp-field">
-      <label>Video (YouTube embed URL)</label>
-      <input type="url" id="comp-video-url" placeholder="https://www.youtube.com/embed/...">
-    </div>
-
+    <!-- Caducidad -->
     <div class="comp-field">
       <label>Caducidad (opcional)</label>
       <input type="datetime-local" id="comp-caduca">
       <small>El comunicado desaparece del feed tras esta fecha</small>
     </div>
 
+    <!-- Destinatarios -->
     <div class="comp-field">
       <label>Destinatarios</label>
       <div class="comp-btn-row">
@@ -270,6 +388,7 @@ body { overflow-y: auto !important; }
       </div>
     </div>
 
+    <!-- Acciones -->
     <div class="comp-actions">
       <button class="comp-btn-cancel" onclick="ComUI.cerrarCompositor()">Cancelar</button>
       <button class="comp-btn-send" id="comp-btn-enviar" onclick="ComUI.enviar()">
@@ -283,10 +402,12 @@ body { overflow-y: auto !important; }
     <input type="hidden" id="comp-tipo-val" value="comunicado">
     <input type="hidden" id="comp-prior-val" value="info">
     <input type="hidden" id="comp-seg-val" value="todos">
+    <input type="hidden" id="comp-media-tipo" value="imagen">
+
   </div>
 </div>
 {% endif %}
 
-<script src="/static/js/pages/comunicaciones.js?v=2"></script>
+<script src="/static/js/pages/comunicaciones.js?v=3"></script>
 
 {% endblock %}
