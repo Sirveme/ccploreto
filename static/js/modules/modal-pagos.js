@@ -420,12 +420,30 @@ window.ModalPagos = {
                 </div>
                 <div class="mp-seccion-titulo" style="margin-top:.75rem;font-size:.7rem">
                     Próximas cuotas
+                    <span style="margin-left:auto;font-size:.68rem;color:var(--color-text-muted,#888);text-transform:none;letter-spacing:0">
+                        Paga de a 1 o por adelantado
+                    </span>
                 </div>
                 <div class="mp-deudas-lista">
-                    ${proximas.slice(0, 3).map(c => this._renderCuotaFraccRow(c, false)).join('')}
-                    ${proximas.length > 3 ? `<div class="mp-fracc-mas">
-                        + ${proximas.length - 3} cuotas más hasta ${this._fmtFecha(fracc.fecha_fin_estimada)}
-                    </div>` : ''}
+                    ${proximas.map(c => this._renderCuotaFraccRow(c, false)).join('')}
+                </div>
+                <div class="mp-fracc-pagar-varias">
+                    <label>Pagar varias cuotas de una vez:</label>
+                    <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem">
+                        <select id="mp-fracc-n-cuotas" style="flex:1;background:var(--color-bg,#12121f);
+                            border:1px solid var(--color-border,#2a2a3a);color:var(--color-text,#eee);
+                            border-radius:8px;padding:.45rem .75rem;font-size:.85rem">
+                            ${proximas.map((_,i) => `<option value="${i+1}">${i+1} cuota${i>0?'s':''} — S/ ${this._fmt((i+1)*fracc.monto_cuota)}</option>`).join('')}
+                        </select>
+                        <button class="mp-btn-pagar" onclick="ModalPagos._pagarVariasCuotasFracc()"
+                                style="padding:.45rem .9rem">
+                            <i class="ph ph-upload"></i> Reportar
+                        </button>
+                        <button class="mp-btn-pagar-online" onclick="ModalPagos._pagarVariasCuotasFraccOnline()"
+                                style="padding:.45rem .9rem">
+                            <i class="ph ph-credit-card"></i> En línea
+                        </button>
+                    </div>
                 </div>`;
         }
 
@@ -859,6 +877,47 @@ window.ModalPagos = {
         this._cerrar();
     },
 
+
+    _pagarVariasCuotasFracc() {
+        const fracc = this.data?.fraccionamiento;
+        if (!fracc || typeof AIFab==='undefined') return;
+        const sel = document.getElementById('mp-fracc-n-cuotas');
+        const n   = parseInt(sel?.value) || 1;
+        const proximas = fracc.cuotas?.filter(c => !c.pagada && !c.vencida) || [];
+        const cuotasPagar = proximas.slice(0, n);
+        const monto = cuotasPagar.reduce((s,c) => s + c.monto, 0);
+        const col = this.data?.colegiado;
+        AIFab.openPagoFormPrellenado({
+            id:col?.id, nombre:col?.nombre, matricula:col?.matricula, dni:col?.dni,
+            deuda:{
+                deuda_total: this._montoConExtras(monto), total: this._montoConExtras(monto),
+                cantidad_cuotas: n,
+                en_revision: this.data.resumen?.en_revision||0,
+                concepto: `${n} cuota${n>1?'s':''} fraccionamiento ${fracc.numero_solicitud}`,
+                fraccionamiento_id: fracc.id,
+                cuotas_numeros: cuotasPagar.map(c=>c.numero),
+                ...this._extraInfo(),
+            },
+        });
+        this._cerrar();
+    },
+
+    _pagarVariasCuotasFraccOnline() {
+        const fracc = this.data?.fraccionamiento;
+        if (!fracc) return;
+        const sel = document.getElementById('mp-fracc-n-cuotas');
+        const n   = parseInt(sel?.value) || 1;
+        const proximas = fracc.cuotas?.filter(c => !c.pagada && !c.vencida) || [];
+        const cuotasPagar = proximas.slice(0, n);
+        const monto = this._montoConExtras(cuotasPagar.reduce((s,c) => s + c.monto, 0));
+        this._iniciarPagoOpenpay([], monto, {
+            tipo: 'cuotas_fraccionamiento',
+            fraccionamiento_id: fracc.id,
+            cantidad: n,
+            cuotas_numeros: cuotasPagar.map(c=>c.numero).join(','),
+        });
+    },
+
     _cerrar() {
         if (typeof Modal!=='undefined') Modal.close('modal-pagos');
         else { const m=document.getElementById('modal-pagos'); if(m) m.classList.remove('open','active'); }
@@ -883,7 +942,16 @@ window.ModalPagos = {
 
     _fmtFecha(iso) {
         if (!iso) return '';
-        const d = new Date(iso+'T12:00:00');
+        // Handle date-only "2023-10-28", datetime with tz, etc.
+        let d;
+        if (typeof iso === 'string' && iso.length === 10) {
+            // "YYYY-MM-DD" — parse as local noon to avoid timezone shift
+            const [y,m,day] = iso.split('-').map(Number);
+            d = new Date(y, m-1, day, 12, 0, 0);
+        } else {
+            d = new Date(iso);
+        }
+        if (isNaN(d.getTime())) return iso; // fallback: show raw
         return d.toLocaleDateString('es-PE', {day:'numeric', month:'short', year:'numeric'});
     },
 
@@ -1022,6 +1090,10 @@ window.ModalPagos = {
 .mp-btn-pagar-carrito{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;background:var(--color-primary,#f59e0b);color:#000;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:opacity .15s}
 .mp-btn-pagar-carrito:hover{opacity:.85}
 .mp-cat-pill-label{display:inline}
+.mp-fracc-pagar-varias{background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.15);
+border-radius:10px;padding:.75rem;margin-top:.5rem}
+.mp-fracc-pagar-varias label{font-size:.75rem;font-weight:600;color:var(--color-text-muted,#888);
+text-transform:uppercase;letter-spacing:.05em}
 @media(max-width:480px){
 .mp-resumen-header{grid-template-columns:1fr 1fr}
 .mp-resumen-header .mp-pagado{grid-column:1/-1}
