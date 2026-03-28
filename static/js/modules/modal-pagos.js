@@ -12,6 +12,7 @@ window.ModalPagos = {
     carrito:    [],
     tabActiva:  'deudas',
     _abriendo:  false,
+    catFiltro:  'todos',
 
     // Preferencias de sesión (persisten mientras el modal esté abierto)
     prefs: {
@@ -30,14 +31,17 @@ window.ModalPagos = {
             if (!e.target.closest('#modal-pagos')) return;
             const tab  = e.target.closest('[data-pagos-tab]');
             if (tab)  { this.switchTab(tab.dataset.pagosTab); return; }
-            const el  = e.target.closest('[data-accion]');
+            const el   = e.target.closest('[data-accion]');
             if (el)   { this._dispatch(el); return; }
+            const pill = e.target.closest('[data-cat-filtro]');
+            if (pill) { this.catFiltro = pill.dataset.catFiltro; this._renderServicios(); }
         });
         document.addEventListener('change', e => {
             if (!e.target.closest('#modal-pagos')) return;
             if (e.target.name === 'n_cuotas')         this._actualizarCalculoCuotas(parseInt(e.target.value));
             if (e.target.name === 'tipo_comprobante') this._setComprobante(e.target.value);
             if (e.target.id   === 'mp-constancia')    this._setConstancia(e.target.checked);
+            if (e.target.dataset.cantidadId) this._setCantidad(parseInt(e.target.dataset.cantidadId), parseInt(e.target.value)||1);
         });
     },
 
@@ -50,6 +54,9 @@ window.ModalPagos = {
         if (a === 'pagar-online-cuotas') this._pagarCuotasOnline();
         if (a === 'pagar-fracc-cuota')   this._pagarCuotaFracc(id);
         if (a === 'pagar-online-fracc')  this._pagarCuotaFraccOnline(id);
+        if (a === 'agregar')             this._agregarAlCarrito(id);
+        if (a === 'quitar')              this._quitarDelCarrito(id);
+        if (a === 'pagar-carrito')       this._pagarCarrito();
     },
 
     // ── ABRIR ─────────────────────────────────────────────────
@@ -185,7 +192,7 @@ window.ModalPagos = {
             if (this.data.costo_constancia) {
                 this.prefs.costoConstancia = this.data.costo_constancia;
             }
-            this._renderTodo();
+            try { this._renderTodo(); } catch(e) { console.error('[ModalPagos] renderTodo:', e); }
             this.switchTab(this.tabActiva);
         } catch(err) {
             console.error('[ModalPagos]', err);
@@ -546,7 +553,7 @@ window.ModalPagos = {
     _renderHistorial() {
         const el = document.getElementById('mp-panel-historial');
         if (!el) return;
-        const { historial } = this.data;
+        const historial = this.data.historial || this.data.pagos;
         if (!historial?.length) {
             el.innerHTML = `<div class="mp-empty"><i class="ph ph-clock-counter-clockwise"></i><p>Sin pagos registrados aún.</p></div>`;
             return;
@@ -731,6 +738,127 @@ window.ModalPagos = {
         }
     },
 
+
+    // ── TAB SERVICIOS ─────────────────────────────────────────
+    _renderServicios() {
+        const el = document.getElementById('mp-panel-servicios');
+        if (!el) return;
+        const { catalogo, categorias } = this.data;
+        if (!catalogo?.length) {
+            el.innerHTML = `<div class="mp-empty"><i class="ph ph-storefront"></i><p>Sin servicios disponibles.</p></div>`;
+            return;
+        }
+        const pills = [
+            `<button class="mp-cat-pill ${this.catFiltro==='todos'?'active':''}" data-cat-filtro="todos">
+                <i class="ph ph-squares-four"></i><span class="mp-cat-pill-label">Todos</span>
+                <span class="mp-cat-count">${catalogo.length}</span>
+             </button>`,
+            ...(categorias||[]).map(cat =>
+                `<button class="mp-cat-pill ${this.catFiltro===cat.key?'active':''}"
+                    data-cat-filtro="${cat.key}" style="--cat-color:${cat.color}">
+                    <i class="ph ${cat.icon}"></i>
+                    <span class="mp-cat-pill-label">${cat.label}</span>
+                    <span class="mp-cat-count">${cat.count}</span>
+                </button>`)
+        ].join('');
+        const filtrados = this.catFiltro==='todos' ? catalogo : catalogo.filter(c=>c.categoria===this.catFiltro);
+        let itemsHtml = '';
+        if (this.catFiltro==='todos') {
+            const grupos = {};
+            filtrados.forEach(i => { (grupos[i.categoria]=grupos[i.categoria]||[]).push(i); });
+            itemsHtml = Object.entries(grupos).map(([cat,items]) => {
+                const meta=(categorias||[]).find(c=>c.key===cat)||{};
+                return `<div class="mp-catalogo-grupo">
+                    <div class="mp-grupo-header" style="--cat-color:${meta.color||'#888'}">
+                        <i class="ph ${meta.icon||'ph-circle'}"></i>${meta.label||cat}
+                    </div>
+                    ${items.map(i=>this._renderItem(i)).join('')}
+                </div>`;
+            }).join('');
+        } else {
+            itemsHtml = `<div class="mp-catalogo-grupo">${filtrados.map(i=>this._renderItem(i)).join('')}</div>`;
+        }
+        el.innerHTML = `
+            <div class="mp-cat-pills">${pills}</div>
+            <div>${itemsHtml}</div>
+            <div id="mp-carrito-footer" class="mp-carrito-footer ${this.carrito.length?'mp-carrito-footer--visible':''}">
+                ${this._renderCarritoFooter()}
+            </div>`;
+    },
+
+    _renderItem(item) {
+        const enCarrito = this.carrito.find(c=>c.id===item.id);
+        const agotado   = item.maneja_stock && item.stock_actual<=0;
+        const stock     = item.maneja_stock
+            ? `<span class="mp-stock ${item.stock_actual>0?'mp-stock--ok':'mp-stock--agotado'}">${item.stock_actual>0?'Stock: '+item.stock_actual:'Agotado'}</span>`
+            : '';
+        const acciones  = agotado ? `<span class="mp-tag-agotado">Agotado</span>` :
+            enCarrito ? `<div class="mp-item-en-carrito">
+                <input type="number" min="1" max="${item.stock_actual||99}" value="${enCarrito.cantidad}" data-cantidad-id="${item.id}">
+                <button class="mp-btn-quitar" data-accion="quitar" data-id="${item.id}"><i class="ph ph-trash"></i></button>
+            </div>` :
+            `<button class="mp-btn-agregar" data-accion="agregar" data-id="${item.id}"><i class="ph ph-plus"></i> Agregar</button>`;
+        return `<div class="mp-item">
+            <div class="mp-item-info">
+                <span class="mp-item-nombre">${item.nombre}</span>
+                ${item.descripcion?`<small class="mp-item-desc">${item.descripcion}</small>`:''}
+                ${stock}
+            </div>
+            <div class="mp-item-acciones">
+                <span class="mp-item-precio">S/ ${this._fmt(item.monto_base)}</span>
+                ${acciones}
+            </div>
+        </div>`;
+    },
+
+    _renderCarritoFooter() {
+        const total = this.carrito.reduce((s,c)=>s+c.precio*c.cantidad,0);
+        const count = this.carrito.reduce((s,c)=>s+c.cantidad,0);
+        return `<div class="mp-carrito-info">
+            <i class="ph ph-shopping-cart"></i><span>${count} item${count!==1?'s':''}</span>
+            <strong>S/ ${this._fmt(total)}</strong>
+        </div>
+        <button class="mp-btn-pagar-carrito" data-accion="pagar-carrito">
+            Pagar selección <i class="ph ph-arrow-right"></i>
+        </button>`;
+    },
+
+    _agregarAlCarrito(id) {
+        const item = this.data?.catalogo?.find(i=>i.id===id);
+        if (!item || this.carrito.find(c=>c.id===id)) return;
+        this.carrito.push({id, nombre:item.nombre, precio:item.monto_base, cantidad:1});
+        this._renderServicios();
+    },
+
+    _quitarDelCarrito(id) {
+        this.carrito = this.carrito.filter(c=>c.id!==id);
+        this._renderServicios();
+    },
+
+    _setCantidad(id, qty) {
+        const item = this.carrito.find(c=>c.id===id);
+        if (item) item.cantidad = Math.max(1,qty);
+        const f = document.getElementById('mp-carrito-footer');
+        if (f) f.innerHTML = this._renderCarritoFooter();
+    },
+
+    _pagarCarrito() {
+        if (!this.carrito.length || typeof AIFab==='undefined') return;
+        const total   = this.carrito.reduce((s,c)=>s+c.precio*c.cantidad,0);
+        const concepto = this.carrito.map(c=>c.cantidad>1?c.cantidad+'x '+c.nombre:c.nombre).join(', ');
+        const col = this.data?.colegiado;
+        AIFab.openPagoFormPrellenado({
+            id:col?.id, nombre:col?.nombre, matricula:col?.matricula, dni:col?.dni,
+            deuda:{
+                deuda_total:total, total, cantidad_cuotas:this.carrito.length,
+                en_revision:this.data?.resumen?.en_revision||0, concepto,
+                items:this.carrito.map(c=>({concepto_id:c.id,nombre:c.nombre,cantidad:c.cantidad,precio:c.precio})),
+                ...this._extraInfo(),
+            },
+        });
+        this._cerrar();
+    },
+
     _cerrar() {
         if (typeof Modal!=='undefined') Modal.close('modal-pagos');
         else { const m=document.getElementById('modal-pagos'); if(m) m.classList.remove('open','active'); }
@@ -865,6 +993,35 @@ window.ModalPagos = {
 .mp-error button{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem 1rem;background:transparent;border:1px solid var(--color-border,#3a3a4a);color:var(--color-text,#eee);border-radius:7px;font-size:.82rem;cursor:pointer}
 .mp-spinner{width:28px;height:28px;border:3px solid var(--color-border,#2a2a3a);border-top-color:var(--color-primary,#f59e0b);border-radius:50%;animation:mp-spin .7s linear infinite}
 @keyframes mp-spin{to{transform:rotate(360deg)}}
+.mp-cat-pills{display:flex;gap:.45rem;overflow-x:auto;padding-bottom:.6rem;margin-bottom:.75rem;scrollbar-width:none}
+.mp-cat-pills::-webkit-scrollbar{display:none}
+.mp-cat-pill{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:999px;color:var(--color-text-muted,#999);font-size:.78rem;font-weight:500;white-space:nowrap;cursor:pointer;transition:all .15s}
+.mp-cat-pill.active,.mp-cat-pill:hover{border-color:var(--cat-color,#f59e0b);color:var(--cat-color,#f59e0b)}
+.mp-cat-pill.active{background:rgba(245,158,11,.08)}
+.mp-cat-count{background:var(--color-border,#2a2a3a);border-radius:999px;padding:0 .35rem;font-size:.68rem;font-weight:700;min-width:16px;text-align:center;color:var(--color-text-muted,#888)}
+.mp-catalogo-grupo{margin-bottom:.9rem}
+.mp-grupo-header{display:flex;align-items:center;gap:.45rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--cat-color,var(--color-text-muted,#888));padding:.3rem 0;border-bottom:1px solid var(--color-border,#2a2a3a);margin-bottom:.5rem}
+.mp-item{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem .85rem;background:var(--color-bg-card,#1e1e2e);border:1px solid var(--color-border,#2a2a3a);border-radius:8px;margin-bottom:.4rem;transition:border-color .15s}
+.mp-item:hover{border-color:rgba(245,158,11,.3)}
+.mp-item-info{display:flex;flex-direction:column;gap:.1rem;flex:1;min-width:0}
+.mp-item-nombre{font-size:.87rem;font-weight:500;color:var(--color-text,#eee)}
+.mp-item-desc{font-size:.72rem;color:var(--color-text-muted,#888)}
+.mp-stock{font-size:.7rem;margin-top:.1rem}
+.mp-stock--ok{color:#22c55e}
+.mp-stock--agotado,.mp-tag-agotado{color:#ef4444;font-size:.72rem}
+.mp-item-acciones{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.mp-item-precio{font-size:.9rem;font-weight:700;color:var(--color-primary,#f59e0b);white-space:nowrap}
+.mp-item-en-carrito{display:flex;align-items:center;gap:.4rem}
+.mp-item-en-carrito input{width:52px;padding:.25rem .4rem;background:var(--color-bg,#12121f);border:1px solid var(--color-border,#2a2a3a);color:var(--color-text,#eee);border-radius:6px;font-size:.82rem;text-align:center}
+.mp-carrito-footer{display:none;position:sticky;bottom:0;background:var(--color-bg-card,#1e1e2e);border-top:1px solid var(--color-border,#2a2a3a);padding:.75rem;justify-content:space-between;align-items:center;gap:.75rem;z-index:10}
+.mp-carrito-footer--visible{display:flex}
+.mp-carrito-info{display:flex;align-items:center;gap:.6rem;font-size:.88rem;color:var(--color-text,#eee)}
+.mp-carrito-info i{color:#f59e0b;font-size:1.1rem}
+.mp-carrito-info strong{color:#f59e0b;font-size:1rem}
+.mp-btn-quitar{display:inline-flex;align-items:center;padding:.3rem .5rem;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:6px;font-size:.8rem;cursor:pointer}
+.mp-btn-pagar-carrito{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;background:var(--color-primary,#f59e0b);color:#000;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:opacity .15s}
+.mp-btn-pagar-carrito:hover{opacity:.85}
+.mp-cat-pill-label{display:inline}
 @media(max-width:480px){
 .mp-resumen-header{grid-template-columns:1fr 1fr}
 .mp-resumen-header .mp-pagado{grid-column:1/-1}
