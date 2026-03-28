@@ -336,8 +336,7 @@ async def subir_imagen(
         bucket = client.bucket(BUCKET_NAME)
         blob   = bucket.blob(blob_path)
         blob.upload_from_string(contenido, content_type=imagen.content_type)
-        blob.make_public()
-        url = blob.public_url
+        url = f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
     else:
         return JSONResponse({"error": "GCS no configurado"}, status_code=500)
 
