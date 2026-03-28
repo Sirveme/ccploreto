@@ -128,7 +128,7 @@ const ComunicadosFeed = (() => {
 
     function init() {
         cargar('todos');
-        conectarWS();
+        abrirWS();
         // Abrir detalle si viene con ?id=
         const params = new URLSearchParams(location.search);
         const id = params.get('id');
