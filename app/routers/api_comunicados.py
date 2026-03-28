@@ -320,96 +320,25 @@ async def subir_imagen(
     imagen: UploadFile,
     member: Member = Depends(get_current_member),
 ):
+    import uuid
+    from app.utils.gcs import _get_client, BUCKET_NAME
+
     ext = imagen.filename.split('.')[-1].lower()
     if ext not in ('jpg','jpeg','png','gif','webp'):
         return JSONResponse({"error": "Formato no permitido"}, status_code=400)
-    nombre  = f"{uuid.uuid4().hex[:12]}.{ext}"
-    destino = Path(f"static/uploads/comunicados/{nombre}")
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    with destino.open("wb") as f:
-        shutil.copyfileobj(imagen.file, f)
-    return JSONResponse({"url": f"/static/uploads/comunicados/{nombre}"})
 
+    contenido = await imagen.read()
+    nombre    = f"{uuid.uuid4().hex[:12]}.{ext}"
+    blob_path = f"{member.organization_id}/comunicados/{nombre}"
 
-
-from app.services.fomo_engine import (
-    generar_fomo_automatico, FOMO_MANUALES,
-    _fomo_transparencia, _fomo_comunidad,
-    _fomo_tendencias, _fomo_eventos,
-    registrar_envio
-)
-
-@router.get("/fomo/opciones")
-async def fomo_opciones(member: Member = Depends(get_current_member)):
-    ROLES = ("decano","admin","secretaria","cajero","sote","superadmin")
-    if member.role not in ROLES:
-        return JSONResponse({"error":"Sin permiso"}, status_code=403)
-    return JSONResponse({"opciones": [
-        {"id": k, **v} for k, v in FOMO_MANUALES.items()
-    ]})
-
-# ══════════════════════════════════════════════════════════════
-# REEMPLAZAR el endpoint @router.post("/fomo/activar")
-# en app/routers/api_comunicados.py
-# ══════════════════════════════════════════════════════════════
-
-@router.post("/fomo/activar")
-async def fomo_activar(
-    request: Request,
-    member: Member = Depends(get_current_member),
-    db: Session = Depends(get_db),
-):
-    ROLES = ("decano","admin","secretaria","cajero","sote","superadmin")
-    if member.role not in ROLES:
-        return JSONResponse({"error":"Sin permiso"}, status_code=403)
-
-    from app.routers.ws import manager
-    from app.services.fomo_engine import (
-        _fomo_transparencia, _fomo_comunidad,
-        _fomo_tendencias, _fomo_eventos,
-        registrar_envio, generar_fomo_automatico
-    )
-
-    data    = await request.json()
-    tipo    = data.get("tipo", "comunidad")
-    modo    = data.get("modo", "oscuro")   # oscuro | claro
-    mensaje = data.get("mensaje", "")       # para custom
-    icono   = data.get("icono", "📢")       # para custom
-
-    # FOMO personalizado
-    if tipo == "custom":
-        if not mensaje.strip():
-            return JSONResponse({"ok": False, "mensaje": "Mensaje vacío"})
-        fomo = {"mensaje": mensaje.strip(), "icono": icono, "tipo": "custom"}
-
-    # FOMO automático (desde login)
-    elif tipo == "auto_login":
-        fomo = await generar_fomo_automatico(db, member.organization_id)
-        if not fomo:
-            return JSONResponse({"ok": False, "mensaje": "Sin datos"})
-
-    # FOMO predefinido por tipo
+    client = _get_client()
+    if client:
+        bucket = client.bucket(BUCKET_NAME)
+        blob   = bucket.blob(blob_path)
+        blob.upload_from_string(contenido, content_type=imagen.content_type)
+        blob.make_public()
+        url = blob.public_url
     else:
-        generadores = {
-            "transparencia": _fomo_transparencia,
-            "comunidad":     _fomo_comunidad,
-            "tendencias":    _fomo_tendencias,
-            "eventos":       _fomo_eventos,
-        }
-        gen  = generadores.get(tipo, _fomo_comunidad)
-        fomo = await gen(db, member.organization_id)
-        if not fomo:
-            return JSONResponse({"ok": False, "mensaje": "Sin datos suficientes para este tipo"})
+        return JSONResponse({"error": "GCS no configurado"}, status_code=500)
 
-    await manager.broadcast({
-        "type":    "FOMO",
-        "mensaje": fomo["mensaje"],
-        "icono":   fomo.get("icono", icono),
-        "tipo":    fomo.get("tipo", tipo),
-        "modo":    modo,
-        "org_id":  member.organization_id,
-        "duracion": 6000,
-    })
-    registrar_envio(member.organization_id)
-
-    return JSONResponse({"ok": True, "mensaje": fomo["mensaje"]})
+    return JSONResponse({"url": url})
