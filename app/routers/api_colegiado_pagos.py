@@ -283,3 +283,61 @@ async def get_mis_pagos(
         "categorias": categorias,
         "historial": historial,
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# AGREGAR en app/routers/api_colegiado_pagos.py
+# Después del endpoint /mis-pagos
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/mi-fraccionamiento")
+async def get_mi_fraccionamiento(
+    member: Member = Depends(get_current_member),
+    db:     Session = Depends(get_db),
+):
+    """
+    Devuelve el plan de fraccionamiento activo del colegiado
+    con todas sus cuotas — para el modal Mis Pagos (tab Futuro).
+    """
+    from app.models_debt_management import Fraccionamiento, FraccionamientoCuota
+    from datetime import date
+
+    colegiado = _get_colegiado(member, db)
+
+    plan = db.query(Fraccionamiento).filter(
+        Fraccionamiento.colegiado_id == colegiado.id,
+        Fraccionamiento.estado       == 'activo',
+    ).first()
+
+    if not plan:
+        return JSONResponse({"plan": None})
+
+    hoy = date.today()
+
+    cuotas = [{
+        "numero":            c.numero_cuota,
+        "monto":             float(c.monto),
+        "fecha_vencimiento": c.fecha_vencimiento.isoformat(),
+        "pagada":            c.pagada,
+        "fecha_pago":        c.fecha_pago.isoformat()  if c.fecha_pago    else None,
+        "habilidad_hasta":   c.habilidad_hasta.isoformat() if c.habilidad_hasta else None,
+        "vencida":           not c.pagada and c.fecha_vencimiento < hoy,
+    } for c in plan.cuotas]
+
+    return JSONResponse({"plan": {
+        "id":                  plan.id,
+        "numero_solicitud":    plan.numero_solicitud,
+        "estado":              plan.estado,
+        "deuda_total":         float(plan.deuda_total_original),
+        "cuota_inicial":       float(plan.cuota_inicial),
+        "cuota_inicial_pagada": plan.cuota_inicial_pagada,
+        "saldo_pendiente":     float(plan.saldo_pendiente),
+        "num_cuotas":          plan.num_cuotas,
+        "monto_cuota":         float(plan.monto_cuota),
+        "cuotas_pagadas":      plan.cuotas_pagadas,
+        "cuotas_atrasadas":    plan.cuotas_atrasadas,
+        "fecha_inicio":        plan.fecha_inicio.isoformat(),
+        "fecha_fin_estimada":  plan.fecha_fin_estimada.isoformat(),
+        "proxima_cuota_fecha": plan.proxima_cuota_fecha.isoformat() if plan.proxima_cuota_fecha else None,
+        "cuotas":              cuotas,
+    }})
