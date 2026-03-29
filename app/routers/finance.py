@@ -120,6 +120,18 @@ async def report_payment(
     )
     db.add(new_payment)
     db.commit()
+    # Push al colegiado confirmando recepción
+    try:
+        from app.services.push_service import enviar_push_member
+        enviar_push_member(
+            db       = db,
+            member_id = member.id,
+            titulo   = "📤 Pago recibido",
+            mensaje  = "Tu reporte de pago fue recibido. Lo validaremos en breve y te notificaremos.",
+            url      = "/dashboard",
+        )
+    except Exception:
+        pass
 
     # AVISO AL ADMIN (Tiempo Real)
     await manager.broadcast({

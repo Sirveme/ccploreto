@@ -23,6 +23,8 @@ from app.services.emitir_certificado_service import emitir_certificado_automatic
 from app.services.deuda_cuotas_service import calcular_deuda_total as _svc_deuda_total
 from app.services.evaluar_habilidad import evaluar_habilidad
 
+from app.services.push_service import enviar_push_por_tipo
+
 import io
 from fastapi.responses import StreamingResponse
 
