@@ -181,8 +181,11 @@ async def get_mis_pagos(
                 fracc     = notas.get("fracc_codigo")
                 ids_count = len(notas.get("deuda_ids") or [])
                 concepto_legible = (
-                    f"Fraccionamiento {fracc}"       if fracc else
-                    f"Pago de {ids_count} concepto{'s' if ids_count != 1 else ''}" if ids_count else
+                    f"Fraccionamiento {fracc}"          if fracc else
+                    notas.get("conceptos", "")          if notas.get("conceptos") else
+                    notas.get("concepto", "")           if notas.get("concepto") else
+                    f"Pago de {ids_count} obligación{'es' if ids_count != 1 else ''}" if ids_count else
+                    f"Pago directo S/ {notas.get('monto_base', '')}" if notas.get("monto_base") else
                     "Pago de cuotas"
                 )
             except Exception:
