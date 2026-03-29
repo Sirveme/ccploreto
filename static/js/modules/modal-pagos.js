@@ -1,6 +1,6 @@
 /**
  * Modal Mis Pagos — CCPL Dashboard
- * v6 — Deudas | Futuro | Historial + Fraccionamiento + Comprobante + Constancia
+ * v8 — Deudas | Futuro | Servicios | Historial + Fraccionamiento + PagoFlowHabil
  * GET /api/colegiado/mis-pagos
  */
 
@@ -581,7 +581,7 @@ window.ModalPagos = {
             <div class="mp-historial-row">
                 <div class="mp-historial-fecha">${p.fecha}</div>
                 <div class="mp-historial-info">
-                    <span>${p.concepto||'Pago'}</span>
+                    <span>${this._parseConcepto(p.concepto)}</span>
                     <small>${[p.metodo,p.operacion].filter(Boolean).join(' · ')}</small>
                 </div>
                 <div class="mp-historial-right">
@@ -634,8 +634,7 @@ window.ModalPagos = {
 
     _pagarCuotas() {
         const ci  = this.data?.colegiado?.cuotas_info;
-        if (!ci || typeof AIFab==='undefined') return;
-        const col = this.data?.colegiado;
+        if (!ci || typeof PagoFlowHabil==='undefined') return;
         const sel = document.getElementById('mp-n-cuotas');
         const n   = parseInt(sel?.value) || ci.cuotas_pendientes;
         const hoy = new Date(); const mes = hoy.getMonth()+1;
@@ -645,64 +644,48 @@ window.ModalPagos = {
         const anio    = ci.anio_pagado_hasta||hoy.getFullYear();
         const base    = n * ci.monto_cuota * (1-descPct);
         const monto   = this._montoConExtras(base);
-        AIFab.openPagoFormPrellenado({
-            id: col?.id, nombre: col?.nombre, matricula: col?.matricula, dni: col?.dni,
-            deuda: {
-                deuda_total: monto, total: monto, cantidad_cuotas: n,
-                en_revision: this.data.resumen?.en_revision||0,
-                concepto: `${n} cuota${n>1?'s':''} ordinarias ${this.MESES[inicio]}-${this.MESES[fin]} ${anio}`,
-                descuento_pct: descPct,
-                mes_desde: inicio, mes_hasta: fin, anio,
-                ...this._extraInfo(),
-            },
-        });
+        const concepto = `${n} cuota${n>1?'s':''} ordinarias ${this.MESES[inicio]}-${this.MESES[fin]} ${anio}`;
         this._cerrar();
+        PagoFlowHabil.iniciar({ deudaIds:[], monto, concepto });
     },
 
     _pagarCuotasOnline() {
         const ci  = this.data?.colegiado?.cuotas_info;
-        if (!ci) return;
+        if (!ci || typeof PagoFlowHabil==='undefined') return;
         const sel   = document.getElementById('mp-n-cuotas');
         const n     = parseInt(sel?.value) || ci.cuotas_pendientes;
         const hoy   = new Date(); const mes = hoy.getMonth()+1;
         const descPct = mes===1?0.30:mes===2?0.20:mes===3?0.10:0;
-        const base  = n * ci.monto_cuota * (1-descPct);
-        const monto = this._montoConExtras(base);
-        this._iniciarPagoOpenpay([], monto, { tipo:'cuotas_ordinarias', cantidad:n });
+        const inicio  = ci.mes_inicio_pago||((ci.mes_pagado_hasta||0)+1);
+        const fin     = Math.min(inicio+n-1,12);
+        const anio    = ci.anio_pagado_hasta||hoy.getFullYear();
+        const base    = n * ci.monto_cuota * (1-descPct);
+        const monto   = this._montoConExtras(base);
+        const concepto = `${n} cuota${n>1?'s':''} ordinarias ${this.MESES[inicio]}-${this.MESES[fin]} ${anio}`;
+        this._cerrar();
+        PagoFlowHabil.iniciarOnline({ deudaIds:[], monto, concepto });
     },
 
     _pagarCuotaFracc(numeroCuota) {
         const fracc = this.data?.fraccionamiento;
-        if (!fracc || typeof AIFab==='undefined') return;
+        if (!fracc || typeof PagoFlowHabil==='undefined') return;
         const cuota = fracc.cuotas?.find(c=>c.numero===numeroCuota);
         if (!cuota) return;
-        const col = this.data?.colegiado;
-        const monto = this._montoConExtras(cuota.monto);
-        AIFab.openPagoFormPrellenado({
-            id: col?.id, nombre: col?.nombre, matricula: col?.matricula, dni: col?.dni,
-            deuda: {
-                deuda_total: monto, total: monto, cantidad_cuotas: 1,
-                en_revision: this.data.resumen?.en_revision||0,
-                concepto: `Cuota ${numeroCuota} fraccionamiento ${fracc.numero_solicitud}`,
-                fraccionamiento_id: fracc.id,
-                numero_cuota: numeroCuota,
-                ...this._extraInfo(),
-            },
-        });
+        const monto   = this._montoConExtras(cuota.monto);
+        const concepto = `Cuota ${numeroCuota} fraccionamiento ${fracc.numero_solicitud}`;
         this._cerrar();
+        PagoFlowHabil.iniciar({ deudaIds:[], monto, concepto });
     },
 
     _pagarCuotaFraccOnline(numeroCuota) {
         const fracc = this.data?.fraccionamiento;
-        if (!fracc) return;
+        if (!fracc || typeof PagoFlowHabil==='undefined') return;
         const cuota = fracc.cuotas?.find(c=>c.numero===numeroCuota);
         if (!cuota) return;
-        const monto = this._montoConExtras(cuota.monto);
-        this._iniciarPagoOpenpay([], monto, {
-            tipo: 'cuota_fraccionamiento',
-            fraccionamiento_id: fracc.id,
-            numero_cuota: numeroCuota,
-        });
+        const monto   = this._montoConExtras(cuota.monto);
+        const concepto = `Cuota ${numeroCuota} fraccionamiento ${fracc.numero_solicitud}`;
+        this._cerrar();
+        PagoFlowHabil.iniciarOnline({ deudaIds:[], monto, concepto });
     },
 
     async _iniciarPagoOpenpay(deudaIds, monto, extra={}) {
@@ -861,61 +844,40 @@ window.ModalPagos = {
     },
 
     _pagarCarrito() {
-        if (!this.carrito.length || typeof AIFab==='undefined') return;
+        if (!this.carrito.length || typeof PagoFlowHabil==='undefined') return;
         const total   = this.carrito.reduce((s,c)=>s+c.precio*c.cantidad,0);
         const concepto = this.carrito.map(c=>c.cantidad>1?c.cantidad+'x '+c.nombre:c.nombre).join(', ');
-        const col = this.data?.colegiado;
-        AIFab.openPagoFormPrellenado({
-            id:col?.id, nombre:col?.nombre, matricula:col?.matricula, dni:col?.dni,
-            deuda:{
-                deuda_total:total, total, cantidad_cuotas:this.carrito.length,
-                en_revision:this.data?.resumen?.en_revision||0, concepto,
-                items:this.carrito.map(c=>({concepto_id:c.id,nombre:c.nombre,cantidad:c.cantidad,precio:c.precio})),
-                ...this._extraInfo(),
-            },
-        });
         this._cerrar();
+        PagoFlowHabil.iniciar({ deudaIds:[], monto:total, concepto });
     },
 
 
     _pagarVariasCuotasFracc() {
         const fracc = this.data?.fraccionamiento;
-        if (!fracc || typeof AIFab==='undefined') return;
+        if (!fracc || typeof PagoFlowHabil==='undefined') return;
         const sel = document.getElementById('mp-fracc-n-cuotas');
         const n   = parseInt(sel?.value) || 1;
         const proximas = fracc.cuotas?.filter(c => !c.pagada && !c.vencida) || [];
         const cuotasPagar = proximas.slice(0, n);
-        const monto = cuotasPagar.reduce((s,c) => s + c.monto, 0);
-        const col = this.data?.colegiado;
-        AIFab.openPagoFormPrellenado({
-            id:col?.id, nombre:col?.nombre, matricula:col?.matricula, dni:col?.dni,
-            deuda:{
-                deuda_total: this._montoConExtras(monto), total: this._montoConExtras(monto),
-                cantidad_cuotas: n,
-                en_revision: this.data.resumen?.en_revision||0,
-                concepto: `${n} cuota${n>1?'s':''} fraccionamiento ${fracc.numero_solicitud}`,
-                fraccionamiento_id: fracc.id,
-                cuotas_numeros: cuotasPagar.map(c=>c.numero),
-                ...this._extraInfo(),
-            },
-        });
+        const base    = cuotasPagar.reduce((s,c) => s + c.monto, 0);
+        const monto   = this._montoConExtras(base);
+        const concepto = `${n} cuota${n>1?'s':''} fraccionamiento ${fracc.numero_solicitud}`;
         this._cerrar();
+        PagoFlowHabil.iniciar({ deudaIds:[], monto, concepto });
     },
 
     _pagarVariasCuotasFraccOnline() {
         const fracc = this.data?.fraccionamiento;
-        if (!fracc) return;
+        if (!fracc || typeof PagoFlowHabil==='undefined') return;
         const sel = document.getElementById('mp-fracc-n-cuotas');
         const n   = parseInt(sel?.value) || 1;
         const proximas = fracc.cuotas?.filter(c => !c.pagada && !c.vencida) || [];
         const cuotasPagar = proximas.slice(0, n);
-        const monto = this._montoConExtras(cuotasPagar.reduce((s,c) => s + c.monto, 0));
-        this._iniciarPagoOpenpay([], monto, {
-            tipo: 'cuotas_fraccionamiento',
-            fraccionamiento_id: fracc.id,
-            cantidad: n,
-            cuotas_numeros: cuotasPagar.map(c=>c.numero).join(','),
-        });
+        const base    = cuotasPagar.reduce((s,c) => s + c.monto, 0);
+        const monto   = this._montoConExtras(base);
+        const concepto = `${n} cuota${n>1?'s':''} fraccionamiento ${fracc.numero_solicitud}`;
+        this._cerrar();
+        PagoFlowHabil.iniciarOnline({ deudaIds:[], monto, concepto });
     },
 
     _cerrar() {
@@ -935,6 +897,14 @@ window.ModalPagos = {
     },
 
     // ── HELPERS ───────────────────────────────────────────────
+    _parseConcepto(concepto) {
+        if (!concepto) return 'Pago';
+        try {
+            const o = JSON.parse(concepto);
+            return o.conceptos || o.concepto || o.descripcion || concepto;
+        } catch { return concepto; }
+    },
+
     _fmt(n) {
         const v = parseFloat(n)||0;
         return v.toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -962,7 +932,7 @@ window.ModalPagos = {
         s.id = 'mp-styles';
         s.textContent = `
 /* ── BASE ── */
-.mp-body{display:flex;flex-direction:column;gap:0;padding:0 1rem 1rem}
+.mp-body{display:flex;flex-direction:column;gap:0;padding:0 1rem 1rem;overflow-x:hidden}
 /* RESUMEN */
 .mp-resumen-header{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;padding:.75rem 0;border-bottom:1px solid var(--color-border,#2a2a3a);margin-bottom:.75rem}
 .mp-resumen-item{display:flex;flex-direction:column;gap:.15rem}
