@@ -11,11 +11,11 @@ from sqlalchemy.orm import Session
 from datetime import date
 from typing import Optional
 
+
 from app.database import get_db
 from app.routers.security import get_current_member
 
 router = APIRouter(prefix="/api/finanzas", tags=["Generador Deudas"])
-
 
 # ── Importar en el router de finanzas existente ──────────────
 # from app.services.generador_deudas import (
@@ -111,3 +111,71 @@ async def generar_fracc(
         created_by      = member.user_id,
     )
     return JSONResponse({"ok": True, **resultado})
+
+
+# ── ENDPOINT: Rollback de un lote ─────────────────────────────
+@router.post("/generador/rollback")
+async def rollback_lote(
+    request: Request,
+    db:      Session = Depends(get_db),
+    member           = Depends(get_current_member),
+):
+    """
+    Revierte un lote de deudas generadas automáticamente.
+    Solo borra deudas con status='pending' — no toca las que ya tienen pagos.
+    Body JSON: { "lote_id": "GEN-ORD-202601-123456", "motivo": "..." }
+    """
+    ROLES_PERMITIDOS = ("decano", "admin", "cajero", "tesorero", "sote", "superadmin")
+    if member.role not in ROLES_PERMITIDOS:
+        return JSONResponse({"error": "Sin permiso"}, status_code=403)
+
+    from app.models_debt_management import Debt
+    data     = await request.json()
+    lote_id  = data.get("lote_id", "").strip()
+    motivo   = data.get("motivo", "").strip()
+
+    if not lote_id:
+        return JSONResponse({"error": "lote_id requerido"}, status_code=400)
+    if not lote_id.startswith("GEN-"):
+        return JSONResponse({"error": "Solo se puede revertir lotes generados automáticamente"}, status_code=400)
+
+    # Contar antes de borrar
+    total = db.query(Debt).filter(
+        Debt.lote_migracion == lote_id,
+    ).count()
+
+    con_pagos = db.query(Debt).filter(
+        Debt.lote_migracion == lote_id,
+        Debt.status.in_(["partial", "paid"]),
+    ).count()
+
+    pendientes = db.query(Debt).filter(
+        Debt.lote_migracion == lote_id,
+        Debt.status         == "pending",
+    ).count()
+
+    if total == 0:
+        return JSONResponse({"error": f"Lote '{lote_id}' no encontrado"}, status_code=404)
+
+    # Borrar solo las pendientes
+    db.query(Debt).filter(
+        Debt.lote_migracion == lote_id,
+        Debt.status         == "pending",
+    ).delete(synchronize_session=False)
+
+    db.commit()
+
+    import logging
+    logging.getLogger(__name__).info(
+        f"[Rollback] lote={lote_id} borradas={pendientes} "
+        f"preservadas={con_pagos} motivo={motivo} user={member.id}"
+    )
+
+    return JSONResponse({
+        "ok":          True,
+        "lote_id":     lote_id,
+        "borradas":    pendientes,
+        "preservadas": con_pagos,
+        "mensaje":     f"Se revirtieron {pendientes} deuda(s). "
+                       f"{con_pagos} preservada(s) por tener pagos asociados.",
+    })
