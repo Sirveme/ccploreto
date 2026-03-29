@@ -176,7 +176,9 @@ async def get_mis_pagos(
         if p.notes:
             print(f"[HIST] payment_id={p.id} notes={p.notes[:80]}")  # ← agregar
             try:
-                notas = _json.loads(p.notes)
+                # notes puede tener " | TX:xxx" al final — limpiar
+                notes_clean = p.notes.split(' | TX:')[0].strip()
+                notas = _json.loads(notes_clean)
                 print(f"[HIST] notas keys={list(notas.keys())}")  # ← agregar
                 tipo_comp = notas.get("tipo_comprobante")
                 fracc     = notas.get("fracc_codigo")
