@@ -209,7 +209,28 @@ async def get_mis_pagos(
     
     # ── CUOTAS INFO (para tab Deudas de hábiles) ────────────────
     from datetime import date as dt_date
-    from app.services.deuda_cuotas_service import _meses_cubiertos
+    
+    def _meses_cubiertos(periodo, anio):
+        """Extrae meses cubiertos de un string de periodo como '2025-01:03' o '2025'"""
+        meses = set()
+        if not periodo:
+            return meses
+        try:
+            if ':' in periodo:
+                partes = periodo.split('-')
+                if len(partes) >= 2:
+                    rango = partes[-1].split(':')
+                    inicio = int(rango[0])
+                    fin    = int(rango[1]) if len(rango) > 1 else inicio
+                    meses.update(range(inicio, fin + 1))
+            elif '-' in periodo:
+                partes = periodo.split('-')
+                if len(partes) == 2 and int(partes[0]) == anio:
+                    meses.add(int(partes[1]))
+        except Exception:
+            pass
+        return meses
+
     hoy         = dt_date.today()
     anio_actual = hoy.year
  
