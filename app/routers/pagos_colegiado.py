@@ -60,12 +60,13 @@ def get_member_from_token(request: Request, db: Session):
         print(f"⚠️ Error auth API: {e}")
         raise HTTPException(status_code=401, detail="Error de autenticación")
 
+"""
 
 @router.get("/mis-pagos")
 async def mis_pagos(request: Request, db: Session = Depends(get_db)):
-    """
-    Obtiene historial de pagos y estado de cuenta del colegiado logueado.
-    """
+    
+    #Obtiene historial de pagos y estado de cuenta del colegiado logueado.
+    
     member = get_member_from_token(request, db)
     
     colegiado = db.query(Colegiado).filter(
@@ -147,7 +148,7 @@ async def mis_pagos(request: Request, db: Session = Depends(get_db)):
         }
     }
 
-
+"""
 @router.get("/pago/{pago_id}")
 async def detalle_pago(request: Request, pago_id: int, db: Session = Depends(get_db)):
     """Obtiene detalle de un pago específico"""
