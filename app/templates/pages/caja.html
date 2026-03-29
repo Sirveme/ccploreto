@@ -235,6 +235,90 @@
                 </div>
             </div>
 
+            <button class="tab" data-t="generador" onclick="cambiarTab('generador')" id="tabGenerador">
+                Generador <span class="tab-count" id="cntGenerador" style="background:#f59e0b;color:#000"></span>
+            </button>
+
+
+            <!-- Panel Generador de Deudas -->
+            <div id="panelGenerador" style="display:none;">
+
+                <!-- Fraccionamientos en riesgo -->
+                <div class="section-box" style="border-color:rgba(245,158,11,.3);margin-bottom:10px;">
+                    <div class="sec-title" style="color:#f59e0b;">⚠️ Fraccionamientos en riesgo</div>
+                    <div id="fraccResumen" style="font-size:12px;color:#888;padding:8px 0;">
+                        Cargando...
+                    </div>
+                    <div id="fraccDetalle" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;"></div>
+                </div>
+
+                <!-- Generar cuotas ordinarias -->
+                <div class="section-box" style="border-color:rgba(99,102,241,.3);margin-bottom:10px;">
+                    <div class="sec-title" style="color:#818cf8;">📅 Cuotas Ordinarias</div>
+                    <div style="display:flex;gap:8px;margin:8px 0;">
+                        <select id="genAnio" class="flt-input flt-select" style="flex:1;">
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                        </select>
+                        <select id="genMes" class="flt-input flt-select" style="flex:1;">
+                            <option value="1">Enero</option><option value="2">Febrero</option>
+                            <option value="3">Marzo</option><option value="4">Abril</option>
+                            <option value="5">Mayo</option><option value="6">Junio</option>
+                            <option value="7">Julio</option><option value="8">Agosto</option>
+                            <option value="9">Septiembre</option><option value="10">Octubre</option>
+                            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div id="genOrdResultado" style="font-size:12px;color:#888;min-height:20px;"></div>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="btn-reg-egr" style="flex:1;background:#818cf8;padding:10px;"
+                                onclick="generarCuotasOrdinarias()">
+                            ⚡ Generar Deudas
+                        </button>
+                        <button class="btn-reg-egr" style="flex:1;background:rgba(255,255,255,.06);color:#888;padding:10px;"
+                                onclick="mostrarRollback()">
+                            ↩ Revertir Lote
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Generar cuotas fraccionamiento -->
+                <div class="section-box" style="border-color:rgba(34,197,94,.2);">
+                    <div class="sec-title" style="color:#22c55e;">🔄 Cuotas Fraccionamiento</div>
+                    <p style="font-size:11px;color:#888;margin:4px 0 10px;">
+                        Genera deudas por cuotas vencidas no pagadas de todos los fraccionamientos activos.
+                    </p>
+                    <div id="genFraccResultado" style="font-size:12px;color:#888;min-height:20px;"></div>
+                    <button class="btn-reg-egr" style="width:100%;background:#22c55e;color:#000;margin-top:8px;"
+                            onclick="generarCuotasFraccionamiento()">
+                        ⚡ Generar Deudas Fraccionamiento
+                    </button>
+                </div>
+
+                <!-- Rollback (oculto por defecto) -->
+                <div id="rollbackPanel" style="display:none;margin-top:10px;">
+                    <div class="section-box" style="border-color:rgba(239,68,68,.3);">
+                        <div class="sec-title" style="color:#ef4444;">↩ Revertir Lote</div>
+                        <input type="text" id="rollbackLoteId" class="egr-input" 
+                            placeholder="GEN-ORD-202601-123456" style="margin:8px 0;">
+                        <input type="text" id="rollbackMotivo" class="egr-input" 
+                            placeholder="Motivo de reversión (obligatorio)">
+                        <div id="rollbackResultado" style="font-size:12px;min-height:20px;margin-top:6px;"></div>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <button class="btn-reg-egr" style="flex:1;background:#ef4444;"
+                                    onclick="ejecutarRollback()">
+                                🗑 Revertir
+                            </button>
+                            <button class="btn-reg-egr" style="flex:1;background:rgba(255,255,255,.06);color:#888;"
+                                    onclick="document.getElementById('rollbackPanel').style.display='none'">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </div><!-- /content-scroll -->
     </div><!-- /panel-left -->
 
