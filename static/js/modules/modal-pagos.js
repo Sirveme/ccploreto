@@ -39,8 +39,7 @@ window.ModalPagos = {
         document.addEventListener('change', e => {
             if (!e.target.closest('#modal-pagos')) return;
             if (e.target.name === 'n_cuotas')         this._actualizarCalculoCuotas(parseInt(e.target.value));
-            if (e.target.name === 'tipo_comprobante') this._setComprobante(e.target.value);
-            if (e.target.id   === 'mp-constancia')    this._setConstancia(e.target.checked);
+
             if (e.target.dataset.cantidadId) this._setCantidad(parseInt(e.target.dataset.cantidadId), parseInt(e.target.value)||1);
         });
     },
@@ -108,36 +107,6 @@ window.ModalPagos = {
                     <div class="mp-resumen-item mp-pagado">
                         <label>Pagado histórico</label>
                         <strong>S/ <span id="mp-total-pagado">—</span></strong>
-                    </div>
-                </div>
-
-                <!-- Preferencias de pago (opcionales, persisten en sesión) -->
-                <div class="mp-prefs" id="mp-prefs">
-                    <div class="mp-prefs-titulo">
-                        <i class="ph ph-sliders"></i> Preferencias de pago
-                        <span class="mp-prefs-hint">— opcional, puedes ver primero</span>
-                    </div>
-                    <div class="mp-prefs-row">
-                        <label class="mp-pref-lbl">Comprobante</label>
-                        <div class="mp-radio-group">
-                            <label class="mp-radio-opt">
-                                <input type="radio" name="tipo_comprobante" value="boleta"
-                                       ${this.prefs.tipoComprobante==='boleta'?'checked':''}>
-                                <span>Boleta</span>
-                            </label>
-                            <label class="mp-radio-opt">
-                                <input type="radio" name="tipo_comprobante" value="factura"
-                                       ${this.prefs.tipoComprobante==='factura'?'checked':''}>
-                                <span>Factura</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="mp-prefs-row">
-                        <label class="mp-check-opt" for="mp-constancia">
-                            <input type="checkbox" id="mp-constancia"
-                                   ${this.prefs.quiereConstancia?'checked':''}>
-                            <span>Incluir Constancia de Habilidad <strong style="color:var(--color-primary,#f59e0b)">+ S/ ${this.prefs.costoConstancia}</strong></span>
-                        </label>
                     </div>
                 </div>
 
@@ -901,8 +870,19 @@ window.ModalPagos = {
         if (!concepto) return 'Pago';
         try {
             const o = JSON.parse(concepto);
-            return o.conceptos || o.concepto || o.descripcion || concepto;
-        } catch { return concepto; }
+            // Handle various JSON formats seen in payments.notes
+            if (o.conceptos)    return o.conceptos;
+            if (o.concepto)     return o.concepto;
+            if (o.descripcion)  return o.descripcion;
+            // flujo=deudas: extract from "conceptos" key
+            if (o.flujo && o.titular) return `Pago ${o.flujo} — ${o.titular}`;
+            if (o.flujo && o.monto_base) return `Pago de S/ ${o.monto_base}`;
+            // Fallback: stringify cleanly
+            return concepto.replace(/[{}"]/g,'').split(',')[0].split(':').pop().trim();
+        } catch {
+            // Not JSON — return as-is but truncate if too long
+            return concepto.length > 60 ? concepto.substring(0,60)+'…' : concepto;
+        }
     },
 
     _fmt(n) {
