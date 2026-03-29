@@ -172,11 +172,12 @@ async def get_mis_pagos(
 
     historial = []
     for p in pagos_raw:
-        # Extraer concepto legible desde notes (puede ser JSON o texto)
         concepto_legible = "Pago"
         if p.notes:
+            print(f"[HIST] payment_id={p.id} notes={p.notes[:80]}")  # ← agregar
             try:
                 notas = _json.loads(p.notes)
+                print(f"[HIST] notas keys={list(notas.keys())}")  # ← agregar
                 tipo_comp = notas.get("tipo_comprobante")
                 fracc     = notas.get("fracc_codigo")
                 ids_count = len(notas.get("deuda_ids") or [])
@@ -188,7 +189,9 @@ async def get_mis_pagos(
                     f"Pago directo S/ {notas.get('monto_base', '')}" if notas.get("monto_base") else
                     "Pago de cuotas"
                 )
-            except Exception:
+                print(f"[HIST] concepto_legible={concepto_legible}")  # ← agregar
+            except Exception as e:
+                print(f"[HIST] parse error: {e}")  # ← agregar
                 concepto_legible = str(p.notes)[:60]
  
         # Buscar comprobante vinculado
