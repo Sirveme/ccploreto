@@ -605,6 +605,9 @@ function cambiarTab(t) {
     document.getElementById('panelEgresos').style.display = t === 'egresos' ? 'block' : 'none';
     document.getElementById('panelHistorial').style.display = t === 'historial' ? 'block' : 'none';
     document.getElementById('panelComprobantes').style.display = t === 'comprobantes' ? 'block' : 'none';
+    document.getElementById('panelGenerador').style.display    = t === 'generador'     ? 'block' : 'none';
+    
+    if (t === 'generador') cargarResumenFraccionamientos();
     if (t === 'egresos') cargarEgresos();
     if (t === 'historial') {
         if (!document.getElementById('histFecha').value) {
@@ -2487,3 +2490,131 @@ window.renderCarrito = function() {
         if (r) r.remove();
     }
 };
+
+
+// ======================
+/* GENERADOR DE DEUDAS */
+// ======================
+// ── GENERADOR DE DEUDAS ──────────────────────────────────────
+
+async function cargarResumenFraccionamientos() {
+    try {
+        const r = await fetch('/api/finanzas/fraccionamientos/resumen');
+        const d = await r.json();
+        const cnt = document.getElementById('cntGenerador');
+        if (cnt) cnt.textContent = d.en_riesgo > 0 ? d.en_riesgo : '';
+
+        const res = document.getElementById('fraccResumen');
+        if (res) res.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;">
+                <div style="text-align:center;background:rgba(0,0,0,.2);border-radius:6px;padding:8px;">
+                    <div style="font-size:18px;font-weight:700;color:#f59e0b">${d.total_activos}</div>
+                    <div style="font-size:10px;color:#888">Activos</div>
+                </div>
+                <div style="text-align:center;background:rgba(0,0,0,.2);border-radius:6px;padding:8px;">
+                    <div style="font-size:18px;font-weight:700;color:#ef4444">${d.en_riesgo}</div>
+                    <div style="font-size:10px;color:#888">En riesgo</div>
+                </div>
+                <div style="text-align:center;background:rgba(0,0,0,.2);border-radius:6px;padding:8px;">
+                    <div style="font-size:18px;font-weight:700;color:#ef4444">S/ ${d.total_monto_vencido.toFixed(2)}</div>
+                    <div style="font-size:10px;color:#888">Monto vencido</div>
+                </div>
+            </div>`;
+
+        const det = document.getElementById('fraccDetalle');
+        if (det && d.detalle_riesgo?.length) {
+            det.innerHTML = d.detalle_riesgo.map(f => `
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);
+                            border-radius:6px;padding:8px 10px;font-size:12px;">
+                    <div>
+                        <span style="font-weight:600;color:#eee">${f.colegiado}</span>
+                        <span style="color:#888;margin-left:6px">${f.nombre}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="color:#ef4444;font-weight:600">${f.cuotas_vencidas} cuota${f.cuotas_vencidas>1?'s':''} vencida${f.cuotas_vencidas>1?'s':''}</div>
+                        <div style="color:#888;font-size:10px">S/ ${f.monto_vencido.toFixed(2)} · ${f.consecutivas} consec.</div>
+                    </div>
+                </div>`).join('');
+        } else if (det) {
+            det.innerHTML = '<div style="color:#22c55e;font-size:12px;text-align:center;padding:8px;">✅ Sin fraccionamientos en riesgo</div>';
+        }
+    } catch(e) {
+        console.error('[Generador]', e);
+    }
+}
+
+async function generarCuotasOrdinarias() {
+    const anio = parseInt(document.getElementById('genAnio').value);
+    const mes  = parseInt(document.getElementById('genMes').value);
+    const el   = document.getElementById('genOrdResultado');
+    el.innerHTML = '⏳ Generando...';
+    try {
+        const r = await fetch('/api/finanzas/generador/cuotas-ordinarias', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({anio, mes}),
+        });
+        const d = await r.json();
+        if (d.ok) {
+            el.innerHTML = `<span style="color:#22c55e">✅ Lote: <strong>${d.lote_id}</strong> — Generadas: <strong>${d.generadas}</strong> · Omitidas: ${d.omitidas} · Errores: ${d.errores}</span>`;
+        } else {
+            el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
+        }
+    } catch(e) {
+        el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
+    }
+}
+
+async function generarCuotasFraccionamiento() {
+    const el = document.getElementById('genFraccResultado');
+    el.innerHTML = '⏳ Generando...';
+    try {
+        const r = await fetch('/api/finanzas/generador/cuotas-fraccionamiento', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({}),
+        });
+        const d = await r.json();
+        if (d.ok) {
+            const alertas = d.alertas?.length
+                ? `<br><span style="color:#f59e0b">⚠ ${d.alertas.length} fraccionamiento(s) en riesgo</span>` : '';
+            el.innerHTML = `<span style="color:#22c55e">✅ Lote: <strong>${d.lote_id}</strong> — Generadas: <strong>${d.generadas}</strong> · Omitidas: ${d.omitidas}${alertas}</span>`;
+            cargarResumenFraccionamientos();
+        } else {
+            el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
+        }
+    } catch(e) {
+        el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
+    }
+}
+
+function mostrarRollback() {
+    document.getElementById('rollbackPanel').style.display = 'block';
+}
+
+async function ejecutarRollback() {
+    const lote_id = document.getElementById('rollbackLoteId').value.trim();
+    const motivo  = document.getElementById('rollbackMotivo').value.trim();
+    const el      = document.getElementById('rollbackResultado');
+    if (!lote_id || !motivo) {
+        el.innerHTML = '<span style="color:#ef4444">⚠ Lote ID y motivo son obligatorios</span>';
+        return;
+    }
+    el.innerHTML = '⏳ Revirtiendo...';
+    try {
+        const r = await fetch('/api/finanzas/generador/rollback', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lote_id, motivo}),
+        });
+        const d = await r.json();
+        if (d.ok) {
+            el.innerHTML = `<span style="color:#22c55e">✅ ${d.mensaje}</span>`;
+        } else {
+            el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
+        }
+    } catch(e) {
+        el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
+    }
+}
