@@ -248,6 +248,7 @@ async def get_mis_pagos(
  
     mes_pagado  = max(meses_pagados_set) if meses_pagados_set else 0
     anio_pagado = anio_actual
+    monto_cuota = 0.0  # ← inicializar
 
     # Si no hay monto en el colegiado, buscarlo en conceptos
     if not monto_cuota:
