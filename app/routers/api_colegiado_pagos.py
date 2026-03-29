@@ -266,6 +266,7 @@ async def get_mis_pagos(
         "descuento_valido_hasta": descuento_valido_hasta,
     } if cuotas_pendientes > 0 else None
     
+    print(f"[DEBUG] catalogo count: {len(catalogo)}, org: {member.organization_id}")
     
     return {
         "colegiado": {
