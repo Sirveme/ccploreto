@@ -136,6 +136,18 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
 
     db.commit()
 
+    # ── Push Notification al colegiado ───────────────────────────
+    if cambio_habilidad and colegiado:
+        try:
+            from app.services.push_service import enviar_push_colegiado
+            mensaje = "✅ Tu pago fue validado — ya eres HÁBIL"
+            if certificado_info and certificado_info.get("emitido"):
+                mensaje += f". Constancia {certificado_info['codigo']} disponible."
+            enviar_push_colegiado(db, colegiado.id, mensaje)
+        except Exception as e:
+            logger.warning(f"Push notification fallido para colegiado {colegiado.id}: {e}")
+
+
     # ── Respuesta ─────────────────────────────────────────────────────────────
     respuesta = {
         "success":           True,
