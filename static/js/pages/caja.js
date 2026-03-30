@@ -2539,6 +2539,26 @@ async function cargarResumenFraccionamientos() {
         } else if (det) {
             det.innerHTML = '<div style="color:#22c55e;font-size:12px;text-align:center;padding:8px;">✅ Sin fraccionamientos en riesgo</div>';
         }
+
+        // Cargar resumen padrón
+        const rp = await fetch('/api/finanzas/generador/resumen-padron');
+        const dp = await rp.json();
+        const excluidos = dp.padron.filter(r => 
+            ['fallecido','vitalicio','retirado','suspendido','baja'].includes(r.condicion)
+        );
+        const totalExcluidos = excluidos.reduce((s,r) => s+r.total, 0);
+        const detPadron = document.getElementById('fraccDetalle');
+        if (detPadron) {
+            const htmlPadron = `<div style="margin-top:10px;padding:8px;background:rgba(0,0,0,.2);border-radius:8px;font-size:11px;">
+                <div style="color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Exclusiones del generador (${totalExcluidos})</div>
+                ${excluidos.map(r => `<div style="display:flex;justify-content:space-between;padding:2px 0;">
+                    <span style="color:#aaa;text-transform:capitalize">${r.condicion}</span>
+                    <span style="color:#eee;font-weight:600">${r.total}</span>
+                </div>`).join('')}
+            </div>`;
+            detPadron.innerHTML += htmlPadron;
+        }    
+
     } catch(e) {
         console.error('[Generador]', e);
     }
@@ -2618,3 +2638,5 @@ async function ejecutarRollback() {
         el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
     }
 }
+
+
