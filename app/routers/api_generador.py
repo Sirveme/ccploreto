@@ -179,3 +179,26 @@ async def rollback_lote(
         "mensaje":     f"Se revirtieron {pendientes} deuda(s). "
                        f"{con_pagos} preservada(s) por tener pagos asociados.",
     })
+
+
+# =======================================================
+# mostrar el resumen de condiciones en el panel Generador
+# =======================================================
+
+@router.get("/generador/resumen-padron")
+async def resumen_padron(
+    db:     Session = Depends(get_db),
+    member          = Depends(get_current_member),
+):
+    """Resumen de colegiados por condición para el panel Generador."""
+    from app.models import Colegiado
+    from sqlalchemy import func
+    
+    rows = db.query(
+        func.lower(Colegiado.condicion).label('condicion'),
+        func.count(Colegiado.id).label('total')
+    ).filter(
+        Colegiado.organization_id == member.organization_id
+    ).group_by(func.lower(Colegiado.condicion)).all()
+    
+    return JSONResponse({"padron": [{"condicion": r.condicion, "total": r.total} for r in rows]})
