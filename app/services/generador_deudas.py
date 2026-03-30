@@ -25,7 +25,7 @@ MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 # Condiciones que excluyen al colegiado de generar deuda
-CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja'}
+CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido'}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -70,7 +70,7 @@ def generar_cuotas_ordinarias(
     # Todos los colegiados activos (no excluidos)
     colegiados = db.query(Colegiado).filter(
         Colegiado.organization_id == organization_id,
-        Colegiado.condicion.notin_(CONDICIONES_EXCLUIR),
+        func.lower(Colegiado.condicion).notin_(CONDICIONES_EXCLUIR),
     ).all()
 
     generadas = 0
