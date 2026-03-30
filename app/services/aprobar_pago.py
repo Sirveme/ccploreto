@@ -142,9 +142,10 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
             from app.services.push_service import enviar_push_por_tipo
             extra = f"Constancia {certificado_info['codigo']} emitida." if certificado_info and certificado_info.get("emitido") else ""
             tipo  = "pago_validado_habil" if cambio_habilidad else "pago_validado_fracc"
-            enviar_push_por_tipo(db, colegiado.id, tipo, extra_info=extra)
-        except Exception:
-            pass
+            resultado = enviar_push_por_tipo(db, colegiado.id, tipo, extra_info=extra)
+            print(f"[PUSH] enviado={resultado} colegiado={colegiado.id} tipo={tipo}")
+        except Exception as e:
+            print(f"[PUSH] ERROR: {e}")
 
     # ── Push Notification al colegiado ───────────────────────────
     if cambio_habilidad and colegiado:
