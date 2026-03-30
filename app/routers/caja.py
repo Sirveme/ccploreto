@@ -214,7 +214,7 @@ async def buscar_colegiado(
             apellidos_nombres=col.apellidos_nombres or "",
             email=col.email,
             telefono=col.telefono,
-            habilitado=getattr(col, 'habilitado', False),
+            habilitado=(col.condicion in ('habil', 'vitalicio')),
             total_deuda=float(deudas_info.total or 0),
             deudas_pendientes=int(deudas_info.cantidad or 0),
         ))
@@ -258,7 +258,7 @@ async def obtener_deudas(
             "dni": colegiado.dni,
             "codigo_matricula": colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
-            "habilitado": getattr(colegiado, 'habilitado', False),
+            "habilitado": (colegiado.condicion in ('habil', 'vitalicio')),
         },
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
