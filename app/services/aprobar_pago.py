@@ -136,6 +136,16 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
 
     db.commit()
 
+    # Push al colegiado al validar
+    if colegiado:
+        try:
+            from app.services.push_service import enviar_push_por_tipo
+            extra = f"Constancia {certificado_info['codigo']} emitida." if certificado_info and certificado_info.get("emitido") else ""
+            tipo  = "pago_validado_habil" if cambio_habilidad else "pago_validado_fracc"
+            enviar_push_por_tipo(db, colegiado.id, tipo, extra_info=extra)
+        except Exception:
+            pass
+
     # ── Push Notification al colegiado ───────────────────────────
     if cambio_habilidad and colegiado:
         try:
