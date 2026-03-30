@@ -2631,6 +2631,12 @@ async function ejecutarRollback() {
         const d = await r.json();
         if (d.ok) {
             el.innerHTML = `<span style="color:#22c55e">✅ ${d.mensaje}</span>`;
+
+            document.getElementById('rollbackLoteId').value = '';
+            document.getElementById('rollbackMotivo').value = '';
+            document.querySelector('[onclick="ejecutarRollback()"]').disabled = true;
+            setTimeout(() => document.getElementById('rollbackPanel').style.display = 'none', 3000);
+
         } else {
             el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
         }
