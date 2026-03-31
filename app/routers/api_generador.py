@@ -5,7 +5,7 @@ Agregar en app/routers/finanzas.py (o crear app/routers/api_generador.py)
 Prefix: /api/finanzas
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import date
@@ -213,12 +213,9 @@ async def resumen_padron(
 
 
 
-
-
 # =========================================================================
 # GENERADOR DE CUOTAS ORDINARIAS: EVALUA Y ACTUALIZA CONDICION DE HABILIDAD
 # =========================================================================
-from fastapi import APIRouter, Depends, Request, BackgroundTasks
 
 # ── ENDPOINT: Generar deudas cuotas ordinarias ────────────────
 @router.post("/generador/cuotas-ordinarias")
