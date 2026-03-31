@@ -255,12 +255,14 @@ async def generar_ord(
 
 
 def _sincronizar_condiciones(organization_id: int):
+    print(f"[Sincronizar] INICIANDO org={organization_id}")
     """Tarea background: evalúa y actualiza condición de todos los colegiados."""
     from app.database import SessionLocal
     from app.services.evaluar_habilidad import sincronizar_condicion
     from app.models import Colegiado, Organization
     import logging
     logger = logging.getLogger(__name__)
+    print(f"[Sincronizar] imports OK")
 
     db = SessionLocal()
     try:
