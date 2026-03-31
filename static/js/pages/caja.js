@@ -2501,12 +2501,16 @@ async function cargarResumenFraccionamientos() {
     try {
         const r = await fetch('/api/finanzas/fraccionamientos/resumen');
         const d = await r.json();
+ 
         const cnt = document.getElementById('cntGenerador');
-        if (cnt) cnt.textContent = d.en_riesgo > 0 ? d.en_riesgo : '';
-
+        if (cnt) {
+            cnt.textContent = d.en_riesgo > 0 ? d.en_riesgo : '';
+            cnt.style.display = d.en_riesgo > 0 ? 'inline' : 'none';
+        }
+ 
         const res = document.getElementById('fraccResumen');
         if (res) res.innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
                 <div style="text-align:center;background:rgba(0,0,0,.2);border-radius:6px;padding:8px;">
                     <div style="font-size:18px;font-weight:700;color:#f59e0b">${d.total_activos}</div>
                     <div style="font-size:10px;color:#888">Activos</div>
@@ -2520,55 +2524,168 @@ async function cargarResumenFraccionamientos() {
                     <div style="font-size:10px;color:#888">Monto vencido</div>
                 </div>
             </div>`;
-
+ 
         const det = document.getElementById('fraccDetalle');
-        if (det && d.detalle_riesgo?.length) {
-            det.innerHTML = d.detalle_riesgo.map(f => `
-                <div style="display:flex;justify-content:space-between;align-items:center;
-                            background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);
-                            border-radius:6px;padding:8px 10px;font-size:12px;">
-                    <div>
-                        <span style="font-weight:600;color:#eee">${f.colegiado}</span>
-                        <span style="color:#888;margin-left:6px">${f.nombre}</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="color:#ef4444;font-weight:600">${f.cuotas_vencidas} cuota${f.cuotas_vencidas>1?'s':''} vencida${f.cuotas_vencidas>1?'s':''}</div>
-                        <div style="color:#888;font-size:10px">S/ ${f.monto_vencido.toFixed(2)} · ${f.consecutivas} consec.</div>
-                    </div>
-                </div>`).join('');
-        } else if (det) {
-            det.innerHTML = '<div style="color:#22c55e;font-size:12px;text-align:center;padding:8px;">✅ Sin fraccionamientos en riesgo</div>';
+        if (det) {
+            if (d.detalle_riesgo?.length) {
+                det.innerHTML = d.detalle_riesgo.map(f => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;
+                                background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);
+                                border-radius:6px;padding:8px 10px;font-size:12px;">
+                        <div>
+                            <span style="font-weight:600;color:#eee">${f.colegiado}</span>
+                            <span style="color:#888;margin-left:6px">${f.nombre}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:#ef4444;font-weight:600">${f.cuotas_vencidas} cuota${f.cuotas_vencidas>1?'s':''} vencida${f.cuotas_vencidas>1?'s':''}</div>
+                            <div style="color:#888;font-size:10px">S/ ${f.monto_vencido.toFixed(2)} · ${f.consecutivas} consec.</div>
+                        </div>
+                    </div>`).join('');
+            } else {
+                det.innerHTML = '<div style="color:#22c55e;font-size:12px;text-align:center;padding:8px;">✅ Sin fraccionamientos en riesgo</div>';
+            }
+ 
+            // Padrón de exclusiones
+            const rp = await fetch('/api/finanzas/generador/resumen-padron');
+            const dp = await rp.json();
+            const excluidos = dp.padron.filter(r =>
+                ['fallecido','vitalicio','retirado','suspendido','baja','candidato_retiro'].includes(r.condicion)
+            );
+            const totalExcluidos = excluidos.reduce((s,r) => s+r.total, 0);
+            if (excluidos.length) {
+                det.innerHTML += `
+                    <div style="margin-top:10px;padding:8px;background:rgba(0,0,0,.2);border-radius:8px;font-size:11px;">
+                        <div style="color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">
+                            Exclusiones del generador (${totalExcluidos})
+                        </div>
+                        ${excluidos.map(r => `
+                            <div style="display:flex;justify-content:space-between;padding:2px 0;">
+                                <span style="color:#aaa;text-transform:capitalize">${r.condicion}</span>
+                                <span style="color:#eee;font-weight:600">${r.total}</span>
+                            </div>`).join('')}
+                        ${dp.alerta_retiro ? `<div style="color:#f59e0b;margin-top:6px;font-size:10px;">
+                            ⚠ ${dp.candidatos_retiro} candidato${dp.candidatos_retiro>1?'s':''} a retiro — revisar con el Colegio
+                        </div>` : ''}
+                    </div>`;
+            }
         }
-
-        // Cargar resumen padrón
-        const rp = await fetch('/api/finanzas/generador/resumen-padron');
-        const dp = await rp.json();
-        const excluidos = dp.padron.filter(r => 
-            ['fallecido','vitalicio','retirado','suspendido','baja'].includes(r.condicion)
-        );
-        const totalExcluidos = excluidos.reduce((s,r) => s+r.total, 0);
-        const detPadron = document.getElementById('fraccDetalle');
-        if (detPadron) {
-            const htmlPadron = `<div style="margin-top:10px;padding:8px;background:rgba(0,0,0,.2);border-radius:8px;font-size:11px;">
-                <div style="color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Exclusiones del generador (${totalExcluidos})</div>
-                ${excluidos.map(r => `<div style="display:flex;justify-content:space-between;padding:2px 0;">
-                    <span style="color:#aaa;text-transform:capitalize">${r.condicion}</span>
-                    <span style="color:#eee;font-weight:600">${r.total}</span>
-                </div>`).join('')}
-            </div>`;
-            detPadron.innerHTML += htmlPadron;
-        }    
-
     } catch(e) {
         console.error('[Generador]', e);
     }
 }
 
+
+async function consultarEstadoMes() {
+    const mes  = document.getElementById('genMes').value;
+    const anio = document.getElementById('genAnio').value;
+    const estadoDiv  = document.getElementById('genEstadoMes');
+    const btnGen     = document.getElementById('btnGenerar');
+    const btnRev     = document.getElementById('btnRevertir');
+    const resultado  = document.getElementById('genOrdResultado');
+    const rollback   = document.getElementById('rollbackPanel');
+ 
+    // Resetear
+    resultado.innerHTML = '';
+    rollback.style.display = 'none';
+ 
+    if (!mes) {
+        estadoDiv.style.display = 'none';
+        btnGen.disabled = true; btnGen.style.opacity = '.4'; btnGen.style.cursor = 'not-allowed';
+        btnRev.disabled = true; btnRev.style.opacity = '.4'; btnRev.style.cursor = 'not-allowed';
+        return;
+    }
+ 
+    estadoDiv.style.display = 'block';
+    document.getElementById('genEstadoIndicador').innerHTML = '⏳ Consultando...';
+    document.getElementById('genLotesLista').innerHTML = '';
+ 
+    try {
+        const r = await fetch(`/api/finanzas/generador/estado-mes?anio=${anio}&mes=${mes}`);
+        const d = await r.json();
+ 
+        const ind = document.getElementById('genEstadoIndicador');
+        const lista = document.getElementById('genLotesLista');
+ 
+        if (!d.generado) {
+            ind.style.background = 'rgba(129,140,248,.1)';
+            ind.style.border = '1px solid rgba(129,140,248,.2)';
+            ind.innerHTML = `<span style="color:#818cf8">⭕ Sin deudas generadas para ${d.periodo}</span>`;
+            lista.innerHTML = '';
+ 
+            // Habilitar solo Generar
+            btnGen.disabled = false; btnGen.style.opacity = '1'; btnGen.style.cursor = 'pointer';
+            btnRev.disabled = true;  btnRev.style.opacity = '.4'; btnRev.style.cursor = 'not-allowed';
+        } else {
+            ind.style.background = 'rgba(34,197,94,.08)';
+            ind.style.border = '1px solid rgba(34,197,94,.2)';
+            ind.innerHTML = `<span style="color:#22c55e">✅ Generado — ${d.periodo}</span>`;
+ 
+            lista.innerHTML = d.lotes.map(l => `
+                <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:8px 10px;font-size:11px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="color:#818cf8;font-family:monospace">${l.lote_id}</span>
+                        <span style="color:#888">${l.fecha}</span>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:4px;">
+                        <span style="color:#eee">Total: <strong>${l.total}</strong></span>
+                        <span style="color:#f59e0b">Pendientes: <strong>${l.pendientes}</strong></span>
+                        <span style="color:#22c55e">Con pagos: <strong>${l.con_pagos}</strong></span>
+                    </div>
+                </div>`).join('');
+ 
+            // Deshabilitar Generar (ya existe), habilitar Revertir solo si hay pendientes
+            btnGen.disabled = true;  btnGen.style.opacity = '.4'; btnGen.style.cursor = 'not-allowed';
+            const hayReversibles = d.lotes.some(l => l.reversible);
+            btnRev.disabled = !hayReversibles;
+            btnRev.style.opacity = hayReversibles ? '1' : '.4';
+            btnRev.style.cursor  = hayReversibles ? 'pointer' : 'not-allowed';
+        }
+    } catch(e) {
+        document.getElementById('genEstadoIndicador').innerHTML = '<span style="color:#ef4444">❌ Error al consultar</span>';
+    }
+}
+ 
+function mostrarPanelRevertir() {
+    const mes  = document.getElementById('genMes').value;
+    const anio = document.getElementById('genAnio').value;
+ 
+    // Pre-llenar con los lotes reversibles del mes
+    fetch(`/api/finanzas/generador/estado-mes?anio=${anio}&mes=${mes}`)
+        .then(r => r.json())
+        .then(d => {
+            const reversibles = d.lotes.filter(l => l.reversible);
+            const opciones = document.getElementById('rollbackLotesOpciones');
+            opciones.innerHTML = reversibles.map((l,i) => `
+                <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;
+                              background:rgba(0,0,0,.2);border-radius:6px;cursor:pointer;
+                              font-size:12px;margin-bottom:4px;">
+                    <input type="radio" name="loteRevertir" value="${l.lote_id}"
+                           ${i===0?'checked':''}
+                           onchange="document.getElementById('rollbackLoteId').value=this.value">
+                    <span style="color:#818cf8;font-family:monospace">${l.lote_id}</span>
+                    <span style="color:#f59e0b;margin-left:auto">${l.pendientes} reversibles</span>
+                </label>`).join('');
+ 
+            if (reversibles.length > 0) {
+                document.getElementById('rollbackLoteId').value = reversibles[0].lote_id;
+            }
+ 
+            document.getElementById('rollbackPanel').style.display = 'block';
+            document.getElementById('rollbackResultado').innerHTML = '';
+            document.getElementById('rollbackMotivo').value = '';
+        });
+}
+ 
 async function generarCuotasOrdinarias() {
-    const anio = parseInt(document.getElementById('genAnio').value);
     const mes  = parseInt(document.getElementById('genMes').value);
-    const el   = document.getElementById('genOrdResultado');
+    const anio = parseInt(document.getElementById('genAnio').value);
+    if (!mes) return;
+ 
+    const el  = document.getElementById('genOrdResultado');
+    const btn = document.getElementById('btnGenerar');
     el.innerHTML = '⏳ Generando...';
+    btn.disabled = true;
+ 
     try {
         const r = await fetch('/api/finanzas/generador/cuotas-ordinarias', {
             method: 'POST',
@@ -2578,6 +2695,40 @@ async function generarCuotasOrdinarias() {
         const d = await r.json();
         if (d.ok) {
             el.innerHTML = `<span style="color:#22c55e">✅ Lote: <strong>${d.lote_id}</strong> — Generadas: <strong>${d.generadas}</strong> · Omitidas: ${d.omitidas} · Errores: ${d.errores}</span>`;
+            setTimeout(() => consultarEstadoMes(), 1000);
+        } else {
+            el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
+            btn.disabled = false; btn.style.opacity='1'; btn.style.cursor='pointer';
+        }
+    } catch(e) {
+        el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
+        btn.disabled = false; btn.style.opacity='1'; btn.style.cursor='pointer';
+    }
+}
+ 
+async function ejecutarRollback() {
+    const lote_id = document.getElementById('rollbackLoteId').value.trim();
+    const motivo  = document.getElementById('rollbackMotivo').value.trim();
+    const el      = document.getElementById('rollbackResultado');
+ 
+    if (!lote_id) { el.innerHTML = '<span style="color:#ef4444">⚠ Selecciona un lote</span>'; return; }
+    if (!motivo)  { el.innerHTML = '<span style="color:#ef4444">⚠ El motivo es obligatorio</span>'; return; }
+ 
+    el.innerHTML = '⏳ Revirtiendo...';
+ 
+    try {
+        const r = await fetch('/api/finanzas/generador/rollback', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lote_id, motivo}),
+        });
+        const d = await r.json();
+        if (d.ok) {
+            el.innerHTML = `<span style="color:#22c55e">✅ ${d.mensaje}</span>`;
+            setTimeout(() => {
+                document.getElementById('rollbackPanel').style.display = 'none';
+                consultarEstadoMes();
+            }, 2000);
         } else {
             el.innerHTML = `<span style="color:#ef4444">❌ ${d.error || 'Error'}</span>`;
         }
@@ -2585,7 +2736,7 @@ async function generarCuotasOrdinarias() {
         el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
     }
 }
-
+ 
 async function generarCuotasFraccionamiento() {
     const el = document.getElementById('genFraccResultado');
     el.innerHTML = '⏳ Generando...';
