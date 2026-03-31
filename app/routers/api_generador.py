@@ -193,6 +193,12 @@ async def rollback_lote(
 # mostrar el resumen de condiciones en el panel Generador
 # =======================================================
 
+# ═══════════════════════════════════════════════════════════════
+# PATCH 3: En app/routers/api_generador.py
+# Endpoint resumen-padron — mostrar candidatos_retiro como alerta
+# REEMPLAZAR el endpoint completo:
+# ═══════════════════════════════════════════════════════════════
+ 
 @router.get("/generador/resumen-padron")
 async def resumen_padron(
     db:     Session = Depends(get_db),
@@ -201,15 +207,26 @@ async def resumen_padron(
     """Resumen de colegiados por condición para el panel Generador."""
     from app.models import Colegiado
     from sqlalchemy import func
-    
+ 
     rows = db.query(
         func.lower(Colegiado.condicion).label('condicion'),
         func.count(Colegiado.id).label('total')
     ).filter(
         Colegiado.organization_id == member.organization_id
     ).group_by(func.lower(Colegiado.condicion)).all()
-    
-    return JSONResponse({"padron": [{"condicion": r.condicion, "total": r.total} for r in rows]})
+ 
+    padron = [{"condicion": r.condicion, "total": r.total} for r in rows]
+ 
+    # Contar candidatos a retiro específicamente para la alerta
+    candidatos_retiro = next(
+        (r["total"] for r in padron if r["condicion"] == "candidato_retiro"), 0
+    )
+ 
+    return JSONResponse({
+        "padron":            padron,
+        "candidatos_retiro": candidatos_retiro,
+        "alerta_retiro":     candidatos_retiro > 0,
+    })
 
 
 
@@ -255,34 +272,77 @@ async def generar_ord(
 
 
 def _sincronizar_condiciones(organization_id: int):
+    """
+    Tarea background: evalúa y actualiza condición de todos los colegiados.
+    - Detecta candidatos a retiro (>= 24 cuotas ordinarias impagas)
+    - Sincroniza hábil/inhábil para el resto
+    """
     print(f"[Sincronizar] INICIANDO org={organization_id}")
-    """Tarea background: evalúa y actualiza condición de todos los colegiados."""
     from app.database import SessionLocal
     from app.services.evaluar_habilidad import sincronizar_condicion
     from app.models import Colegiado, Organization
+    from app.models_debt_management import Debt
     import logging
     logger = logging.getLogger(__name__)
-    print(f"[Sincronizar] imports OK")
-
+ 
+    UMBRAL_RETIRO = 24  # cuotas ordinarias impagas
+ 
     db = SessionLocal()
     try:
         org = db.query(Organization).filter(Organization.id == organization_id).first()
         org_dict = {"id": org.id, "config": {}} if org else {}
-
+ 
+        # Excluir condiciones permanentes — candidato_retiro se re-evalúa siempre
         colegiados = db.query(Colegiado).filter(
             Colegiado.organization_id == organization_id,
-            Colegiado.condicion.notin_({'fallecido','retirado','vitalicio','baja','suspendido'}),
+            Colegiado.condicion.notin_({'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido'}),
         ).all()
-
-        cambios = 0
+ 
+        cambios          = 0
+        candidatos       = 0
+        rehabilitados    = 0
+ 
         for col in colegiados:
+            # ── Detectar candidatos a retiro ──────────────────
+            cuotas_impagas = db.query(Debt).filter(
+                Debt.colegiado_id == col.id,
+                Debt.debt_type    == 'cuota_ordinaria',
+                Debt.status.in_(['pending', 'partial']),
+            ).count()
+ 
+            if cuotas_impagas >= UMBRAL_RETIRO:
+                if col.condicion != 'candidato_retiro':
+                    col.condicion          = 'candidato_retiro'
+                    col.motivo_inhabilidad = f'{cuotas_impagas} cuotas ordinarias impagas — candidato a retiro'
+                    cambios   += 1
+                    candidatos += 1
+                continue  # No evaluar más condiciones para este colegiado
+ 
+            # ── Si era candidato y ya no llega al umbral → re-evaluar ──
+            if col.condicion == 'candidato_retiro':
+                col.condicion          = 'inhabil'
+                col.motivo_inhabilidad = f'Reclasificado desde candidato_retiro ({cuotas_impagas} cuotas impagas)'
+                cambios += 1
+ 
+            # ── Sincronizar hábil/inhábil normal ─────────────
             if sincronizar_condicion(db, col, org_dict):
                 cambios += 1
-
+                if col.condicion == 'habil':
+                    rehabilitados += 1
+ 
         db.commit()
-        logger.info(f"[Sincronizar] org={organization_id} → {cambios} cambios de condición")
+        logger.info(
+            f"[Sincronizar] org={organization_id} → "
+            f"{cambios} cambios | {candidatos} candidatos retiro | {rehabilitados} rehabilitados"
+        )
+        print(
+            f"[Sincronizar] COMPLETADO org={organization_id} → "
+            f"{cambios} cambios | {candidatos} candidatos retiro | {rehabilitados} rehabilitados"
+        )
+ 
     except Exception as e:
         logger.error(f"[Sincronizar] Error: {e}")
+        print(f"[Sincronizar] ERROR: {e}")
         db.rollback()
     finally:
         db.close()
