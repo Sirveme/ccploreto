@@ -27,7 +27,7 @@ MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 # Condiciones que excluyen al colegiado de generar deuda
-CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido'}
+CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido', 'candidato_retiro'}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -144,6 +144,29 @@ def generar_cuotas_ordinarias(
     db.commit()
     logger.info(f"[GenDeudas] {periodo} → generadas={generadas} omitidas={omitidas} errores={errores}")
 
+    # ── Sincronizar condiciones ──────────────────────────────────
+    from app.services.evaluar_habilidad import sincronizar_condicion
+    from app.models import Organization
+
+    org = db.query(Organization).filter(
+        Organization.id == organization_id
+    ).first()
+    org_dict = {"id": org.id, "config": {}} if org else {}
+
+    colegiados_con_deuda = db.query(Colegiado).filter(
+        Colegiado.organization_id == organization_id,
+        Colegiado.condicion.notin_(CONDICIONES_EXCLUIR),
+    ).all()
+
+    cambios = 0
+    for col in colegiados_con_deuda:
+        cambio = sincronizar_condicion(db, col, org_dict)
+        if cambio:
+            cambios += 1
+
+    db.commit()
+    logger.info(f"[GenDeudas] Sincronización condiciones: {cambios} cambios")
+
     return {
         "lote_id":   lote_id,
         "periodo":   periodo,
@@ -151,6 +174,7 @@ def generar_cuotas_ordinarias(
         "omitidas":  omitidas,
         "errores":   errores,
         "detalle":   detalle,
+        "cambios_condicion": cambios,
     }
 
 
