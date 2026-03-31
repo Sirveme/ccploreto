@@ -116,9 +116,10 @@ async def generar_fracc(
 # ── ENDPOINT: Rollback de un lote ─────────────────────────────
 @router.post("/generador/rollback")
 async def rollback_lote(
-    request: Request,
-    db:      Session = Depends(get_db),
-    member           = Depends(get_current_member),
+    request:          Request,
+    background_tasks: BackgroundTasks,
+    db:               Session = Depends(get_db),
+    member                    = Depends(get_current_member),
 ):
     """
     Revierte un lote de deudas generadas automáticamente.
@@ -130,14 +131,17 @@ async def rollback_lote(
         return JSONResponse({"error": "Sin permiso"}, status_code=403)
 
     from app.models_debt_management import Debt
-    data     = await request.json()
-    lote_id  = data.get("lote_id", "").strip()
-    motivo   = data.get("motivo", "").strip()
+    data    = await request.json()
+    lote_id = data.get("lote_id", "").strip()
+    motivo  = data.get("motivo", "").strip()
 
     if not lote_id:
         return JSONResponse({"error": "lote_id requerido"}, status_code=400)
     if not lote_id.startswith("GEN-"):
-        return JSONResponse({"error": "Solo se puede revertir lotes generados automáticamente"}, status_code=400)
+        return JSONResponse(
+            {"error": "Solo se puede revertir lotes generados automáticamente"},
+            status_code=400,
+        )
 
     # Contar antes de borrar
     total = db.query(Debt).filter(
@@ -171,13 +175,17 @@ async def rollback_lote(
         f"preservadas={con_pagos} motivo={motivo} user={member.id}"
     )
 
+    # Re-sincronizar condiciones en background
+    background_tasks.add_task(_sincronizar_condiciones, member.organization_id)
+
     return JSONResponse({
-        "ok":          True,
-        "lote_id":     lote_id,
-        "borradas":    pendientes,
-        "preservadas": con_pagos,
-        "mensaje":     f"Se revirtieron {pendientes} deuda(s). "
-                       f"{con_pagos} preservada(s) por tener pagos asociados.",
+        "ok":             True,
+        "lote_id":        lote_id,
+        "borradas":       pendientes,
+        "preservadas":    con_pagos,
+        "sincronizacion": "en_progreso",
+        "mensaje":        f"Se revirtieron {pendientes} deuda(s). "
+                          f"{con_pagos} preservada(s) por tener pagos asociados.",
     })
 
 
