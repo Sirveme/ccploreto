@@ -202,3 +202,80 @@ async def resumen_padron(
     ).group_by(func.lower(Colegiado.condicion)).all()
     
     return JSONResponse({"padron": [{"condicion": r.condicion, "total": r.total} for r in rows]})
+
+
+
+
+
+# =========================================================================
+# GENERADOR DE CUOTAS ORDINARIAS: EVALUA Y ACTUALIZA CONDICION DE HABILIDAD
+# =========================================================================
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
+
+# ── ENDPOINT: Generar deudas cuotas ordinarias ────────────────
+@router.post("/generador/cuotas-ordinarias")
+async def generar_ord(
+    request:          Request,
+    background_tasks: BackgroundTasks,
+    db:               Session = Depends(get_db),
+    member                    = Depends(get_current_member),
+):
+    ROLES_PERMITIDOS = ("decano", "admin", "cajero", "tesorero", "sote", "superadmin")
+    if member.role not in ROLES_PERMITIDOS:
+        return JSONResponse({"error": "Sin permiso"}, status_code=403)
+
+    from app.services.generador_deudas import generar_cuotas_ordinarias
+    data = await request.json()
+
+    motivo_no = data.get("motivo_no_ejecucion", "").strip()
+    if motivo_no:
+        return JSONResponse({
+            "ok": True, "accion": "no_ejecutado",
+            "motivo": motivo_no,
+            "mensaje": f"Generación omitida: {motivo_no}",
+        })
+
+    anio = data.get("anio", date.today().year)
+    mes  = data.get("mes",  date.today().month)
+
+    resultado = generar_cuotas_ordinarias(
+        db=db, organization_id=member.organization_id,
+        anio=anio, mes=mes, created_by=member.user_id,
+    )
+
+    # Sincronizar condiciones en background
+    background_tasks.add_task(_sincronizar_condiciones, member.organization_id)
+
+    return JSONResponse({"ok": True, **resultado, "sincronizacion": "en_progreso"})
+
+
+def _sincronizar_condiciones(organization_id: int):
+    """Tarea background: evalúa y actualiza condición de todos los colegiados."""
+    from app.database import SessionLocal
+    from app.services.evaluar_habilidad import sincronizar_condicion
+    from app.models import Colegiado, Organization
+    import logging
+    logger = logging.getLogger(__name__)
+
+    db = SessionLocal()
+    try:
+        org = db.query(Organization).filter(Organization.id == organization_id).first()
+        org_dict = {"id": org.id, "config": {}} if org else {}
+
+        colegiados = db.query(Colegiado).filter(
+            Colegiado.organization_id == organization_id,
+            Colegiado.condicion.notin_({'fallecido','retirado','vitalicio','baja','suspendido'}),
+        ).all()
+
+        cambios = 0
+        for col in colegiados:
+            if sincronizar_condicion(db, col, org_dict):
+                cambios += 1
+
+        db.commit()
+        logger.info(f"[Sincronizar] org={organization_id} → {cambios} cambios de condición")
+    except Exception as e:
+        logger.error(f"[Sincronizar] Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
