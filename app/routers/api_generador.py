@@ -346,3 +346,60 @@ def _sincronizar_condiciones(organization_id: int):
         db.rollback()
     finally:
         db.close()
+
+
+
+# ══════════════════════════════════════════════════════════════
+# AGREGAR en app/routers/api_generador.py
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/generador/estado-mes")
+async def estado_mes(
+    anio:   int = date.today().year,
+    mes:    int = date.today().month,
+    db:     Session = Depends(get_db),
+    member          = Depends(get_current_member),
+):
+    """
+    Consulta el estado de generación de un mes específico.
+    Retorna lotes existentes, cantidad de deudas y si es reversible.
+    """
+    from app.models_debt_management import Debt
+    from sqlalchemy import func
+
+    periodo = f"{anio}-{mes:02d}"
+
+    lotes = db.query(
+        Debt.lote_migracion,
+        func.count(Debt.id).label('total'),
+        func.count(Debt.id).filter(Debt.status == 'pending').label('pendientes'),
+        func.count(Debt.id).filter(Debt.status.in_(['partial','paid'])).label('con_pagos'),
+        func.min(Debt.created_at).label('fecha'),
+    ).filter(
+        Debt.organization_id == member.organization_id,
+        Debt.periodo         == periodo,
+        Debt.debt_type       == 'cuota_ordinaria',
+        Debt.lote_migracion.like('GEN-ORD-%'),
+    ).group_by(Debt.lote_migracion).order_by(func.min(Debt.created_at).desc()).all()
+
+    if not lotes:
+        return JSONResponse({
+            "periodo":   periodo,
+            "generado":  False,
+            "lotes":     [],
+        })
+
+    lotes_data = [{
+        "lote_id":    r.lote_migracion,
+        "total":      r.total,
+        "pendientes": r.pendientes,
+        "con_pagos":  r.con_pagos,
+        "reversible": r.pendientes > 0,
+        "fecha":      r.fecha.strftime("%d/%m/%Y %H:%M") if r.fecha else None,
+    } for r in lotes]
+
+    return JSONResponse({
+        "periodo":  periodo,
+        "generado": True,
+        "lotes":    lotes_data,
+    })
