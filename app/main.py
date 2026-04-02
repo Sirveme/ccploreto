@@ -61,6 +61,8 @@ from contextlib import asynccontextmanager
 from app.services.fomo_scheduler import iniciar_scheduler
 
 from app.routers.api_generador import router as generador_router
+from app.routers.api_tienda import router as tienda_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -221,6 +223,8 @@ app.include_router(portal_admin_router)
 app.include_router(comunicados_router)
 
 app.include_router(generador_router)
+
+app.include_router(tienda_router)
 
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
