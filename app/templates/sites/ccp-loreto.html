@@ -686,6 +686,132 @@
   </div>
 </section>
 
+<!-- ══ TIENDA CCPL ═══════════════════════════════════ -->
+<section class="page-section-alt" id="tienda">
+  <style>
+    #tienda .tienda-head {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    #tienda .tienda-head h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(26px, 4vw, 38px);
+      color: #1b4d35 !important;   /* verde institucional sobre fondo claro --gris */
+      margin: 0 0 6px;
+      letter-spacing: .3px;
+    }
+    #tienda .tienda-head p {
+      color: #475569 !important;
+      font-size: 14px;
+      margin: 0;
+    }
+    #tienda .tienda-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      max-width: 1040px;
+      margin: 0 auto 28px;
+      padding: 0 16px;
+    }
+    #tienda .tienda-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 22px 16px 18px;
+      text-align: center;
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(27, 77, 53, .06);
+    }
+    #tienda .tienda-card:hover {
+      transform: translateY(-3px);
+      border-color: #1b4d35;
+      box-shadow: 0 12px 28px rgba(27, 77, 53, .15);
+    }
+    #tienda .tienda-emoji {
+      font-size: 48px;
+      line-height: 1;
+      display: block;
+      margin-bottom: 10px;
+    }
+    #tienda .tienda-nombre {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 6px;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #tienda .tienda-precio {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1b4d35;
+      letter-spacing: .3px;
+    }
+    #tienda .tienda-cta-wrap {
+      text-align: center;
+    }
+    #tienda .tienda-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(16, 185, 129, .25);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    #tienda .tienda-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(16, 185, 129, .35);
+    }
+    #tienda .tienda-cta .mi { font-size: 20px; }
+  </style>
+
+  <div class="tienda-head">
+    <h2>Tienda CCPL</h2>
+    <p>Merchandising institucional</p>
+  </div>
+
+  <div class="tienda-grid">
+    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+      <span class="tienda-emoji">🧢</span>
+      <div class="tienda-nombre">Gorro Institucional</div>
+      <div class="tienda-precio">S/ 25</div>
+    </div>
+    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+      <span class="tienda-emoji">👕</span>
+      <div class="tienda-nombre">Polo Institucional</div>
+      <div class="tienda-precio">S/ 35</div>
+    </div>
+    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+      <span class="tienda-emoji">🥇</span>
+      <div class="tienda-nombre">Medalla</div>
+      <div class="tienda-precio">S/ 50</div>
+    </div>
+    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+      <span class="tienda-emoji">☕</span>
+      <div class="tienda-nombre">Taza Institucional</div>
+      <div class="tienda-precio">S/ 20</div>
+    </div>
+  </div>
+
+  <div class="tienda-cta-wrap">
+    <button class="tienda-cta" onclick="Modales.catalogo.abrir()">
+      <span class="mi">storefront</span>
+      Ver tienda completa
+    </button>
+  </div>
+</section>
+
 <!-- ══ FOOTER ════════════════════════════════════════ -->
 <footer>
   <div class="footer-inner">
@@ -964,6 +1090,9 @@
 <script src="/static/js/sections/ambientes.js"></script>  <!-- 5. abrirReserva -->
 <script src="/static/js/sections/videos.js"></script>     <!-- 6. openVideo -->
 
-</body>
+<!-- ══ MODAL CATÁLOGO (tienda pública) ══════════════ -->
+{% include 'fragments/modal-catalogo.html' %}
+<script src="/static/js/modules/modal-catalogo.js"></script>
 
+</body>
 </html>
