@@ -171,6 +171,10 @@
                 <div class="option-icon emerald"><i class="ph ph-globe"></i></div>
                 <span class="option-label">Mi Sitio</span>
             </div>
+            <div class="option-card" onclick="Modales.catalogo.abrir()">
+                <div class="option-icon emerald"><i class="ph ph-storefront"></i></div>
+                <span class="option-label">Tienda</span>
+            </div>
         </div>
     </section>
 
@@ -264,63 +268,8 @@
     </div>
 </dialog>
 
-<!-- MODAL: MIS PAGOS (inline — modal-pagos.js maneja datos y render) -->
-<dialog id="modal-pagos">
-    <div class="modal-header">
-        <h3 class="modal-title">
-            <i class="ph ph-wallet" style="color:var(--gold);"></i>
-            Mis Pagos
-        </h3>
-        <button class="modal-close" onclick="Modal.close('modal-pagos')">
-            <i class="ph ph-x"></i>
-        </button>
-    </div>
-    
-    <div class="modal-body" style="position:relative;">
-        <!-- Tabs -->
-        <div class="pagos-tabs">
-            <button class="pagos-tab active" data-tab="deudas">
-                <i class="ph ph-receipt"></i>
-                <span>Deudas</span>
-            </button>
-            <button class="pagos-tab" data-tab="servicios">
-                <i class="ph ph-storefront"></i>
-                <span>Servicios</span>
-            </button>
-            <button class="pagos-tab" data-tab="historial">
-                <i class="ph ph-clock-counter-clockwise"></i>
-                <span>Historial</span>
-            </button>
-        </div>
-        
-        <!-- Tab: Deudas (resumen + pendientes con checkbox) -->
-        <div id="pagos-deudas" class="pagos-tab-content active">
-            <div class="pagos-skeleton">
-                <div class="skeleton-item"></div>
-                <div class="skeleton-item"></div>
-            </div>
-        </div>
-        
-        <!-- Tab: Servicios (catálogo de productos) -->
-        <div id="pagos-servicios" class="pagos-tab-content">
-            <div class="pagos-skeleton">
-                <div class="skeleton-item"></div>
-                <div class="skeleton-item"></div>
-            </div>
-        </div>
-        
-        <!-- Tab: Historial -->
-        <div id="pagos-historial" class="pagos-tab-content">
-            <div class="pagos-empty">
-                <i class="ph ph-clock-counter-clockwise"></i>
-                <p>Cargando historial...</p>
-            </div>
-        </div>
-        
-        <!-- Sticky Footer: carrito + botón pagar -->
-        <div id="pagos-footer" class="pagos-footer"></div>
-    </div>
-</dialog>
+<!-- MODAL: MIS PAGOS — fragmento canónico sincronizado con modal-pagos.js -->
+{% include 'fragments/modal-pagos.html' %}
 
 <!-- Placeholders para modales aún no implementados -->
 {% for modal_id in ['modal-justificaciones', 'modal-cursos', 'modal-chat', 'modal-votaciones', 'modal-convenios', 'modal-bolsa', 'modal-estadisticas', 'modal-normas'] %}
@@ -341,6 +290,8 @@
 <!-- Contenedor para modales lazy (se inyectan aquí) -->
 <div id="modal-container"></div>
 
+{% include 'fragments/modal-catalogo.html' %}
+
 <div id="ai-fab-container"></div>
 
 <!-- Audio preloaded para notificaciones -->
@@ -352,6 +303,7 @@
 <script src="/static/js/modules/ux-system.js"></script>
 <script src="/static/js/pages/dashboard_colegiado.js?v=7"></script>
 <script src="/static/js/modules/modal-pagos.js?v=9"></script>
+<script src="/static/js/modules/modal-catalogo.js"></script>
 <script src="/static/js/modules/pago-flow-habil.js?v=7"></script>
 <script src="/static/js/components/ai-fab.js"></script>
 <script src="/static/js/modules/comunicados-feed.js?v=7"></script>
