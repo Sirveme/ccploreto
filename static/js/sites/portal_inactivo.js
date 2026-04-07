@@ -642,8 +642,10 @@ const Asistente = {
 
 /* ════════════════════════════════════════════════════════════
    MODALES
+   Se fusiona con window.Modales (ej.: catalogo viene de
+   /static/js/modules/modal-catalogo.js — cargado antes).
 ════════════════════════════════════════════════════════════ */
-const Modales = {
+const Modales = window.Modales = Object.assign(window.Modales || {}, {
 
   /* ─── Fraccionamiento ─────────────────────────────────── */
   fraccion: {
@@ -826,265 +828,10 @@ const Modales = {
   },
 
 
-  /* ─── Catálogo ────────────────────────────────────────── */
-/* ─── Catálogo ────────────────────────────────────────── */
-  catalogo: {
-    items:        [],
-    seleccion:    [],   // [{id, nombre, monto, es_mercaderia, cantidad}]
-    filtroActual: null,
-
-    async abrir() {
-      $('modal-catalogo')?.classList.add('open');
-      if (this.items.length === 0) await this._cargar();
-      this._renderFiltros();
-      this._renderItems(this.filtroActual);
-    },
-
-    cerrar() {
-      $('modal-catalogo')?.classList.remove('open');
-      this.seleccion = [];
-      this._actualizarFooter();
-    },
-
-    async _cargar() {
-      try {
-        const r = await fetch('/api/publico/catalogo');
-        if (!r.ok) { console.error('[Catalogo] HTTP', r.status); return; }
-        const d = await r.json();
-        // Aplanar categorías en lista plana
-        this.items = (d.categorias || []).flatMap(cat =>
-          cat.items.map(i => ({ ...i, es_mercaderia: i.categoria === 'mercaderia' }))
-        );
-        console.log('[Catalogo] items:', this.items.length);
-      } catch(e) {
-        console.error('[Catalogo]', e);
-      }
-    },
-
-    _renderFiltros() {
-      const el = $('cat-filtros');
-      if (!el) return;
-      const cats = [...new Set(this.items.map(i => i.categoria))];
-      const labels = {
-        mercaderia:   '🛍 Productos',
-        constancias:  '📜 Constancias',
-        capacitacion: '🎓 Capacitación',
-        derechos:     '📋 Derechos',
-        alquileres:   '🏛 Alquileres',
-        eventos:      '🎉 Eventos',
-        recreacion:   '⚽ Recreación',
-        otros:        '📦 Otros',
-      };
-      el.innerHTML = `
-        <button class="cat-pill ${!this.filtroActual ? 'active' : ''}"
-                onclick="Modales.catalogo._renderItems(null)">
-          Todos (${this.items.length})
-        </button>
-        ${cats.map(c => `
-          <button class="cat-pill ${this.filtroActual === c ? 'active' : ''}"
-                  onclick="Modales.catalogo._renderItems('${c}')">
-            ${labels[c] || c} (${this.items.filter(i => i.categoria === c).length})
-          </button>`).join('')}`;
-    },
-
-    _renderItems(filtro) {
-      this.filtroActual = filtro;
-      // Actualizar pills activos
-      document.querySelectorAll('.cat-pill').forEach(p => {
-        p.classList.toggle('active',
-          (!filtro && p.textContent.startsWith('Todos')) ||
-          p.getAttribute('onclick')?.includes(`'${filtro}'`));
-      });
-
-      const lista = $('cat-lista');
-      const items = filtro ? this.items.filter(i => i.categoria === filtro) : this.items;
-
-      if (!items.length) {
-        lista.innerHTML = `<div style="text-align:center;color:#64748b;padding:24px">
-          Sin items disponibles</div>`;
-        return;
-      }
-
-      lista.innerHTML = items.map(item => {
-        const sel      = this.seleccion.find(s => s.id === item.id);
-        const monto    = item.precio || item.monto_base;
-        const sinStock = item.maneja_stock && (item.stock === 0 || item.agotado);
-        const cantidad = sel ? sel.cantidad : 0;
-
-        // Mercadería → selector de cantidad | Servicios → toggle
-        const accionHTML = sinStock
-          ? `<div style="font-size:10px;color:#ef4444;margin-top:4px">Sin stock</div>`
-          : item.es_mercaderia
-            ? /* selector cantidad */`
-              <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-                <button onclick="event.stopPropagation();Modales.catalogo._cambiarCantidad(${item.id},-1)"
-                        style="width:26px;height:26px;border-radius:50%;cursor:pointer;
-                               background:${cantidad>0?'rgba(239,68,68,.12)':'rgba(255,255,255,.06)'};
-                               border:1px solid ${cantidad>0?'rgba(239,68,68,.3)':'rgba(255,255,255,.15)'};
-                               color:${cantidad>0?'#ef4444':'#64748b'};font-size:16px;
-                               display:flex;align-items:center;justify-content:center">−</button>
-                <span style="min-width:24px;text-align:center;font-weight:700;
-                             font-size:14px;color:${cantidad>0?'#22c55e':'#94a3b8'}">
-                  ${cantidad}
-                </span>
-                <button onclick="event.stopPropagation();Modales.catalogo._cambiarCantidad(${item.id},1)"
-                        style="width:26px;height:26px;border-radius:50%;cursor:pointer;
-                               background:rgba(99,102,241,.12);
-                               border:1px solid rgba(99,102,241,.3);
-                               color:#a78bfa;font-size:16px;
-                               display:flex;align-items:center;justify-content:center">+</button>
-              </div>`
-            : /* toggle check */`
-              <div style="width:22px;height:22px;border-radius:50%;margin-top:6px;
-                          background:${sel?'#22c55e':'rgba(255,255,255,.08)'};
-                          border:2px solid ${sel?'#22c55e':'rgba(255,255,255,.2)'};
-                          display:flex;align-items:center;justify-content:center">
-                ${sel?'<span class="mi" style="font-size:12px;color:#fff">check</span>':''}
-              </div>`;
-
-        return `
-          <div class="cat-item ${sel ? 'cat-sel' : ''} ${sinStock ? 'cat-agotado' : ''}"
-               onclick="${sinStock ? '' : item.es_mercaderia ? '' : `Modales.catalogo._toggle(${item.id})`}"
-               style="cursor:${sinStock?'default':item.es_mercaderia?'default':'pointer'}">
-            <div style="flex:1">
-              <div style="font-size:13px;font-weight:600;color:#e2eaf7;margin-bottom:2px">
-                ${item.nombre}
-                ${item.es_mercaderia ? '<span class="cat-badge-prod">Producto físico</span>' : ''}
-              </div>
-              ${item.descripcion ? `<div style="font-size:11px;color:#64748b">${item.descripcion}</div>` : ''}
-              ${item.maneja_stock && !sinStock ? `<div style="font-size:10px;color:#22c55e;margin-top:1px">Stock: ${item.stock}</div>` : ''}
-              ${accionHTML}
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;
-                        justify-content:flex-start;gap:4px;flex-shrink:0;padding-top:2px">
-              <div style="font-size:15px;font-weight:700;
-                          color:${sel?'#22c55e':'#f1f5f9'}">
-                S/ ${Math.round(monto)}
-              </div>
-              ${sel && item.es_mercaderia && cantidad > 1 ? `
-              <div style="font-size:10px;color:#94a3b8">
-                Total: S/ ${Math.round(monto * cantidad)}
-              </div>` : ''}
-            </div>
-          </div>`;
-      }).join('');
-    },
-
-    _toggle(id) {
-      // Para servicios (no mercadería) — selección simple
-      const item = this.items.find(i => i.id === id);
-      if (!item) return;
-      const idx = this.seleccion.findIndex(s => s.id === id);
-      if (idx >= 0) {
-        this.seleccion.splice(idx, 1);
-      } else {
-        this.seleccion.push({
-          id,
-          nombre:        item.nombre,
-          monto:         item.precio || item.monto_base,
-          es_mercaderia: false,
-          cantidad:      1,
-        });
-      }
-      this._renderItems(this.filtroActual);
-      this._actualizarFooter();
-    },
-
-    _cambiarCantidad(id, delta) {
-      // Para mercadería — selector +/−
-      const item = this.items.find(i => i.id === id);
-      if (!item) return;
-      const idx     = this.seleccion.findIndex(s => s.id === id);
-      const actual  = idx >= 0 ? this.seleccion[idx].cantidad : 0;
-      const nueva   = actual + delta;
-
-      if (nueva <= 0) {
-        if (idx >= 0) this.seleccion.splice(idx, 1);
-      } else {
-        // Verificar stock
-        if (item.maneja_stock && nueva > item.stock) return;
-        if (idx >= 0) {
-          this.seleccion[idx].cantidad = nueva;
-        } else {
-          this.seleccion.push({
-            id,
-            nombre:        item.nombre,
-            monto:         item.precio || item.monto_base,
-            es_mercaderia: true,
-            cantidad:      nueva,
-          });
-        }
-      }
-      this._renderItems(this.filtroActual);
-      this._actualizarFooter();
-    },
-
-    _actualizarFooter() {
-      const total  = this.seleccion.reduce((s, i) => s + i.monto * i.cantidad, 0);
-      const footer = $('cat-footer');
-      if ($('cat-total')) $('cat-total').textContent = 'S/ ' + Math.round(total);
-      if (footer) footer.style.display = this.seleccion.length > 0 ? 'flex' : 'none';
-    },
-
-    _hayMercaderia() {
-      return this.seleccion.some(i => i.es_mercaderia);
-    },
-
-    _total() {
-      return Math.round(this.seleccion.reduce((s, i) => s + i.monto * i.cantidad, 0));
-    },
-
-    _itemsParaApi() {
-      return this.seleccion.map(i => ({
-        concepto_id: i.id,
-        cantidad:    i.cantidad,
-      }));
-    },
-
-    pagarTarjeta() {
-      if (!this.seleccion.length) return;
-      const total   = this._total();
-      const concepto = this.seleccion.map(i =>
-        i.cantidad > 1 ? `${i.cantidad}x ${i.nombre}` : i.nombre
-      ).join(', ');
-
-      this.cerrar();
-
-      if (this._hayMercaderia()) {
-        sessionStorage.setItem('hay_mercaderia', '1');
-        sessionStorage.setItem('items_mercaderia', JSON.stringify(
-          this.seleccion.filter(i => i.es_mercaderia).map(i => i.nombre)
-        ));
-      }
-
-      // Guardar items para el endpoint /api/publico/comprar
-      sessionStorage.setItem('carrito_items', JSON.stringify(this._itemsParaApi()));
-
-      if (typeof Modales.pagoLinea !== 'undefined') {
-        if ($('pl-monto')) $('pl-monto').value = total;
-        Modales.pagoLinea.recalcular();
-        Modales.pagoLinea.abrir();
-      }
-    },
-
-    reportar() {
-      if (!this.seleccion.length) return;
-      const total   = this._total();
-      const hayMerc = this._hayMercaderia();
-
-      this.cerrar();
-
-      sessionStorage.setItem('carrito_items', JSON.stringify(this._itemsParaApi()));
-
-      if ($('rp-monto'))    $('rp-monto').value   = total;
-      if ($('rp-concepto')) $('rp-concepto').value = hayMerc ? 'mercaderia' : 'otro';
-
-      const aviso = $('rp-aviso-producto');
-      if (aviso) aviso.style.display = hayMerc ? 'block' : 'none';
-
-      Modales.reportarPago.abrir();
-    },
-  },
+  /* ─── Catálogo ──────────────────────────────────────────
+     Extraído a /static/js/modules/modal-catalogo.js — se registra
+     en window.Modales.catalogo vía merge (ver final del archivo).
+  ──────────────────────────────────────────────────────── */
 
   /* ─── Reportar Pago ───────────────────────────────────── */
   /* ════════════════════════════════════════════════════════════
@@ -2093,7 +1840,7 @@ const Modales = {
         },
     },
 
-};
+});
 
 
 /* ════════════════════════════════════════════════════════════
