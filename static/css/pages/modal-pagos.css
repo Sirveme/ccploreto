@@ -396,7 +396,7 @@
     .mp-resumen-header { grid-template-columns: 1fr 1fr; }
     .mp-resumen-header .mp-pagado { grid-column: 1 / -1; }
 
-    [data-pagos-tab] span { display: none; }  /* Solo icono */
+    [data-pagos-tab] span { display: inline !important; }
     [data-pagos-tab] { padding: 0.6rem 0.7rem; }
 
     .mp-deuda-row   { flex-wrap: wrap; }
