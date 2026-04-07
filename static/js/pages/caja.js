@@ -19,6 +19,140 @@ let ultimaSesionCerrada = null;
 // Métodos que requieren N° de operación obligatorio
 const METODOS_REQ_REF = ['yape', 'plin', 'transferencia', 'tarjeta'];
 
+/* ══════════════════════════════════════════════════
+   MODALES CUSTOM (reemplaza alert/confirm/prompt)
+   ══════════════════════════════════════════════════ */
+const cajaModal = {
+  // Modal con input numérico — reemplaza prompt()
+  monto(titulo, valorDefault, cb) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);
+      z-index:9999;display:flex;align-items:center;justify-content:center`;
+    overlay.innerHTML = `
+      <div style="background:#1e293b;border:1px solid rgba(255,255,255,.12);
+                  border-radius:16px;padding:24px;width:min(340px,90vw);
+                  box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="font-size:15px;font-weight:700;color:#f1f5f9;
+                    margin-bottom:16px">${titulo}</div>
+        <input id="caja-modal-input" type="number" min="0" step="0.01"
+               value="${valorDefault || ''}"
+               style="width:100%;padding:10px 14px;border-radius:10px;
+                      border:1px solid rgba(255,255,255,.2);
+                      background:rgba(255,255,255,.06);
+                      color:#f1f5f9;font-size:16px;
+                      font-family:JetBrains Mono,monospace;
+                      outline:none;box-sizing:border-box"
+               placeholder="0.00">
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button id="caja-modal-cancel"
+                  style="flex:1;padding:10px;border-radius:10px;
+                         border:1px solid rgba(255,255,255,.15);
+                         background:transparent;color:#94a3b8;cursor:pointer;
+                         font-family:inherit">
+            Cancelar
+          </button>
+          <button id="caja-modal-ok"
+                  style="flex:1;padding:10px;border-radius:10px;
+                         border:none;background:linear-gradient(135deg,#10b981,#059669);
+                         color:#fff;font-weight:700;cursor:pointer;
+                         font-family:inherit">
+            Confirmar
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const inp = overlay.querySelector('#caja-modal-input');
+    const close = (val) => { overlay.remove(); cb(val); };
+    inp.focus(); inp.select();
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  close(parseFloat(inp.value));
+      if (e.key === 'Escape') close(null);
+    });
+    overlay.querySelector('#caja-modal-ok').onclick     = () => close(parseFloat(inp.value));
+    overlay.querySelector('#caja-modal-cancel').onclick = () => close(null);
+  },
+
+  // Modal de confirmación — reemplaza confirm()
+  confirmar(mensaje, labelOk, cb, peligroso = false) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);
+      z-index:9999;display:flex;align-items:center;justify-content:center`;
+    const colorOk = peligroso
+      ? 'background:linear-gradient(135deg,#ef4444,#dc2626)'
+      : 'background:linear-gradient(135deg,#10b981,#059669)';
+    overlay.innerHTML = `
+      <div style="background:#1e293b;border:1px solid rgba(255,255,255,.12);
+                  border-radius:16px;padding:24px;width:min(380px,90vw);
+                  box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="font-size:14px;color:#cbd5e1;line-height:1.6;
+                    margin-bottom:20px;white-space:pre-line">${mensaje}</div>
+        <div style="display:flex;gap:10px">
+          <button id="caja-modal-cancel"
+                  style="flex:1;padding:10px;border-radius:10px;
+                         border:1px solid rgba(255,255,255,.15);
+                         background:transparent;color:#94a3b8;cursor:pointer;
+                         font-family:inherit">
+            Cancelar
+          </button>
+          <button id="caja-modal-ok"
+                  style="flex:1;padding:10px;border-radius:10px;border:none;
+                         ${colorOk};color:#fff;font-weight:700;cursor:pointer;
+                         font-family:inherit">
+            ${labelOk}
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = (val) => { overlay.remove(); cb(val); };
+    overlay.querySelector('#caja-modal-ok').onclick     = () => close(true);
+    overlay.querySelector('#caja-modal-cancel').onclick = () => close(false);
+    overlay.addEventListener('keydown', e => {
+      if (e.key === 'Escape') close(false);
+    });
+  },
+
+  // Modal lista — reemplaza prompt() para selección de sesiones
+  lista(titulo, items, cb) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);
+      z-index:9999;display:flex;align-items:center;justify-content:center`;
+    const filas = items.map((it, i) => `
+      <div class="caja-modal-item" data-val="${it.value}"
+           style="padding:10px 14px;border-radius:8px;cursor:pointer;
+                  border:1px solid rgba(255,255,255,.07);margin-bottom:6px;
+                  font-size:13px;color:#e2e8f0;
+                  transition:background .15s">
+        <span style="color:#10b981;font-weight:700;margin-right:8px">
+          ${i + 1}.
+        </span>${it.label}
+      </div>`).join('');
+    overlay.innerHTML = `
+      <div style="background:#1e293b;border:1px solid rgba(255,255,255,.12);
+                  border-radius:16px;padding:24px;width:min(440px,90vw);
+                  max-height:80vh;overflow-y:auto;
+                  box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="font-size:15px;font-weight:700;color:#f1f5f9;
+                    margin-bottom:14px">${titulo}</div>
+        ${filas}
+        <button id="caja-modal-cancel"
+                style="width:100%;margin-top:10px;padding:10px;border-radius:10px;
+                       border:1px solid rgba(255,255,255,.15);
+                       background:transparent;color:#94a3b8;cursor:pointer;
+                       font-family:inherit">
+          Cancelar
+        </button>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = (val) => { overlay.remove(); cb(val); };
+    overlay.querySelectorAll('.caja-modal-item').forEach(el => {
+      el.onmouseenter = () => el.style.background = 'rgba(16,185,129,.12)';
+      el.onmouseleave = () => el.style.background = 'transparent';
+      el.onclick = () => close(el.dataset.val);
+    });
+    overlay.querySelector('#caja-modal-cancel').onclick = () => close(null);
+  },
+};
+
 // Placeholders por método de pago
 const REF_PLACEHOLDERS = {
     yape: 'Nro. operación Yape (obligatorio)',
@@ -318,7 +452,7 @@ function descargarPDFCierre() {
 
 function cerrarModalCierreExitoso() {
     document.getElementById('modalCierreExitoso').style.display = 'none';
-    location.reload();
+    window.location.href = '/';
 }
 
 
@@ -489,10 +623,16 @@ function addConc(id) {
     if (c.requiere_colegiado && !colActual) { toast('Selecciona un colegiado', 'err'); return; }
     let m = c.monto_base;
     if (c.permite_monto_libre || m === 0) {
-        const i = prompt(`Monto para "${c.nombre}":`, m > 0 ? m : '');
-        if (!i) return;
-        m = parseFloat(i);
-        if (isNaN(m) || m <= 0) { toast('Monto inválido', 'err'); return; }
+        cajaModal.monto(`Monto para "${c.nombre}"`, m > 0 ? m : '', (val) => {
+            if (val === null || isNaN(val) || val <= 0) {
+                if (val !== null) toast('Monto inválido', 'err');
+                return;
+            }
+            carrito.push({ tipo: 'concepto', concepto_id: c.id, descripcion: c.nombre_corto || c.nombre, cantidad: 1, monto_unitario: val, monto: val });
+            renderCarrito();
+            toast(`${c.nombre_corto || c.nombre} agregado`, 'ok');
+        });
+        return;
     }
     carrito.push({ tipo: 'concepto', concepto_id: c.id, descripcion: c.nombre_corto || c.nombre, cantidad: 1, monto_unitario: m, monto: m });
     renderCarrito();
@@ -1054,13 +1194,13 @@ async function verSesionesAnteriores() {
             const difStr = Math.abs(dif) < 0.01 ? '✓' : `${dif >= 0 ? '+' : ''}${dif.toFixed(2)}`;
             return `${s.fecha} — ${s.cajero} — S/ ${s.total_cobros.toFixed(2)} — ${difStr}`;
         });
-        const sel = prompt('Sesiones cerradas (ingrese número para PDF):\n\n' + sesiones.map((s, i) => `${i + 1}. ${items[i]}`).join('\n'));
-        if (sel && !isNaN(sel)) {
-            const idx = parseInt(sel) - 1;
-            if (idx >= 0 && idx < sesiones.length) {
-                window.open(`/api/caja/cierre-caja/${sesiones[idx].id}/pdf`, '_blank');
-            }
-        }
+        const listaItems = sesiones.map((s, i) => ({
+            label: items[i],
+            value: s.id,
+        }));
+        cajaModal.lista('Sesiones cerradas — selecciona para PDF', listaItems, (val) => {
+            if (val) window.open(`/api/caja/cierre-caja/${val}/pdf`, '_blank');
+        });
     } catch (e) { toast('Error cargando sesiones', 'err'); }
 }
 
@@ -1103,19 +1243,26 @@ async function ejecutarAnulacion() {
         if (motivo === '07' && Math.abs(montoAnular - totalOriginal) < 0.01) { motivo = '06'; motivoTexto = 'Devolución total'; }
     }
     const esParcial = motivosParciales.includes(motivo);
-    if (!confirm(`¿Confirmas la ${esParcial ? 'operación por S/ ' + montoAnular.toFixed(2) : 'ANULACIÓN'}?\nMotivo: ${motivoTexto}`)) return;
-    try {
-        const r = await fetch(`${API}/anular-cobro`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, monto: montoAnular, observaciones: obs })
-        });
-        const d = await r.json();
-        if (d.success) {
-            cerrarModalAnular();
-            toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito} (en proceso SUNAT)` : ''), 'ok');
-            cargarHistorial(); cargarResumen();
-        } else { toast(d.detail || d.error || 'Error al anular', 'err'); }
-    } catch (e) { toast('Error de conexión', 'err'); }
+    cajaModal.confirmar(
+        `¿Confirmas la ${esParcial ? 'operación por S/ ' + montoAnular.toFixed(2) : 'ANULACIÓN'}?\nMotivo: ${motivoTexto}`,
+        esParcial ? 'Confirmar' : 'ANULAR',
+        async (ok) => {
+            if (!ok) return;
+            try {
+                const r = await fetch(`${API}/anular-cobro`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, monto: montoAnular, observaciones: obs })
+                });
+                const d = await r.json();
+                if (d.success) {
+                    cerrarModalAnular();
+                    toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito} (en proceso SUNAT)` : ''), 'ok');
+                    cargarHistorial(); cargarResumen();
+                } else { toast(d.detail || d.error || 'Error al anular', 'err'); }
+            } catch (e) { toast('Error de conexión', 'err'); }
+        },
+        true
+    );
 }
 
 
@@ -1220,8 +1367,11 @@ function notificarDesdeCaja() {
 function cerrarSesionUsuario() {
     document.getElementById('headerMenu').classList.remove('active');
     if (sesion) {
-        if (!confirm('Tienes una caja abierta. Debes cerrarla antes de salir.\n¿Ir al cierre de caja?')) return;
-        mostrarCierreCaja();
+        cajaModal.confirmar(
+            'Tienes una caja abierta.\nDebes cerrarla antes de salir.\n¿Ir al cierre de caja?',
+            'Ir al cierre',
+            (ok) => { if (ok) mostrarCierreCaja(); }
+        );
         return;
     }
     window.location.href = '/logout';
