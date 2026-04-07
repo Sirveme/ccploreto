@@ -1,0 +1,53 @@
+{# ============================================================
+   MODAL CATÁLOGO — compartido entre portal_inactivo,
+   dashboard_colegiado y ccp-loreto (página pública).
+   Ubicación: app/templates/fragments/modal-catalogo.html
+   JS: /static/js/modules/modal-catalogo.js → window.Modales.catalogo
+   Estilos: inyectados por _injectStyles() del módulo JS
+            (fragmento autocontenido, sin dependencia de Material Icons)
+============================================================ #}
+
+<div id="modal-catalogo" class="mc-overlay">
+  <div class="mc-box">
+
+    <!-- Header fijo -->
+    <div class="mc-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="mc-icon">🛍️</span>
+        <div>
+          <div class="mc-title">Servicios y Productos</div>
+          <div class="mc-sub">Selecciona y paga en línea o reporta tu pago</div>
+        </div>
+      </div>
+      <button class="mc-close" onclick="Modales.catalogo.cerrar()" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- Filter pills por categoría -->
+    <div id="cat-filtros"></div>
+
+    <!-- Lista de items (scroll) -->
+    <div id="cat-lista">
+      <div class="mc-loading">
+        <div class="mc-spinner"></div>
+        <span>Cargando catálogo...</span>
+      </div>
+    </div>
+
+    <!-- Footer sticky -->
+    <div id="cat-footer" style="display:none">
+      <div class="mc-total-row">
+        <span class="mc-total-label">Total seleccionado</span>
+        <span id="cat-total" class="mc-total-value">S/ 0</span>
+      </div>
+      <div class="mc-actions">
+        <button class="mc-btn mc-btn-primary" onclick="Modales.catalogo.pagarTarjeta()">
+          <span>💳</span> Pagar con Tarjeta
+        </button>
+        <button class="mc-btn mc-btn-ghost" onclick="Modales.catalogo.reportar()">
+          <span>📤</span> Ya pagué
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
