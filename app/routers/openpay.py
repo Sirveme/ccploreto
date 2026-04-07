@@ -514,9 +514,40 @@ async def openpay_webhook(
         db.commit()
         return JSONResponse({"received": True, "processed": False, "note": "payment not found"})
 
-    if payment.status in ("completado", "pagado"):
+    if payment.status in ("completado", "pagado", "approved"):
         # Ya fue procesado (webhook duplicado)
         return JSONResponse({"received": True, "processed": False, "note": "already processed"})
+
+    # ══════════════════════════════════════════════════════════
+    #  RAMA TIENDA PÚBLICA (sin colegiado_id, sin deudas)
+    # ══════════════════════════════════════════════════════════
+    try:
+        notas_payment = json.loads(payment.notes or "{}") if payment.notes else {}
+    except Exception:
+        notas_payment = {}
+
+    if notas_payment.get("flujo") == "tienda_publica_openpay":
+        from app.models import Payment as _Payment, Organization as _Org
+        from app.routers.api_tienda import _emitir_cpe_tienda_y_stock
+
+        pay_obj = db.query(_Payment).filter(_Payment.id == payment.id).first()
+        org_obj_t = db.query(_Org).filter(_Org.id == payment.organization_id).first()
+
+        if pay_obj and org_obj_t:
+            # 1. Descontar stock + 2. Emitir CPE sede_id=8 (B800/F800)
+            await _emitir_cpe_tienda_y_stock(db, pay_obj, org_obj_t)
+            # 3. Marcar approved
+            pay_obj.status = "approved"
+            try:
+                pay_obj.paid_at = datetime.now(timezone.utc)
+            except Exception:
+                pass
+            db.commit()
+            logger.info(f"[OpenPay webhook] Tienda pública procesada payment={pay_obj.id} tx={tx_id}")
+            return JSONResponse({"received": True, "processed": True, "flujo": "tienda"})
+
+        logger.error(f"[OpenPay webhook] Tienda: payment u org no encontrados payment={payment.id}")
+        return JSONResponse({"received": True, "processed": False, "note": "tienda lookup failed"})
 
     # ── Marcar payment como pagado ─────────────────────────────
     db.execute(text("""
