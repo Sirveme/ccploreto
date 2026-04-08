@@ -373,4 +373,7 @@ if os.getenv("ENVIRONMENT", "development") != "production":
     app.include_router(dev_router)
 
 
-
+# GUBE2026
+@app.get("/gestion2026")
+async def gestion2026(request: Request):
+    return templates.TemplateResponse("guber2026.html", {"request": request})
