@@ -368,12 +368,12 @@ async def guia_finanzas(request: Request):
     return templates.TemplateResponse("pages/finanzas/guia.html", {"request": request})
 
 
-if os.getenv("ENVIRONMENT", "development") != "production":
-    from app.routers.dev_tools import router as dev_router
-    app.include_router(dev_router)
-
-
-# GUBE2026
+# GUBER2026
 @app.get("/gestion2026")
 async def gestion2026(request: Request):
     return templates.TemplateResponse("guber2026.html", {"request": request})
+
+
+if os.getenv("ENVIRONMENT", "development") != "production":
+    from app.routers.dev_tools import router as dev_router
+    app.include_router(dev_router)
