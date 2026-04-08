@@ -371,7 +371,7 @@ async def guia_finanzas(request: Request):
 # GUBER2026
 @app.get("/gestion2026")
 async def gestion2026(request: Request):
-    return templates.TemplateResponse("guber2026.html", {"request": request})
+    return FileResponse("app/templates/guber2026.html")
 
 
 if os.getenv("ENVIRONMENT", "development") != "production":
