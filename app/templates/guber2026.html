@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XI GUBER Madre de Dios 2026 – CCPL Loreto</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0d1f3c;--navy-mid:#1a3560;--navy-light:#234176;
+  --gold:#c49a2e;--gold-light:#e8c96a;--gold-pale:#fdf6e3;
+  --cream:#f9f6f0;--white:#ffffff;
+  --text:#1a1a2e;--muted:#5a6070;--border:#ddd8cc;
+  --day1:#1b3d6e;--day2:#2a5298;--day3:#1a5276;
+  --green:#2e7d32;--green-bg:#eef7ee;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);line-height:1.6}
+
+/* WELCOME OVERLAY */
+#welcomeOverlay{
+  position:fixed;inset:0;background:var(--navy);z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
+}
+.welcome-box{max-width:640px;width:100%;animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.welcome-logo{
+  display:inline-flex;align-items:center;gap:10px;
+  background:rgba(196,154,46,.15);border:1px solid rgba(196,154,46,.35);
+  border-radius:32px;padding:6px 16px 6px 12px;margin-bottom:28px;
+}
+.welcome-logo .dot{width:8px;height:8px;background:var(--gold);border-radius:50%}
+.welcome-logo span{font-size:13px;font-weight:500;color:var(--gold-light);letter-spacing:.05em;text-transform:uppercase}
+.welcome-box h1{font-family:'Playfair Display',serif;font-size:clamp(24px,5vw,40px);font-weight:700;color:#fff;line-height:1.2;margin-bottom:10px}
+.welcome-box h1 em{font-style:normal;color:var(--gold-light)}
+.welcome-box .lead{font-size:15px;color:rgba(255,255,255,.65);margin-bottom:32px;line-height:1.65}
+.welcome-box .lead strong{color:#fff}
+.gold-line{height:2px;background:linear-gradient(90deg,var(--gold),var(--gold-light),var(--gold));margin-bottom:28px;border-radius:2px}
+.welcome-box h2{font-size:13px;font-weight:500;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px}
+@media(max-width:480px){.profile-grid{grid-template-columns:1fr}}
+.profile-btn{
+  background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.15);
+  border-radius:14px;padding:18px 16px;cursor:pointer;text-align:left;
+  transition:background .2s,border-color .2s,transform .15s;font-family:'DM Sans',sans-serif;
+}
+.profile-btn:hover{background:rgba(255,255,255,.1);transform:translateY(-2px)}
+.profile-btn[data-p="cpc"]:hover{border-color:#6ea8fe}
+.profile-btn[data-p="pub"]:hover{border-color:#ffb74d}
+.profile-btn[data-p="acad"]:hover{border-color:#81c784}
+.profile-btn[data-p="tec"]:hover{border-color:#ce93d8}
+.profile-btn .icon{font-size:22px;margin-bottom:8px;display:block}
+.profile-btn .ptitle{font-size:15px;font-weight:600;color:#fff;display:block;margin-bottom:3px}
+.profile-btn .psub{font-size:12px;color:rgba(255,255,255,.45);line-height:1.4;display:block}
+.welcome-event-meta{display:flex;flex-wrap:wrap;gap:14px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)}
+.welcome-meta-pill{font-size:13px;color:rgba(255,255,255,.4);display:flex;align-items:center;gap:6px}
+
+/* HERO */
+.hero{background:var(--navy);color:#fff;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent,transparent 40px,rgba(196,154,46,.03) 40px,rgba(196,154,46,.03) 41px)}
+.hero-inner{position:relative;max-width:960px;margin:0 auto;padding:40px 24px 32px}
+.ccpl-badge{display:inline-flex;align-items:center;gap:10px;background:rgba(196,154,46,.15);border:1px solid rgba(196,154,46,.4);border-radius:32px;padding:6px 16px 6px 10px;margin-bottom:24px}
+.ccpl-badge .dot{width:8px;height:8px;background:var(--gold);border-radius:50%}
+.ccpl-badge span{font-size:13px;font-weight:500;color:var(--gold-light);letter-spacing:.04em;text-transform:uppercase}
+.hero h1{font-family:'Playfair Display',serif;font-size:clamp(24px,4vw,44px);font-weight:700;line-height:1.15;margin-bottom:8px;color:#fff}
+.hero h1 em{font-style:normal;color:var(--gold-light)}
+.hero .subtitle{font-size:15px;color:rgba(255,255,255,.6);max-width:580px;margin-bottom:28px}
+.event-meta{display:flex;flex-wrap:wrap;gap:18px}
+.meta-pill{display:flex;align-items:center;gap:7px;font-size:13px;color:rgba(255,255,255,.7)}
+.hero-divider{height:5px;background:linear-gradient(90deg,var(--gold),var(--gold-light),var(--gold))}
+
+/* PERFIL BANNER */
+#profileBanner{padding:12px 24px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.perfil-info{display:flex;align-items:center;gap:10px}
+.perfil-chip{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:600}
+.cambiar-btn{background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;color:rgba(255,255,255,.7);transition:background .2s}
+.cambiar-btn:hover{background:rgba(255,255,255,.12)}
+
+/* SELECTOR STICKY */
+.selector-banner{background:var(--navy-mid);color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.selector-info{font-size:14px;color:rgba(255,255,255,.7)}
+.selector-info strong{color:var(--gold-light);font-weight:600}
+.btn-generar{background:var(--gold);color:var(--navy);border:none;border-radius:8px;padding:9px 20px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s;white-space:nowrap}
+.btn-generar:hover{background:var(--gold-light)}
+.btn-generar:active{transform:scale(.97)}
+
+/* PROMESA */
+.promesa-section{background:var(--white);border-bottom:1px solid var(--border)}
+.promesa-inner{max-width:960px;margin:0 auto;padding:28px 24px}
+.promesa-card{background:var(--navy);border-radius:16px;padding:26px 30px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}
+@media(max-width:640px){.promesa-card{grid-template-columns:1fr}}
+.promesa-card h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--gold-light);margin-bottom:8px}
+.promesa-card p{font-size:14px;color:rgba(255,255,255,.7);line-height:1.65;max-width:500px}
+.decano-pill{display:flex;align-items:center;gap:12px;flex-shrink:0;background:rgba(255,255,255,.07);border:1px solid rgba(196,154,46,.3);border-radius:12px;padding:14px 18px}
+.decano-avatar{width:46px;height:46px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--navy);flex-shrink:0}
+.decano-name{font-size:14px;font-weight:600;color:#fff}
+.decano-title{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+
+/* PROGRAMA */
+.programa{max-width:960px;margin:0 auto;padding:36px 24px 64px}
+.day-block{margin-bottom:44px}
+.day-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--border)}
+.day-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;width:58px;height:58px;border-radius:12px;color:#fff;flex-shrink:0}
+.day-badge .num{font-family:'Playfair Display',serif;font-size:23px;font-weight:700;line-height:1}
+.day-badge .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;opacity:.7}
+.day-info h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--navy)}
+.day-info .date-str{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* TOPIC CARDS */
+.topic-card{background:var(--white);border-radius:14px;border:1.5px solid var(--border);margin-bottom:14px;transition:border-color .25s,box-shadow .25s,opacity .3s;cursor:pointer;overflow:hidden}
+.topic-card:hover{border-color:#aab5cc;box-shadow:0 4px 18px rgba(13,31,60,.08)}
+.topic-card.selected{border-color:var(--green);background:var(--green-bg)}
+.topic-card.dimmed{opacity:.35;pointer-events:none}
+.topic-card.highlighted{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,154,46,.1)}
+.topic-card-header{display:flex;gap:14px;padding:18px 18px 14px;align-items:flex-start}
+.topic-num{width:34px;height:34px;border-radius:8px;background:var(--navy);color:var(--gold-light);font-family:'Playfair Display',serif;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.topic-card.selected .topic-num{background:var(--green);color:#fff}
+.topic-body{flex:1}
+.topic-title{font-weight:600;font-size:15px;color:var(--navy);line-height:1.4;margin-bottom:5px}
+.topic-card.selected .topic-title{color:#1a3a1a}
+.topic-expositor{font-size:12.5px;color:var(--muted)}
+.topic-expositor strong{color:var(--navy-mid);font-weight:500}
+.topic-card.selected .topic-expositor strong{color:#2e5a2e}
+.topic-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tag{font-size:11px;font-weight:500;border-radius:4px;padding:2px 8px}
+.tag-cpc{background:#e8eef8;color:#1a3560}
+.tag-pub{background:#fff3e0;color:#6b2f00}
+.tag-acad{background:#e8f5e9;color:#1a4a2e}
+.tag-tec{background:#f3e5f5;color:#3b1a5e}
+.tag-key{background:#fff9e6;color:#7a5a00;font-weight:600}
+.topic-checkbox{width:24px;height:24px;border-radius:6px;border:2px solid #c5c9d4;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s,border-color .2s;margin-top:2px}
+.topic-card.selected .topic-checkbox{background:var(--green);border-color:var(--green)}
+.checkmark{display:none;width:13px;height:13px}
+.topic-card.selected .checkmark{display:block}
+.topic-context{font-size:13.5px;color:var(--muted);line-height:1.65;padding:10px 18px 16px 66px;border-top:1px solid rgba(0,0,0,.05)}
+.topic-card.selected .topic-context{color:#3a5a3a}
+@media(max-width:520px){.topic-context{padding-left:18px}}
+.virtual-badge{display:inline-flex;align-items:center;font-size:11px;background:#e8f0fe;color:#1a5276;border-radius:4px;padding:2px 7px;margin-left:5px;font-weight:500;vertical-align:middle}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,40,.72);z-index:999;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--white);border-radius:18px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+.modal-head{background:var(--navy);border-radius:18px 18px 0 0;padding:22px 28px}
+.modal-head h2{font-family:'Playfair Display',serif;font-size:20px;color:#fff;margin-bottom:3px}
+.modal-head p{font-size:13px;color:rgba(255,255,255,.5)}
+.modal-body{padding:22px 28px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:500px){.field-row{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.field input{border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--white);transition:border-color .2s;outline:none}
+.field input:focus{border-color:var(--navy-mid)}
+.resumen-list{list-style:none;margin:14px 0}
+.resumen-list li{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);font-size:14px}
+.resumen-list li:last-child{border-bottom:none}
+.resumen-num{width:28px;height:28px;border-radius:6px;background:var(--navy);color:var(--gold-light);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.resumen-title{font-weight:500;color:var(--navy);font-size:14px}
+.resumen-exp{font-size:12px;color:var(--muted);margin-top:2px}
+.promesa-modal{background:var(--navy);border-radius:12px;padding:18px 20px;margin:18px 0}
+.promesa-modal h4{font-family:'Playfair Display',serif;font-size:16px;color:var(--gold-light);margin-bottom:7px}
+.promesa-modal p{font-size:13.5px;color:rgba(255,255,255,.72);line-height:1.6}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;padding-top:10px;flex-wrap:wrap}
+.btn-secondary{background:transparent;border:1.5px solid var(--border);border-radius:8px;padding:9px 18px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;color:var(--muted);transition:background .2s}
+.btn-secondary:hover{background:var(--cream)}
+.btn-wa{background:#25d366;border:none;border-radius:8px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;color:#fff;display:flex;align-items:center;gap:8px;transition:background .2s,transform .1s;text-decoration:none}
+.btn-wa:hover{background:#1ebe5d}
+.btn-wa:active{transform:scale(.97)}
+.empty-state{text-align:center;padding:28px;color:var(--muted);font-size:14px}
+
+footer{background:var(--navy);color:rgba(255,255,255,.4);text-align:center;padding:22px;font-size:13px}
+footer strong{color:var(--gold-light)}
+@media print{#welcomeOverlay,#profileBanner,.selector-banner,.topic-checkbox,.modal-overlay{display:none!important}.topic-card{break-inside:avoid}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<!-- WELCOME / SELECTOR DE PERFIL -->
+<div id="welcomeOverlay">
+  <div class="welcome-box">
+    <div class="welcome-logo"><div class="dot"></div><span>Colegio de Contadores Públicos de Loreto</span></div>
+    <h1>XI Convención Nacional de<br><em>Contabilidad Gubernamental</em><br>y Gestión Pública</h1>
+    <p class="lead">El <strong>CPC Jorge Luis Santana Sifuentes</strong>, Decano del CCPL Loreto, le invita a marcar los temas de su interés. <strong>Recibirá un análisis con su visión aplicada a su sector</strong>, antes del inicio del evento el 23 de abril.</p>
+    <div class="gold-line"></div>
+    <h2>¿Desde qué posición llega usted a este evento?</h2>
+    <div class="profile-grid">
+      <button class="profile-btn" data-p="cpc" onclick="selectProfile('cpc')">
+        <span class="icon">⚖️</span>
+        <span class="ptitle">Decano CPC / Contador</span>
+        <span class="psub">Colegio de Contadores, CPC independiente o gremio contable</span>
+      </button>
+      <button class="profile-btn" data-p="pub" onclick="selectProfile('pub')">
+        <span class="icon">🏛️</span>
+        <span class="ptitle">Autoridad Pública</span>
+        <span class="psub">Gobernador, Alcalde, Gerente de Contabilidad, funcionario de gestión pública</span>
+      </button>
+      <button class="profile-btn" data-p="acad" onclick="selectProfile('acad')">
+        <span class="icon">🎓</span>
+        <span class="ptitle">Académico / Universidad</span>
+        <span class="psub">Rector, Decano de Facultad de Contabilidad, Derecho o Gestión Pública</span>
+      </button>
+      <button class="profile-btn" data-p="tec" onclick="selectProfile('tec')">
+        <span class="icon">🔍</span>
+        <span class="ptitle">Técnico Institucional</span>
+        <span class="psub">Contraloría, Colegio de Abogados, OSCE, entidad de control o supervisión</span>
+      </button>
+    </div>
+    <div class="welcome-event-meta">
+      <div class="welcome-meta-pill"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 23–25 de abril de 2026</div>
+      <div class="welcome-meta-pill"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg> Puerto Maldonado, Madre de Dios</div>
+      <div class="welcome-meta-pill"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> 12 ponencias · 4 países</div>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="ccpl-badge"><div class="dot"></div><span>Colegio de Contadores Públicos de Loreto</span></div>
+    <h1>XI Convención Nacional de<br><em>Contabilidad Gubernamental</em><br>y Gestión Pública</h1>
+    <p class="subtitle">Programa académico completo con posición del CCPL Loreto — Puerto Maldonado, abril 2026</p>
+    <div class="event-meta">
+      <div class="meta-pill"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 23, 24 y 25 de abril de 2026</div>
+      <div class="meta-pill"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg> Puerto Maldonado · Auditorio UNAMAD</div>
+      <div class="meta-pill"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> 12 expositores nacionales e internacionales</div>
+    </div>
+  </div>
+  <div class="hero-divider"></div>
+</header>
+
+<!-- PERFIL ACTIVO -->
+<div id="profileBanner">
+  <div class="perfil-info">
+    <div class="perfil-chip" id="perfilChip"></div>
+    <span style="font-size:13px;color:rgba(255,255,255,.55)">Los temas resaltados son los más relevantes para su perfil</span>
+  </div>
+  <button class="cambiar-btn" onclick="cambiarPerfil()">Cambiar perfil</button>
+</div>
+
+<!-- SELECTOR STICKY -->
+<div class="selector-banner">
+  <div class="selector-info">Marque los temas de su interés: <strong id="count-label">0 seleccionados</strong></div>
+  <button class="btn-generar" onclick="openModal()">Enviar mi selección →</button>
+</div>
+
+<!-- PROMESA INSTITUCIONAL -->
+<section class="promesa-section">
+  <div class="promesa-inner">
+    <div class="promesa-card">
+      <div>
+        <h3>¿Qué recibirá usted a cambio?</h3>
+        <p id="promesaTexto">El CPC Jorge Luis Santana Sifuentes, Decano del CCPL Loreto, elaborará y compartirá — <strong style="color:#fff">antes del 23 de abril</strong> — un documento con su análisis técnico de cada ponencia y su visión de aplicación al contexto de Loreto y la Amazonía peruana, dirigido específicamente a su sector.</p>
+      </div>
+      <div class="decano-pill">
+        <div class="decano-avatar">JS</div>
+        <div>
+          <div class="decano-name">CPC Jorge Luis Santana Sifuentes</div>
+          <div class="decano-title">Decano — CCPL Loreto</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRAMA -->
+<main class="programa">
+
+  <!-- DÍA 1 -->
+  <div class="day-block">
+    <div class="day-header">
+      <div class="day-badge" style="background:var(--day1)"><div class="num">01</div><div class="lbl">Día</div></div>
+      <div class="day-info"><h3>Fundamentos y Responsabilidad</h3><div class="date-str">Jueves 23 de Abril · 3 ponencias</div></div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,acad,tec" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">1</div>
+        <div class="topic-body">
+          <div class="topic-title">Avances en la Modernización del Sistema Nacional de Contabilidad e Implementación de las NICSP en el País</div>
+          <div class="topic-expositor"><strong>MBA. CPC. Oscar Gustavo Núñez del Arco Mendoza</strong> — Director General de Contabilidad Pública · MEF</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span><span class="tag tag-tec">Técnico Institucional</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Transición de la contabilidad de <em>base de caja</em> a <em>base de devengado</em>. Las NICSP buscan que los estados financieros reflejen la realidad económica completa del Estado, no solo el movimiento de efectivo.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,tec,pub" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">2</div>
+        <div class="topic-body">
+          <div class="topic-title">Responsabilidad Administrativa Funcional en la Gestión Pública</div>
+          <div class="topic-expositor"><strong>Mg. Abg. Cesar Enrique Aguilar Surichaqui</strong> — Contralor General de la República</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-tec">Técnico Institucional</span><span class="tag tag-pub">Autoridad Pública</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">La potestad sancionadora de la Contraloría ante funcionarios que incumplen sus deberes. La omisión de registros o alteración de cifras puede derivar en faltas graves o muy graves con consecuencias penales y administrativas.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,acad" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">3</div>
+        <div class="topic-body">
+          <div class="topic-title">Contabilidad de Software y Activos Intangibles generados internamente</div>
+          <div class="topic-expositor"><strong>Mg. Judith Tania Apaza Marca</strong> — Miembro IPSASB / IFAC · Bolivia</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Basado en NICSP 31. Cómo registrar programas informáticos y desarrollos propios: diferencia entre gastos de <em>investigación</em> (al gasto) y de <em>desarrollo</em> (se capitalizan), y cálculo correcto de obsolescencia tecnológica.</div>
+    </div>
+  </div>
+
+  <!-- DÍA 2 -->
+  <div class="day-block">
+    <div class="day-header">
+      <div class="day-badge" style="background:var(--day2)"><div class="num">02</div><div class="lbl">Día</div></div>
+      <div class="day-info"><h3>Normas, Planificación y Activos</h3><div class="date-str">Viernes 24 de Abril · 6 ponencias</div></div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,acad" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">4</div>
+        <div class="topic-body">
+          <div class="topic-title">Últimas NICSP y desafíos de la contabilidad gubernamental hacia la transparencia</div>
+          <div class="topic-expositor"><strong>CPA. Agustina Llambi</strong> — Directora del IPSASB · Canadá <span class="virtual-badge">Virtual</span></div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">El IPSASB actualiza las normas para incluir sostenibilidad y reportes no financieros. El desafío: que la contabilidad sea herramienta de ética y rendición de cuentas clara para el ciudadano, no solo un registro interno.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,acad" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">5</div>
+        <div class="topic-body">
+          <div class="topic-title">Planeamiento estratégico: Programas Presupuestales y ODS 2030</div>
+          <div class="topic-expositor"><strong>CPC. Loli Jhover Chávez Cabrera</strong> — Director General de Presupuesto Público · MEF</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-acad">Académico</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Articulación entre el presupuesto público y los Objetivos de Desarrollo Sostenible. Cómo el gasto debe alinearse a metas concretas —reducción de pobreza, acceso a servicios— y cómo medir ese impacto financieramente.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,tec" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">6</div>
+        <div class="topic-body">
+          <div class="topic-title">Nueva Ley de Contrataciones y su incidencia en la Programación Multianual</div>
+          <div class="topic-expositor"><strong>Abog. Laura Lisset Gutiérrez Gonzales</strong> — Ex Presidenta Ejecutiva del OSCE</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-tec">Técnico Institucional</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">La normativa de compras exige planificación a tres años. Obliga a previsiones presupuestarias y compromisos anuales más precisos para evitar desabastecimiento o gasto ineficiente en la gestión pública.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,tec" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">7</div>
+        <div class="topic-body">
+          <div class="topic-title">Liquidación y transferencia de proyectos e inversión pública — Obras paralizadas</div>
+          <div class="topic-expositor"><strong>Dr. CPC. Marlon Ivan Prieto Hormaza</strong> — Especialista Normativo DGCP · MEF</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-key">🔑 Clave para Loreto</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Bajo NICSP, una obra paralizada debe evaluarse por <em>deterioro</em>: si no se terminará, su valor contable debe ajustarse para no inflar los activos del Estado con infraestructuras inservibles. Tema de alta incidencia en Loreto.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,acad" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">8</div>
+        <div class="topic-body">
+          <div class="topic-title">Experiencias y buenas prácticas de transición al marco NICSP de Ecuador</div>
+          <div class="topic-expositor"><strong>Dr. Alexei Estrella Morales</strong> — Vicepresidente del Comité Técnico AIC · Ecuador</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Ecuador ha avanzado en depuración de cuentas, sirviendo como hoja de ruta para entidades peruanas con problemas similares de saldos contables antiguos. Análisis comparativo de aplicación regional.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,tec" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">9</div>
+        <div class="topic-body">
+          <div class="topic-title">Toma de Inventario Físico y Conciliación Contable (Propiedades, Planta y Equipo)</div>
+          <div class="topic-expositor"><strong>CPC. Juan Francisco Aranibar Romero</strong> — Presidente del Comité Técnico Nacional de Contabilidad Gubernamental</div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-tec">Técnico Institucional</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Basado en NICSP 17. Asegurar que lo que existe físicamente en almacenes y oficinas coincida con los libros contables. Es el paso previo indispensable para cualquier auditoría exitosa.</div>
+    </div>
+  </div>
+
+  <!-- DÍA 3 -->
+  <div class="day-block">
+    <div class="day-header">
+      <div class="day-badge" style="background:var(--day3)"><div class="num">03</div><div class="lbl">Día</div></div>
+      <div class="day-info"><h3>Sostenibilidad, Simplificación y Valor Público</h3><div class="date-str">Sábado 25 de Abril · 3 ponencias</div></div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,acad,pub" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">10</div>
+        <div class="topic-body">
+          <div class="topic-title">Contabilidad de la Biodiversidad y Recursos Naturales</div>
+          <div class="topic-expositor"><strong>MBA. Jesús Araya Zúniga</strong> — Dirección Gral. de Contabilidad · Costa Rica <span class="virtual-badge">Virtual</span></div>
+          <div class="topic-tags"><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span><span class="tag tag-key">🌿 Estratégico para Loreto y Amazonía</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Cómo valorar económicamente los servicios ecosistémicos y recursos naturales. El IPSASB trabaja en normas para que la protección ambiental se refleje como activo en las finanzas públicas — de altísima relevancia para la Amazonía peruana.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,acad" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">11</div>
+        <div class="topic-body">
+          <div class="topic-title">Marco Contable Simplificado para entidades menos complejas</div>
+          <div class="topic-expositor"><strong>CPC. Juan Pablo Diaz Soria</strong> — Director de Normatividad · DGCP</div>
+          <div class="topic-tags"><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-key">🔑 Municipios rurales de Loreto</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">Marco para que entidades pequeñas —como los municipios rurales de Loreto— cumplan normas de calidad sin la complejidad técnica exigida a un Ministerio, facilitando la rendición de cuentas ante la ciudadanía.</div>
+    </div>
+
+    <div class="topic-card" data-profiles="cpc,pub,acad,tec" onclick="toggleCard(this)">
+      <div class="topic-card-header">
+        <div class="topic-num">12</div>
+        <div class="topic-body">
+          <div class="topic-title">Modernización de la Gestión de la Inversión Pública y Valor Público</div>
+          <div class="topic-expositor"><strong>Mg. Jesús Ruitón Cabanillas</strong> — Ex Director de Inversión Pública · MEF</div>
+          <div class="topic-tags"><span class="tag tag-pub">Autoridad Pública</span><span class="tag tag-cpc">Decanos CPC</span><span class="tag tag-acad">Académico</span><span class="tag tag-tec">Técnico Institucional</span></div>
+        </div>
+        <div class="topic-checkbox"><svg class="checkmark" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,11 12,3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="topic-context">El <em>Valor Público</em> como criterio de éxito: no solo ejecutar el presupuesto, sino generar un beneficio real y medible en la calidad de vida de la población. Se vincula directamente con el sistema Invierte.pe.</div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Su selección de temas</h2>
+      <p>XI GUBER Madre de Dios 2026 · CCPL Loreto</p>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>Su nombre completo</label><input type="text" id="inputNombre" placeholder="Nombres y apellidos"></div>
+        <div class="field"><label>Su institución</label><input type="text" id="inputInstitucion" placeholder="Nombre de su institución"></div>
+      </div>
+      <ul class="resumen-list" id="resumenList"></ul>
+      <div class="promesa-modal">
+        <h4 id="promesaModalTitle">Lo que recibirá a cambio</h4>
+        <p id="promesaModalText"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+        <a class="btn-wa" id="btnWhatsApp" href="#" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          Enviar al Decano Santana
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <strong>CPC Jorge Luis Santana Sifuentes</strong> · Decano — Colegio de Contadores Públicos de Loreto &nbsp;·&nbsp; ccploreto.org.pe
+</footer>
+
+<script>
+const PERFILES = {
+  cpc:{
+    label:'Decano CPC / Contador', icon:'⚖️', color:'#1a3560', bg:'#e8eef8',
+    bannerBg:'#1a3560',
+    promesaTitle:'Análisis técnico entre pares CPC',
+    promesa:'El CPC Santana compartirá con los Decanos y colegas contadores un documento técnico con el posicionamiento del CCPL Loreto en cada ponencia, incluyendo su perspectiva de aplicación en la región amazónica — entregado antes del inicio del evento.',
+    waIntro:'Estimado colega Decano, le hago llegar mi selección de temas de interés del XI GUBER 2026, en respuesta a la invitación del CCPL Loreto.'
+  },
+  pub:{
+    label:'Autoridad Pública', icon:'🏛️', color:'#6b2f00', bg:'#fff3e0',
+    bannerBg:'#8b3a00',
+    promesaTitle:'Síntesis ejecutiva para gestión pública',
+    promesa:'El Decano Santana preparará una síntesis ejecutiva de aplicación directa para la gestión pública regional: obras paralizadas, contrataciones, Invierte.pe y valor público — orientada específicamente a autoridades y funcionarios de Loreto.',
+    waIntro:'Estimado CPC Santana, le hago llegar los temas del XI GUBER que son de interés para nuestra gestión pública, en respuesta a su invitación.'
+  },
+  acad:{
+    label:'Académico / Universidad', icon:'🎓', color:'#1a4a2e', bg:'#e8f5e9',
+    bannerBg:'#1a4a2e',
+    promesaTitle:'Nota académica de actualización curricular',
+    promesa:'El Decano Santana elaborará una nota académica con las implicancias curriculares e investigativas de las ponencias NICSP, intangibles, biodiversidad y valor público — compartida con Decanos de Facultad y Rectores de la región Loreto.',
+    waIntro:'Estimado CPC Santana, le comparto los temas del XI GUBER que tienen relevancia académica e investigativa para nuestra institución educativa.'
+  },
+  tec:{
+    label:'Técnico Institucional', icon:'🔍', color:'#3b1a5e', bg:'#f3e5f5',
+    bannerBg:'#3b1a5e',
+    promesaTitle:'Posicionamiento interinstitucional CCPL Loreto',
+    promesa:'El CCPL Loreto compartirá su posicionamiento interinstitucional sobre responsabilidad funcional, contrataciones y conciliación contable — coordinado con la Contraloría Regional, el Colegio de Abogados y entidades de control de Loreto.',
+    waIntro:'Estimado CPC Santana, le hago llegar los temas del XI GUBER de interés para nuestra institución, en el marco del relacionamiento técnico propuesto por el CCPL Loreto.'
+  }
+};
+
+let currentProfile = null;
+
+function selectProfile(p) {
+  currentProfile = p;
+  document.getElementById('welcomeOverlay').style.display = 'none';
+  const prof = PERFILES[p];
+  const banner = document.getElementById('profileBanner');
+  const chip = document.getElementById('perfilChip');
+  chip.textContent = prof.icon + ' ' + prof.label;
+  chip.style.background = prof.bg;
+  chip.style.color = prof.color;
+  banner.style.background = prof.bannerBg;
+  banner.style.display = 'flex';
+  document.getElementById('promesaTexto').textContent = prof.promesa;
+  applyHighlight(p);
+}
+
+function applyHighlight(p) {
+  document.querySelectorAll('.topic-card').forEach(card => {
+    const profiles = card.dataset.profiles.split(',');
+    card.classList.toggle('highlighted', profiles.includes(p));
+    card.classList.toggle('dimmed', !profiles.includes(p));
+  });
+}
+
+function cambiarPerfil() {
+  document.getElementById('welcomeOverlay').style.display = 'flex';
+  document.querySelectorAll('.topic-card').forEach(c => c.classList.remove('dimmed','highlighted','selected'));
+  updateCount();
+}
+
+function toggleCard(card) {
+  if(card.classList.contains('dimmed')) return;
+  card.classList.toggle('selected');
+  updateCount();
+}
+
+function updateCount() {
+  const n = document.querySelectorAll('.topic-card.selected').length;
+  document.getElementById('count-label').textContent =
+    n===0 ? '0 seleccionados' : n===1 ? '1 tema seleccionado' : n+' temas seleccionados';
+}
+
+function getSelected() {
+  return Array.from(document.querySelectorAll('.topic-card.selected')).map(card => ({
+    num: card.querySelector('.topic-num').textContent.trim(),
+    title: card.querySelector('.topic-title').textContent.trim(),
+    expositor: card.querySelector('.topic-expositor strong').textContent.trim()
+  }));
+}
+
+function buildWaUrl(selected) {
+  const nombre = document.getElementById('inputNombre').value.trim() || '(sin nombre)';
+  const institucion = document.getElementById('inputInstitucion').value.trim() || '(sin institución)';
+  const prof = currentProfile ? PERFILES[currentProfile] : null;
+  const intro = prof ? prof.waIntro : 'Estimado CPC Santana, le comparto mi selección de temas del XI GUBER 2026.';
+  const temas = selected.length > 0
+    ? selected.map(s=>`• [${s.num}] ${s.title}`).join('\n')
+    : '(ningún tema marcado aún)';
+  const msg = `${intro}\n\n*Temas de interés:*\n${temas}\n\n---\n${nombre}\n${institucion}`;
+  return 'https://wa.me/51966667369?text=' + encodeURIComponent(msg);
+}
+
+function openModal() {
+  const selected = getSelected();
+  const list = document.getElementById('resumenList');
+  list.innerHTML = selected.length === 0
+    ? '<div class="empty-state">No ha marcado ningún tema aún.<br>Haga clic sobre las tarjetas del programa para seleccionarlos.</div>'
+    : selected.map(s=>`<li><div class="resumen-num">${s.num}</div><div><div class="resumen-title">${s.title}</div><div class="resumen-exp">${s.expositor}</div></div></li>`).join('');
+  const prof = currentProfile ? PERFILES[currentProfile] : null;
+  document.getElementById('promesaModalTitle').textContent = prof ? prof.promesaTitle : 'Lo que recibirá a cambio';
+  document.getElementById('promesaModalText').textContent = prof ? prof.promesa : '';
+  document.getElementById('btnWhatsApp').href = buildWaUrl(selected);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+['inputNombre','inputInstitucion'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    document.getElementById('btnWhatsApp').href = buildWaUrl(getSelected());
+  });
+});
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
+</script>
+</body>
+</html>
