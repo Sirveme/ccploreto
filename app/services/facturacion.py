@@ -634,10 +634,22 @@ class FacturacionService:
         linea_pago = self._construir_linea_pago(payment)
 
         # ── Buscar deudas pagadas para armar L1 ──
-        deudas_pagadas = self.db.query(Debt).filter(
-            Debt.colegiado_id == payment.colegiado_id,
-            Debt.status == "paid"
-        ).order_by(Debt.periodo.asc()).limit(12).all()
+        # FIX: usar solo deudas mencionadas en payment.notes
+        notas = payment.notes or ""
+        deudas_pagadas = []
+        if payment.colegiado_id:
+            todas = self.db.query(Debt).filter(
+                Debt.colegiado_id == payment.colegiado_id,
+                Debt.status == "paid"
+            ).order_by(Debt.periodo.asc()).all()
+            # Filtrar solo las que están en las notas del pago
+            deudas_pagadas = [
+                d for d in todas
+                if d.concept and d.concept in notas
+            ]
+            # Fallback: si el filtro no encontró nada, usar lista vacía
+            if not deudas_pagadas:
+                deudas_pagadas = []
 
         if deudas_pagadas:
             conceptos = {}
@@ -682,7 +694,8 @@ class FacturacionService:
 
         # ── Fallback: sin deudas asociadas ──
         if not items:
-            linea_1 = payment.notes or "Pago de cuotas de colegiatura"
+            descripcion_raw = notas.replace("[CAJA] ", "").split("\n")[0]
+            linea_1 = descripcion_raw if descripcion_raw else "Pago de cuotas de colegiatura"
 
             descripcion = linea_1.upper()
             if linea_nombre:
