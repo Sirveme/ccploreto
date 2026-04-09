@@ -27,7 +27,7 @@ MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 # Condiciones que excluyen al colegiado de generar deuda
-CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido', 'candidato_retiro'}
+CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido'}
 
 
 # ═══════════════════════════════════════════════════════════════
