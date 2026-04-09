@@ -371,7 +371,7 @@ def create_session_response(user, member, db=None):
     elif member.role in ["cajero", "tesorero"]:
         target_url = "/caja"
     elif member.role == "secretaria":
-        target_url = "/mesa-partes"
+        target_url = "/secretaria"
     elif member.role == "colegiado":
         if db:
             col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
