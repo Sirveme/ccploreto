@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 PERU_TZ = timezone(timedelta(hours=-5))
 
-ROLES_SECRETARIA = ("secretaria", "cajero", "tesorero", "admin")
+ROLES_SECRETARIA = ("secretaria", "cajero", "tesorero", "admin", "sote")
 
 # ============================================================
 # ROUTER API
@@ -61,6 +61,7 @@ class BuscarColegiadoResponse(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     condicion: Optional[str] = None
+    habilidad_vence: Optional[str] = None
     total_deuda: float = 0
     deudas_pendientes: int = 0
 
@@ -91,6 +92,8 @@ class RegistrarPagoRequest(BaseModel):
     nota: Optional[str] = None
     emitir_comprobante: bool = False
     tipo_comprobante: str = "03"
+    forzar_condicion: Optional[str] = None  # null | "habil" | "inhabil"
+    habilidad_vence: Optional[str] = None   # "2026-12-31"
 
 
 class RegistrarPagoResponse(BaseModel):
@@ -167,6 +170,7 @@ async def buscar_colegiado(
             email=col.email,
             telefono=col.telefono,
             condicion=col.condicion,
+            habilidad_vence=col.habilidad_vence.strftime("%d/%m/%Y") if col.habilidad_vence else None,
             total_deuda=float(deudas_info.total or 0),
             deudas_pendientes=int(deudas_info.cantidad or 0),
         ))
@@ -212,6 +216,7 @@ async def obtener_deudas(
             "codigo_matricula": colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
             "condicion": colegiado.condicion,
+            "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
         },
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
@@ -276,8 +281,11 @@ async def registrar_pago(
     if len(descripciones) > 5:
         descripcion_pago += f" (+{len(descripciones) - 5} más)"
 
-    # ── Nota completa ──
-    nota_payment = f"[SECRETARIA] {descripcion_pago}"
+    # ── Nota completa con identificación del operador ──
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+    nota_payment = f"[SECRETARIA] DNI:{operador_dni} {ahora.strftime('%d/%m/%Y %H:%M')} - {descripcion_pago}"
     if pago.nro_operacion:
         nota_payment += f" | Op: {pago.nro_operacion}"
     if pago.nota:
@@ -301,6 +309,8 @@ async def registrar_pago(
     for deuda in deudas:
         deuda.status = "paid"
         deuda.balance = 0
+        deuda.notes = (deuda.notes or "") + f"\n[SECRETARIA:{operador_dni}] Pagado {ahora.strftime('%d/%m/%Y %H:%M')}"
+        deuda.notes = deuda.notes.strip()
 
     db.commit()
 
@@ -309,6 +319,20 @@ async def registrar_pago(
     cambio = sincronizar_condicion(db, colegiado, org_data)
     if cambio:
         db.commit()
+
+    # ── FORZAR CONDICIÓN (si se solicitó) ──
+    if pago.forzar_condicion in ("habil", "inhabil"):
+        colegiado.condicion = pago.forzar_condicion
+        colegiado.fecha_actualizacion_condicion = ahora
+        if pago.forzar_condicion == "habil" and pago.habilidad_vence:
+            try:
+                colegiado.habilidad_vence = datetime.strptime(pago.habilidad_vence, "%Y-%m-%d").replace(tzinfo=PERU_TZ)
+            except ValueError:
+                pass
+        elif pago.forzar_condicion == "inhabil":
+            colegiado.habilidad_vence = None
+        db.commit()
+        logger.info(f"SECRETARIA forzó condición={pago.forzar_condicion} para colegiado {colegiado.id} por operador DNI:{operador_dni}")
 
     db.refresh(colegiado)
     nueva_condicion = colegiado.condicion
@@ -354,3 +378,81 @@ async def registrar_pago(
         nueva_condicion=nueva_condicion,
         **comprobante_info,
     )
+
+
+# ============================================================
+# ACTUALIZAR CONDICIÓN (independiente de pagos)
+# ============================================================
+
+class ActualizarCondicionRequest(BaseModel):
+    colegiado_id: int
+    condicion: str  # "habil" | "inhabil"
+    habilidad_vence: Optional[str] = None  # "2026-12-31"
+    motivo: Optional[str] = None
+
+
+@router.post("/actualizar-condicion")
+async def actualizar_condicion(
+    datos: ActualizarCondicionRequest,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Actualiza condición de habilidad de un colegiado.
+    Independiente del registro de pagos.
+    """
+    ahora = datetime.now(PERU_TZ)
+
+    if datos.condicion not in ("habil", "inhabil"):
+        raise HTTPException(400, detail="Condición debe ser 'habil' o 'inhabil'")
+
+    colegiado = db.query(Colegiado).filter(Colegiado.id == datos.colegiado_id).first()
+    if not colegiado:
+        raise HTTPException(404, detail="Colegiado no encontrado")
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+
+    condicion_anterior = colegiado.condicion
+
+    # ── Actualizar condición ──
+    colegiado.condicion = datos.condicion
+    colegiado.fecha_actualizacion_condicion = ahora
+
+    if datos.condicion == "habil":
+        if datos.habilidad_vence:
+            try:
+                colegiado.habilidad_vence = datetime.strptime(
+                    datos.habilidad_vence, "%Y-%m-%d"
+                ).replace(tzinfo=PERU_TZ)
+            except ValueError:
+                raise HTTPException(400, detail="Formato de fecha inválido (usar YYYY-MM-DD)")
+        else:
+            colegiado.habilidad_vence = datetime(2026, 12, 31, tzinfo=PERU_TZ)
+        colegiado.motivo_inhabilidad = None
+    else:
+        colegiado.habilidad_vence = None
+        colegiado.motivo_inhabilidad = datos.motivo
+
+    # ── Auditoría ──
+    vence_str = colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else "—"
+    nota_audit = (
+        f"[SECRETARIA:{operador_dni}] Condición: {condicion_anterior}→{datos.condicion}"
+        f" hasta {vence_str}."
+    )
+    if datos.motivo:
+        nota_audit += f" Motivo: {datos.motivo}"
+
+    logger.info(nota_audit + f" | colegiado_id={colegiado.id}")
+
+    db.commit()
+    db.refresh(colegiado)
+
+    return {
+        "ok": True,
+        "condicion": colegiado.condicion,
+        "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+        "mensaje": f"Condición actualizada a {datos.condicion.upper()}"
+                   + (f" hasta {vence_str}" if datos.condicion == "habil" else ""),
+    }
