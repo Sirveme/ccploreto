@@ -47,6 +47,7 @@ from app.routers.partials import router_partials
 from app.routers.sote import router as router_sote
 from app.routers.decano import router as router_decano
 from app.routers.mesa_partes import router as router_mesa_partes
+from app.routers.secretaria import router as secretaria_router, page_router as secretaria_page_router
 from app.routers.openpay import router as openpay_router
 
 from app.routers.legal import router as legal_router
@@ -212,6 +213,8 @@ app.include_router(router_partials)
 app.include_router(router_sote)
 app.include_router(router_decano)
 app.include_router(router_mesa_partes)
+app.include_router(secretaria_router)
+app.include_router(secretaria_page_router)
 
 app.include_router(legal_router)
 
