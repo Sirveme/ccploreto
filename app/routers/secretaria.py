@@ -78,6 +78,7 @@ class DeudaResponse(BaseModel):
     saldo: float = 0
     fecha_vencimiento: Optional[str] = None
     estado: str
+    debt_type: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -207,6 +208,7 @@ async def obtener_deudas(
             saldo=saldo,
             fecha_vencimiento=d.due_date.strftime("%d/%m/%Y") if d.due_date else None,
             estado=d.status,
+            debt_type=d.debt_type,
         ))
 
     return {
@@ -309,6 +311,7 @@ async def registrar_pago(
     for deuda in deudas:
         deuda.status = "paid"
         deuda.balance = 0
+        deuda.updated_by = current_member.user_id
         deuda.notes = (deuda.notes or "") + f"\n[SECRETARIA:{operador_dni}] Pagado {ahora.strftime('%d/%m/%Y %H:%M')}"
         deuda.notes = deuda.notes.strip()
 
@@ -455,4 +458,126 @@ async def actualizar_condicion(
         "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
         "mensaje": f"Condición actualizada a {datos.condicion.upper()}"
                    + (f" hasta {vence_str}" if datos.condicion == "habil" else ""),
+    }
+
+
+# ============================================================
+# JUSTIFICAR DEUDA (multas)
+# ============================================================
+
+class JustificarDeudaRequest(BaseModel):
+    deuda_id: int
+    motivo: str
+    nro_documento: Optional[str] = None
+
+
+@router.post("/justificar-deuda")
+async def justificar_deuda(
+    datos: JustificarDeudaRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Justifica una deuda (multa). La marca como pagada con estado_gestion='justificada'."""
+    ahora = datetime.now(PERU_TZ)
+
+    deuda = db.query(Debt).filter(
+        Debt.id == datos.deuda_id,
+        Debt.status.in_(["pending", "partial"]),
+    ).first()
+    if not deuda:
+        raise HTTPException(404, detail="Deuda no encontrada o ya pagada")
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+
+    deuda.status = "paid"
+    deuda.balance = 0
+    deuda.estado_gestion = "justificada"
+    deuda.updated_by = current_member.user_id
+
+    nota_doc = f" Doc: {datos.nro_documento}" if datos.nro_documento else ""
+    deuda.notes = (
+        (deuda.notes or "")
+        + f"\n[SECRETARIA:{operador_dni}] Justificada: {datos.motivo}.{nota_doc}"
+    ).strip()
+
+    db.commit()
+
+    # Recalcular condición
+    colegiado = db.query(Colegiado).filter(Colegiado.id == deuda.colegiado_id).first()
+    if colegiado:
+        org_data = getattr(request.state, "org", None) or {}
+        cambio = sincronizar_condicion(db, colegiado, org_data)
+        if cambio:
+            db.commit()
+        db.refresh(colegiado)
+
+    return {
+        "ok": True,
+        "mensaje": f"Deuda justificada: {deuda.concept or 'Cuota'} {deuda.periodo or ''}",
+        "nueva_condicion": colegiado.condicion if colegiado else None,
+    }
+
+
+# ============================================================
+# CONDONAR DEUDA
+# ============================================================
+
+class CondonarDeudaRequest(BaseModel):
+    deuda_id: int
+    tipo_condona: str  # Acuerdo de Directiva, Asamblea, Resolución, Otro
+    nro_acuerdo: Optional[str] = None
+    observaciones: Optional[str] = None
+
+
+@router.post("/condonar-deuda")
+async def condonar_deuda(
+    datos: CondonarDeudaRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Condona una deuda. La marca como pagada con estado_gestion='condonada'."""
+    ahora = datetime.now(PERU_TZ)
+
+    deuda = db.query(Debt).filter(
+        Debt.id == datos.deuda_id,
+        Debt.status.in_(["pending", "partial"]),
+    ).first()
+    if not deuda:
+        raise HTTPException(404, detail="Deuda no encontrada o ya pagada")
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+
+    deuda.status = "paid"
+    deuda.balance = 0
+    deuda.estado_gestion = "condonada"
+    deuda.updated_by = current_member.user_id
+
+    nro = f" {datos.nro_acuerdo}" if datos.nro_acuerdo else ""
+    obs = f" {datos.observaciones}" if datos.observaciones else ""
+    deuda.notes = (
+        (deuda.notes or "")
+        + f"\n[SECRETARIA:{operador_dni}] Condonada: {datos.tipo_condona}{nro}.{obs}"
+    ).strip()
+
+    db.commit()
+
+    # Recalcular condición
+    colegiado = db.query(Colegiado).filter(Colegiado.id == deuda.colegiado_id).first()
+    if colegiado:
+        org_data = getattr(request.state, "org", None) or {}
+        cambio = sincronizar_condicion(db, colegiado, org_data)
+        if cambio:
+            db.commit()
+        db.refresh(colegiado)
+
+    return {
+        "ok": True,
+        "mensaje": f"Deuda condonada: {deuda.concept or 'Cuota'} {deuda.periodo or ''}",
+        "nueva_condicion": colegiado.condicion if colegiado else None,
     }
