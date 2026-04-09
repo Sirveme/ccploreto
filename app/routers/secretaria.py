@@ -225,6 +225,89 @@ async def obtener_deudas(
     }
 
 
+MESES_NOMBRE = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
+}
+
+
+@router.get("/deudas-completas/{colegiado_id}")
+async def deudas_completas(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Retorna TODAS las deudas del colegiado separadas en dos grupos:
+    - hasta_2025: deudas con periodo <= '2025-12'
+    - anio_2026: deudas con periodo >= '2026-01' (incluye virtuales para meses sin deuda)
+    """
+    colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not colegiado:
+        raise HTTPException(404, detail="Colegiado no encontrado")
+
+    # Todas las deudas (excluir condonada/compensada ya resueltas)
+    deudas = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado_id,
+        ~Debt.estado_gestion.in_(["compensada"]),
+    ).order_by(Debt.periodo.asc()).all()
+
+    hasta_2025 = []
+    anio_2026 = {}
+
+    for d in deudas:
+        item = {
+            "id": d.id,
+            "concept": d.concept or "Cuota",
+            "period_label": d.period_label or (str(d.periodo) if d.periodo else ""),
+            "periodo": str(d.periodo) if d.periodo else "",
+            "amount": float(d.amount or 0),
+            "balance": float(d.balance or 0),
+            "status": d.status,
+            "estado_gestion": d.estado_gestion or "vigente",
+            "debt_type": d.debt_type or "cuota_ordinaria",
+        }
+
+        periodo = str(d.periodo or "")
+        if periodo >= "2026-01" and periodo <= "2026-12":
+            anio_2026[periodo] = item
+        elif periodo < "2026-01" or not periodo:
+            hasta_2025.append(item)
+
+    # Generar filas virtuales para meses 2026 sin deuda
+    anio_2026_lista = []
+    for mes in range(1, 13):
+        periodo_key = f"2026-{mes:02d}"
+        if periodo_key in anio_2026:
+            anio_2026_lista.append(anio_2026[periodo_key])
+        else:
+            anio_2026_lista.append({
+                "id": None,
+                "concept": f"Cuota Ordinaria {MESES_NOMBRE[mes]} 2026",
+                "period_label": f"{MESES_NOMBRE[mes]} 2026",
+                "periodo": periodo_key,
+                "amount": 0,
+                "balance": 0,
+                "status": "no_generada",
+                "estado_gestion": "no_generada",
+                "debt_type": "cuota_ordinaria",
+            })
+
+    return {
+        "colegiado": {
+            "id": colegiado.id,
+            "dni": colegiado.dni,
+            "codigo_matricula": colegiado.codigo_matricula,
+            "apellidos_nombres": colegiado.apellidos_nombres,
+            "condicion": colegiado.condicion,
+            "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+        },
+        "hasta_2025": hasta_2025,
+        "anio_2026": anio_2026_lista,
+    }
+
+
 @router.post("/registrar-pago", response_model=RegistrarPagoResponse)
 async def registrar_pago(
     pago: RegistrarPagoRequest,
