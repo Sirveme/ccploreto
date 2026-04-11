@@ -105,6 +105,8 @@ class RegistrarPagoResponse(BaseModel):
     deudas_actualizadas: int = 0
     total_pagado: float = 0
     nueva_condicion: Optional[str] = None
+    habilidad_vence: Optional[str] = None
+    nota_habilidad: Optional[str] = None
     comprobante_emitido: Optional[bool] = None
     comprobante_numero: Optional[str] = None
     comprobante_pdf: Optional[str] = None
@@ -449,6 +451,38 @@ async def registrar_pago(
     if cambio:
         db.commit()
 
+    # ── REGLA 3 MESES: pago de Diciembre sin multas → habilidad hasta 31/03 siguiente ──
+    nota_habilidad_extra = None
+    meses_dic = [
+        d for d in deudas
+        if d.periodo and str(d.periodo).endswith("-12")
+    ]
+    # La regla aplica solo cuando el pago cubre completamente diciembre
+    # (no aplica a pagos parciales sobre la cuota de diciembre).
+    if meses_dic and not es_pago_parcial:
+        multas_pendientes = db.query(Debt).filter(
+            Debt.colegiado_id == pago.colegiado_id,
+            Debt.debt_type == "multa",
+            Debt.status.in_(["pending", "partial"]),
+            ~Debt.estado_gestion.in_(["condonada", "justificada", "compensada", "exonerada"]),
+        ).count()
+
+        if multas_pendientes == 0:
+            anio_dic = int(str(meses_dic[0].periodo)[:4])
+            nueva_vence = datetime(anio_dic + 1, 3, 31, tzinfo=PERU_TZ)
+            colegiado.habilidad_vence = nueva_vence
+            colegiado.condicion = "habil"
+            colegiado.fecha_actualizacion_condicion = ahora
+            db.commit()
+            nota_habilidad_extra = (
+                f"Vigencia extendida 3 meses por pago completo del año "
+                f"{anio_dic} — hábil hasta 31/03/{anio_dic + 1}"
+            )
+            logger.info(
+                f"SECRETARIA regla +3 meses aplicada para colegiado {colegiado.id}: "
+                f"habilidad_vence={nueva_vence.date()}"
+            )
+
     # ── FORZAR CONDICIÓN (si se solicitó) ──
     if pago.forzar_condicion in ("habil", "inhabil"):
         colegiado.condicion = pago.forzar_condicion
@@ -503,6 +537,13 @@ async def registrar_pago(
         if es_pago_parcial
         else f"Pago registrado: S/ {total:.2f} ({pago.metodo_pago})"
     )
+
+    habilidad_vence_str = (
+        colegiado.habilidad_vence.strftime("%d/%m/%Y")
+        if colegiado.habilidad_vence
+        else None
+    )
+
     return RegistrarPagoResponse(
         success=True,
         mensaje=mensaje_pago,
@@ -510,6 +551,8 @@ async def registrar_pago(
         deudas_actualizadas=len(deudas),
         total_pagado=total,
         nueva_condicion=nueva_condicion,
+        habilidad_vence=habilidad_vence_str,
+        nota_habilidad=nota_habilidad_extra,
         **comprobante_info,
     )
 
