@@ -377,6 +377,12 @@ async def gestion2026(request: Request):
     return FileResponse("app/templates/guber2026.html")
 
 
+# VIDEOS - COMUNICACIÓN - LANZAMIENTO
+@app.get("/darwin")
+async def darwin(request: Request):
+    return FileResponse("app/templates/darwin.html")
+
+
 if os.getenv("ENVIRONMENT", "development") != "production":
     from app.routers.dev_tools import router as dev_router
     app.include_router(dev_router)
