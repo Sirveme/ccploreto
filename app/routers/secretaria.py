@@ -91,6 +91,7 @@ class RegistrarPagoRequest(BaseModel):
     nro_operacion: Optional[str] = None
     fecha_pago: Optional[str] = None
     nota: Optional[str] = None
+    monto_pagado: Optional[float] = None  # Pago parcial (solo válido para 1 sola deuda)
     emitir_comprobante: bool = False
     tipo_comprobante: str = "03"
     forzar_condicion: Optional[str] = None  # null | "habil" | "inhabil"
@@ -267,6 +268,7 @@ async def deudas_completas(
             "status": d.status,
             "estado_gestion": d.estado_gestion or "vigente",
             "debt_type": d.debt_type or "cuota_ordinaria",
+            "fraccionamiento_id": d.fraccionamiento_id,
         }
 
         periodo = str(d.periodo or "")
@@ -354,8 +356,34 @@ async def registrar_pago(
             detail=f"Deudas no válidas o ya pagadas: {list(faltantes)}"
         )
 
-    # ── Calcular total ──
-    total = sum(float(d.balance or d.amount or 0) for d in deudas)
+    # ── Determinar si es pago parcial (solo aceptado para 1 sola deuda) ──
+    es_pago_parcial = False
+    monto_parcial = None
+    if pago.monto_pagado is not None:
+        if len(deudas) != 1:
+            raise HTTPException(
+                400,
+                detail="El pago parcial solo se permite para una sola deuda a la vez"
+            )
+        monto_parcial = float(pago.monto_pagado)
+        if monto_parcial <= 0:
+            raise HTTPException(400, detail="El monto pagado debe ser mayor a 0")
+
+        saldo_actual = float(deudas[0].balance or deudas[0].amount or 0)
+        if monto_parcial > saldo_actual + 0.009:
+            raise HTTPException(
+                400,
+                detail=f"Monto (S/ {monto_parcial:.2f}) supera el saldo pendiente (S/ {saldo_actual:.2f})"
+            )
+        # Si es menor al saldo → parcial; si es igual o prácticamente igual → total
+        if monto_parcial < saldo_actual - 0.009:
+            es_pago_parcial = True
+
+    # ── Calcular total cobrado ──
+    if es_pago_parcial:
+        total = monto_parcial
+    else:
+        total = sum(float(d.balance or d.amount or 0) for d in deudas)
 
     # ── Descripción del pago ──
     descripciones = [
@@ -365,6 +393,8 @@ async def registrar_pago(
     descripcion_pago = "; ".join(descripciones[:5])
     if len(descripciones) > 5:
         descripcion_pago += f" (+{len(descripciones) - 5} más)"
+    if es_pago_parcial:
+        descripcion_pago += " [PARCIAL]"
 
     # ── Nota completa con identificación del operador ──
     operador_dni = ""
@@ -390,13 +420,26 @@ async def registrar_pago(
     db.add(payment)
     db.flush()
 
-    # ── MARCAR DEUDAS COMO PAGADAS ──
-    for deuda in deudas:
-        deuda.status = "paid"
-        deuda.balance = 0
+    # ── MARCAR DEUDAS COMO PAGADAS (o parcial si aplica) ──
+    if es_pago_parcial:
+        deuda = deudas[0]
+        saldo_actual = float(deuda.balance or deuda.amount or 0)
+        nuevo_saldo = round(saldo_actual - monto_parcial, 2)
+        deuda.status = "partial"
+        deuda.balance = Decimal(str(nuevo_saldo))
         deuda.updated_by = current_member.user_id
-        deuda.notes = (deuda.notes or "") + f"\n[SECRETARIA:{operador_dni}] Pagado {ahora.strftime('%d/%m/%Y %H:%M')}"
+        deuda.notes = (deuda.notes or "") + (
+            f"\n[SECRETARIA:{operador_dni}] Pago parcial S/ {monto_parcial:.2f} "
+            f"({ahora.strftime('%d/%m/%Y %H:%M')}) — saldo S/ {nuevo_saldo:.2f}"
+        )
         deuda.notes = deuda.notes.strip()
+    else:
+        for deuda in deudas:
+            deuda.status = "paid"
+            deuda.balance = 0
+            deuda.updated_by = current_member.user_id
+            deuda.notes = (deuda.notes or "") + f"\n[SECRETARIA:{operador_dni}] Pagado {ahora.strftime('%d/%m/%Y %H:%M')}"
+            deuda.notes = deuda.notes.strip()
 
     db.commit()
 
@@ -455,9 +498,14 @@ async def registrar_pago(
                 "comprobante_mensaje": f"Error: {str(e)[:100]}",
             }
 
+    mensaje_pago = (
+        f"Pago parcial registrado: S/ {total:.2f} ({pago.metodo_pago})"
+        if es_pago_parcial
+        else f"Pago registrado: S/ {total:.2f} ({pago.metodo_pago})"
+    )
     return RegistrarPagoResponse(
         success=True,
-        mensaje=f"Pago registrado: S/ {total:.2f} ({pago.metodo_pago})",
+        mensaje=mensaje_pago,
         payment_id=payment.id,
         deudas_actualizadas=len(deudas),
         total_pagado=total,
