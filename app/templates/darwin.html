@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estrategia de Comunicación Digital — CCPL</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --verde: #0B4D3B;
+  --verde-v: #0F6B52;
+  --verde-pale: #E8F2EE;
+  --dorado: #B8860B;
+  --dorado-v: #D4A017;
+  --dorado-pale: #FBF5E6;
+  --texto: #1A1A1A;
+  --muted: #5C5C5C;
+  --borde: #D8D0C4;
+  --fondo: #F8F5F0;
+  --blanco: #FFFFFF;
+}
+
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+/* PORTADA */
+.portada {
+  background: var(--verde);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+.portada::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(180deg, var(--verde-v) 0%, transparent 100%);
+  opacity: 0.4;
+}
+.portada::after {
+  content: '';
+  position: absolute;
+  bottom: -80px; left: -80px;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.portada-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative; z-index: 2;
+}
+.portada-institucion {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  font-weight: 400;
+}
+.portada-fecha {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 1px;
+}
+
+.portada-centro {
+  position: relative; z-index: 2;
+  max-width: 700px;
+}
+.portada-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.portada-tipo-linea { width: 32px; height: 1px; background: var(--dorado-v); }
+.portada-tipo-texto {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--dorado-v);
+  font-weight: 600;
+}
+
+.portada-titulo {
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(36px, 5vw, 60px);
+  color: var(--blanco);
+  line-height: 1.15;
+  font-weight: 700;
+  margin-bottom: 24px;
+  letter-spacing: -0.5px;
+}
+.portada-titulo em {
+  font-style: italic;
+  color: rgba(255,255,255,0.6);
+}
+
+.portada-subtitulo {
+  font-size: 16px;
+  color: rgba(255,255,255,0.55);
+  font-weight: 300;
+  max-width: 500px;
+  line-height: 1.7;
+}
+
+.portada-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  position: relative; z-index: 2;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 32px;
+}
+.portada-colegio {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 15px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 400;
+}
+.portada-colegio span {
+  display: block;
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  font-family: 'Source Sans 3', sans-serif;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+.portada-confidencial {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 6px 14px;
+  border-radius: 2px;
+}
+
+/* CONTENIDO */
+.contenido {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 80px 40px;
+}
+
+/* SECCIÓN */
+.seccion {
+  margin-bottom: 72px;
+}
+.seccion-numero {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--dorado);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.seccion-numero::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--borde);
+}
+.seccion-titulo {
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(22px, 3vw, 32px);
+  color: var(--verde);
+  font-weight: 700;
+  margin-bottom: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+}
+.seccion-intro {
+  font-size: 16px;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1.8;
+  margin-bottom: 32px;
+  max-width: 680px;
+  border-left: 3px solid var(--verde-pale);
+  padding-left: 20px;
+}
+
+/* OBJETIVOS */
+.objetivo-item {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--borde);
+}
+.objetivo-item:last-child { border-bottom: none; }
+.objetivo-num {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--verde-pale);
+  line-height: 1;
+  min-width: 40px;
+  color: var(--verde);
+  opacity: 0.25;
+}
+.objetivo-texto strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 4px;
+}
+.objetivo-texto p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* SERIE */
+.serie-header {
+  background: var(--verde);
+  border-radius: 8px;
+  padding: 32px 36px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.serie-icono {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.serie-info h3 {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 20px;
+  color: var(--blanco);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.serie-info p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  font-weight: 300;
+}
+
+.episodios-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.episodio {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 80px 1fr 120px;
+  gap: 20px;
+  align-items: start;
+  transition: box-shadow 0.2s;
+}
+.episodio:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+.ep-num {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--verde);
+  opacity: 0.2;
+  line-height: 1;
+}
+.ep-contenido {}
+.ep-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 6px;
+}
+.ep-guion {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-style: italic;
+  border-left: 2px solid var(--verde-pale);
+  padding-left: 12px;
+}
+.ep-meta {
+  text-align: right;
+}
+.ep-directivo {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--verde);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 4px;
+}
+.ep-duracion {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--fondo);
+  padding: 3px 8px;
+  border-radius: 100px;
+  display: inline-block;
+}
+
+/* CALENDARIO */
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+.cal-semana {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.cal-semana-header {
+  background: var(--verde-pale);
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--verde);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.cal-dia {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--fondo);
+  font-size: 13px;
+}
+.cal-dia:last-child { border-bottom: none; }
+.cal-dia-nombre { color: var(--muted); font-weight: 400; }
+.cal-dia-ep {
+  font-weight: 600;
+  color: var(--verde);
+  font-size: 12px;
+}
+
+/* PRINCIPIOS */
+.principios-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.principio-card {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.principio-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--verde);
+}
+.principio-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 8px;
+}
+.principio-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* FORMATOS */
+.formato-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--borde);
+  align-items: flex-start;
+}
+.formato-item:last-child { border-bottom: none; }
+.formato-tag {
+  background: var(--dorado-pale);
+  color: var(--dorado);
+  border: 1px solid rgba(184,134,11,0.2);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.formato-desc strong {
+  display: block;
+  font-size: 14px;
+  color: var(--texto);
+  margin-bottom: 4px;
+}
+.formato-desc p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* TONO */
+.tono-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.tono-card {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 20px;
+  text-align: center;
+}
+.tono-icono { font-size: 24px; margin-bottom: 10px; }
+.tono-nombre {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 6px;
+}
+.tono-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* APROBACIÓN */
+.aprobacion {
+  background: var(--verde);
+  border-radius: 8px;
+  padding: 48px;
+  margin-top: 72px;
+}
+.aprobacion h3 {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 22px;
+  color: var(--blanco);
+  margin-bottom: 8px;
+}
+.aprobacion p {
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  margin-bottom: 40px;
+  font-weight: 300;
+}
+.firmas-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+.firma-slot {
+  border-top: 1px solid rgba(255,255,255,0.2);
+  padding-top: 16px;
+}
+.firma-nombre {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.firma-cargo {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.5px;
+}
+.firma-fecha {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  margin-top: 8px;
+}
+
+/* NOTA AL PIE */
+.nota-pie {
+  text-align: center;
+  padding: 32px 40px;
+  border-top: 1px solid var(--borde);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 700px) {
+  .portada { padding: 32px; }
+  .contenido { padding: 40px 24px; }
+  .episodio { grid-template-columns: 1fr; gap: 8px; }
+  .ep-meta { text-align: left; }
+  .ep-num { font-size: 18px; }
+  .calendario { grid-template-columns: 1fr; }
+  .principios-grid { grid-template-columns: 1fr; }
+  .tono-grid { grid-template-columns: 1fr; }
+  .firmas-grid { grid-template-columns: 1fr; }
+  .portada-bottom { flex-direction: column; gap: 20px; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="portada">
+  <div class="portada-top">
+    <div class="portada-institucion">Colegio de Contadores Públicos de Loreto</div>
+    <div class="portada-fecha">Abril 2026</div>
+  </div>
+
+  <div class="portada-centro">
+    <div class="portada-tipo">
+      <div class="portada-tipo-linea"></div>
+      <div class="portada-tipo-texto">Documento para aprobación interna</div>
+    </div>
+    <h1 class="portada-titulo">
+      Estrategia de Comunicación<br>
+      <em>Digital Institucional</em>
+    </h1>
+    <p class="portada-subtitulo">
+      Plan para la difusión del Sistema de Gestión Digital del CCPL 
+      entre los colegiados, a través del canal oficial de Facebook del Colegio.
+    </p>
+  </div>
+
+  <div class="portada-bottom">
+    <div class="portada-colegio">
+      Colegio de Contadores Públicos de Loreto
+      <span>Iquitos, Loreto — Perú</span>
+    </div>
+    <div class="portada-confidencial">Uso interno</div>
+  </div>
+</div>
+
+<!-- CONTENIDO -->
+<div class="contenido">
+
+  <!-- 1. CONTEXTO -->
+  <div class="seccion">
+    <div class="seccion-numero">01 — Contexto</div>
+    <h2 class="seccion-titulo">¿Por qué esta estrategia?</h2>
+    <div class="seccion-intro">
+      El CCPL ha implementado un Sistema de Gestión Digital que transforma la forma en que los colegiados 
+      interactúan con su institución. Para que este avance tenga el impacto esperado, es necesario 
+      comunicarlo de manera clara, ordenada y con la seriedad que corresponde a una institución profesional.
+    </div>
+    <div class="objetivo-item">
+      <div class="objetivo-num">01</div>
+      <div class="objetivo-texto">
+        <strong>Informar antes de exigir</strong>
+        <p>Los colegiados deben conocer las nuevas funciones antes de que se espere que las usen. 
+        Una comunicación anticipada reduce la resistencia al cambio y genera expectativa positiva.</p>
+      </div>
+    </div>
+    <div class="objetivo-item">
+      <div class="objetivo-num">02</div>
+      <div class="objetivo-texto">
+        <strong>Comunicar con voz institucional</strong>
+        <p>Cada mensaje proviene de un Directivo del Colegio — no de un tercero. 
+        Esto refuerza la credibilidad y el sentido de pertenencia de los colegiados con su institución.</p>
+      </div>
+    </div>
+    <div class="objetivo-item">
+      <div class="objetivo-num">03</div>
+      <div class="objetivo-texto">
+        <strong>Mantener un canal ordenado</strong>
+        <p>En lugar de mensajes dispersos, se establece una serie numerada y progresiva. 
+        Los colegiados saben qué esperar y cuándo. El Colegio proyecta organización y profesionalismo.</p>
+      </div>
+    </div>
+    <div class="objetivo-item">
+      <div class="objetivo-num">04</div>
+      <div class="objetivo-texto">
+        <strong>Facilitar la adopción del sistema</strong>
+        <p>Cada video explica una función concreta. Al terminar la serie, los colegiados 
+        habrán recibido instrucción completa sobre el uso del portal — sin necesidad de talleres presenciales.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. LA SERIE -->
+  <div class="seccion">
+    <div class="seccion-numero">02 — La serie</div>
+    <h2 class="seccion-titulo">"Tu Colegio, Ahora Digital"</h2>
+    <div class="seccion-intro">
+      Una serie de ocho comunicados oficiales, publicados en el Facebook del CCPL durante dos semanas. 
+      Cada comunicado presenta una función del sistema, con el respaldo de un Directivo del Colegio.
+    </div>
+
+    <div class="serie-header">
+      <div class="serie-icono">🎬</div>
+      <div class="serie-info">
+        <h3>"Tu Colegio, Ahora Digital"</h3>
+        <p>8 episodios · 2 semanas · Canal oficial Facebook CCPL · 15 segundos por episodio</p>
+      </div>
+    </div>
+
+    <div class="episodios-grid">
+      <div class="episodio">
+        <div class="ep-num">01</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Bienvenida a la era digital</div>
+          <div class="ep-guion">"Colegiados, a partir de hoy su Colegio es digital. Ya pueden obtener su Constancia de Habilidad, pagar sus cuotas y recibir comunicados oficiales — todo desde su celular."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Decano</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">02</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Cómo acceder al portal</div>
+          <div class="ep-guion">"Para ingresar a su portal solo necesitan su número de DNI. En menos de dos minutos tendrán toda su información actualizada."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Administrador</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">03</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">La Constancia de Habilidad</div>
+          <div class="ep-guion">"¿Necesitan su Constancia de Habilidad para hoy? Ya no tienen que venir a la oficina. Ingresan, verifican su estado y la descargan al instante. Disponible las 24 horas."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Administrador</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">04</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Pagos digitales con comprobante</div>
+          <div class="ep-guion">"Ahora pueden pagar sus cuotas con Yape, Plin o transferencia. El sistema valida su pago al instante y les envía su comprobante electrónico con validación SUNAT."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Administrador</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">05</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Fraccionamiento de deudas</div>
+          <div class="ep-guion">"Si tienen deudas pendientes, ahora pueden fraccionarlas en línea. Eligen cuántas cuotas, simulan el monto y solicitan la autorización — desde su celular, en minutos."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Administrador</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">06</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Notificaciones oficiales</div>
+          <div class="ep-guion">"A partir de hoy recibirán notificaciones oficiales del Colegio directamente en su celular — sin grupos de WhatsApp, sin correos perdidos. Información oportuna y verificada."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Decano</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">07</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Su perfil digital</div>
+          <div class="ep-guion">"Cada colegiado tiene su propio espacio digital con su historial, sus documentos y su estado de habilitación. Ingresen y actualicen sus datos hoy mismo."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Administrador</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+
+      <div class="episodio">
+        <div class="ep-num">08</div>
+        <div class="ep-contenido">
+          <div class="ep-titulo">Mensaje de cierre</div>
+          <div class="ep-guion">"Este sistema es una inversión del Colegio para ustedes. Los invitamos a explorarlo esta semana. Su Colegio sigue creciendo — con ustedes."</div>
+        </div>
+        <div class="ep-meta">
+          <span class="ep-directivo">Decano</span>
+          <span class="ep-duracion">15 seg.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CALENDARIO -->
+  <div class="seccion">
+    <div class="seccion-numero">03 — Calendario</div>
+    <h2 class="seccion-titulo">Plan de publicación — dos semanas</h2>
+    <div class="seccion-intro">
+      Los episodios se publican tres veces por semana — lunes, miércoles y viernes — 
+      para mantener presencia constante sin saturar a los colegiados.
+    </div>
+
+    <div class="calendario">
+      <div class="cal-semana">
+        <div class="cal-semana-header">Semana 1</div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Lunes</span>
+          <span class="cal-dia-ep">EP 01 — Bienvenida</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Miércoles</span>
+          <span class="cal-dia-ep">EP 02 — Cómo acceder</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Viernes</span>
+          <span class="cal-dia-ep">EP 03 — Constancia</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Sábado</span>
+          <span class="cal-dia-ep">EP 04 — Pagos</span>
+        </div>
+      </div>
+
+      <div class="cal-semana">
+        <div class="cal-semana-header">Semana 2</div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Lunes</span>
+          <span class="cal-dia-ep">EP 05 — Fraccionamiento</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Miércoles</span>
+          <span class="cal-dia-ep">EP 06 — Notificaciones</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Viernes</span>
+          <span class="cal-dia-ep">EP 07 — Perfil digital</span>
+        </div>
+        <div class="cal-dia">
+          <span class="cal-dia-nombre">Sábado</span>
+          <span class="cal-dia-ep">EP 08 — Cierre</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. TONO Y FORMATO -->
+  <div class="seccion">
+    <div class="seccion-numero">04 — Tono y formato</div>
+    <h2 class="seccion-titulo">Cómo se verá y se escuchará</h2>
+    <div class="seccion-intro">
+      Cada comunicado mantiene un estilo institucional coherente — 
+      serio, cercano y representativo de la dignidad del Colegio.
+    </div>
+
+    <div class="tono-grid" style="margin-bottom: 32px;">
+      <div class="tono-card">
+        <div class="tono-icono">🏛</div>
+        <div class="tono-nombre">Institucional</div>
+        <div class="tono-desc">El mensaje proviene siempre de un Directivo del Colegio, con nombre y cargo visible.</div>
+      </div>
+      <div class="tono-card">
+        <div class="tono-icono">🤝</div>
+        <div class="tono-nombre">Cercano</div>
+        <div class="tono-desc">Se dirige directamente al colegiado. Lenguaje claro, sin tecnicismos innecesarios.</div>
+      </div>
+      <div class="tono-card">
+        <div class="tono-icono">⏱</div>
+        <div class="tono-nombre">Preciso</div>
+        <div class="tono-desc">Máximo 15 segundos por episodio. Un solo mensaje por video. Sin rodeos.</div>
+      </div>
+    </div>
+
+    <div class="formato-item">
+      <div class="formato-tag">Estructura</div>
+      <div class="formato-desc">
+        <strong>Intro (2 seg.) → Directivo habla (10 seg.) → Cierre con portal (3 seg.)</strong>
+        <p>Cada video abre con el logo del CCPL y el nombre de la serie, 
+        luego el Directivo presenta el mensaje, y cierra con la URL del portal.</p>
+      </div>
+    </div>
+    <div class="formato-item">
+      <div class="formato-tag">Identificación</div>
+      <div class="formato-desc">
+        <strong>Nombre y cargo del Directivo — visible durante todo el video</strong>
+        <p>En la parte inferior aparece el nombre completo y el cargo institucional. 
+        El logo del CCPL permanece visible en todo momento.</p>
+      </div>
+    </div>
+    <div class="formato-item">
+      <div class="formato-tag">Música</div>
+      <div class="formato-desc">
+        <strong>Instrumental corporativo, volumen bajo, fade out al final</strong>
+        <p>Sin efectos de sonido. La voz del Directivo es el elemento principal. 
+        La música acompaña sin distraer.</p>
+      </div>
+    </div>
+    <div class="formato-item">
+      <div class="formato-tag">Caption</div>
+      <div class="formato-desc">
+        <strong>Texto de publicación en Facebook — breve y con llamado a la acción</strong>
+        <p>Cada video se publica con un texto corto que resume el episodio 
+        e invita a los colegiados a ingresar al portal.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PRINCIPIOS -->
+  <div class="seccion">
+    <div class="seccion-numero">05 — Compromisos</div>
+    <h2 class="seccion-titulo">Lo que garantiza esta estrategia</h2>
+
+    <div class="principios-grid">
+      <div class="principio-card">
+        <div class="principio-titulo">Aprobación previa de cada guión</div>
+        <div class="principio-desc">Ningún video se produce sin la revisión y aprobación 
+        del Administrador o el Directivo correspondiente.</div>
+      </div>
+      <div class="principio-card">
+        <div class="principio-titulo">Representación fiel de la institución</div>
+        <div class="principio-desc">El tono, el contenido y la imagen visual respetan 
+        en todo momento la identidad del CCPL.</div>
+      </div>
+      <div class="principio-card">
+        <div class="principio-titulo">Solo funciones disponibles</div>
+        <div class="principio-desc">No se comunicará ninguna función que no esté 
+        operativa en el sistema al momento de la publicación.</div>
+      </div>
+      <div class="principio-card">
+        <div class="principio-titulo">Calendario flexible</div>
+        <div class="principio-desc">Las fechas de publicación pueden ajustarse 
+        según la agenda del Colegio o decisión de la Junta Directiva.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APROBACIÓN -->
+  <div class="aprobacion">
+    <h3>Aprobación de la estrategia</h3>
+    <p>Los firmantes autorizan la producción y publicación de los comunicados 
+    de acuerdo con los lineamientos descritos en este documento.</p>
+    <div class="firmas-grid">
+      <div class="firma-slot">
+        <div class="firma-nombre">_________________________</div>
+        <div class="firma-cargo">Decano — CCPL</div>
+        <div class="firma-fecha">Fecha: _____ / _____ / 2026</div>
+      </div>
+      <div class="firma-slot">
+        <div class="firma-nombre">_________________________</div>
+        <div class="firma-cargo">Administrador — CCPL</div>
+        <div class="firma-fecha">Fecha: _____ / _____ / 2026</div>
+      </div>
+      <div class="firma-slot">
+        <div class="firma-nombre">_________________________</div>
+        <div class="firma-cargo">Responsable de producción</div>
+        <div class="firma-fecha">Fecha: _____ / _____ / 2026</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nota-pie">
+  Documento preparado para uso interno del Colegio de Contadores Públicos de Loreto · Abril 2026
+</div>
+
+</body>
+</html>
