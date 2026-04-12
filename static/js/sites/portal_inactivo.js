@@ -894,6 +894,8 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       this._filtroActual    = null;
       this._tipoComp        = null;
       this._rucTipo         = null;
+      this._parcialAck      = false;
+      this._clearError?.();
       if (this._rucTimer) { clearTimeout(this._rucTimer); this._rucTimer = null; }
 
       // Limpiar campos estáticos
@@ -1297,31 +1299,63 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       btn.classList.add('active');
     },
 
+    /* ── Error inline (reemplaza alert/confirm nativos) ─── */
+    _showError(msg, opts) {
+      // Crea o reutiliza el div de error debajo del campo Monto.
+      // opts.warn = true → color ámbar (aviso no bloqueante para 2do click).
+      const anchor = document.getElementById('rp-monto');
+      let errDiv = document.getElementById('rp-error');
+      if (!errDiv) {
+        errDiv = document.createElement('div');
+        errDiv.id = 'rp-error';
+        errDiv.style.cssText =
+          'font-size:12px;margin-top:6px;padding:8px 10px;' +
+          'border-radius:6px;line-height:1.4;';
+        anchor?.parentNode?.appendChild(errDiv);
+      }
+      const warn = !!(opts && opts.warn);
+      errDiv.style.color = warn ? '#fbbf24' : '#f87171';
+      errDiv.style.background = warn
+        ? 'rgba(251,191,36,0.08)'
+        : 'rgba(248,113,113,0.08)';
+      errDiv.style.border = warn
+        ? '1px solid rgba(251,191,36,0.25)'
+        : '1px solid rgba(248,113,113,0.25)';
+      errDiv.textContent = msg;
+      errDiv.style.display = 'block';
+    },
+
+    _clearError() {
+      const errDiv = document.getElementById('rp-error');
+      if (errDiv) errDiv.style.display = 'none';
+      this._parcialAck = false;
+    },
+
     /* ── Validar y enviar ───────────────────────────────── */
     async enviar() {
       const monto  = parseFloat($('rp-monto')?.value || 0);
       const nroOp  = ($('rp-nro-op')?.value || '').trim();
 
       if (!this.archivo) {
-        alert('El voucher es obligatorio.');
+        this._showError('El voucher es obligatorio.');
         return;
       }
       if (!monto || monto <= 0) {
-        alert('El monto debe ser mayor a cero.');
+        this._showError('El monto debe ser mayor a cero.');
         $('rp-monto')?.focus();
         return;
       }
       if (!nroOp) {
-        alert('El N° de operación es obligatorio.');
+        this._showError('El N° de operación es obligatorio.');
         $('rp-nro-op')?.focus();
         return;
       }
       if (!this.metodo) {
-        alert('Selecciona el método de pago.');
+        this._showError('Selecciona el método de pago.');
         return;
       }
       if (!this._tipoComp) {
-        alert('Indica si deseas Boleta o Factura.');
+        this._showError('Indica si deseas Boleta o Factura.');
         return;
       }
 
@@ -1337,16 +1371,17 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
         Portal.ctx._fraccMontoFijo != null;
       const cuotaInicialMin = Number(Portal.ctx.cuota_inicial_min || 0);
       if (esPagoFracc && cuotaInicialMin > 0 && monto < cuotaInicialMin - 0.009) {
-        alert(
-          `El monto reportado (S/ ${monto.toFixed(2)}) es menor a la cuota ` +
-          `inicial mínima del fraccionamiento (S/ ${cuotaInicialMin.toFixed(2)}). ` +
-          `Verifica el monto antes de continuar.`
+        this._showError(
+          `Monto mínimo requerido: S/ ${cuotaInicialMin.toFixed(2)} ` +
+          `(cuota inicial del fraccionamiento). ` +
+          `Monto ingresado: S/ ${monto.toFixed(2)}.`
         );
         $('rp-monto')?.focus();
         return;
       }
 
-      // Validar pago parcial — avisar si monto < total de deudas seleccionadas
+      // Validar pago parcial — aviso no bloqueante en dos clics:
+      // 1er clic muestra el warning ámbar, 2do clic procede.
       if (this._idsSeleccionados.size > 0) {
         const totalSeleccionado = [...this._idsSeleccionados].reduce((sum, id) => {
           const d = (Portal.ctx.deudas || []).find(x => x.id === id);
@@ -1355,19 +1390,17 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
         const totalRedondeado = Math.round(totalSeleccionado);
         if (monto < totalRedondeado * 0.99) {  // 1% tolerancia por redondeos
           const diff = totalRedondeado - Math.round(monto);
-          const confirmar = confirm(
-            `⚠️ El monto reportado (S/ ${Math.round(monto)}) es menor al total ` +
-            `de las deudas seleccionadas (S/ ${totalRedondeado}).
-
-` +
-            `Diferencia: S/ ${diff}
-
-` +
-            `Se registrará como pago parcial y la caja lo revisará.
-` +
-            `¿Deseas continuar?`
-          );
-          if (!confirmar) return;
+          if (!this._parcialAck) {
+            this._showError(
+              `El monto reportado (S/ ${Math.round(monto)}) es menor al total ` +
+              `de las deudas seleccionadas (S/ ${totalRedondeado}). ` +
+              `Diferencia: S/ ${diff}. Se registrará como pago parcial. ` +
+              `Pulsa "Enviar" de nuevo para confirmar.`,
+              { warn: true }
+            );
+            this._parcialAck = true;
+            return;
+          }
         }
       }
 
@@ -1375,16 +1408,19 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
         const ruc = ($('rp-ruc')?.value || '').trim();
         const rs  = ($('rp-razon-social')?.value || '').trim();
         if (!ruc || ruc.length !== 11) {
-          alert('Ingresa un RUC válido de 11 dígitos.');
+          this._showError('Ingresa un RUC válido de 11 dígitos.');
           $('rp-ruc')?.focus();
           return;
         }
         if (!rs) {
-          alert('Ingresa la Razón Social.');
+          this._showError('Ingresa la Razón Social.');
           $('rp-razon-social')?.focus();
           return;
         }
       }
+
+      // Llegó hasta aquí → limpiar cualquier error/warn pendiente
+      this._clearError();
 
       // Armar FormData
       const fd = new FormData();
@@ -1430,6 +1466,7 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
     abrir(montoFijo = null) {
       this._montoFijo        = montoFijo;
       this._idsSeleccionados = new Set();
+      this._clearError?.();
       // Limpiar campos de comprobante pendientes (se llenan en recalcular)
       Portal._tipoCompPendiente   = '';
       Portal._facturaRucPendiente = '';
@@ -1619,6 +1656,28 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       if (btnPagar) btnPagar.disabled = (montoBase <= 0);
     },
 
+    _showError(msg) {
+      const anchor = document.getElementById('pl-btn-pagar')
+        || document.getElementById('pl-monto');
+      let errDiv = document.getElementById('pl-error');
+      if (!errDiv) {
+        errDiv = document.createElement('div');
+        errDiv.id = 'pl-error';
+        errDiv.style.cssText =
+          'color:#f87171;font-size:12px;margin-top:6px;padding:8px 10px;' +
+          'background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);' +
+          'border-radius:6px;line-height:1.4;';
+        anchor?.parentNode?.appendChild(errDiv);
+      }
+      errDiv.textContent = msg;
+      errDiv.style.display = 'block';
+    },
+
+    _clearError() {
+      const errDiv = document.getElementById('pl-error');
+      if (errDiv) errDiv.style.display = 'none';
+    },
+
     async pagar() {
       let monto    = 0;
       let deudaIds = '';
@@ -1630,7 +1689,7 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       } else {
         // Modo lista — IDs seleccionados
         if (this._idsSeleccionados.size === 0) {
-          alert('Selecciona al menos una deuda para pagar.');
+          this._showError('Selecciona al menos una deuda para pagar.');
           return;
         }
         const deudas = Portal.ctx.deudas || [];
@@ -1644,9 +1703,11 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       }
 
       if (!monto || monto <= 0) {
-        alert('El monto a pagar debe ser mayor a cero.');
+        this._showError('El monto a pagar debe ser mayor a cero.');
         return;
       }
+
+      this._clearError();
 
       const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
 
