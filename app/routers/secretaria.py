@@ -1065,3 +1065,172 @@ async def cronograma_pdf(
             "Content-Disposition": f'inline; filename="{filename}"',
         },
     )
+
+
+# ============================================================
+# REVISIÓN DE PENDIENTES
+# ============================================================
+
+from sqlalchemy import text as sa_text
+
+
+class ResolverRevisionRequest(BaseModel):
+    id: int
+    accion: str  # 'resolver' | 'descartar'
+    notas: Optional[str] = None
+
+
+@router.get("/revisiones")
+async def listar_revisiones(
+    estado: Optional[str] = Query(None),
+    motivo: Optional[str] = Query(None),
+    anio_origen: Optional[str] = Query(None),
+    matricula: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Lista paginada de revision_pendiente con filtros."""
+    where_clauses = []
+    params = {}
+
+    if estado:
+        where_clauses.append("r.estado = :estado")
+        params["estado"] = estado
+    if motivo:
+        where_clauses.append("r.motivo = :motivo")
+        params["motivo"] = motivo
+    if anio_origen:
+        where_clauses.append("r.anio_origen = :anio_origen")
+        params["anio_origen"] = anio_origen
+    if matricula:
+        where_clauses.append("r.matricula ILIKE :matricula")
+        params["matricula"] = f"%{matricula.strip()}%"
+
+    where_sql = (" AND ".join(where_clauses)) if where_clauses else "1=1"
+
+    # Total
+    count_row = db.execute(
+        sa_text(f"SELECT COUNT(*) FROM revision_pendiente r WHERE {where_sql}"),
+        params,
+    ).scalar()
+    total = int(count_row or 0)
+
+    # Datos paginados
+    offset = (page - 1) * per_page
+    params["limit"] = per_page
+    params["offset"] = offset
+
+    rows = db.execute(sa_text(f"""
+        SELECT r.*,
+               c.apellidos_nombres,
+               c.id AS colegiado_id
+        FROM revision_pendiente r
+        LEFT JOIN colegiados c
+            ON c.codigo_matricula = r.matricula
+           AND c.organization_id = r.organization_id
+        WHERE {where_sql}
+        ORDER BY r.id ASC
+        LIMIT :limit OFFSET :offset
+    """), params).mappings().all()
+
+    items = []
+    for row in rows:
+        items.append({
+            "id": row["id"],
+            "matricula": row["matricula"],
+            "concepto": row["concepto"],
+            "periodo_raw": row["periodo_raw"],
+            "importe": float(row["importe"] or 0),
+            "motivo": row["motivo"],
+            "forma_pago": row["forma_pago"],
+            "anio_origen": row["anio_origen"],
+            "estado": row["estado"],
+            "notas_resolucion": row["notas_resolucion"],
+            "created_at": str(row["created_at"]) if row["created_at"] else None,
+            "apellidos_nombres": row.get("apellidos_nombres") or None,
+            "colegiado_id": row.get("colegiado_id") or None,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": max(1, -(-total // per_page)),
+    }
+
+
+@router.post("/resolver-revision")
+async def resolver_revision(
+    datos: ResolverRevisionRequest,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Marca una revisión pendiente como resuelta o descartada."""
+    if datos.accion not in ("resolver", "descartar"):
+        raise HTTPException(400, "Acción debe ser 'resolver' o 'descartar'")
+
+    ahora = datetime.now(PERU_TZ)
+    nuevo_estado = "resuelto" if datos.accion == "resolver" else "descartado"
+
+    result = db.execute(sa_text("""
+        UPDATE revision_pendiente
+        SET estado = :estado,
+            resuelto_por = :member_id,
+            fecha_resolucion = :ahora,
+            notas_resolucion = :notas
+        WHERE id = :id AND estado = 'pendiente'
+    """), {
+        "estado": nuevo_estado,
+        "member_id": current_member.user_id,
+        "ahora": ahora,
+        "notas": datos.notas or "",
+        "id": datos.id,
+    })
+    db.commit()
+
+    if result.rowcount == 0:
+        raise HTTPException(404, "Revisión no encontrada o ya resuelta")
+
+    return {
+        "ok": True,
+        "mensaje": f"Revisión #{datos.id} marcada como {nuevo_estado}.",
+    }
+
+
+@router.get("/revisiones/stats")
+async def revisiones_stats(
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Estadísticas de revisiones pendientes: total, por motivo y por año."""
+    total_row = db.execute(sa_text(
+        "SELECT COUNT(*) FROM revision_pendiente WHERE estado = 'pendiente'"
+    )).scalar()
+    total_pendiente = int(total_row or 0)
+
+    por_motivo_rows = db.execute(sa_text("""
+        SELECT motivo, COUNT(*) AS cant
+        FROM revision_pendiente
+        WHERE estado = 'pendiente'
+        GROUP BY motivo
+        ORDER BY cant DESC
+    """)).all()
+    por_motivo = {row[0]: int(row[1]) for row in por_motivo_rows}
+
+    por_anio_rows = db.execute(sa_text("""
+        SELECT anio_origen, COUNT(*) AS cant
+        FROM revision_pendiente
+        WHERE estado = 'pendiente'
+        GROUP BY anio_origen
+        ORDER BY anio_origen DESC
+    """)).all()
+    por_anio = {row[0]: int(row[1]) for row in por_anio_rows}
+
+    return {
+        "total_pendiente": total_pendiente,
+        "por_motivo": por_motivo,
+        "por_anio": por_anio,
+    }
