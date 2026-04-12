@@ -6,8 +6,8 @@
      GET  /api/portal/mi-deuda
      POST /api/portal/asistente          { pregunta, ctx }
      POST /api/portal/asistente/audio    { audio, ctx }
-     POST /api/portal/reportar-pago      { FormData }
-     POST /api/portal/solicitar-fraccionamiento { ... }
+     POST /api/portal/reportar-pago         { FormData }
+     POST /api/portal/fraccionamiento/crear { cuota_inicial, num_cuotas, notas }
 ══════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -797,14 +797,14 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       if (!this.seleccion) return;
       const { n, cuotaMes, inicial } = this.seleccion;
       try {
-        const r = await fetch('/api/portal/solicitar-fraccionamiento', {
+        // Endpoint canónico — valida deudas, calcula cuota mensual y crea el plan.
+        const r = await fetch('/api/portal/fraccionamiento/crear', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
-            cuota_inicial:  inicial,
-            n_cuotas:       n,
-            cuota_mensual:  cuotaMes,
-            deuda_total:    this.deuda,
+            cuota_inicial: inicial,
+            num_cuotas:    n,
+            notas:         '',
           }),
         });
         const d = await r.json();
@@ -1322,6 +1322,27 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       }
       if (!this._tipoComp) {
         alert('Indica si deseas Boleta o Factura.');
+        return;
+      }
+
+      // ─── Validación: cuota inicial de fraccionamiento ───
+      // Si el reporte corresponde a un pago de fraccionamiento (hay
+      // código de fraccionamiento o se entró desde el flujo de cuota
+      // inicial fija), el monto no puede ser menor a la cuota inicial
+      // mínima calculada por el backend. Esto evita reportes "a cuenta"
+      // que dejarían el plan en estado inválido.
+      const fraccCodigoForm = ($('rp-fracc-cod-input')?.value || '').trim();
+      const esPagoFracc =
+        !!fraccCodigoForm ||
+        Portal.ctx._fraccMontoFijo != null;
+      const cuotaInicialMin = Number(Portal.ctx.cuota_inicial_min || 0);
+      if (esPagoFracc && cuotaInicialMin > 0 && monto < cuotaInicialMin - 0.009) {
+        alert(
+          `El monto reportado (S/ ${monto.toFixed(2)}) es menor a la cuota ` +
+          `inicial mínima del fraccionamiento (S/ ${cuotaInicialMin.toFixed(2)}). ` +
+          `Verifica el monto antes de continuar.`
+        );
+        $('rp-monto')?.focus();
         return;
       }
 
