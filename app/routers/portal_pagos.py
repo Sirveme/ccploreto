@@ -470,4 +470,72 @@ Imports adicionales necesarios en portal_colegiado.py:
 
 import calendar
 from datetime import date
-from typing import Optional
+from typing import Optional, List
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SOLICITAR FRACCIONAMIENTO
+# ══════════════════════════════════════════════════════════════════════════════
+# REEMPLAZADO POR /api/portal/fraccionamiento/crear (portal_colegiado.py)
+# El endpoint canónico es POST /api/portal/fraccionamiento/crear, ver
+# app/routers/portal_colegiado.py:270 — tiene todas las validaciones de
+# negocio y es el que invoca portal_inactivo.js (Modales.fracciones.solicitar).
+#
+# Bloque comentado por seguridad (no eliminado todavía). El helper compartido
+# app/services/fraccionamiento_service.crear_fraccionamiento() lo siguen usando
+# /api/secretaria/registrar-fraccionamiento.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# from pydantic import BaseModel, Field
+# from fastapi import HTTPException
+# from app.services.fraccionamiento_service import (
+#     crear_fraccionamiento as _crear_fraccionamiento_portal,
+# )
+#
+#
+# class SolicitarFraccionamientoRequest(BaseModel):
+#     n_cuotas: int = Field(..., ge=2, le=12)
+#     monto_cuota_inicial: float = Field(..., gt=0)
+#     monto_cuota_mensual: Optional[float] = None
+#     deuda_ids: List[int]
+#
+#
+# @router.post("/solicitar-fraccionamiento")
+# async def solicitar_fraccionamiento(
+#     datos: SolicitarFraccionamientoRequest,
+#     member: Member = Depends(get_current_member),
+#     db: Session = Depends(get_db),
+# ):
+#     """
+#     Registra un plan de fraccionamiento para el colegiado autenticado.
+#     REEMPLAZADO por /api/portal/fraccionamiento/crear.
+#     """
+#     colegiado = _get_colegiado_by_member(member, db)
+#     if not colegiado:
+#         raise HTTPException(404, detail="Colegiado no encontrado para este usuario")
+#
+#     resultado = _crear_fraccionamiento_portal(
+#         db=db,
+#         colegiado=colegiado,
+#         deuda_ids=datos.deuda_ids,
+#         n_cuotas=datos.n_cuotas,
+#         monto_cuota_inicial=datos.monto_cuota_inicial,
+#         monto_cuota_mensual=datos.monto_cuota_mensual,
+#         created_by_user_id=member.user_id,
+#         nota_audit=f"[PORTAL] Solicitud por colegiado id={colegiado.id}",
+#         aplicar_acuerdo_007=True,
+#     )
+#
+#     fracc = resultado.fraccionamiento
+#     return {
+#         "ok": True,
+#         "fraccionamiento_id": fracc.id,
+#         "numero_solicitud": fracc.numero_solicitud,
+#         "cronograma": resultado.cronograma,
+#         "condona_007": resultado.condona_detalle,
+#         "mensaje": (
+#             f"Plan {fracc.numero_solicitud} creado. "
+#             f"Realiza el pago inicial de S/ {float(fracc.cuota_inicial):.2f} "
+#             f"para reactivar tu habilidad."
+#         ),
+#     }

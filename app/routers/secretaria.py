@@ -755,3 +755,313 @@ async def condonar_deuda(
         "mensaje": f"Deuda condonada: {deuda.concept or 'Cuota'} {deuda.periodo or ''}",
         "nueva_condicion": colegiado.condicion if colegiado else None,
     }
+
+
+# ============================================================
+# FRACCIONAMIENTOS
+# ============================================================
+
+from app.models_debt_management import Fraccionamiento, FraccionamientoCuota
+from app.services.fraccionamiento_service import (
+    crear_fraccionamiento as _crear_fraccionamiento_helper,
+    pagar_cuota_fraccionamiento as _pagar_cuota_helper,
+)
+
+
+class RegistrarFraccionamientoRequest(BaseModel):
+    colegiado_id: int
+    n_cuotas: int
+    monto_cuota_inicial: float
+    monto_cuota_mensual: Optional[float] = None
+    deuda_ids: List[int]
+    nota: Optional[str] = None
+
+
+class RegistrarPagoCuotaFraccRequest(BaseModel):
+    fraccionamiento_id: int
+    n_cuota: int
+    monto: float
+    metodo_pago: str = "yape"
+    nro_operacion: Optional[str] = None
+    nota: Optional[str] = None
+
+
+@router.get("/fraccionamientos/{colegiado_id}")
+async def listar_fraccionamientos_colegiado(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Lista los fraccionamientos de un colegiado con sus cuotas y resumen."""
+    colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not colegiado:
+        raise HTTPException(404, "Colegiado no encontrado")
+
+    planes = (
+        db.query(Fraccionamiento)
+        .filter(Fraccionamiento.colegiado_id == colegiado_id)
+        .order_by(Fraccionamiento.fecha_solicitud.desc())
+        .all()
+    )
+
+    resultado = []
+    for p in planes:
+        cuotas = (
+            db.query(FraccionamientoCuota)
+            .filter(FraccionamientoCuota.fraccionamiento_id == p.id)
+            .order_by(FraccionamientoCuota.numero_cuota.asc())
+            .all()
+        )
+        cuotas_list = []
+        hoy = date.today()
+        for c in cuotas:
+            vencida = (
+                (not c.pagada)
+                and c.fecha_vencimiento
+                and c.fecha_vencimiento < hoy
+            )
+            estado = (
+                "pagada" if c.pagada
+                else ("vencida" if vencida else "pendiente")
+            )
+            cuotas_list.append({
+                "id": c.id,
+                "n_cuota": c.numero_cuota,
+                "es_inicial": c.numero_cuota == 0,
+                "monto": float(c.monto or 0),
+                "fecha_vencimiento": c.fecha_vencimiento.isoformat() if c.fecha_vencimiento else None,
+                "fecha_pago": c.fecha_pago.isoformat() if c.fecha_pago else None,
+                "pagada": bool(c.pagada),
+                "estado": estado,
+                "habilidad_hasta": c.habilidad_hasta.isoformat() if c.habilidad_hasta else None,
+            })
+
+        cuotas_pagadas = sum(1 for c in cuotas if c.pagada)
+        cuotas_pendientes = len(cuotas) - cuotas_pagadas
+
+        proxima = next(
+            (c for c in cuotas if not c.pagada),
+            None,
+        )
+        resultado.append({
+            "id": p.id,
+            "numero_solicitud": p.numero_solicitud,
+            "estado": p.estado,
+            "fecha_solicitud": p.fecha_solicitud.isoformat() if p.fecha_solicitud else None,
+            "fecha_inicio": p.fecha_inicio.isoformat() if p.fecha_inicio else None,
+            "fecha_fin_estimada": p.fecha_fin_estimada.isoformat() if p.fecha_fin_estimada else None,
+            "deuda_total_original": float(p.deuda_total_original or 0),
+            "cuota_inicial": float(p.cuota_inicial or 0),
+            "cuota_inicial_pagada": bool(p.cuota_inicial_pagada),
+            "saldo_a_fraccionar": float(p.saldo_a_fraccionar or 0),
+            "num_cuotas": p.num_cuotas,
+            "monto_cuota": float(p.monto_cuota or 0),
+            "cuotas_pagadas": cuotas_pagadas,
+            "cuotas_pendientes": cuotas_pendientes,
+            "saldo_pendiente": float(p.saldo_pendiente or 0),
+            "proxima_cuota_numero": p.proxima_cuota_numero,
+            "proxima_cuota_fecha": p.proxima_cuota_fecha.isoformat() if p.proxima_cuota_fecha else None,
+            "cuotas": cuotas_list,
+        })
+
+    return {
+        "colegiado_id": colegiado_id,
+        "fraccionamientos": resultado,
+        "tiene_plan_activo": any(p["estado"] == "activo" for p in resultado),
+    }
+
+
+@router.post("/registrar-fraccionamiento")
+async def registrar_fraccionamiento(
+    datos: RegistrarFraccionamientoRequest,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Secretaria otorga un plan de fraccionamiento a un colegiado."""
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.id == datos.colegiado_id
+    ).first()
+    if not colegiado:
+        raise HTTPException(404, "Colegiado no encontrado")
+
+    ahora = datetime.now(PERU_TZ)
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+
+    nota_audit = (
+        f"[SECRETARIA:{operador_dni}] Fraccionamiento otorgado "
+        f"{ahora.strftime('%d/%m/%Y %H:%M')}"
+    )
+    if datos.nota:
+        nota_audit += f" — {datos.nota}"
+
+    resultado = _crear_fraccionamiento_helper(
+        db=db,
+        colegiado=colegiado,
+        deuda_ids=datos.deuda_ids,
+        n_cuotas=datos.n_cuotas,
+        monto_cuota_inicial=datos.monto_cuota_inicial,
+        monto_cuota_mensual=datos.monto_cuota_mensual,
+        created_by_user_id=current_member.user_id,
+        nota_audit=nota_audit,
+        aplicar_acuerdo_007=True,
+    )
+
+    fracc = resultado.fraccionamiento
+    return {
+        "ok": True,
+        "fraccionamiento_id": fracc.id,
+        "numero_solicitud": fracc.numero_solicitud,
+        "cronograma": resultado.cronograma,
+        "condona_007": resultado.condona_detalle,
+        "mensaje": (
+            f"Plan {fracc.numero_solicitud} creado. "
+            f"Cuota inicial S/ {float(fracc.cuota_inicial):.2f}, "
+            f"{fracc.num_cuotas} cuotas de S/ {float(fracc.monto_cuota):.2f}."
+        ),
+    }
+
+
+@router.post("/registrar-pago-cuota-fracc")
+async def registrar_pago_cuota_fracc(
+    datos: RegistrarPagoCuotaFraccRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Registra el pago de una cuota puntual del fraccionamiento."""
+    if datos.monto <= 0:
+        raise HTTPException(400, "El monto debe ser mayor a 0")
+
+    fracc = db.query(Fraccionamiento).filter(
+        Fraccionamiento.id == datos.fraccionamiento_id
+    ).first()
+    if not fracc:
+        raise HTTPException(404, "Fraccionamiento no encontrado")
+
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.id == fracc.colegiado_id
+    ).first()
+    if not colegiado:
+        raise HTTPException(404, "Colegiado del fraccionamiento no encontrado")
+
+    org = db.query(Organization).first()
+    if not org:
+        raise HTTPException(500, "Sin organización configurada")
+
+    ahora = datetime.now(PERU_TZ)
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+
+    nota_payment = (
+        f"[SECRETARIA:{operador_dni}] {ahora.strftime('%d/%m/%Y %H:%M')} "
+        f"- Cuota #{datos.n_cuota} fracc {fracc.numero_solicitud}"
+    )
+    if datos.nro_operacion:
+        nota_payment += f" | Op: {datos.nro_operacion}"
+    if datos.nota:
+        nota_payment += f" | {datos.nota}"
+
+    payment = Payment(
+        organization_id=org.id,
+        colegiado_id=colegiado.id,
+        amount=Decimal(str(datos.monto)),
+        payment_method=datos.metodo_pago,
+        operation_code=datos.nro_operacion,
+        notes=nota_payment,
+        status="approved",
+        reviewed_at=ahora,
+    )
+    db.add(payment)
+    db.flush()
+
+    info_cuota = _pagar_cuota_helper(
+        db=db,
+        fraccionamiento_id=datos.fraccionamiento_id,
+        numero_cuota=datos.n_cuota,
+        monto=datos.monto,
+        metodo_pago=datos.metodo_pago,
+        operador_nota=nota_payment,
+        payment_obj=payment,
+    )
+
+    # Habilidad del colegiado:
+    # - Cuota inicial → hábil hasta fin de mes actual como mínimo
+    # - Cuota mensual → habilidad_hasta definida en la cuota
+    nota_habilidad = None
+    if info_cuota["es_inicial"]:
+        # Hábil hasta fin del mes en curso
+        fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        colegiado.condicion = "habil"
+        colegiado.habilidad_vence = fin_mes
+        colegiado.fecha_actualizacion_condicion = ahora
+        nota_habilidad = (
+            f"Cuota inicial pagada — colegiado HÁBIL hasta "
+            f"{fin_mes.strftime('%d/%m/%Y')}"
+        )
+    elif info_cuota["habilidad_hasta"]:
+        nueva = datetime.strptime(info_cuota["habilidad_hasta"], "%Y-%m-%d").replace(tzinfo=PERU_TZ)
+        colegiado.condicion = "habil"
+        colegiado.habilidad_vence = nueva
+        colegiado.fecha_actualizacion_condicion = ahora
+        nota_habilidad = (
+            f"Cuota {datos.n_cuota} pagada — habilidad extendida hasta "
+            f"{nueva.strftime('%d/%m/%Y')}"
+        )
+
+    db.commit()
+    db.refresh(colegiado)
+    db.refresh(fracc)
+
+    return {
+        "ok": True,
+        "mensaje": f"Cuota #{datos.n_cuota} registrada (S/ {datos.monto:.2f})",
+        "payment_id": payment.id,
+        "cuota": info_cuota,
+        "plan_completado": info_cuota["completado"],
+        "nueva_condicion": colegiado.condicion,
+        "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+        "nota_habilidad": nota_habilidad,
+    }
+
+
+@router.get("/fraccionamiento/{fraccionamiento_id}/cronograma-pdf")
+async def cronograma_pdf(
+    fraccionamiento_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Genera un PDF con el cronograma de cuotas del fraccionamiento."""
+    from fastapi.responses import Response
+    from app.services.pdf_cronograma_fracc import generar_cronograma_pdf
+
+    fracc = db.query(Fraccionamiento).filter(
+        Fraccionamiento.id == fraccionamiento_id
+    ).first()
+    if not fracc:
+        raise HTTPException(404, "Fraccionamiento no encontrado")
+
+    colegiado = db.query(Colegiado).filter(
+        Colegiado.id == fracc.colegiado_id
+    ).first()
+    if not colegiado:
+        raise HTTPException(404, "Colegiado no encontrado")
+
+    cuotas = (
+        db.query(FraccionamientoCuota)
+        .filter(FraccionamientoCuota.fraccionamiento_id == fraccionamiento_id)
+        .order_by(FraccionamientoCuota.numero_cuota.asc())
+        .all()
+    )
+
+    pdf_bytes = generar_cronograma_pdf(fracc, colegiado, cuotas)
+    filename = f"cronograma_{fracc.numero_solicitud}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+        },
+    )
