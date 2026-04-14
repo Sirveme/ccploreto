@@ -1340,7 +1340,7 @@ function renderComprobantes(data) {
             <div class="co-row3">
                 <span class="co-fecha">${fechaCorta}</span>
                 <span class="co-actions">
-                    ${c.pdf_url ? `<button class="co-btn-pdf" onclick="window.open('/api/caja/comprobante/${c.payment_id}/pdf','_blank')" title="Ver PDF">📄 PDF</button>` : ''}
+                    ${c.pdf_url ? `<button class="co-btn-pdf" onclick="window.open('/api/caja/comprobantes/${c.id}/pdf','_blank')" title="Ver PDF">📄 PDF</button>` : ''}
                     ${btnReenviar}
                     ${c.status === 'accepted' && !esNC ? `<button class="co-btn-anul" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${numCorto}',${c.total})">Anular</button>` : ''}
                 </span>
