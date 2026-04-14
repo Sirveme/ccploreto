@@ -407,6 +407,10 @@ async def registrar_pago(
         nota_payment += f" | Op: {pago.nro_operacion}"
     if pago.nota:
         nota_payment += f" | {pago.nota}"
+    # Incluir IDs de deudas en notes para reconstruir en facturación
+    ids_deudas = [str(d.id) for d in deudas]
+    ids_str = ",".join(ids_deudas)
+    nota_payment += f" [DEBT_IDS:{ids_str}]"
 
     # ── CREAR PAYMENT ──
     payment = Payment(

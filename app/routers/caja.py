@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from decimal import Decimal
 import logging
+import json
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
@@ -433,13 +434,16 @@ async def registrar_cobro(
     if len(descripciones) > 5:
         descripcion_pago += f" (+{len(descripciones) - 5} más)"
 
+    # Incluir IDs de deudas en notes para reconstruir en facturación
+    ids_deudas = [str(d.id) for d in deudas_a_pagar]
+    ids_str = ",".join(ids_deudas)
     payment = Payment(
         organization_id=org.id,
         colegiado_id=cobro.colegiado_id,
         amount=Decimal(str(cobro.total)),
         payment_method=cobro.metodo_pago,
         operation_code=cobro.referencia_pago,
-        notes=f"[CAJA] {descripcion_pago}",
+        notes=f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]",
         status="approved",
         reviewed_at=ahora,
     )
