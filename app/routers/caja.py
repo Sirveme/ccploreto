@@ -686,6 +686,51 @@ async def descargar_pdf_comprobante(
         raise HTTPException(502, detail=f"Error de conexión: {str(e)}")
 
 
+@router.get("/comprobantes/{comprobante_id}/pdf")
+async def descargar_pdf_por_comprobante(
+    comprobante_id: int,
+    db: Session = Depends(get_db),
+):
+    """Proxy PDF por id de comprobante (soporta boleta, factura y notas de crédito/débito)."""
+    comp = db.query(Comprobante).filter(Comprobante.id == comprobante_id).first()
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+    if not comp.facturalo_id:
+        raise HTTPException(404, detail="Comprobante sin ID en facturalo.pro")
+
+    config = db.query(ConfiguracionFacturacion).filter(
+        ConfiguracionFacturacion.organization_id == comp.organization_id,
+        ConfiguracionFacturacion.activo == True,
+    ).first()
+    if not config or not config.facturalo_token:
+        raise HTTPException(500, detail="Facturación no configurada")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{config.facturalo_url}/comprobantes/{comp.facturalo_id}/pdf",
+                headers={
+                    "X-API-Key": config.facturalo_token,
+                    "X-API-Secret": config.facturalo_secret,
+                },
+            )
+            if r.status_code != 200:
+                raise HTTPException(502, detail=f"Error obteniendo PDF: {r.status_code}")
+
+            content_type = r.headers.get("content-type", "application/pdf")
+            numero_fmt = f"{comp.serie}-{str(comp.numero).zfill(8)}"
+            return StreamingResponse(
+                iter([r.content]),
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f'inline; filename="{numero_fmt}.pdf"',
+                },
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(504, detail="Timeout obteniendo PDF")
+    except httpx.RequestError as e:
+        raise HTTPException(502, detail=f"Error de conexión: {str(e)}")
+
 
 # ============================================================
 # RESUMEN Y ÚLTIMOS COBROS
