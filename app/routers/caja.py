@@ -1690,12 +1690,123 @@ async def listar_comps(
                 "pdf_url": c.pdf_url,
                 "comprobante_ref_id": c.comprobante_ref_id,
                 "observaciones": c.observaciones,
+                "sunat_response_description": c.sunat_response_description or "",
             }
             for c in comprobantes
         ],
         "total": total,
         "page": page,
         "pages": (total + limit - 1) // limit,
+    }
+
+
+@router.get("/comprobantes/{comprobante_id}/estado")
+async def estado_comprobante(
+    comprobante_id: int,
+    db: Session = Depends(get_db),
+):
+    """Devuelve estado actualizado de un comprobante."""
+    comp = db.query(Comprobante).filter(
+        Comprobante.id == comprobante_id,
+        Comprobante.organization_id == 1,
+    ).first()
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+    return {
+        "id": comp.id,
+        "status": comp.status,
+        "sunat_response_description": comp.sunat_response_description or "",
+        "cdr_url": comp.cdr_url or "",
+    }
+
+
+@router.post("/comprobantes/{comprobante_id}/reenviar")
+async def reenviar_comprobante(
+    comprobante_id: int,
+    db: Session = Depends(get_db),
+):
+    """Reenvía a SUNAT (vía facturalo.pro) un comprobante en estado pending o rejected."""
+    comp = db.query(Comprobante).filter(
+        Comprobante.id == comprobante_id,
+        Comprobante.organization_id == 1,
+    ).first()
+    if not comp:
+        raise HTTPException(404, detail="Comprobante no encontrado")
+    if comp.status not in ("pending", "rejected"):
+        raise HTTPException(
+            400,
+            detail=f"No se puede reenviar: estado actual '{comp.status}'",
+        )
+
+    service = FacturacionService(db, comp.organization_id)
+    if not service.esta_configurado():
+        raise HTTPException(400, detail="Facturación no configurada")
+
+    # Datos contextuales para el PDF
+    colegiado = None
+    payment = db.query(Payment).filter(Payment.id == comp.payment_id).first()
+    if payment and payment.colegiado_id:
+        colegiado = db.query(Colegiado).filter(
+            Colegiado.id == payment.colegiado_id
+        ).first()
+
+    matricula = colegiado.codigo_matricula if colegiado else None
+    estado_colegiado = None
+    habil_hasta = None
+    if colegiado:
+        estado_colegiado = "HÁBIL" if getattr(colegiado, 'habilitado', False) else "INHÁBIL"
+        habil_hasta = service._calcular_vigencia(colegiado.id)
+
+    org = db.query(Organization).filter(Organization.id == comp.organization_id).first()
+    url_consulta = None
+    if org:
+        slug = getattr(org, 'slug', None) or getattr(org, 'domain', None)
+        if slug:
+            url_consulta = f"{slug}/consulta/habilidad"
+
+    # Marcar como pending antes de reintentar
+    comp.status = "pending"
+    comp.sunat_response_description = "Reenviado manualmente — en cola"
+    db.commit()
+
+    try:
+        resultado = await service._enviar_a_facturalo(
+            comp,
+            codigo_matricula=matricula,
+            estado_colegiado=estado_colegiado,
+            habil_hasta=habil_hasta,
+            url_consulta=url_consulta,
+            forma_pago="contado",
+        )
+    except Exception as e:
+        comp.status = "rejected"
+        comp.sunat_response_description = f"Error reenviando: {str(e)[:200]}"
+        db.commit()
+        raise HTTPException(500, detail=f"Error reenviando: {str(e)}")
+
+    if resultado.get("success"):
+        comp.status = "accepted"
+        comp.facturalo_id = resultado.get("facturalo_id") or comp.facturalo_id
+        comp.facturalo_response = resultado.get("response")
+        comp.sunat_response_code = resultado.get("sunat_code", "0")
+        comp.sunat_response_description = resultado.get("sunat_description")
+        comp.sunat_hash = resultado.get("hash") or comp.sunat_hash
+        comp.pdf_url = resultado.get("pdf_url") or comp.pdf_url
+        comp.xml_url = resultado.get("xml_url") or comp.xml_url
+        comp.cdr_url = resultado.get("cdr_url") or comp.cdr_url
+    else:
+        comp.status = "rejected"
+        comp.facturalo_response = resultado.get("response")
+        comp.sunat_response_description = resultado.get("error") or "Rechazado"
+        comp.observaciones = resultado.get("error")
+
+    db.commit()
+
+    return {
+        "ok": resultado.get("success", False),
+        "status": comp.status,
+        "sunat_response_description": comp.sunat_response_description or "",
+        "mensaje": "Comprobante reenviado" if resultado.get("success") else (resultado.get("error") or "Rechazado"),
     }
 
 
