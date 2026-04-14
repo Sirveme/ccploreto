@@ -634,22 +634,27 @@ class FacturacionService:
         linea_pago = self._construir_linea_pago(payment)
 
         # ── Buscar deudas pagadas para armar L1 ──
-        # FIX: usar solo deudas mencionadas en payment.notes
         notas = payment.notes or ""
         deudas_pagadas = []
-        if payment.colegiado_id:
-            todas = self.db.query(Debt).filter(
-                Debt.colegiado_id == payment.colegiado_id,
-                Debt.status == "paid"
-            ).order_by(Debt.periodo.asc()).all()
-            # Filtrar solo las que están en las notas del pago
-            deudas_pagadas = [
-                d for d in todas
-                if d.concept and d.concept in notas
-            ]
-            # Fallback: si el filtro no encontró nada, usar lista vacía
-            if not deudas_pagadas:
-                deudas_pagadas = []
+
+        # Intentar extraer DEBT_IDS del notes
+        import re
+        match = re.search(r'\[DEBT_IDS:([\d,]+)\]', notas)
+        if match:
+            # Método preciso: usar IDs exactos
+            ids = [int(x) for x in match.group(1).split(',') if x.strip()]
+            if ids:
+                deudas_pagadas = self.db.query(Debt).filter(
+                    Debt.id.in_(ids)
+                ).order_by(Debt.periodo.asc()).all()
+        elif payment.colegiado_id and payment.related_debt_id:
+            # Fallback: una sola deuda
+            deuda = self.db.query(Debt).filter(
+                Debt.id == payment.related_debt_id
+            ).first()
+            if deuda:
+                deudas_pagadas = [deuda]
+        # Si no hay nada, items vacío → boleta sin detalle de deudas
 
         if deudas_pagadas:
             conceptos = {}
@@ -667,9 +672,15 @@ class FacturacionService:
 
                 if periodos:
                     periodos_fmt = self._formatear_periodos(periodos)
-                    linea_1 = f"{concepto} {periodos_fmt}"
+                    # Evitar duplicar el periodo si ya está en el concepto
+                    concepto_upper = concepto.upper()
+                    periodos_upper = periodos_fmt.upper()
+                    if periodos_upper in concepto_upper:
+                        linea_1 = concepto  # concepto ya incluye el periodo
+                    else:
+                        linea_1 = f"{concepto} {periodos_fmt}"
                     if cantidad > 1:
-                        linea_1 += f" ({cantidad} meses)"
+                        linea_1 += f" ({cantidad} MESES)"
                 else:
                     linea_1 = concepto
 
