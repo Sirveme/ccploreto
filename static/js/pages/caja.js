@@ -1253,13 +1253,21 @@ async function ejecutarAnulacion() {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ payment_id: parseInt(payId), motivo_codigo: motivo, motivo_texto: motivoTexto, monto: montoAnular, observaciones: obs })
                 });
-                const d = await r.json();
+                const d = await r.json().catch(() => ({}));
                 if (d.success) {
                     cerrarModalAnular();
                     toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito} (en proceso SUNAT)` : ''), 'ok');
                     cargarHistorial(); cargarResumen();
-                } else { toast(d.detail || d.error || 'Error al anular', 'err'); }
-            } catch (e) { toast('Error de conexión', 'err'); }
+                } else {
+                    let msg = 'Error al anular';
+                    const det = d.detail;
+                    if (typeof det === 'string') msg = det;
+                    else if (det && typeof det === 'object') msg = det.mensaje || det.message || det.error || msg;
+                    else if (typeof d.error === 'string') msg = d.error;
+                    else if (typeof d.mensaje === 'string') msg = d.mensaje;
+                    toast(msg, 'err');
+                }
+            } catch (e) { toast(e.message || 'Error de conexión', 'err'); }
         },
         true
     );
@@ -1312,19 +1320,28 @@ function renderComprobantes(data) {
         // Fecha completa: "17/02/2026 10:03"
         const fechaCorta = (c.fecha || '').replace(/:\d{2}$/, ''); // solo quitar segundos si los hay
 
-        return `<div class="co-card${esNC ? ' co-nc' : ''}">
+        const msgSunat = c.sunat_response_description
+            ? `<span class="sunat-msg-icon" onclick="mostrarMsgSunat(${c.id})" title="Ver mensaje SUNAT">ℹ️</span>`
+            : '';
+        const puedeReenviar = c.status === 'pending' || c.status === 'rejected';
+        const btnReenviar = puedeReenviar
+            ? `<button class="co-btn-reenviar" onclick="reenviarComprobante(${c.id}, this)" title="Reenviar a SUNAT">↺ Reenviar</button>`
+            : '';
+
+        return `<div class="co-card${esNC ? ' co-nc' : ''}" data-comp-id="${c.id}">
             <div class="co-row1">
                 <span class="co-num">${numCorto}${esNC ? `<span class="co-tipo-nc">${tipoLabel}</span>` : ''}</span>
                 <span class="co-monto${esNC ? ' co-monto-nc' : ''}">${c.total.toFixed(2)}</span>
             </div>
             <div class="co-row2">
                 <span class="co-cliente">${c.cliente_nombre || 'Sin cliente'}${c.cliente_doc ? ` · ${c.cliente_doc}` : ''}</span>
-                ${statusBadge(c.status)}
+                ${statusBadge(c.status)} ${msgSunat}
             </div>
             <div class="co-row3">
                 <span class="co-fecha">${fechaCorta}</span>
                 <span class="co-actions">
                     ${c.pdf_url ? `<button class="co-btn-pdf" onclick="window.open('/api/caja/comprobante/${c.payment_id}/pdf','_blank')" title="Ver PDF">📄 PDF</button>` : ''}
+                    ${btnReenviar}
                     ${c.status === 'accepted' && !esNC ? `<button class="co-btn-anul" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${numCorto}',${c.total})">Anular</button>` : ''}
                 </span>
             </div>
@@ -1340,6 +1357,58 @@ function renderComprobantes(data) {
         if (data.page < data.pages) pagHTML += `<button class="pag-btn" onclick="buscarComprobantes(${data.page + 1})">›</button>`;
         pag.innerHTML = pagHTML;
     } else { pag.innerHTML = ''; }
+}
+
+async function reenviarComprobante(comprobanteId, btnEl) {
+    const original = btnEl.innerHTML;
+    btnEl.disabled = true;
+    btnEl.textContent = '...';
+    try {
+        const r = await fetch(`${API}/comprobantes/${comprobanteId}/reenviar`, { method: 'POST' });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+            toast('Comprobante reenviado y aceptado', 'ok');
+            setTimeout(() => buscarComprobantes(compPageActual), 800);
+        } else {
+            const msg = (data && (data.detail || data.mensaje)) || 'Error al reenviar';
+            toast(msg, 'err');
+            btnEl.disabled = false;
+            btnEl.innerHTML = original;
+            setTimeout(() => buscarComprobantes(compPageActual), 800);
+        }
+    } catch (e) {
+        toast('Error de conexión', 'err');
+        btnEl.disabled = false;
+        btnEl.innerHTML = original;
+    }
+}
+
+async function mostrarMsgSunat(comprobanteId) {
+    let mensaje = '';
+    try {
+        const r = await fetch(`${API}/comprobantes/${comprobanteId}/estado`);
+        if (r.ok) {
+            const d = await r.json();
+            mensaje = d.sunat_response_description || 'Sin mensaje SUNAT';
+        } else {
+            mensaje = 'No se pudo obtener el mensaje';
+        }
+    } catch (e) {
+        mensaje = 'Error de conexión';
+    }
+    const existing = document.getElementById('modal-sunat-msg');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'modal-sunat-msg';
+    div.className = 'sunat-msg-modal';
+    const safe = String(mensaje).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    div.innerHTML = `
+        <div class="sunat-msg-box">
+            <strong>Respuesta SUNAT</strong>
+            <p class="sunat-msg-body">${safe}</p>
+            <button class="sunat-msg-close" onclick="document.getElementById('modal-sunat-msg').remove()">Cerrar</button>
+        </div>`;
+    document.body.appendChild(div);
 }
 
 
