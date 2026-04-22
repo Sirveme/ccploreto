@@ -19,6 +19,7 @@ v6 - Cambios:
 
 import httpx
 import os
+import re
 import json
 import logging
 from datetime import datetime, timezone, timedelta
@@ -638,7 +639,6 @@ class FacturacionService:
         deudas_pagadas = []
 
         # Intentar extraer DEBT_IDS del notes
-        import re
         match = re.search(r'\[DEBT_IDS:([\d,]+)\]', notas)
         if match:
             # Método preciso: usar IDs exactos
@@ -657,34 +657,64 @@ class FacturacionService:
         # Si no hay nada, items vacío → boleta sin detalle de deudas
 
         if deudas_pagadas:
-            conceptos = {}
-            for deuda in deudas_pagadas:
-                concepto = deuda.concept or "Cuota ordinaria"
-                if concepto not in conceptos:
-                    conceptos[concepto] = {"periodos": [], "monto_total": 0}
-                if deuda.periodo:
-                    conceptos[concepto]["periodos"].append(deuda.periodo)
-                conceptos[concepto]["monto_total"] += float(deuda.amount or 0)
+            # Normalizar clave de agrupación: quitar mes/año del concepto
+            # (las deudas se crean con concepto "Cuota Ordinaria <Mes> <Año>" — sin
+            # normalizar, cada mes formaría su propio item y la boleta se multiplicaría).
+            _meses_re = r'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre'
+            _patron_periodo = re.compile(rf'\b({_meses_re})\b|\b\d{{4}}\b|\b\d{{4}}-\d{{2}}\b', re.IGNORECASE)
 
-            for concepto, datos in conceptos.items():
+            def _clave_agrupacion(txt: str) -> str:
+                limpio = _patron_periodo.sub('', txt or '')
+                return re.sub(r'\s+', ' ', limpio).strip().lower() or (txt or 'cuota').lower()
+
+            grupos = {}
+            orden = []
+            for deuda in deudas_pagadas:
+                concepto_orig = deuda.concept or "Cuota ordinaria"
+                clave = _clave_agrupacion(concepto_orig)
+                if clave not in grupos:
+                    nombre_grupo = _patron_periodo.sub('', concepto_orig)
+                    nombre_grupo = re.sub(r'\s+', ' ', nombre_grupo).strip() or concepto_orig
+                    grupos[clave] = {"nombre": nombre_grupo, "periodos": [], "monto_total": 0.0}
+                    orden.append(clave)
+                if deuda.periodo:
+                    grupos[clave]["periodos"].append(deuda.periodo)
+                grupos[clave]["monto_total"] += float(deuda.amount or deuda.balance or 0)
+
+            # Distribuir payment.amount proporcionalmente entre grupos
+            # (si hay un solo grupo, recibe todo el monto).
+            total_base = sum(g["monto_total"] for g in grupos.values()) or float(payment.amount)
+            asignado = 0.0
+            claves = orden
+            tipo_afect = self.config.tipo_afectacion_igv
+            for idx, clave in enumerate(claves):
+                datos = grupos[clave]
                 periodos = datos["periodos"]
                 cantidad = len(periodos) if periodos else 1
 
+                if idx == len(claves) - 1:
+                    # Último grupo: absorbe cualquier resto por redondeo
+                    valor_venta = round(float(payment.amount) - asignado, 2)
+                else:
+                    share = datos["monto_total"] / total_base if total_base > 0 else 1 / len(claves)
+                    valor_venta = round(float(payment.amount) * share, 2)
+                    asignado += valor_venta
+
+                precio_unitario = round(valor_venta / cantidad, 2) if cantidad else valor_venta
+
                 if periodos:
                     periodos_fmt = self._formatear_periodos(periodos)
-                    # Evitar duplicar el periodo si ya está en el concepto
-                    concepto_upper = concepto.upper()
+                    nombre_upper = datos["nombre"].upper()
                     periodos_upper = periodos_fmt.upper()
-                    if periodos_upper in concepto_upper:
-                        linea_1 = concepto  # concepto ya incluye el periodo
+                    if periodos_upper in nombre_upper:
+                        linea_1 = datos["nombre"]
                     else:
-                        linea_1 = f"{concepto} {periodos_fmt}"
+                        linea_1 = f"{datos['nombre']} {periodos_fmt}"
                     if cantidad > 1:
                         linea_1 += f" ({cantidad} MESES)"
                 else:
-                    linea_1 = concepto
+                    linea_1 = datos["nombre"]
 
-                # ── Ensamblar descripción con 4 líneas ──
                 descripcion = linea_1.upper()
                 if linea_nombre:
                     descripcion += f"\n{linea_nombre}"
@@ -697,10 +727,10 @@ class FacturacionService:
                     "descripcion": descripcion,
                     "unidad": "ZZ",
                     "cantidad": cantidad,
-                    "precio_unitario": round(payment.amount / cantidad, 2),
-                    "valor_venta": payment.amount,
-                    "tipo_afectacion_igv": self.config.tipo_afectacion_igv,
-                    "igv": 0 if self.config.tipo_afectacion_igv == "20" else payment.amount * 0.18
+                    "precio_unitario": precio_unitario,
+                    "valor_venta": valor_venta,
+                    "tipo_afectacion_igv": tipo_afect,
+                    "igv": 0 if tipo_afect == "20" else round(valor_venta * 0.18, 2),
                 })
 
         # ── Fallback: sin deudas asociadas ──
