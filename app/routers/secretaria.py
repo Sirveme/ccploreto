@@ -12,7 +12,7 @@ from typing import Optional, List
 from decimal import Decimal
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body, UploadFile, File
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from app.database import get_db
 from app.models import (
     Colegiado, Payment, Member, Organization, ConfiguracionFacturacion,
+    Comprobante,
 )
 from app.models_debt_management import Debt
 from app.routers.dashboard import get_current_member
@@ -1238,3 +1239,580 @@ async def revisiones_stats(
         "por_motivo": por_motivo,
         "por_anio": por_anio,
     }
+
+
+# ============================================================
+# HISTORIAL DE PAGOS + REVERTIR PAGO SIN COMPROBANTE
+# ============================================================
+
+import re as _re_pagos
+
+_DEBT_IDS_RE = _re_pagos.compile(r"\[DEBT_IDS:([\d,]+)\]")
+
+
+def _debt_ids_from_notes(notes: Optional[str]) -> List[int]:
+    if not notes:
+        return []
+    m = _DEBT_IDS_RE.search(notes)
+    if not m:
+        return []
+    return [int(x) for x in m.group(1).split(",") if x.strip().isdigit()]
+
+
+@router.get("/pagos/{colegiado_id}")
+async def listar_pagos_colegiado(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Historial de pagos del colegiado con flag tiene_comprobante."""
+    colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not colegiado:
+        raise HTTPException(404, detail="Colegiado no encontrado")
+
+    pagos = (
+        db.query(Payment)
+        .filter(Payment.colegiado_id == colegiado_id)
+        .order_by(Payment.created_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    pagos_ids = [p.id for p in pagos]
+    comps_por_pago = {}
+    if pagos_ids:
+        comps = db.query(Comprobante).filter(
+            Comprobante.payment_id.in_(pagos_ids),
+            Comprobante.tipo.in_(["01", "03"]),
+        ).all()
+        for c in comps:
+            comps_por_pago[c.payment_id] = {
+                "id": c.id,
+                "serie": c.serie,
+                "numero": c.numero,
+                "numero_formato": f"{c.serie}-{str(c.numero).zfill(8)}",
+                "tipo": c.tipo,
+                "status": c.status,
+            }
+
+    return {
+        "pagos": [
+            {
+                "id": p.id,
+                "monto": float(p.amount or 0),
+                "metodo_pago": p.payment_method,
+                "operation_code": p.operation_code,
+                "fecha": p.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if p.created_at else "",
+                "status": p.status,
+                "notes": p.notes,
+                "comprobante": comps_por_pago.get(p.id),
+                "tiene_comprobante": p.id in comps_por_pago,
+            }
+            for p in pagos
+        ]
+    }
+
+
+@router.post("/pagos/{pago_id}/revertir")
+async def revertir_pago(
+    pago_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Revierte un pago sin comprobante SUNAT: deudas vuelven a pendiente."""
+    pago = db.query(Payment).filter(Payment.id == pago_id).first()
+    if not pago:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    if pago.status == "reverted":
+        raise HTTPException(status_code=400, detail="Este pago ya fue revertido")
+
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == pago_id,
+        Comprobante.tipo.in_(["01", "03"]),
+    ).first()
+    if comp:
+        raise HTTPException(
+            status_code=400,
+            detail="Este pago tiene comprobante SUNAT. Use Anular desde /caja."
+        )
+
+    motivo = (body.get("motivo") or "").strip()
+    if not motivo:
+        raise HTTPException(status_code=400, detail="Debe indicar el motivo")
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+    ahora = datetime.now(PERU_TZ)
+
+    deuda_ids = _debt_ids_from_notes(pago.notes)
+    if not deuda_ids and pago.related_debt_id:
+        deuda_ids = [pago.related_debt_id]
+
+    deudas_revertidas: List[int] = []
+    if deuda_ids:
+        deudas = db.query(Debt).filter(Debt.id.in_(deuda_ids)).all()
+        for d in deudas:
+            d.status = "pending"
+            d.balance = d.amount
+            d.notes = (d.notes or "") + (
+                f"\n[SECRETARIA:{operador_dni}] Pago #{pago.id} revertido "
+                f"{ahora.strftime('%d/%m/%Y %H:%M')} — {motivo}"
+            )
+            deudas_revertidas.append(d.id)
+
+    pago.status = "reverted"
+    pago.notes = (pago.notes or "") + (
+        f" | REVERTIDO {ahora.strftime('%d/%m/%Y %H:%M')} por DNI:{operador_dni}: {motivo}"
+    )
+
+    db.commit()
+
+    # Reevaluar condición del colegiado
+    colegiado = db.query(Colegiado).filter(Colegiado.id == pago.colegiado_id).first()
+    if colegiado:
+        sincronizar_condicion(db, colegiado, {})
+        db.commit()
+
+    return {
+        "ok": True,
+        "mensaje": f"Pago #{pago.id} revertido. {len(deudas_revertidas)} deuda(s) vueltas a pendiente.",
+        "deudas_revertidas": deudas_revertidas,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# IMPORTADOR CSV MASIVO DE CORRECCIONES (zClaude-43)
+# ═══════════════════════════════════════════════════════════════
+
+import csv as _csv
+import io as _io
+import re as _re
+
+_TIPO_MANUAL = {"quitar_concepto", "modificar_concepto", "revertir_pago"}
+_TIPOS_NO_EJECUTABLES = _TIPO_MANUAL | {"no_soportado"}
+
+
+def _normalizar_tipo_operacion(raw: str) -> str:
+    t = (raw or "").strip().upper()
+    if not t:
+        return "no_soportado"
+    # Fraccionamiento primero (puede contener palabra "AGREGAR")
+    if "FRACC" in t:
+        return "agregar_fraccionamiento"
+    if "REVERTIR" in t:
+        return "revertir_pago"
+    if "MODIFICAR MONTO" in t or "MODIFICAR PAGO" in t or t == "MODIFICAR":
+        return "modificar_monto"
+    if "MODIFICAR CONCEPTO" in t:
+        return "modificar_concepto"
+    if "QUITAR" in t or "BORRAR" in t:
+        return "quitar_concepto"
+    if "SUSPENDIDO" in t or "INACTIVO" in t or "SUSPENDER" in t or "INACTIVAR" in t:
+        return "cambiar_estado"
+    if "MULTA" in t or "AGREGAR DEUDA" in t or "FALTA AGREGAR" in t or "AGREGAR" in t:
+        return "agregar_deuda"
+    return "no_soportado"
+
+
+def _parsear_monto(raw: str):
+    if not raw:
+        return None
+    s = raw.replace("S/", "").replace("s/", "").strip()
+    # "1.234,56" → "1234.56"
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+    s = s.replace(" ", "")
+    try:
+        return round(float(s), 2)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parsear_fecha_es(raw: str):
+    """Acepta dd/mm/yyyy o d/m/yyyy o yyyy-mm-dd. None si falla."""
+    if not raw:
+        return None
+    raw = raw.strip()
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _parsear_cuotas_de_descripcion(descripcion: str, fallback_total):
+    """
+    Extrae '5 cuotas de 100 y 1 cuota de 80' → [100,100,100,100,100,80].
+    Si no se puede → devuelve fallback (una sola cuota con fallback_total).
+    """
+    cuotas = []
+    if descripcion:
+        for m in _re.finditer(
+            r"(\d+)\s+cuotas?\s+de\s+([\d\.,]+)",
+            descripcion,
+            flags=_re.IGNORECASE,
+        ):
+            cantidad = int(m.group(1))
+            valor = _parsear_monto(m.group(2))
+            if valor is not None:
+                cuotas.extend([valor] * cantidad)
+    if not cuotas and fallback_total:
+        cuotas = [float(fallback_total)]
+    return cuotas
+
+
+@page_router.get("/secretaria/importar", response_class=HTMLResponse)
+async def pagina_importar(
+    request: Request,
+    current_member: Member = Depends(require_secretaria),
+):
+    return templates.TemplateResponse("pages/secretaria_importar.html", {"request": request})
+
+
+@router.post("/importar/parsear")
+async def importar_parsear(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Lee el CSV (sep ';', encoding utf-8 o latin-1) y retorna las operaciones
+    detectadas sin ejecutar nada. Fila sin código en col 0 hereda del anterior.
+    """
+    contenido = await file.read()
+    texto = None
+    for enc in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            texto = contenido.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if texto is None:
+        return {"ok": False, "error": "No se pudo decodificar el archivo"}
+
+    lector = _csv.reader(_io.StringIO(texto), delimiter=";")
+
+    org = db.query(Organization).first()
+    org_id = org.id if org else None
+
+    operaciones = []
+    codigo_actual = None
+    cod_re = _re.compile(r"^\d{1,3}-\d+$")
+
+    # Cache para evitar hitear N veces la BD con el mismo código
+    cache_colegiado = {}
+
+    for i, cols in enumerate(lector, start=1):
+        # Limpiar columnas
+        cols = [(c or "").strip() for c in cols]
+        if not any(cols):
+            continue
+
+        raw_cod = cols[0] if cols else ""
+        if cod_re.match(raw_cod):
+            codigo_actual = raw_cod
+        elif not codigo_actual:
+            # Fila de comentario global al inicio — omitir
+            continue
+
+        tipo_raw = cols[1] if len(cols) > 1 else ""
+        descripcion = cols[2] if len(cols) > 2 else ""
+        monto_raw = cols[3] if len(cols) > 3 else ""
+        fechas_raw = [c for c in cols[4:] if c]
+
+        monto = _parsear_monto(monto_raw)
+        tipo = _normalizar_tipo_operacion(tipo_raw)
+
+        colegiado = cache_colegiado.get(codigo_actual)
+        if colegiado is None and codigo_actual and org_id:
+            colegiado = db.query(Colegiado).filter(
+                Colegiado.codigo_matricula == codigo_actual,
+                Colegiado.organization_id == org_id,
+            ).first()
+            cache_colegiado[codigo_actual] = colegiado
+
+        operaciones.append({
+            "fila": i,
+            "codigo": codigo_actual,
+            "colegiado_id": colegiado.id if colegiado else None,
+            "colegiado_nombre": colegiado.apellidos_nombres if colegiado else None,
+            "colegiado_encontrado": colegiado is not None,
+            "tipo": tipo,
+            "tipo_raw": tipo_raw,
+            "descripcion": descripcion,
+            "monto": monto,
+            "monto_raw": monto_raw,
+            "fechas": fechas_raw,
+            "estado": "pendiente",
+            "mensaje": None,
+        })
+
+    return {"ok": True, "total": len(operaciones), "operaciones": operaciones}
+
+
+# ─────────── EJECUTORES POR TIPO ───────────
+
+def _ejec_agregar_fraccionamiento(op: dict, db: Session, current_member: Member, org_id: int) -> dict:
+    colegiado = db.query(Colegiado).filter(Colegiado.id == op["colegiado_id"]).first()
+    if not colegiado:
+        return {"estado": "error", "mensaje": "Colegiado no encontrado"}
+
+    # Idempotencia: no reimportar la misma fila del mismo CSV.
+    # Se marca con sufijo en numero_solicitud (FRACC-YYYY-NNNN-CSV-FILA-N).
+    marca_fila = f"CSV-FILA-{op['fila']}"
+    existe = db.query(Fraccionamiento).filter(
+        Fraccionamiento.colegiado_id == colegiado.id,
+        Fraccionamiento.numero_solicitud.ilike(f"%{marca_fila}%"),
+    ).first()
+    if existe:
+        return {"estado": "error", "mensaje": f"Ya importado antes (fracc #{existe.id})"}
+
+    cuotas_montos = _parsear_cuotas_de_descripcion(op["descripcion"], op["monto"])
+    fechas = [_parsear_fecha_es(f) for f in op["fechas"]]
+    fechas = [f for f in fechas if f is not None]
+
+    if not cuotas_montos:
+        return {"estado": "error", "mensaje": "No se pudo determinar cuotas"}
+    if not fechas:
+        return {"estado": "error", "mensaje": "No hay fechas de vencimiento válidas"}
+
+    # Ajustar longitud — si hay más cuotas que fechas, extender fechas con +1 mes
+    while len(fechas) < len(cuotas_montos):
+        fechas.append(fechas[-1] + timedelta(days=30))
+    cuotas_montos = cuotas_montos[:len(fechas)]
+    fechas = fechas[:len(cuotas_montos)]
+
+    total = round(sum(cuotas_montos), 2)
+    cuota_ini = round(cuotas_montos[0], 2)
+    saldo_fracc = round(total - cuota_ini, 2)
+
+    ahora = datetime.now(PERU_TZ)
+    anio = ahora.year
+    # Número de solicitud único importado
+    secuencia = db.query(Fraccionamiento).filter(
+        Fraccionamiento.organization_id == org_id,
+        Fraccionamiento.numero_solicitud.like(f"FRACC-{anio}-%"),
+    ).count() + 1
+    numero_solicitud = f"FRACC-{anio}-{str(secuencia).zfill(4)}-{marca_fila}"
+
+    fracc = Fraccionamiento(
+        organization_id=org_id,
+        colegiado_id=colegiado.id,
+        numero_solicitud=numero_solicitud,
+        fecha_solicitud=ahora.date(),
+        deuda_total_original=total,
+        cuota_inicial=cuota_ini,
+        cuota_inicial_pagada=False,
+        saldo_a_fraccionar=saldo_fracc,
+        num_cuotas=len(cuotas_montos),
+        monto_cuota=round(cuotas_montos[1] if len(cuotas_montos) > 1 else cuota_ini, 2),
+        cuotas_pagadas=0,
+        cuotas_atrasadas=0,
+        saldo_pendiente=total,
+        fecha_inicio=fechas[0],
+        fecha_fin_estimada=fechas[-1],
+        proxima_cuota_fecha=fechas[0],
+        proxima_cuota_numero=1,
+        estado="activo",
+        base_legal_referencia=f"CSV import fila {op['fila']}"[:100],
+        created_by=current_member.user_id,
+    )
+    db.add(fracc)
+    db.flush()
+
+    for idx, (valor, fecha) in enumerate(zip(cuotas_montos, fechas), start=1):
+        cuota = FraccionamientoCuota(
+            fraccionamiento_id=fracc.id,
+            numero_cuota=idx,
+            monto=float(valor),
+            fecha_vencimiento=fecha,
+            pagada=False,
+        )
+        db.add(cuota)
+
+    return {
+        "estado": "ok",
+        "mensaje": f"Fracc #{fracc.id} creado: {len(cuotas_montos)} cuotas, total S/ {total:.2f}",
+    }
+
+
+def _ejec_agregar_deuda(op: dict, db: Session, current_member: Member, org_id: int) -> dict:
+    if not op["monto"] or op["monto"] <= 0:
+        return {"estado": "error", "mensaje": "Monto inválido o vacío"}
+
+    concept = (op["descripcion"] or "Deuda").strip()[:255]
+    tipo_raw_upper = (op["tipo_raw"] or "").upper()
+    debt_type = "multa" if "MULTA" in tipo_raw_upper else "otro"
+
+    # Intentar detectar periodo YYYY-MM dentro de la descripción
+    periodo = None
+    m = _re.search(r"(20\d{2})[-/](\d{1,2})", op["descripcion"] or "")
+    if m:
+        periodo = f"{m.group(1)}-{int(m.group(2)):02d}"
+
+    marca = f"[CSV-IMPORT fila {op['fila']}]"
+    existe = db.query(Debt).filter(
+        Debt.colegiado_id == op["colegiado_id"],
+        Debt.notes.ilike(f"%{marca}%"),
+    ).first()
+    if existe:
+        return {"estado": "error", "mensaje": f"Ya importada antes (deuda #{existe.id})"}
+
+    nueva = Debt(
+        organization_id=org_id,
+        colegiado_id=op["colegiado_id"],
+        concept=concept,
+        amount=Decimal(str(op["monto"])),
+        balance=Decimal(str(op["monto"])),
+        status="pending",
+        debt_type=debt_type,
+        periodo=periodo,
+        notes=f"{marca} {op['descripcion']}"[:500],
+    )
+    db.add(nueva)
+    db.flush()
+    return {"estado": "ok", "mensaje": f"Deuda #{nueva.id} creada S/ {float(op['monto']):.2f}"}
+
+
+def _ejec_modificar_monto(op: dict, db: Session, current_member: Member, org_id: int) -> dict:
+    if op["monto"] is None or op["monto"] < 0:
+        return {"estado": "error", "mensaje": "Monto inválido"}
+
+    # Estrategia conservadora: buscar la deuda pendiente más reciente que coincida
+    # en periodo (si el descriptor lo incluye) o la más antigua pendiente.
+    q = db.query(Debt).filter(
+        Debt.colegiado_id == op["colegiado_id"],
+        Debt.status.in_(["pending", "partial"]),
+    )
+    m = _re.search(r"(20\d{2})[-/](\d{1,2})", op["descripcion"] or "")
+    if m:
+        periodo = f"{m.group(1)}-{int(m.group(2)):02d}"
+        q = q.filter(Debt.periodo == periodo)
+
+    deuda = q.order_by(Debt.periodo.asc().nullslast(), Debt.id.asc()).first()
+    if not deuda:
+        return {"estado": "error", "mensaje": "No se encontró deuda pendiente para modificar"}
+
+    monto_anterior = float(deuda.amount or 0)
+    saldo_pagado = monto_anterior - float(deuda.balance or 0)
+    nuevo = float(op["monto"])
+    nuevo_balance = max(0.0, nuevo - saldo_pagado)
+
+    deuda.amount = Decimal(str(nuevo))
+    deuda.balance = Decimal(str(nuevo_balance))
+    if nuevo_balance == 0 and saldo_pagado > 0:
+        deuda.status = "paid"
+    elif nuevo_balance > 0 and saldo_pagado > 0:
+        deuda.status = "partial"
+    deuda.notes = (deuda.notes or "") + (
+        f"\n[CSV-IMPORT fila {op['fila']}] Monto: S/ {monto_anterior:.2f} → S/ {nuevo:.2f}"
+    )
+    return {
+        "estado": "ok",
+        "mensaje": f"Deuda #{deuda.id} monto {monto_anterior:.2f} → {nuevo:.2f}",
+    }
+
+
+def _ejec_cambiar_estado(op: dict, db: Session, current_member: Member, org_id: int) -> dict:
+    colegiado = db.query(Colegiado).filter(Colegiado.id == op["colegiado_id"]).first()
+    if not colegiado:
+        return {"estado": "error", "mensaje": "Colegiado no encontrado"}
+
+    t_upper = (op["tipo_raw"] or "").upper() + " " + (op["descripcion"] or "").upper()
+    if "SUSPEND" in t_upper:
+        nueva = "suspendido"
+    elif "INACTIV" in t_upper:
+        nueva = "inhabil"
+    else:
+        return {"estado": "error", "mensaje": "No se pudo inferir el estado destino"}
+
+    anterior = colegiado.condicion
+    if anterior == nueva:
+        return {"estado": "ok", "mensaje": f"Ya estaba '{nueva}' — sin cambios"}
+
+    colegiado.condicion = nueva
+    if hasattr(colegiado, "fecha_actualizacion_condicion"):
+        colegiado.fecha_actualizacion_condicion = datetime.now(PERU_TZ)
+    if nueva != "habil":
+        colegiado.habilidad_vence = None
+        colegiado.motivo_inhabilidad = f"[CSV-IMPORT fila {op['fila']}] {op['descripcion']}"[:500]
+    return {"estado": "ok", "mensaje": f"Condición: {anterior} → {nueva}"}
+
+
+_EJECUTORES = {
+    "agregar_fraccionamiento": _ejec_agregar_fraccionamiento,
+    "agregar_deuda": _ejec_agregar_deuda,
+    "modificar_monto": _ejec_modificar_monto,
+    "cambiar_estado": _ejec_cambiar_estado,
+}
+
+
+@router.post("/importar/ejecutar")
+async def importar_ejecutar(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Ejecuta las operaciones marcadas con ejecutar=True. Cada fila es
+    atómica via savepoint: si falla, rollback solo de esa fila.
+    """
+    operaciones = body.get("operaciones") or []
+    if not operaciones:
+        return {"ok": False, "error": "Sin operaciones"}
+
+    org = db.query(Organization).first()
+    if not org:
+        return {"ok": False, "error": "Sin organización configurada"}
+
+    resultados = []
+    for op in operaciones:
+        if not op.get("ejecutar"):
+            resultados.append({**op, "estado": "omitido", "mensaje": None})
+            continue
+
+        if op.get("tipo") in _TIPOS_NO_EJECUTABLES:
+            resultados.append({
+                **op, "estado": "error",
+                "mensaje": "Requiere revisión manual — no se ejecuta automáticamente",
+            })
+            continue
+
+        if not op.get("colegiado_id"):
+            resultados.append({**op, "estado": "error",
+                               "mensaje": f"Colegiado {op.get('codigo')} no encontrado"})
+            continue
+
+        ejecutor = _EJECUTORES.get(op["tipo"])
+        if not ejecutor:
+            resultados.append({**op, "estado": "error",
+                               "mensaje": f"Tipo '{op['tipo']}' sin ejecutor"})
+            continue
+
+        sp = db.begin_nested()
+        try:
+            resultado = ejecutor(op, db, current_member, org.id)
+            if resultado.get("estado") == "ok":
+                sp.commit()
+            else:
+                sp.rollback()
+            resultados.append({**op, **resultado})
+        except Exception as e:
+            sp.rollback()
+            logger.exception("Error ejecutando fila CSV")
+            resultados.append({**op, "estado": "error", "mensaje": str(e)[:200]})
+
+    db.commit()
+
+    resumen = {
+        "ok": sum(1 for r in resultados if r["estado"] == "ok"),
+        "error": sum(1 for r in resultados if r["estado"] == "error"),
+        "omitido": sum(1 for r in resultados if r["estado"] == "omitido"),
+    }
+    return {"ok": True, "resumen": resumen, "resultados": resultados}

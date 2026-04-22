@@ -537,6 +537,197 @@ async def registrar_cobro(
 
 
 # ════════════════════════════════════════════════════════════
+# VISTA PREVIA — genera PDF sin tocar BD ni SUNAT
+# ════════════════════════════════════════════════════════════
+
+@router.post("/cobrar/preview")
+async def preview_cobro(
+    cobro: RegistrarCobroRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Genera un PDF de vista previa del comprobante que se emitiría,
+    sin reservar correlativo, sin persistir Payment/Comprobante
+    y sin enviar a SUNAT. Devuelve el PDF en base64.
+
+    Recibe exactamente los mismos parámetros que POST /cobrar.
+    """
+    import base64
+    from app.services.pdf_preview_boleta import generar_pdf_preview
+
+    org = db.query(Organization).first()
+    if not org:
+        return {"ok": False, "error": "Sin organización configurada"}
+
+    # ── Validar items y construir listas en memoria (sin db.add) ──
+    total_calculado = 0.0
+    deudas_mock: list = []
+    items_mock: list = []
+
+    for item in cobro.items:
+        if item.tipo == "deuda" and item.deuda_id:
+            deuda = db.query(Debt).filter(
+                Debt.id == item.deuda_id,
+                Debt.status.in_(["pending", "partial"]),
+            ).first()
+            if not deuda:
+                return {"ok": False, "error": f"Deuda {item.deuda_id} no encontrada o ya pagada"}
+            saldo = float(deuda.balance or 0)
+            deudas_mock.append(deuda)
+            items_mock.append({
+                "tipo": "deuda",
+                "deuda_id": deuda.id,
+                "descripcion": f"{deuda.concept or 'Cuota'} {deuda.periodo or ''}".strip(),
+                "monto": saldo,
+            })
+            total_calculado += saldo
+
+        elif item.tipo == "concepto" and item.concepto_id:
+            concepto = db.query(ConceptoCobro).filter(
+                ConceptoCobro.id == item.concepto_id,
+                ConceptoCobro.activo == True,
+            ).first()
+            if not concepto:
+                return {"ok": False, "error": f"Concepto {item.concepto_id} no encontrado"}
+            if concepto.permite_monto_libre:
+                monto = item.monto_unitario if item.monto_unitario > 0 else concepto.monto_base
+            else:
+                monto = concepto.monto_base
+            if monto <= 0:
+                return {"ok": False, "error": f"Monto inválido para {concepto.nombre}"}
+            monto_total = monto * item.cantidad
+            items_mock.append({
+                "tipo": "concepto",
+                "concepto_id": concepto.id,
+                "codigo": concepto.codigo,
+                "descripcion": concepto.nombre,
+                "cantidad": item.cantidad,
+                "monto_unitario": monto,
+                "monto_total": monto_total,
+                "afecto_igv": concepto.afecto_igv,
+            })
+            total_calculado += monto_total
+
+        else:
+            if item.monto_total <= 0:
+                return {"ok": False, "error": "Item sin monto"}
+            items_mock.append({
+                "tipo": "libre",
+                "descripcion": item.descripcion or "Otros",
+                "cantidad": item.cantidad,
+                "monto_total": item.monto_total,
+            })
+            total_calculado += item.monto_total
+
+    if not items_mock:
+        return {"ok": False, "error": "No hay items para cobrar"}
+
+    if abs(total_calculado - cobro.total) > 0.02:
+        return {"ok": False,
+                "error": f"Total no coincide: calculado={total_calculado:.2f}, enviado={cobro.total:.2f}"}
+
+    # ── Payment simulado (NO se agrega a la sesión) ──
+    ahora = datetime.now(PERU_TZ)
+    descripciones = [i["descripcion"] for i in items_mock]
+    descripcion_pago = "; ".join(descripciones[:5])
+    if len(descripciones) > 5:
+        descripcion_pago += f" (+{len(descripciones) - 5} más)"
+    ids_deudas = [str(d.id) for d in deudas_mock]
+    ids_str = ",".join(ids_deudas)
+
+    payment_mock = Payment(
+        organization_id=org.id,
+        colegiado_id=cobro.colegiado_id,
+        amount=float(cobro.total),
+        payment_method=cobro.metodo_pago,
+        operation_code=cobro.referencia_pago,
+        notes=f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]",
+        status="approved",
+        reviewed_at=ahora,
+    )
+    payment_mock.created_at = ahora
+    if cobro.tipo_comprobante == "01" and cobro.cliente_ruc:
+        payment_mock.pagador_tipo = "empresa"
+        payment_mock.pagador_documento = cobro.cliente_ruc
+        payment_mock.pagador_nombre = cobro.cliente_razon_social
+
+    # ── Reutilizar pipeline: cliente + items exactamente como en /cobrar real ──
+    try:
+        service = FacturacionService(db, org.id)
+        tipo = cobro.tipo_comprobante or "03"
+
+        forzar_cliente = None
+        if tipo == "01" and cobro.cliente_ruc:
+            forzar_cliente = {
+                "tipo_doc": "6",
+                "num_doc": cobro.cliente_ruc,
+                "nombre": cobro.cliente_razon_social or "",
+                "direccion": cobro.cliente_direccion or "",
+                "email": "",
+            }
+
+        cliente_data = service._obtener_datos_cliente(payment_mock, forzar_cliente)
+        items_doc = service._construir_items(payment_mock, tipo)
+
+        # Serie resuelta igual que en emisión real (sin reservar correlativo)
+        from app.services.facturacion import obtener_serie
+        serie = obtener_serie(tipo, sede_id="1", config=service.config) if service.config else (
+            "F001" if tipo == "01" else "B001"
+        )
+
+        # Totales
+        subtotal = float(cobro.total)
+        cfg = service.config
+        if cfg and cfg.tipo_afectacion_igv == "10" and (cfg.porcentaje_igv or 0) > 0:
+            # Precios incluyen IGV — descomponer
+            pct = float(cfg.porcentaje_igv) / 100
+            subtotal = round(float(cobro.total) / (1 + pct), 2)
+            igv = round(float(cobro.total) - subtotal, 2)
+        else:
+            igv = 0.0
+        total = float(cobro.total)
+
+        matricula = None
+        if cobro.colegiado_id:
+            colegiado = db.query(Colegiado).filter(
+                Colegiado.id == cobro.colegiado_id
+            ).first()
+            if colegiado:
+                matricula = colegiado.codigo_matricula
+
+        org_nombre_txt = (cfg.razon_social if cfg and cfg.razon_social else getattr(org, 'name', '')) or ""
+        org_ruc_txt = (cfg.ruc if cfg and cfg.ruc else "") or ""
+        org_direccion_txt = (cfg.direccion if cfg and cfg.direccion else "") or ""
+
+        pdf_bytes = generar_pdf_preview(
+            tipo_comprobante=tipo,
+            serie=serie,
+            cliente=cliente_data,
+            items=items_doc,
+            subtotal=subtotal,
+            igv=igv,
+            total=total,
+            forma_pago=cobro.forma_pago,
+            metodo_pago=cobro.metodo_pago,
+            org_nombre=org_nombre_txt,
+            org_ruc=org_ruc_txt,
+            org_direccion=org_direccion_txt,
+            matricula=matricula,
+        )
+
+        return {
+            "ok": True,
+            "pdf_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+            "nombre": f"preview_{serie}.pdf",
+            "total": total,
+            "items_count": len(items_doc),
+        }
+    except Exception as e:
+        logger.error(f"Error generando preview: {e}", exc_info=True)
+        return {"ok": False, "error": f"Error generando preview: {str(e)[:200]}"}
+
+
+# ════════════════════════════════════════════════════════════
 # AGREGAR ESTE ENDPOINT EN caja.py (después del endpoint /cobrar)
 # ════════════════════════════════════════════════════════════
 
@@ -1928,7 +2119,7 @@ async def correccion_listar_casos(
                 COALESCE(SUM(d.balance),0) as deuda_total,
                 COUNT(d.id) as num_deudas,
                 'habil_con_deuda_alta' as tipo_caso,
-                'Hábil con deuda > S/500 sin fraccionamiento activo' as descripcion_caso
+                'Hábil con deuda > S/250 sin fraccionamiento activo' as descripcion_caso
             FROM colegiados c
             JOIN debts d ON d.colegiado_id = c.id
                 AND d.status IN ('pending','partial')
@@ -1941,7 +2132,7 @@ async def correccion_listar_casos(
               )
             GROUP BY c.id, c.codigo_matricula, c.apellidos_nombres,
                      c.condicion, c.motivo_inhabilidad
-            HAVING SUM(d.balance) > 500
+            HAVING SUM(d.balance) > 250
             ORDER BY deuda_total DESC
             LIMIT :lim OFFSET :off
         """), {"org": org_id, "lim": limit, "off": offset}).fetchall()
