@@ -186,14 +186,14 @@ function fmtMetodo(m) {
  */
 function statusBadge(s) {
     const map = {
-        accepted: ['Aceptado', 'st-ok'],
-        pending: ['Pendiente', 'st-warn'],
-        encolado: ['Encolado', 'st-warn'],
-        rejected: ['Rechazado', 'st-err'],
-        anulado: ['Anulado', 'st-muted'],
-        error: ['Error', 'st-err'],
+        accepted: ['ACEPTADO SUNAT', 'st-ok'],
+        pending:  ['EN COLA',        'st-warn'],
+        encolado: ['EN COLA',        'st-warn'],
+        rejected: ['RECHAZADO',      'st-err'],
+        anulado:  ['ANULADO',        'st-muted'],
+        error:    ['ERROR',          'st-err'],
     };
-    const [label, cls] = map[s] || ['?', 'st-muted'];
+    const [label, cls] = map[s] || [(s || '?').toUpperCase(), 'st-muted'];
     return `<span class="st-badge ${cls}">${label}</span>`;
 }
 
@@ -823,6 +823,91 @@ function cerrarModal() {
     document.getElementById('modalConfirm').classList.remove('active');
 }
 
+function _construirPayloadCobro() {
+    if (!carrito.length) return null;
+    const total = carrito.reduce((s, i) => s + i.monto, 0);
+    const ref = document.getElementById('refInput').value.trim();
+    const payload = {
+        colegiado_id: colActual?.id || null,
+        items: carrito.map(i => ({
+            tipo: i.tipo, deuda_id: i.deuda_id || null, concepto_id: i.concepto_id || null,
+            descripcion: i.descripcion, cantidad: i.cantidad || 1,
+            monto_unitario: i.monto_unitario || i.monto, monto_total: i.monto
+        })),
+        total, metodo_pago: metodo, referencia_pago: ref || null,
+        tipo_comprobante: tipoComp, forma_pago: formaPago
+    };
+    if (tipoComp === '01') {
+        payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
+        payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
+        payload.cliente_direccion = document.getElementById('ffDireccion').value.trim();
+    }
+    return payload;
+}
+
+async function solicitarPreview() {
+    const payload = _construirPayloadCobro();
+    if (!payload) {
+        toast('Agrega items antes de generar la vista previa', 'err');
+        return;
+    }
+
+    const btn = document.getElementById('mbtnPreview');
+    const textoOriginal = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Generando...';
+
+    // Abrir la ventana ANTES del fetch para evitar bloqueo de popups
+    const win = window.open('', '_blank');
+    if (!win) {
+        toast('Activa los popups para este sitio en tu navegador', 'err');
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+        return;
+    }
+    win.document.write('<html><body style="margin:0;font-family:sans-serif;padding:24px;color:#555">Generando vista previa…</body></html>');
+
+    try {
+        const r = await fetch(`${API}/cobrar/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!r.ok) {
+            let detalle = '';
+            try { const err = await r.json(); detalle = err.detail || err.error || ''; } catch (_) {}
+            win.close();
+            toast(detalle || `Error ${r.status} al generar preview`, 'err');
+            return;
+        }
+
+        const data = await r.json();
+        if (!data.ok || !data.pdf_base64) {
+            win.close();
+            toast(data.error || 'No se pudo generar el PDF (respuesta vacía)', 'err');
+            return;
+        }
+
+        // Construir blob desde base64 y cargarlo en la ventana ya abierta
+        const binary = atob(data.pdf_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        win.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+        toast('Vista previa generada. Revisa el PDF antes de confirmar.', 'ok');
+    } catch (e) {
+        win.close();
+        toast('Error de conexión al generar preview', 'err');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+    }
+}
+
 async function ejecutarCobro() {
     cerrarModal();
     const total = carrito.reduce((s, i) => s + i.monto, 0);
@@ -1141,13 +1226,13 @@ function renderHistorial(data) {
         const monto = o.amount || o.total || 0;
         const desc = o.notes || o.descripcion || 'Cobro';
         const compNum = o.numero_comprobante || o.comprobante_numero || '';
-        const compCorto = fmtNum(compNum);
+        const compCorto = compNum;
         const esAnulado = o.status === 'anulado' || o.status === 'refunded';
         const met = o.metodo_pago || o.payment_method || '';
         const ncParcialMatch = desc.match(/\[NC PARCIAL S\/([\d.]+)\]/);
         const ncNumMatch = desc.match(/\[NC:\s*([^\]]+)\]/);
         const ncMonto = ncParcialMatch ? ncParcialMatch[1] : null;
-        const ncNumero = ncNumMatch ? fmtNum(ncNumMatch[1].trim()) : null;
+        const ncNumero = ncNumMatch ? ncNumMatch[1].trim() : null;
         const descLimpia = desc.replace('[CAJA] ', '').replace(/\[NC PARCIAL S\/[\d.]+\][^\[]*/g, '').replace(/\[NC:[^\]]+\]/g, '').replace(/\[ANULADO\][^\[]*/g, '').trim();
 
         let ncBadge = '';
@@ -1316,7 +1401,7 @@ function renderComprobantes(data) {
     lista.innerHTML = comps.map(c => {
         const esNC = c.tipo === '07' || c.tipo === '08';
         const tipoLabel = tipoNames[c.tipo] || c.tipo;
-        const numCorto = fmtNum(c.numero_formato);
+        const numCorto = c.numero_formato || '';
         // Fecha completa: "17/02/2026 10:03"
         const fechaCorta = (c.fecha || '').replace(/:\d{2}$/, ''); // solo quitar segundos si los hay
 
@@ -2044,7 +2129,7 @@ function _renderModal(data) {
             </div>` : `
             <div style="text-align:center;padding:30px;color:#64748b">
                 <div style="font-size:32px;margin-bottom:8px">⚠️</div>
-                <div style="font-size:13px">Deuda mínima para fraccionar: S/ 500</div>
+                <div style="font-size:13px">Deuda mínima para fraccionar: S/ 250</div>
                 <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
             </div>`}
 
@@ -2054,7 +2139,7 @@ function _renderModal(data) {
                 <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:10px">Condiciones del plan</div>
                 ${[
-                    ['✅','Deuda mínima: S/ 500'],
+                    ['✅','Deuda mínima: S/ 250'],
                     ['📌','Cuota inicial mínima: 20% de la deuda total'],
                     ['📌','Cuota mensual mínima: S/ 100'],
                     ['📌','Máximo 12 cuotas mensuales'],
