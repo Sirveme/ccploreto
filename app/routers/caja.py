@@ -1079,10 +1079,15 @@ async def sesion_actual(
     if not sesion:
         return {"sesion": None, "caja_abierta": False}
 
+    payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
+        Comprobante.tipo.in_(["01", "03"]),
+        Comprobante.status.in_(["accepted", "pending", "encolado"]),
+    )
     pagos = db.query(Payment).filter(
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
+        Payment.id.in_(payment_ids_con_comp),
     ).all()
 
     total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
@@ -1140,10 +1145,15 @@ async def cerrar_caja(
     if not sesion:
         raise HTTPException(404, detail="Sesión no encontrada o ya cerrada")
 
+    payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
+        Comprobante.tipo.in_(["01", "03"]),
+        Comprobante.status.in_(["accepted", "pending", "encolado"]),
+    )
     pagos = db.query(Payment).filter(
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
+        Payment.id.in_(payment_ids_con_comp),
     ).all()
 
     total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
