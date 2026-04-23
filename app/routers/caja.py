@@ -1080,18 +1080,23 @@ async def sesion_actual(
         return {"sesion": None, "caja_abierta": False}
 
     payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
-        Comprobante.tipo.in_(["01", "03"]),
-        Comprobante.status.in_(["accepted", "pending", "encolado"]),
+        Comprobante.organization_id == sesion.organization_id,
+        Comprobante.payment_id.isnot(None),
+        Comprobante.tipo == "03",
+        Comprobante.status == "accepted",
+        Comprobante.created_at >= sesion.hora_apertura,
     )
     pagos = db.query(Payment).filter(
+        Payment.organization_id == sesion.organization_id,
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
         Payment.id.in_(payment_ids_con_comp),
     ).all()
 
-    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
-    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
+    def _es_efectivo(m): return (m or "").strip().lower() in ("efectivo", "cash")
+    total_efectivo = sum(float(p.amount or 0) for p in pagos if _es_efectivo(p.payment_method))
+    total_digital = sum(float(p.amount or 0) for p in pagos if not _es_efectivo(p.payment_method))
     cantidad = len(pagos)
 
     total_egresos = float(
@@ -1146,18 +1151,23 @@ async def cerrar_caja(
         raise HTTPException(404, detail="Sesión no encontrada o ya cerrada")
 
     payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
-        Comprobante.tipo.in_(["01", "03"]),
-        Comprobante.status.in_(["accepted", "pending", "encolado"]),
+        Comprobante.organization_id == sesion.organization_id,
+        Comprobante.payment_id.isnot(None),
+        Comprobante.tipo == "03",
+        Comprobante.status == "accepted",
+        Comprobante.created_at >= sesion.hora_apertura,
     )
     pagos = db.query(Payment).filter(
+        Payment.organization_id == sesion.organization_id,
         Payment.status == "approved",
         Payment.notes.like("[CAJA]%"),
         Payment.created_at >= sesion.hora_apertura,
         Payment.id.in_(payment_ids_con_comp),
     ).all()
 
-    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
-    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
+    def _es_efectivo(m): return (m or "").strip().lower() in ("efectivo", "cash")
+    total_efectivo = sum(float(p.amount or 0) for p in pagos if _es_efectivo(p.payment_method))
+    total_digital = sum(float(p.amount or 0) for p in pagos if not _es_efectivo(p.payment_method))
     cantidad = len(pagos)
 
     total_egresos = float(
