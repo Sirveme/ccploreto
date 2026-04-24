@@ -285,8 +285,13 @@ async function verificarSesion() {
     try {
         const r = await fetch(`${API}/sesion-actual?centro_costo_id=1`);
         const d = await r.json();
-        if (d.caja_abierta && d.sesion) { sesion = d.sesion; abrirCajaUI(); }
-        else { mostrarApertura(); }
+        if (d.caja_abierta && d.sesion) {
+            sesion = d.sesion;
+            abrirCajaUI();
+            toast(`📋 Sesión activa desde ${sesion.hora_apertura}. Puedes continuar cobrando.`, 'ok');
+        } else {
+            mostrarApertura();
+        }
     } catch (e) { /* silencioso */ }
     cargarResumen();
 }
@@ -452,7 +457,7 @@ function descargarPDFCierre() {
 
 function cerrarModalCierreExitoso() {
     document.getElementById('modalCierreExitoso').style.display = 'none';
-    window.location.href = '/';
+    window.location.href = '/caja';
 }
 
 
@@ -1520,14 +1525,6 @@ function notificarDesdeCaja() {
 
 function cerrarSesionUsuario() {
     document.getElementById('headerMenu').classList.remove('active');
-    if (sesion) {
-        cajaModal.confirmar(
-            'Tienes una caja abierta.\nDebes cerrarla antes de salir.\n¿Ir al cierre de caja?',
-            'Ir al cierre',
-            (ok) => { if (ok) mostrarCierreCaja(); }
-        );
-        return;
-    }
     window.location.href = '/logout';
 }
 
