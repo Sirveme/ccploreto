@@ -1063,6 +1063,51 @@ async def abrir_caja(
     }
 
 
+_METODOS_EFECTIVO = {"efectivo", "cash", "en efectivo"}
+
+
+def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
+    """
+    Suma SOLO payments que tienen boleta (tipo 03) aceptada por SUNAT desde
+    la apertura de esta sesión. Parte de comprobantes y hace JOIN a payments
+    para garantizar que no entran pagos huérfanos (sin boleta emitida).
+    """
+    subq = (
+        db.query(Comprobante.payment_id)
+        .filter(
+            Comprobante.organization_id == organization_id,
+            Comprobante.tipo == "03",
+            Comprobante.status == "accepted",
+            Comprobante.payment_id.isnot(None),
+            Comprobante.created_at >= hora_apertura,
+        )
+        .subquery()
+    )
+
+    resultados = (
+        db.query(
+            func.lower(Payment.payment_method).label("metodo"),
+            func.sum(Payment.amount).label("total"),
+            func.count(Payment.id).label("cantidad"),
+        )
+        .filter(Payment.id.in_(subq))
+        .group_by(func.lower(Payment.payment_method))
+        .all()
+    )
+
+    cobros_efectivo = sum(
+        float(r.total or 0) for r in resultados
+        if (r.metodo or "").strip() in _METODOS_EFECTIVO
+    )
+    cobros_digital = sum(
+        float(r.total or 0) for r in resultados
+        if (r.metodo or "").strip() not in _METODOS_EFECTIVO
+    )
+    cantidad = sum(int(r.cantidad or 0) for r in resultados)
+
+    return cobros_efectivo, cobros_digital, cantidad
+
+
 @router.get("/sesion-actual")
 async def sesion_actual(
     centro_costo_id: int = Query(1),
@@ -1079,25 +1124,9 @@ async def sesion_actual(
     if not sesion:
         return {"sesion": None, "caja_abierta": False}
 
-    payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
-        Comprobante.organization_id == sesion.organization_id,
-        Comprobante.payment_id.isnot(None),
-        Comprobante.tipo == "03",
-        Comprobante.status == "accepted",
-        Comprobante.created_at >= sesion.hora_apertura,
+    total_efectivo, total_digital, cantidad = _calcular_totales_sesion(
+        db, sesion.organization_id, sesion.hora_apertura
     )
-    pagos = db.query(Payment).filter(
-        Payment.organization_id == sesion.organization_id,
-        Payment.status == "approved",
-        Payment.notes.like("[CAJA]%"),
-        Payment.created_at >= sesion.hora_apertura,
-        Payment.id.in_(payment_ids_con_comp),
-    ).all()
-
-    def _es_efectivo(m): return (m or "").strip().lower() in ("efectivo", "cash")
-    total_efectivo = sum(float(p.amount or 0) for p in pagos if _es_efectivo(p.payment_method))
-    total_digital = sum(float(p.amount or 0) for p in pagos if not _es_efectivo(p.payment_method))
-    cantidad = len(pagos)
 
     total_egresos = float(
         db.query(func.coalesce(func.sum(EgresoCaja.monto), 0)).filter(
@@ -1118,7 +1147,7 @@ async def sesion_actual(
             "estado": sesion.estado,
             "cajero": cajero.nombre_completo if cajero else "?",
             "centro_costo": centro.nombre if centro else "?",
-            "fecha": sesion.fecha.strftime("%d/%m/%Y") if sesion.fecha else "",
+            "fecha": sesion.fecha.astimezone(PERU_TZ).strftime("%d/%m/%Y") if sesion.fecha else "",
             "hora_apertura": sesion.hora_apertura.astimezone(PERU_TZ).strftime("%H:%M") if sesion.hora_apertura else "",
             "monto_apertura": monto_apertura,
             "total_cobros_efectivo": total_efectivo,
@@ -1150,25 +1179,9 @@ async def cerrar_caja(
     if not sesion:
         raise HTTPException(404, detail="Sesión no encontrada o ya cerrada")
 
-    payment_ids_con_comp = db.query(Comprobante.payment_id).filter(
-        Comprobante.organization_id == sesion.organization_id,
-        Comprobante.payment_id.isnot(None),
-        Comprobante.tipo == "03",
-        Comprobante.status == "accepted",
-        Comprobante.created_at >= sesion.hora_apertura,
+    total_efectivo, total_digital, cantidad = _calcular_totales_sesion(
+        db, sesion.organization_id, sesion.hora_apertura
     )
-    pagos = db.query(Payment).filter(
-        Payment.organization_id == sesion.organization_id,
-        Payment.status == "approved",
-        Payment.notes.like("[CAJA]%"),
-        Payment.created_at >= sesion.hora_apertura,
-        Payment.id.in_(payment_ids_con_comp),
-    ).all()
-
-    def _es_efectivo(m): return (m or "").strip().lower() in ("efectivo", "cash")
-    total_efectivo = sum(float(p.amount or 0) for p in pagos if _es_efectivo(p.payment_method))
-    total_digital = sum(float(p.amount or 0) for p in pagos if not _es_efectivo(p.payment_method))
-    cantidad = len(pagos)
 
     total_egresos = float(
         db.query(func.coalesce(func.sum(EgresoCaja.monto), 0)).filter(
