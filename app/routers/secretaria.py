@@ -8,7 +8,7 @@ Rutas:
   GET  /secretaria                       -> página HTML del panel
 """
 from datetime import datetime, timezone, timedelta, date
-from typing import Optional, List
+from typing import Optional, List, Dict
 from decimal import Decimal
 import logging
 
@@ -21,9 +21,10 @@ from pydantic import BaseModel, Field
 from app.database import get_db
 from app.models import (
     Colegiado, Payment, Member, Organization, ConfiguracionFacturacion,
-    Comprobante, AuditLog,
+    Comprobante,
 )
-from app.models_debt_management import Debt
+from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
+from app.models_audit_finanzas import log_audit_finanzas, AuditLogFinanzas
 from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
 from app.services.evaluar_habilidad import sincronizar_condicion
@@ -125,6 +126,7 @@ async def panel_secretaria(
 ):
     return templates.TemplateResponse("pages/secretaria.html", {
         "request": request,
+        "user_role": current_member.role,
     })
 
 
@@ -889,6 +891,7 @@ async def listar_fraccionamientos_colegiado(
             "saldo_pendiente": float(p.saldo_pendiente or 0),
             "proxima_cuota_numero": p.proxima_cuota_numero,
             "proxima_cuota_fecha": p.proxima_cuota_fecha.isoformat() if p.proxima_cuota_fecha else None,
+            "base_legal_referencia": p.base_legal_referencia,
             "cuotas": cuotas_list,
         })
 
@@ -1389,6 +1392,22 @@ async def revertir_pago(
     pago.status = "reverted"
     pago.notes = (pago.notes or "") + (
         f" | REVERTIDO {ahora.strftime('%d/%m/%Y %H:%M')} por DNI:{operador_dni}: {motivo}"
+    )
+
+    await log_audit_finanzas(
+        db,
+        organization_id=pago.organization_id,
+        accion="revertir_pago",
+        entidad_tipo="payments",
+        entidad_id=pago.id,
+        current_user=current_member,
+        cambios={
+            "status": {"antes": "approved", "despues": "reverted"},
+            "deudas_revertidas": deudas_revertidas,
+        },
+        motivo=motivo,
+        colegiado_id=pago.colegiado_id,
+        monto=float(pago.amount or 0),
     )
 
     db.commit()
@@ -1958,25 +1977,382 @@ async def editar_deuda(
     )
     deuda.notes = ((deuda.notes or "") + nota_edicion).strip()
 
-    # Auditoría
-    try:
-        log = AuditLog(
-            organization_id=deuda.organization_id,
-            user_id=current_member.user_id,
-            action_type="EDIT_DEUDA",
-            command_text=f"deuda_id={deuda_id} motivo={motivo[:200]}",
-            ai_response={
-                "deuda_id": deuda_id,
-                "colegiado_id": deuda.colegiado_id,
-                "cambios": cambios,
-                "motivo": motivo,
-            },
-            status="OK",
-        )
-        db.add(log)
-    except Exception as e:
-        logger.warning("No se pudo registrar auditoría de EDIT_DEUDA: %s", e)
+    # Auditoría — log_audit_finanzas
+    await log_audit_finanzas(
+        db,
+        organization_id=deuda.organization_id,
+        accion="editar_deuda",
+        entidad_tipo="debts",
+        entidad_id=deuda_id,
+        current_user=current_member,
+        cambios=cambios,
+        motivo=motivo,
+        colegiado_id=deuda.colegiado_id,
+        monto=float(deuda.amount or 0) if deuda.amount is not None else None,
+    )
 
     db.commit()
 
     return {"ok": True, "mensaje": "Deuda actualizada", "cambios": cambios}
+
+
+# ============================================================
+# EDICIÓN DE PAGOS (zClaude-52)
+# ============================================================
+
+_CAMPOS_EDITABLES_PAGO = {
+    "monto":         ("amount",         float),
+    "metodo_pago":   ("payment_method", str),
+    "operation_code": ("operation_code", str),
+    "notes":         ("notes",          str),
+    "status":        ("status",         str),
+}
+
+_PAYMENT_STATUS_VALIDOS = {"review", "approved", "rejected", "reverted"}
+_METODOS_PAGO_VALIDOS = {
+    "yape", "plin", "transferencia", "efectivo", "tarjeta", "deposito", "otro"
+}
+
+
+@router.put("/pagos/{pago_id}")
+async def editar_pago(
+    pago_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Edita campos editables de un pago y registra el cambio en audit_log_finanzas."""
+    pago = db.query(Payment).filter(Payment.id == pago_id).first()
+    if not pago:
+        raise HTTPException(404, detail="Pago no encontrado")
+
+    motivo = (body.get("motivo") or "").strip()
+    if not motivo:
+        raise HTTPException(400, detail="El motivo del cambio es obligatorio")
+
+    # Validaciones
+    if "status" in body and body["status"]:
+        if body["status"] not in _PAYMENT_STATUS_VALIDOS:
+            raise HTTPException(400, detail=f"Status inválido: {body['status']}")
+    if "metodo_pago" in body and body["metodo_pago"]:
+        if str(body["metodo_pago"]).lower() not in _METODOS_PAGO_VALIDOS:
+            raise HTTPException(400, detail=f"Método de pago inválido: {body['metodo_pago']}")
+
+    cambios: Dict[str, Dict[str, str]] = {}
+    for campo_es, (attr, conv) in _CAMPOS_EDITABLES_PAGO.items():
+        if campo_es not in body or body[campo_es] is None:
+            continue
+        try:
+            nuevo = conv(body[campo_es])
+        except (TypeError, ValueError):
+            raise HTTPException(400, detail=f"Valor inválido para {campo_es}")
+        anterior = getattr(pago, attr, None)
+        if conv is str:
+            anterior_cmp = str(anterior or "")
+            nuevo_cmp = str(nuevo or "")
+        else:
+            anterior_cmp = conv(anterior) if anterior is not None else None
+            nuevo_cmp = nuevo
+        if anterior_cmp != nuevo_cmp:
+            cambios[campo_es] = {
+                "antes": str(anterior) if anterior is not None else "",
+                "despues": str(nuevo),
+            }
+            setattr(pago, attr, nuevo)
+
+    if not cambios:
+        return {"ok": True, "mensaje": "Sin cambios", "cambios": {}}
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+    ahora = datetime.now(PERU_TZ)
+    pago.notes = ((pago.notes or "") + (
+        f" | EDIT {ahora.strftime('%d/%m/%Y %H:%M')} por DNI:{operador_dni}: {motivo[:200]}"
+    )).strip()
+
+    await log_audit_finanzas(
+        db,
+        organization_id=pago.organization_id,
+        accion="editar_pago",
+        entidad_tipo="payments",
+        entidad_id=pago.id,
+        current_user=current_member,
+        cambios=cambios,
+        motivo=motivo,
+        colegiado_id=pago.colegiado_id,
+        monto=float(pago.amount or 0) if pago.amount is not None else None,
+    )
+
+    db.commit()
+    return {"ok": True, "mensaje": "Pago actualizado", "cambios": cambios}
+
+
+# ============================================================
+# EDICIÓN DE FRACCIONAMIENTOS Y CUOTAS (zClaude-52)
+# ============================================================
+
+_CAMPOS_EDITABLES_FRACC = {
+    "numero_solicitud":      ("numero_solicitud",      str),
+    "saldo_pendiente":       ("saldo_pendiente",       float),
+    "monto_cuota":           ("monto_cuota",           float),
+    "num_cuotas":            ("num_cuotas",            int),
+    "estado":                ("estado",                str),
+    "fecha_inicio":          ("fecha_inicio",          str),  # parse abajo
+    "fecha_fin_estimada":    ("fecha_fin_estimada",    str),  # parse abajo
+    "base_legal_referencia": ("base_legal_referencia", str),
+}
+
+_FRACC_ESTADOS_VALIDOS = {"activo", "completado", "perdido", "refinanciado"}
+
+
+def _parse_fecha_iso(valor: str):
+    """Convierte 'YYYY-MM-DD' a date. Acepta None/vacío como None."""
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(str(valor)[:10])
+    except (TypeError, ValueError):
+        raise HTTPException(400, detail=f"Fecha inválida (formato YYYY-MM-DD): {valor}")
+
+
+@router.put("/fraccionamientos/{fracc_id}")
+async def editar_fraccionamiento(
+    fracc_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    fracc = db.query(Fraccionamiento).filter(Fraccionamiento.id == fracc_id).first()
+    if not fracc:
+        raise HTTPException(404, detail="Fraccionamiento no encontrado")
+
+    motivo = (body.get("motivo") or "").strip()
+    if not motivo:
+        raise HTTPException(400, detail="El motivo del cambio es obligatorio")
+
+    if "estado" in body and body["estado"]:
+        if body["estado"] not in _FRACC_ESTADOS_VALIDOS:
+            raise HTTPException(400, detail=f"Estado inválido: {body['estado']}")
+
+    cambios: Dict[str, Dict[str, str]] = {}
+    for campo, (attr, conv) in _CAMPOS_EDITABLES_FRACC.items():
+        if campo not in body or body[campo] is None:
+            continue
+        if attr in ("fecha_inicio", "fecha_fin_estimada"):
+            nuevo = _parse_fecha_iso(body[campo])
+        else:
+            try:
+                nuevo = conv(body[campo])
+            except (TypeError, ValueError):
+                raise HTTPException(400, detail=f"Valor inválido para {campo}")
+        anterior = getattr(fracc, attr, None)
+        if str(anterior or "") != str(nuevo or ""):
+            cambios[campo] = {
+                "antes": str(anterior) if anterior is not None else "",
+                "despues": str(nuevo) if nuevo is not None else "",
+            }
+            setattr(fracc, attr, nuevo)
+
+    if not cambios:
+        return {"ok": True, "mensaje": "Sin cambios", "cambios": {}}
+
+    await log_audit_finanzas(
+        db,
+        organization_id=fracc.organization_id,
+        accion="editar_fraccionamiento",
+        entidad_tipo="fraccionamientos",
+        entidad_id=fracc.id,
+        current_user=current_member,
+        cambios=cambios,
+        motivo=motivo,
+        colegiado_id=fracc.colegiado_id,
+        monto=float(fracc.saldo_pendiente or 0) if fracc.saldo_pendiente is not None else None,
+    )
+
+    db.commit()
+    return {"ok": True, "mensaje": "Fraccionamiento actualizado", "cambios": cambios}
+
+
+@router.put("/fraccionamientos/cuotas/{cuota_id}")
+async def editar_cuota_fraccionamiento(
+    cuota_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    cuota = db.query(FraccionamientoCuota).filter(FraccionamientoCuota.id == cuota_id).first()
+    if not cuota:
+        raise HTTPException(404, detail="Cuota no encontrada")
+
+    motivo = (body.get("motivo") or "").strip()
+    if not motivo:
+        raise HTTPException(400, detail="El motivo del cambio es obligatorio")
+
+    cambios: Dict[str, Dict[str, str]] = {}
+
+    if "monto" in body and body["monto"] is not None:
+        try:
+            nuevo = float(body["monto"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, detail="Monto inválido")
+        if nuevo < 0:
+            raise HTTPException(400, detail="Monto no puede ser negativo")
+        if float(cuota.monto or 0) != nuevo:
+            cambios["monto"] = {"antes": str(cuota.monto), "despues": str(nuevo)}
+            cuota.monto = nuevo
+
+    if "fecha_vencimiento" in body and body["fecha_vencimiento"] is not None:
+        nueva = _parse_fecha_iso(body["fecha_vencimiento"])
+        if (cuota.fecha_vencimiento or None) != nueva:
+            cambios["fecha_vencimiento"] = {
+                "antes": str(cuota.fecha_vencimiento) if cuota.fecha_vencimiento else "",
+                "despues": str(nueva) if nueva else "",
+            }
+            cuota.fecha_vencimiento = nueva
+
+    if "pagada" in body and body["pagada"] is not None:
+        nuevo_bool = bool(body["pagada"])
+        if bool(cuota.pagada) != nuevo_bool:
+            cambios["pagada"] = {"antes": str(bool(cuota.pagada)), "despues": str(nuevo_bool)}
+            cuota.pagada = nuevo_bool
+            if nuevo_bool and not cuota.fecha_pago:
+                cuota.fecha_pago = datetime.now(PERU_TZ).date()
+            if not nuevo_bool:
+                cuota.fecha_pago = None
+
+    if not cambios:
+        return {"ok": True, "mensaje": "Sin cambios", "cambios": {}}
+
+    fracc = db.query(Fraccionamiento).filter(
+        Fraccionamiento.id == cuota.fraccionamiento_id
+    ).first()
+    org_id = fracc.organization_id if fracc else None
+    col_id = fracc.colegiado_id if fracc else None
+
+    await log_audit_finanzas(
+        db,
+        organization_id=org_id,
+        accion="editar_cuota_fraccionamiento",
+        entidad_tipo="fraccionamiento_cuotas",
+        entidad_id=cuota.id,
+        current_user=current_member,
+        cambios={**cambios, "fraccionamiento_id": cuota.fraccionamiento_id},
+        motivo=motivo,
+        colegiado_id=col_id,
+        monto=float(cuota.monto or 0) if cuota.monto is not None else None,
+    )
+
+    db.commit()
+    return {"ok": True, "mensaje": "Cuota actualizada", "cambios": cambios}
+
+
+# ============================================================
+# HISTORIAL DE AUDITORÍA POR COLEGIADO (zClaude-52)
+# ============================================================
+
+ROLES_AUDITORIA = ("admin", "sote")
+
+
+def require_auditoria(current_member: Member = Depends(get_current_member)):
+    if current_member.role not in ROLES_AUDITORIA:
+        raise HTTPException(status_code=403, detail="Acceso restringido a admin/sote")
+    return current_member
+
+
+@router.get("/auditoria/{colegiado_id}")
+async def historial_auditoria(
+    colegiado_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_auditoria),
+):
+    """
+    Devuelve los últimos N cambios financieros relacionados al colegiado.
+    Cruza entidad_id con deudas/pagos/fraccionamientos/cuotas del colegiado y,
+    como respaldo, también filtra por detalle->>colegiado_id.
+    """
+    colegiado = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not colegiado:
+        raise HTTPException(404, detail="Colegiado no encontrado")
+
+    # IDs por tabla — clave del filtro principal
+    deuda_ids = [d.id for d in db.query(Debt.id).filter(Debt.colegiado_id == colegiado_id).all()]
+    pago_ids = [p.id for p in db.query(Payment.id).filter(Payment.colegiado_id == colegiado_id).all()]
+    fracc_ids = [f.id for f in db.query(Fraccionamiento.id).filter(Fraccionamiento.colegiado_id == colegiado_id).all()]
+    cuota_ids = []
+    if fracc_ids:
+        cuota_ids = [
+            c.id for c in db.query(FraccionamientoCuota.id).filter(
+                FraccionamientoCuota.fraccionamiento_id.in_(fracc_ids)
+            ).all()
+        ]
+
+    from sqlalchemy import or_, and_, Integer as SAInteger
+
+    condiciones = []
+    if deuda_ids:
+        condiciones.append(and_(AuditLogFinanzas.entidad_tipo == "debts",
+                                AuditLogFinanzas.entidad_id.in_(deuda_ids)))
+    if pago_ids:
+        condiciones.append(and_(AuditLogFinanzas.entidad_tipo == "payments",
+                                AuditLogFinanzas.entidad_id.in_(pago_ids)))
+    if fracc_ids:
+        condiciones.append(and_(AuditLogFinanzas.entidad_tipo == "fraccionamientos",
+                                AuditLogFinanzas.entidad_id.in_(fracc_ids)))
+    if cuota_ids:
+        condiciones.append(and_(AuditLogFinanzas.entidad_tipo == "fraccionamiento_cuotas",
+                                AuditLogFinanzas.entidad_id.in_(cuota_ids)))
+
+    # Respaldo: leer colegiado_id desde el JSONB detalle
+    try:
+        condiciones.append(
+            AuditLogFinanzas.detalle["colegiado_id"].astext.cast(SAInteger) == colegiado_id
+        )
+    except Exception:
+        pass
+
+    if not condiciones:
+        return {"colegiado_id": colegiado_id, "total": 0, "logs": []}
+
+    cond = condiciones[0] if len(condiciones) == 1 else or_(*condiciones)
+
+    try:
+        logs = (
+            db.query(AuditLogFinanzas)
+            .filter(cond)
+            .order_by(AuditLogFinanzas.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+    except Exception as e:
+        logger.warning("Error consultando audit_log_finanzas: %s", e)
+        logs = []
+
+    items = []
+    for l in logs:
+        fecha_lima = ""
+        if l.created_at:
+            ts = l.created_at
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            fecha_lima = ts.astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M")
+
+        detalle = l.detalle or {}
+        cambios = detalle.get("cambios", {}) if isinstance(detalle, dict) else {}
+        motivo = detalle.get("motivo") if isinstance(detalle, dict) else None
+
+        items.append({
+            "id": l.id,
+            "tabla": l.entidad_tipo,
+            "registro_id": l.entidad_id,
+            "accion": l.accion,
+            "cambios": cambios,
+            "motivo": motivo,
+            "usuario_id": l.actor_id,
+            "usuario": l.actor_nombre or (f"user#{l.actor_id}" if l.actor_id else None),
+            "fecha": fecha_lima,
+            "monto": float(l.monto) if l.monto is not None else None,
+        })
+
+    return {"colegiado_id": colegiado_id, "total": len(items), "logs": items}
