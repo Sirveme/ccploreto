@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from app.database import get_db
 from app.models import (
     Colegiado, Payment, Member, Organization, ConfiguracionFacturacion,
-    Comprobante,
+    Comprobante, AuditLog,
 )
 from app.models_debt_management import Debt
 from app.routers.dashboard import get_current_member
@@ -259,6 +259,22 @@ async def deudas_completas(
 
     hasta_2025 = []
     anio_2026 = {}
+    extras_2026 = []  # deudas del año 2026 que NO encajan en uno de los 12 slots mensuales
+
+    import re as _re_periodo
+    _RX_YYYY_MM = _re_periodo.compile(r"^(\d{4})-(\d{2})$")
+    _RX_YYYY_PREFIX = _re_periodo.compile(r"^(\d{4})")
+
+    def _anio_de_deuda(d) -> Optional[str]:
+        """Extrae el año (YYYY) de una deuda usando periodo, due_date, fecha_generacion o created_at."""
+        per = str(d.periodo or "")
+        m = _RX_YYYY_PREFIX.match(per)
+        if m:
+            return m.group(1)
+        for f in (d.due_date, d.fecha_generacion, d.created_at):
+            if f:
+                return str(f.year)
+        return None
 
     for d in deudas:
         item = {
@@ -275,9 +291,15 @@ async def deudas_completas(
         }
 
         periodo = str(d.periodo or "")
-        if periodo >= "2026-01" and periodo <= "2026-12":
+        m = _RX_YYYY_MM.match(periodo)
+        if m and m.group(1) == "2026":
             anio_2026[periodo] = item
-        elif periodo < "2026-01" or not periodo:
+            continue
+
+        anio = _anio_de_deuda(d)
+        if anio == "2026":
+            extras_2026.append(item)
+        else:
             hasta_2025.append(item)
 
     # Generar filas virtuales para meses 2026 sin deuda
@@ -310,6 +332,7 @@ async def deudas_completas(
         },
         "hasta_2025": hasta_2025,
         "anio_2026": anio_2026_lista,
+        "extras_2026": extras_2026,
     }
 
 
@@ -1816,3 +1839,144 @@ async def importar_ejecutar(
         "omitido": sum(1 for r in resultados if r["estado"] == "omitido"),
     }
     return {"ok": True, "resumen": resumen, "resultados": resultados}
+
+
+# ============================================================
+# EDICIÓN DIRECTA DE DEUDAS (Admin/Cajero/Secretaria/Tesorero/Sote)
+# ============================================================
+
+# Mapa: campo del payload (español) → atributo del modelo Debt
+_CAMPOS_EDITABLES_DEUDA = {
+    "concepto":       ("concept",        str),
+    "monto":          ("amount",         float),
+    "periodo":        ("periodo",        str),
+    "estado":         ("status",         str),
+    "estado_gestion": ("estado_gestion", str),
+    "tipo":           ("debt_type",      str),
+    "notas":          ("notes",          str),
+}
+
+_ESTADOS_VALIDOS = {"pending", "partial", "paid"}
+_ESTADOS_GESTION_VALIDOS = {
+    "vigente", "en_cobranza", "fraccionada", "condonada", "exonerada",
+    "compensada", "prescrita", "incobrable", "en_reclamo", "suspendida",
+    "justificada",
+}
+_TIPOS_VALIDOS = {
+    "cuota_ordinaria", "cuota_extraordinaria", "multa", "evento", "derecho", "otro",
+}
+
+
+@router.put("/deudas/{deuda_id}")
+async def editar_deuda(
+    deuda_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Edita una deuda y registra el cambio en audit_logs."""
+    deuda = db.query(Debt).filter(Debt.id == deuda_id).first()
+    if not deuda:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+
+    motivo = (body.get("motivo") or "").strip()
+    if not motivo:
+        raise HTTPException(status_code=400, detail="El motivo del cambio es obligatorio")
+
+    # Validar valores de campos enumerados (si vienen)
+    if "estado" in body and body["estado"]:
+        if body["estado"] not in _ESTADOS_VALIDOS:
+            raise HTTPException(400, detail=f"Estado inválido: {body['estado']}")
+    if "estado_gestion" in body and body["estado_gestion"]:
+        if body["estado_gestion"] not in _ESTADOS_GESTION_VALIDOS:
+            raise HTTPException(400, detail=f"Estado de gestión inválido: {body['estado_gestion']}")
+    if "tipo" in body and body["tipo"]:
+        if body["tipo"] not in _TIPOS_VALIDOS:
+            raise HTTPException(400, detail=f"Tipo inválido: {body['tipo']}")
+
+    cambios = {}
+    monto_anterior = float(deuda.amount or 0)
+    saldo_pagado = monto_anterior - float(deuda.balance or 0)
+
+    for campo_es, (attr, conv) in _CAMPOS_EDITABLES_DEUDA.items():
+        if campo_es not in body or body[campo_es] is None:
+            continue
+        try:
+            nuevo = conv(body[campo_es])
+        except (TypeError, ValueError):
+            raise HTTPException(400, detail=f"Valor inválido para {campo_es}")
+        anterior = getattr(deuda, attr, None)
+        anterior_norm = conv(anterior) if anterior is not None and conv is not str else (
+            str(anterior) if anterior is not None else ""
+        )
+        if conv is str:
+            anterior_cmp = str(anterior or "")
+            nuevo_cmp = str(nuevo or "")
+        else:
+            anterior_cmp = anterior_norm
+            nuevo_cmp = nuevo
+        if anterior_cmp != nuevo_cmp:
+            cambios[campo_es] = {
+                "antes": str(anterior) if anterior is not None else "",
+                "despues": str(nuevo),
+            }
+            setattr(deuda, attr, nuevo)
+
+    if not cambios:
+        return {"ok": True, "mensaje": "Sin cambios", "cambios": {}}
+
+    # Recalcular balance si cambió el monto, preservando lo ya pagado
+    if "monto" in cambios:
+        nuevo_amount = float(deuda.amount or 0)
+        # Si el nuevo estado es paid → balance = 0
+        estado_actual = deuda.status or "pending"
+        if estado_actual == "paid":
+            nuevo_balance = 0.0
+        else:
+            nuevo_balance = max(0.0, nuevo_amount - max(0.0, saldo_pagado))
+        deuda.balance = nuevo_balance
+        cambios["balance"] = {
+            "antes": f"{(monto_anterior - saldo_pagado):.2f}",
+            "despues": f"{nuevo_balance:.2f}",
+        }
+
+    # Si pasa a paid sin tocar monto, balance = 0
+    if "estado" in cambios and (deuda.status == "paid"):
+        if float(deuda.balance or 0) != 0:
+            deuda.balance = 0.0
+            cambios.setdefault("balance", {"antes": "—", "despues": "0.00"})
+
+    deuda.updated_by = current_member.user_id
+
+    operador_dni = ""
+    if current_member and current_member.user:
+        operador_dni = getattr(current_member.user, "public_id", "") or ""
+    ahora = datetime.now(PERU_TZ)
+    nota_edicion = (
+        f"\n[EDIT-SECRETARIA:{operador_dni}] {ahora.strftime('%d/%m/%Y %H:%M')} — "
+        f"motivo: {motivo[:200]}"
+    )
+    deuda.notes = ((deuda.notes or "") + nota_edicion).strip()
+
+    # Auditoría
+    try:
+        log = AuditLog(
+            organization_id=deuda.organization_id,
+            user_id=current_member.user_id,
+            action_type="EDIT_DEUDA",
+            command_text=f"deuda_id={deuda_id} motivo={motivo[:200]}",
+            ai_response={
+                "deuda_id": deuda_id,
+                "colegiado_id": deuda.colegiado_id,
+                "cambios": cambios,
+                "motivo": motivo,
+            },
+            status="OK",
+        )
+        db.add(log)
+    except Exception as e:
+        logger.warning("No se pudo registrar auditoría de EDIT_DEUDA: %s", e)
+
+    db.commit()
+
+    return {"ok": True, "mensaje": "Deuda actualizada", "cambios": cambios}
