@@ -1906,6 +1906,509 @@ async def importar_ejecutar(
 
 
 # ============================================================
+# IMPORTADOR EXCEL — FRACCIONAMIENTOS Y DEUDAS (zClaude-54)
+# ============================================================
+
+def _parsear_fecha_excel(f):
+    """Convierte celdas de Excel (datetime, date o string) a date."""
+    if f is None:
+        return None
+    if hasattr(f, "date") and not isinstance(f, date):
+        try:
+            return f.date()
+        except Exception:
+            pass
+    if isinstance(f, date):
+        return f
+    s = str(f).strip()
+    if not s:
+        return None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%m/%d/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _clasificar_detalle_deuda(detalle: str) -> dict:
+    """Convierte el texto libre de Sandra en concept + debt_type + periodo."""
+    import re as _re
+    raw = (detalle or "").strip()
+    d = raw.lower()
+
+    m = _re.search(r"c\.?\s*extraordinaria\s*(\d{4})", d)
+    if m:
+        return {
+            "debt_type": "cuota_extraordinaria",
+            "concept":   f"Cuota Extraordinaria {m.group(1)}",
+            "periodo":   m.group(1),
+        }
+
+    m = _re.search(r"([a-zñáéíóú]+)\s+a\s+([a-zñáéíóú]+)\s+(\d{4})", d)
+    if m:
+        return {
+            "debt_type": "cuota_ordinaria",
+            "concept":   f"Cuota Ordinaria {m.group(1).capitalize()}-{m.group(2).capitalize()} {m.group(3)}",
+            "periodo":   m.group(3),
+        }
+
+    m = _re.search(r"multa\s+asamblea\s+([\d./\-]+)", d)
+    if m:
+        return {
+            "debt_type": "multa",
+            "concept":   f"Multa Inasistencia Asamblea {m.group(1)}",
+            "periodo":   None,
+        }
+
+    if "multa" in d and "elecci" in d:
+        fecha_m = _re.search(r"([\d./\-]+)", d)
+        fecha_txt = fecha_m.group(1) if fecha_m else ""
+        return {
+            "debt_type": "multa",
+            "concept":   f"Multa Inasistencia Elecciones {fecha_txt}".strip(),
+            "periodo":   None,
+        }
+
+    return {
+        "debt_type": "otro",
+        "concept":   raw or "Sin concepto",
+        "periodo":   None,
+    }
+
+
+@router.post("/importar/excel/fraccionamientos/parsear")
+async def parsear_excel_fraccionamientos(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Lee el Excel de fraccionamientos de Sandra y agrupa por (numero_fracc, matricula).
+    Cada fila es una cuota; cuotas con mismo num_fracc+matricula se agrupan.
+    """
+    import openpyxl as _xl
+    import re as _re
+    from io import BytesIO
+
+    contenido = await file.read()
+    try:
+        wb = _xl.load_workbook(BytesIO(contenido), data_only=True)
+    except Exception as e:
+        return {"ok": False, "error": f"No se pudo abrir el Excel: {e}"}
+    ws = wb.active
+
+    org = db.query(Organization).first()
+    org_id = org.id if org else 1
+
+    cache_col: Dict[str, Optional[Colegiado]] = {}
+    fraccionamientos: Dict[tuple, dict] = {}
+    errores: List[dict] = []
+
+    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        try:
+            if not row or all(c is None or (isinstance(c, str) and not c.strip()) for c in row):
+                continue
+
+            fecha_fracc   = row[2] if len(row) > 2 else None
+            num_fracc     = str(row[3] or "").strip() if len(row) > 3 else ""
+            matricula     = str(row[4] or "").strip() if len(row) > 4 else ""
+            num_cuota_txt = str(row[5] or "").strip() if len(row) > 5 else ""
+            monto_raw     = row[6] if len(row) > 6 else None
+            vencimiento   = row[7] if len(row) > 7 else None
+
+            if not matricula or not num_fracc:
+                continue
+
+            try:
+                monto = float(monto_raw) if monto_raw not in (None, "") else 0.0
+            except (TypeError, ValueError):
+                monto = 0.0
+
+            m_cuota = _re.match(r"\s*(\d+)", num_cuota_txt)
+            numero_cuota = int(m_cuota.group(1)) if m_cuota else 1
+
+            fecha_fracc_d = _parsear_fecha_excel(fecha_fracc)
+            vencimiento_d = _parsear_fecha_excel(vencimiento)
+
+            if matricula not in cache_col:
+                cache_col[matricula] = (
+                    db.query(Colegiado)
+                    .filter(Colegiado.codigo_matricula == matricula)
+                    .first()
+                )
+            colegiado = cache_col[matricula]
+
+            key = (num_fracc, matricula)
+            if key not in fraccionamientos:
+                fraccionamientos[key] = {
+                    "num_fracc":            num_fracc,
+                    "matricula":            matricula,
+                    "colegiado_id":         colegiado.id if colegiado else None,
+                    "colegiado_nombre":     colegiado.apellidos_nombres if colegiado else None,
+                    "colegiado_encontrado": colegiado is not None,
+                    "fecha_solicitud":      fecha_fracc_d.isoformat() if fecha_fracc_d else None,
+                    "cuotas":               [],
+                    "estado":               "pendiente",
+                    "mensaje":              None,
+                }
+
+            fraccionamientos[key]["cuotas"].append({
+                "numero_cuota":      numero_cuota,
+                "monto":             monto,
+                "fecha_vencimiento": vencimiento_d.isoformat() if vencimiento_d else None,
+            })
+
+        except Exception as e:
+            errores.append({"fila": i, "error": str(e)[:200]})
+
+    resultado = []
+    for fracc in fraccionamientos.values():
+        cuotas = sorted(fracc["cuotas"], key=lambda c: (c["numero_cuota"], c["fecha_vencimiento"] or ""))
+        fracc["cuotas"] = cuotas
+        fracc["total_cuotas"] = len(cuotas)
+        fracc["monto_total"]  = round(sum(c["monto"] for c in cuotas), 2)
+
+        if not fracc["colegiado_encontrado"]:
+            fracc["mensaje"] = f"Colegiado {fracc['matricula']} no encontrado"
+        else:
+            existe = (
+                db.query(Fraccionamiento.id)
+                .filter(
+                    Fraccionamiento.numero_solicitud == fracc["num_fracc"],
+                    Fraccionamiento.colegiado_id == fracc["colegiado_id"],
+                )
+                .first()
+            )
+            if existe:
+                fracc["mensaje"] = f"Ya existe (id #{existe[0]})"
+                fracc["ya_existe"] = True
+            else:
+                fracc["ya_existe"] = False
+
+        resultado.append(fracc)
+
+    return {
+        "ok": True,
+        "fraccionamientos": resultado,
+        "total": len(resultado),
+        "errores": errores,
+    }
+
+
+@router.post("/importar/excel/fraccionamientos/ejecutar")
+async def ejecutar_excel_fraccionamientos(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Crea Fraccionamiento + FraccionamientoCuota por cada item ejecutar=True."""
+    fraccionamientos = body.get("fraccionamientos") or []
+    if not fraccionamientos:
+        return {"ok": False, "error": "Sin fraccionamientos"}
+
+    org = db.query(Organization).first()
+    if not org:
+        return {"ok": False, "error": "Sin organización configurada"}
+
+    actor_id = getattr(current_member, "user_id", None) or getattr(current_member, "id", None)
+    resultados = []
+
+    for fracc in fraccionamientos:
+        if not fracc.get("ejecutar"):
+            resultados.append({**fracc, "estado": "omitido", "mensaje": None})
+            continue
+
+        if not fracc.get("colegiado_id"):
+            resultados.append({
+                **fracc, "estado": "error",
+                "mensaje": f"Colegiado {fracc.get('matricula')} no encontrado",
+            })
+            continue
+
+        cuotas = fracc.get("cuotas") or []
+        if not cuotas:
+            resultados.append({**fracc, "estado": "error", "mensaje": "Sin cuotas"})
+            continue
+
+        sp = db.begin_nested()
+        try:
+            existe = (
+                db.query(Fraccionamiento.id)
+                .filter(
+                    Fraccionamiento.numero_solicitud == fracc["num_fracc"],
+                    Fraccionamiento.colegiado_id == fracc["colegiado_id"],
+                )
+                .first()
+            )
+            if existe:
+                sp.rollback()
+                resultados.append({
+                    **fracc, "estado": "error",
+                    "mensaje": f"Fraccionamiento {fracc['num_fracc']} ya existe",
+                })
+                continue
+
+            cuotas_norm = []
+            for c in cuotas:
+                fv = _parsear_fecha_excel(c.get("fecha_vencimiento"))
+                cuotas_norm.append({
+                    "numero_cuota":      int(c.get("numero_cuota") or 1),
+                    "monto":             float(c.get("monto") or 0),
+                    "fecha_vencimiento": fv,
+                })
+
+            cuotas_norm.sort(key=lambda c: (c["numero_cuota"], c["fecha_vencimiento"] or date.max))
+            monto_total = round(sum(c["monto"] for c in cuotas_norm), 2)
+
+            fecha_solicitud = _parsear_fecha_excel(fracc.get("fecha_solicitud")) or date.today()
+            fechas_v = [c["fecha_vencimiento"] for c in cuotas_norm if c["fecha_vencimiento"]]
+            fecha_inicio = fechas_v[0] if fechas_v else fecha_solicitud
+            fecha_fin    = fechas_v[-1] if fechas_v else fecha_solicitud
+
+            nuevo = Fraccionamiento(
+                organization_id      = org.id,
+                colegiado_id         = fracc["colegiado_id"],
+                numero_solicitud     = fracc["num_fracc"],
+                fecha_solicitud      = fecha_solicitud,
+                deuda_total_original = monto_total,
+                cuota_inicial        = 0,
+                cuota_inicial_pagada = False,
+                saldo_a_fraccionar   = monto_total,
+                num_cuotas           = len(cuotas_norm),
+                monto_cuota          = round(monto_total / len(cuotas_norm), 2) if cuotas_norm else 0,
+                saldo_pendiente      = monto_total,
+                fecha_inicio         = fecha_inicio,
+                fecha_fin_estimada   = fecha_fin,
+                proxima_cuota_fecha  = fecha_inicio,
+                proxima_cuota_numero = cuotas_norm[0]["numero_cuota"] if cuotas_norm else 1,
+                estado               = "activo",
+                base_legal_referencia= "Importación masiva Excel — Sandra",
+                created_by           = actor_id,
+            )
+            db.add(nuevo)
+            db.flush()
+
+            for c in cuotas_norm:
+                db.add(FraccionamientoCuota(
+                    fraccionamiento_id = nuevo.id,
+                    numero_cuota       = c["numero_cuota"],
+                    monto              = c["monto"],
+                    fecha_vencimiento  = c["fecha_vencimiento"] or fecha_inicio,
+                    pagada             = False,
+                ))
+
+            sp.commit()
+            resultados.append({
+                **fracc, "estado": "ok",
+                "mensaje": f"Creado: {len(cuotas_norm)} cuotas · S/ {monto_total:.2f}",
+            })
+        except Exception as e:
+            sp.rollback()
+            logger.exception("Error creando fraccionamiento Excel")
+            resultados.append({**fracc, "estado": "error", "mensaje": str(e)[:200]})
+
+    db.commit()
+
+    resumen = {
+        "ok":      sum(1 for r in resultados if r["estado"] == "ok"),
+        "error":   sum(1 for r in resultados if r["estado"] == "error"),
+        "omitido": sum(1 for r in resultados if r["estado"] == "omitido"),
+    }
+    return {"ok": True, "resumen": resumen, "resultados": resultados}
+
+
+@router.post("/importar/excel/deudas/parsear")
+async def parsear_excel_deudas(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Lee el Excel de deudas faltantes; clasifica cada fila por tipo."""
+    import openpyxl as _xl
+    from io import BytesIO
+
+    contenido = await file.read()
+    try:
+        wb = _xl.load_workbook(BytesIO(contenido), data_only=True)
+    except Exception as e:
+        return {"ok": False, "error": f"No se pudo abrir el Excel: {e}"}
+    ws = wb.active
+
+    org = db.query(Organization).first()
+    org_id = org.id if org else 1
+
+    cache_col: Dict[str, Optional[Colegiado]] = {}
+    deudas: List[dict] = []
+    errores: List[dict] = []
+
+    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        try:
+            if not row or all(c is None or (isinstance(c, str) and not c.strip()) for c in row):
+                continue
+
+            matricula = str(row[2] or "").strip() if len(row) > 2 else ""
+            detalle   = str(row[3] or "").strip() if len(row) > 3 else ""
+            monto_raw = row[4] if len(row) > 4 else None
+
+            if not matricula or not detalle:
+                continue
+
+            try:
+                monto = float(monto_raw) if monto_raw not in (None, "") else 0.0
+            except (TypeError, ValueError):
+                monto = 0.0
+
+            clasif = _clasificar_detalle_deuda(detalle)
+
+            if matricula not in cache_col:
+                cache_col[matricula] = (
+                    db.query(Colegiado)
+                    .filter(Colegiado.codigo_matricula == matricula)
+                    .first()
+                )
+            colegiado = cache_col[matricula]
+
+            estado = "pendiente"
+            mensaje = None
+            ya_existe = False
+            if not colegiado:
+                estado = "no_encontrado"
+                mensaje = f"Colegiado {matricula} no encontrado"
+            else:
+                existe_q = db.query(Debt.id).filter(
+                    Debt.colegiado_id == colegiado.id,
+                    Debt.concept == clasif["concept"],
+                    Debt.amount == monto,
+                )
+                if clasif["periodo"]:
+                    existe_q = existe_q.filter(Debt.periodo == clasif["periodo"])
+                existe = existe_q.first()
+                if existe:
+                    ya_existe = True
+                    mensaje = f"Ya existe (id #{existe[0]})"
+
+            deudas.append({
+                "fila":                 i,
+                "matricula":            matricula,
+                "detalle_original":     detalle,
+                "concept":              clasif["concept"],
+                "debt_type":            clasif["debt_type"],
+                "periodo":              clasif["periodo"],
+                "monto":                monto,
+                "colegiado_id":         colegiado.id if colegiado else None,
+                "colegiado_nombre":     colegiado.apellidos_nombres if colegiado else None,
+                "colegiado_encontrado": colegiado is not None,
+                "ya_existe":            ya_existe,
+                "estado":               estado,
+                "mensaje":              mensaje,
+            })
+
+        except Exception as e:
+            errores.append({"fila": i, "error": str(e)[:200]})
+
+    return {
+        "ok": True,
+        "deudas": deudas,
+        "total": len(deudas),
+        "errores": errores,
+    }
+
+
+@router.post("/importar/excel/deudas/ejecutar")
+async def ejecutar_excel_deudas(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Crea registros Debt para cada fila marcada ejecutar=True."""
+    deudas = body.get("deudas") or []
+    if not deudas:
+        return {"ok": False, "error": "Sin deudas"}
+
+    org = db.query(Organization).first()
+    if not org:
+        return {"ok": False, "error": "Sin organización configurada"}
+
+    actor_id = getattr(current_member, "user_id", None) or getattr(current_member, "id", None)
+    ahora = datetime.now(PERU_TZ)
+    lote = f"EXCEL-IMPORT-{ahora.strftime('%Y%m%d-%H%M')}"
+
+    resultados = []
+    for d in deudas:
+        if not d.get("ejecutar"):
+            resultados.append({**d, "estado": "omitido", "mensaje": None})
+            continue
+
+        if not d.get("colegiado_id"):
+            resultados.append({
+                **d, "estado": "error",
+                "mensaje": f"Colegiado {d.get('matricula')} no encontrado",
+            })
+            continue
+
+        sp = db.begin_nested()
+        try:
+            concept = d.get("concept") or "Sin concepto"
+            monto = float(d.get("monto") or 0)
+            periodo = d.get("periodo")
+
+            existe_q = db.query(Debt.id).filter(
+                Debt.colegiado_id == d["colegiado_id"],
+                Debt.concept == concept,
+                Debt.amount == monto,
+            )
+            if periodo:
+                existe_q = existe_q.filter(Debt.periodo == periodo)
+            existe = existe_q.first()
+            if existe:
+                sp.rollback()
+                resultados.append({
+                    **d, "estado": "error",
+                    "mensaje": f"Ya existe (id #{existe[0]}), omitida",
+                })
+                continue
+
+            nueva = Debt(
+                organization_id    = org.id,
+                colegiado_id       = d["colegiado_id"],
+                concept            = concept,
+                debt_type          = d.get("debt_type") or "otro",
+                periodo            = periodo,
+                amount             = monto,
+                balance            = monto,
+                status             = "pending",
+                estado_gestion     = "vigente",
+                origen             = "migracion_xlsx",
+                lote_migracion     = lote,
+                concepto_original  = d.get("detalle_original"),
+                notes              = f"[EXCEL-IMPORT {ahora.strftime('%d/%m/%Y %H:%M')}] {d.get('detalle_original') or ''}",
+                created_by         = actor_id,
+            )
+            db.add(nueva)
+            db.flush()
+
+            sp.commit()
+            resultados.append({
+                **d, "estado": "ok",
+                "mensaje": f"Creada (id #{nueva.id}) · S/ {monto:.2f}",
+            })
+        except Exception as e:
+            sp.rollback()
+            logger.exception("Error creando deuda Excel")
+            resultados.append({**d, "estado": "error", "mensaje": str(e)[:200]})
+
+    db.commit()
+
+    resumen = {
+        "ok":      sum(1 for r in resultados if r["estado"] == "ok"),
+        "error":   sum(1 for r in resultados if r["estado"] == "error"),
+        "omitido": sum(1 for r in resultados if r["estado"] == "omitido"),
+    }
+    return {"ok": True, "resumen": resumen, "resultados": resultados}
+
+
+# ============================================================
 # EDICIÓN DIRECTA DE DEUDAS (Admin/Cajero/Secretaria/Tesorero/Sote)
 # ============================================================
 
