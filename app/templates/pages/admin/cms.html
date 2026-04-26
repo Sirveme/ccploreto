@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Contenido Web · CCPL</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #0f1117;
+    --bg-elevated: #181a20;
+    --surface: #1e2028;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8ed;
+    --text-sec: #8b8d97;
+    --text-dim: #5a5d68;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --mono: 'JetBrains Mono', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 18px;
+}
+.wrap { max-width: 1500px; margin: 0 auto; }
+h1 { font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: var(--text-sec); font-size: 13px; margin-bottom: 16px; }
+.back-link { display:inline-block; color: var(--text-sec); font-size:13px; margin-bottom: 10px; text-decoration:none; }
+.back-link:hover { color: var(--accent); }
+
+.tabs-bar { display:flex; gap:6px; border-bottom:1px solid var(--border); margin-bottom: 16px; flex-wrap:wrap; }
+.tab-btn {
+    padding: 10px 16px; cursor:pointer; border:none; background:transparent;
+    color: var(--text-sec); font-family:inherit; font-size:13px; font-weight:600;
+    border-bottom: 2px solid transparent;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+.panel {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+}
+.panel h2 { font-size: 15px; margin-bottom: 10px; }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+.btn {
+    padding: 8px 14px; border:none; border-radius: 7px;
+    font-family: inherit; font-weight:600; font-size:12.5px;
+    cursor:pointer; transition: all 0.15s;
+}
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-primary { background: var(--accent); color:#fff; }
+.btn-primary:hover:not(:disabled) { background:#4f51d1; }
+.btn-success { background: linear-gradient(135deg,#16a34a,#15803d); color:#fff; }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border:1px solid rgba(239,68,68,0.4); }
+.btn-ghost { background: transparent; color: var(--text-sec); border:1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+.btn-icon { padding:5px 10px; font-size:13px; }
+
+input[type=text], input[type=url], input[type=number], input[type=datetime-local],
+select, textarea {
+    background: var(--surface); border:1px solid var(--border);
+    color: var(--text); padding:8px 10px; border-radius:7px;
+    font-family: inherit; font-size:13px; min-width:120px;
+}
+textarea { width:100%; min-height: 90px; resize:vertical; font-family: inherit; }
+label { font-size: 12px; color: var(--text-sec); display:block; margin-bottom: 4px; }
+.field { margin-bottom: 10px; }
+.field-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+.checkbox-row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; }
+.checkbox-row label { display:flex; align-items:center; gap:6px; margin:0; }
+
+table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
+.tbl thead th {
+    text-align:left; padding:10px; background: #222530;
+    color: var(--text-sec); font-weight:600; border-bottom:1px solid var(--border);
+}
+.tbl tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tbl tbody tr:hover { background: rgba(99,102,241,0.04); }
+.thumb { width:54px; height:36px; object-fit:cover; border-radius:4px; background:#222; }
+.thumb-lg { width:80px; height:50px; object-fit:cover; border-radius:6px; background:#222; }
+.cell-actions { white-space: nowrap; display:flex; gap:5px; }
+.badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 700;
+}
+.badge-on { background: rgba(34,197,94,0.16); color: var(--green); border:1px solid rgba(34,197,94,0.35); }
+.badge-off { background: rgba(100,116,139,0.16); color: var(--text-sec); border:1px solid rgba(100,116,139,0.35); }
+.badge-warn { background: rgba(245,158,11,0.16); color: var(--amber); border:1px solid rgba(245,158,11,0.35); }
+.badge-info { background: rgba(59,130,246,0.16); color: var(--blue); border:1px solid rgba(59,130,246,0.35); }
+.badge-purple { background: rgba(168,85,247,0.16); color: var(--purple); border:1px solid rgba(168,85,247,0.35); }
+.badge-red { background: rgba(239,68,68,0.16); color: var(--red); border:1px solid rgba(239,68,68,0.35); }
+
+/* Modal */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9990;
+}
+.modal-overlay.hidden { display:none; }
+.modal {
+    background: var(--bg-elevated); border:1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px; width: 92%; max-width: 720px;
+    max-height: 90vh; overflow:auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 16px; }
+.modal-footer { display:flex; gap:8px; justify-content: flex-end; margin-top: 14px; padding-top: 12px; border-top:1px solid var(--border); }
+.x-btn {
+    background:transparent; border:none; color: var(--text-sec); cursor:pointer;
+    font-size:18px; padding: 4px 8px;
+}
+.x-btn:hover { color: var(--text); }
+
+/* Sub-tabs Ambientes/Tienda */
+.subtabs { display:flex; gap:4px; margin-bottom: 12px; }
+.subtab-btn {
+    background: var(--surface); color: var(--text-sec);
+    border:1px solid var(--border); padding: 6px 14px; border-radius: 6px;
+    cursor:pointer; font-size: 12.5px; font-weight: 600;
+}
+.subtab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.subtab-pane { display:none; }
+.subtab-pane.active { display:block; }
+
+/* Toast */
+#toast-root { position: fixed; right: 20px; bottom: 20px; z-index: 9999; display:flex; flex-direction:column; gap:8px; }
+.toast {
+    background: var(--bg-elevated); border:1px solid var(--border);
+    border-left: 4px solid var(--accent); padding: 10px 14px;
+    border-radius: 8px; font-size:13px; min-width: 240px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+.toast.ok { border-left-color: var(--green); }
+.toast.err { border-left-color: var(--red); }
+
+.spinner {
+    display:inline-block; width:12px; height:12px;
+    border:2px solid rgba(255,255,255,0.2); border-top-color: currentColor;
+    border-radius: 50%; animation: sp 0.8s linear infinite;
+    vertical-align:middle; margin-right: 6px;
+}
+@keyframes sp { to { transform: rotate(360deg); } }
+
+.empty-row td {
+    text-align: center; padding: 30px 10px !important;
+    color: var(--text-dim); font-size: 13px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <a class="back-link" href="/admin">← Volver al panel admin</a>
+    <h1>📰 Panel de Contenido Web · CCPL</h1>
+    <p class="subtitle">
+        Sesión: <b>{{ user.name }}</b> · rol <code>{{ user.role }}</code>.
+        Las fechas se muestran en hora Lima.
+    </p>
+
+    <div class="tabs-bar">
+        <button class="tab-btn active" data-tab="carrusel"     onclick="cambiarTab('carrusel')">🎞️ Carrusel</button>
+        <button class="tab-btn"        data-tab="comunicados"  onclick="cambiarTab('comunicados')">📣 Comunicados</button>
+        <button class="tab-btn"        data-tab="capacitaciones" onclick="cambiarTab('capacitaciones')">🎓 Capacitaciones</button>
+        <button class="tab-btn"        data-tab="convenios"    onclick="cambiarTab('convenios')">🤝 Convenios</button>
+        <button class="tab-btn"        data-tab="ambientes"    onclick="cambiarTab('ambientes')">🏛️ Ambientes y Tienda</button>
+    </div>
+
+    <!-- ════════ CARRUSEL ════════ -->
+    <div class="tab-pane active" id="tab-carrusel">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Slides del carrusel del home</h2>
+                <button class="btn btn-primary" onclick="abrirSlide(null)">＋ Nuevo slide</button>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">Orden</th>
+                        <th style="width:100px;">Imagen</th>
+                        <th>Título</th>
+                        <th>Botón</th>
+                        <th style="width:90px;">Estado</th>
+                        <th style="width:230px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbSlides">
+                    <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ COMUNICADOS ════════ -->
+    <div class="tab-pane" id="tab-comunicados">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Comunicados publicados</h2>
+                <button class="btn btn-primary" onclick="abrirComunicado(null)">＋ Nuevo comunicado</button>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:140px;">Publicado</th>
+                        <th>Título</th>
+                        <th style="width:100px;">Prioridad</th>
+                        <th style="width:140px;">Vence</th>
+                        <th style="width:170px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbComunicados">
+                    <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ CAPACITACIONES ════════ -->
+    <div class="tab-pane" id="tab-capacitaciones">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Capacitaciones / eventos</h2>
+                <button class="btn btn-primary" onclick="abrirCapacitacion(null)">＋ Nueva capacitación</button>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:140px;">Fecha evento</th>
+                        <th>Título</th>
+                        <th style="width:200px;">Lugar</th>
+                        <th style="width:100px;">Prioridad</th>
+                        <th style="width:170px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbCapacitaciones">
+                    <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ CONVENIOS ════════ -->
+    <div class="tab-pane" id="tab-convenios">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Convenios institucionales</h2>
+                <button class="btn btn-primary" onclick="abrirConvenio(null)">＋ Nuevo convenio</button>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">Logo</th>
+                        <th>Nombre</th>
+                        <th style="width:140px;">Categoría</th>
+                        <th style="width:100px;">Verificado</th>
+                        <th style="width:100px;">Destacado</th>
+                        <th style="width:170px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbConvenios">
+                    <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ AMBIENTES Y TIENDA ════════ -->
+    <div class="tab-pane" id="tab-ambientes">
+        <div class="subtabs">
+            <button class="subtab-btn active" onclick="cambiarSubtab('ambientes-list')">🏛️ Ambientes</button>
+            <button class="subtab-btn"        onclick="cambiarSubtab('tienda-list')">🛍️ Productos tienda</button>
+        </div>
+
+        <div class="subtab-pane active" id="subtab-ambientes-list">
+            <div class="panel">
+                <div class="row" style="justify-content:space-between;">
+                    <h2>Ambientes del local</h2>
+                    <button class="btn btn-primary" onclick="abrirAmbiente(null)">＋ Nuevo ambiente</button>
+                </div>
+            </div>
+            <div class="panel" style="padding:0; overflow:hidden;">
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th style="width:130px;">Precio colegiado</th>
+                            <th style="width:120px;">Precio público</th>
+                            <th style="width:90px;">Aforo</th>
+                            <th style="width:90px;">Activo</th>
+                            <th style="width:170px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbAmbientes">
+                        <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="subtab-pane" id="subtab-tienda-list">
+            <div class="panel">
+                <div class="row" style="justify-content:space-between;">
+                    <h2>Productos de la tienda</h2>
+                    <button class="btn btn-primary" onclick="abrirProducto(null)">＋ Nuevo producto</button>
+                </div>
+            </div>
+            <div class="panel" style="padding:0; overflow:hidden;">
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th style="width:80px;">Imagen</th>
+                            <th>Nombre</th>
+                            <th style="width:120px;">Precio</th>
+                            <th style="width:100px;">Stock</th>
+                            <th style="width:90px;">Activo</th>
+                            <th style="width:170px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbProductos">
+                        <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ MODAL GENÉRICO ════════ -->
+<div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modalBox" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <h3 id="modalTitle">—</h3>
+            <button class="x-btn" type="button" onclick="cerrarModal()">✕</button>
+        </div>
+        <div id="modalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn btn-success" type="button" id="modalSave" onclick="guardarModal()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ MODAL CONFIRMACIÓN ════════ -->
+<div class="modal-overlay hidden" id="confirmOverlay">
+    <div class="modal" style="max-width:420px;">
+        <div class="modal-header">
+            <h3 id="confirmTitle">Confirmar</h3>
+            <button class="x-btn" type="button" onclick="cerrarConfirm()">✕</button>
+        </div>
+        <div id="confirmMsg" style="color:var(--text-sec); font-size:13px;"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" onclick="cerrarConfirm()">Cancelar</button>
+            <button class="btn btn-danger" type="button" id="confirmYes">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-root"></div>
+
+<script>
+(() => {
+    'use strict';
+
+    // ───── Utils ─────
+    const esc = s => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    function toast(msg, tipo='ok') {
+        const root = document.getElementById('toast-root');
+        const el = document.createElement('div');
+        el.className = 'toast ' + tipo;
+        el.textContent = msg;
+        root.appendChild(el);
+        setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; }, 3500);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    async function api(method, url, body) {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const r = await fetch(url, opts);
+        let data = null;
+        try { data = await r.json(); } catch {}
+        if (!r.ok) {
+            throw new Error((data && (data.detail || data.error)) || `HTTP ${r.status}`);
+        }
+        return data;
+    }
+
+    // ───── Tabs ─────
+    function cambiarTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+        if      (tab === 'carrusel')       cargarSlides();
+        else if (tab === 'comunicados')    cargarComunicados();
+        else if (tab === 'capacitaciones') cargarCapacitaciones();
+        else if (tab === 'convenios')      cargarConvenios();
+        else if (tab === 'ambientes')      cargarAmbientes();
+    }
+
+    function cambiarSubtab(sub) {
+        document.querySelectorAll('.subtab-btn').forEach(b =>
+            b.classList.toggle('active', b.textContent.includes(sub.startsWith('amb') ? 'Ambientes' : 'Productos'))
+        );
+        document.querySelectorAll('.subtab-pane').forEach(p =>
+            p.classList.toggle('active', p.id === 'subtab-' + sub)
+        );
+        if (sub === 'tienda-list') cargarProductos();
+        else                       cargarAmbientes();
+    }
+
+    // ───── Modal ─────
+    let _modalSave = null;
+    function abrirModal(titulo, html, onSave) {
+        document.getElementById('modalTitle').textContent = titulo;
+        document.getElementById('modalBody').innerHTML = html;
+        _modalSave = onSave;
+        document.getElementById('modalOverlay').classList.remove('hidden');
+        const firstInput = document.querySelector('#modalBody input,#modalBody textarea,#modalBody select');
+        if (firstInput) firstInput.focus();
+    }
+    function cerrarModal() {
+        document.getElementById('modalOverlay').classList.add('hidden');
+        _modalSave = null;
+    }
+    async function guardarModal() {
+        if (!_modalSave) return cerrarModal();
+        const btn = document.getElementById('modalSave');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Guardando...';
+        try {
+            await _modalSave();
+            cerrarModal();
+        } catch (e) {
+            toast(e.message || 'Error', 'err');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Guardar';
+        }
+    }
+
+    function abrirConfirm(titulo, mensaje, onYes) {
+        document.getElementById('confirmTitle').textContent = titulo;
+        document.getElementById('confirmMsg').textContent = mensaje;
+        const overlay = document.getElementById('confirmOverlay');
+        overlay.classList.remove('hidden');
+        const btn = document.getElementById('confirmYes');
+        const handler = async () => {
+            btn.removeEventListener('click', handler);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Eliminando...';
+            try { await onYes(); }
+            catch (e) { toast(e.message || 'Error', 'err'); }
+            finally {
+                btn.disabled = false;
+                btn.textContent = 'Eliminar';
+                cerrarConfirm();
+            }
+        };
+        btn.addEventListener('click', handler);
+    }
+    function cerrarConfirm() {
+        document.getElementById('confirmOverlay').classList.add('hidden');
+    }
+
+    // Cerrar modales con click fuera
+    document.getElementById('modalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'modalOverlay') cerrarModal();
+    });
+    document.getElementById('confirmOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'confirmOverlay') cerrarConfirm();
+    });
+
+    // Helper: lee campos por id del modal
+    function readModalFields(ids) {
+        const out = {};
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const k = id.replace(/^f-/, '');
+            if (el.type === 'checkbox') out[k] = el.checked;
+            else if (el.type === 'number') out[k] = el.value === '' ? null : Number(el.value);
+            else out[k] = el.value;
+        });
+        return out;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CARRUSEL
+    // ════════════════════════════════════════════════════════
+    async function cargarSlides() {
+        const tb = document.getElementById('tbSlides');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/carrusel');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin slides — agrega el primero</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(s => `
+                <tr>
+                    <td><b>${s.orden}</b></td>
+                    <td><img class="thumb" src="${esc(s.imagen_url)}" alt="" onerror="this.style.opacity=0.3"></td>
+                    <td>
+                        <div style="font-weight:600;">${esc(s.titulo)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc(s.subtitulo)}</div>
+                    </td>
+                    <td style="font-size:11.5px; color:var(--text-sec);">
+                        ${s.boton_texto ? `<b>${esc(s.boton_texto)}</b><br>${esc(s.boton_url || '')}` : '—'}
+                    </td>
+                    <td><span class="badge ${s.activo ? 'badge-on' : 'badge-off'}">${s.activo ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" title="Subir orden"  onclick="moverSlide(${s.id},'subir')">▲</button>
+                        <button class="btn btn-ghost btn-icon" title="Bajar orden"  onclick="moverSlide(${s.id},'bajar')">▼</button>
+                        <button class="btn btn-ghost btn-icon" title="Activar/Desactivar"
+                                onclick="toggleSlide(${s.id}, ${!s.activo})">${s.activo ? '◍' : '○'}</button>
+                        <button class="btn btn-ghost btn-icon" onclick='editarSlide(${JSON.stringify(s)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarSlide(${s.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirSlide(slide) {
+        const s = slide || {};
+        const html = `
+            <div class="field">
+                <label>Imagen URL *</label>
+                <input id="f-imagen_url" type="text" style="width:100%;" value="${esc(s.imagen_url || '')}" placeholder="/static/img/...webp">
+            </div>
+            <div class="field">
+                <label>Título</label>
+                <input id="f-titulo" type="text" style="width:100%;" value="${esc(s.titulo || '')}">
+            </div>
+            <div class="field">
+                <label>Subtítulo</label>
+                <input id="f-subtitulo" type="text" style="width:100%;" value="${esc(s.subtitulo || '')}">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Botón texto</label>
+                    <input id="f-boton_texto" type="text" value="${esc(s.boton_texto || '')}">
+                </div>
+                <div class="field">
+                    <label>Botón URL / Ancla</label>
+                    <input id="f-boton_url" type="text" value="${esc(s.boton_url || '')}" placeholder="#agenda">
+                </div>
+                <div class="field">
+                    <label>Orden</label>
+                    <input id="f-orden" type="number" value="${s.orden || ''}">
+                </div>
+            </div>
+            <div class="checkbox-row">
+                <label><input id="f-activo" type="checkbox" ${s.activo === false ? '' : 'checked'}> Activo</label>
+            </div>
+        `;
+        abrirModal(slide ? 'Editar slide' : 'Nuevo slide', html, async () => {
+            const data = readModalFields(['f-imagen_url','f-titulo','f-subtitulo','f-boton_texto','f-boton_url','f-orden','f-activo']);
+            if (!data.imagen_url) throw new Error('imagen_url es requerida');
+            if (slide) {
+                await api('PUT', `/api/cms/carrusel/${slide.id}`, data);
+                toast('Slide actualizado', 'ok');
+            } else {
+                await api('POST', '/api/cms/carrusel', data);
+                toast('Slide creado', 'ok');
+            }
+            cargarSlides();
+        });
+    }
+
+    function editarSlide(s) { abrirSlide(s); }
+
+    async function moverSlide(id, direccion) {
+        try {
+            await api('PUT', `/api/cms/carrusel/${id}/orden`, { direccion });
+            cargarSlides();
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    async function toggleSlide(id, nuevoActivo) {
+        try {
+            await api('PUT', `/api/cms/carrusel/${id}`, { activo: nuevoActivo });
+            cargarSlides();
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function eliminarSlide(id) {
+        abrirConfirm('Eliminar slide', '¿Seguro que quieres eliminar este slide del carrusel?', async () => {
+            await api('DELETE', `/api/cms/carrusel/${id}`);
+            toast('Slide eliminado', 'ok');
+            cargarSlides();
+        });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // COMUNICADOS
+    // ════════════════════════════════════════════════════════
+    function badgePrioridad(p) {
+        const map = {
+            info:    'badge-info',
+            warning: 'badge-warn',
+            alert:   'badge-red',
+        };
+        return `<span class="badge ${map[p] || 'badge-off'}">${esc(p || 'info')}</span>`;
+    }
+
+    async function cargarComunicados() {
+        const tb = document.getElementById('tbComunicados');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/comunicados');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="5">Sin comunicados</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(b => `
+                <tr>
+                    <td style="font-size:12px;">${esc(b.created_at || '—')}</td>
+                    <td>
+                        <div style="font-weight:600;">${esc(b.title)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((b.content || '').slice(0, 80))}${b.content && b.content.length > 80 ? '…' : ''}</div>
+                    </td>
+                    <td>${badgePrioridad(b.priority)}</td>
+                    <td style="font-size:12px;">${esc(b.expires_at || '—')}</td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarComunicado(${JSON.stringify(b)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarComunicado(${b.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirComunicado(b) {
+        const v = b || {};
+        const expIso = (v.expires_at_iso || '').slice(0, 16);
+        const html = `
+            <div class="field">
+                <label>Título *</label>
+                <input id="f-title" type="text" style="width:100%;" value="${esc(v.title || '')}">
+            </div>
+            <div class="field">
+                <label>Contenido</label>
+                <textarea id="f-content">${esc(v.content || '')}</textarea>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Imagen URL</label>
+                    <input id="f-image_url" type="text" value="${esc(v.image_url || '')}">
+                </div>
+                <div class="field">
+                    <label>Archivo (PDF) URL</label>
+                    <input id="f-file_url" type="text" value="${esc(v.file_url || '')}">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Prioridad</label>
+                    <select id="f-priority">
+                        <option value="info"   ${v.priority === 'info' ? 'selected' : ''}>info</option>
+                        <option value="warning" ${v.priority === 'warning' ? 'selected' : ''}>warning</option>
+                        <option value="alert"  ${v.priority === 'alert' ? 'selected' : ''}>alert</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Vence (opcional)</label>
+                    <input id="f-expires_at" type="datetime-local" value="${expIso}">
+                </div>
+            </div>
+        `;
+        abrirModal(b ? 'Editar comunicado' : 'Nuevo comunicado', html, async () => {
+            const data = readModalFields(['f-title','f-content','f-image_url','f-file_url','f-priority','f-expires_at']);
+            if (!data.title) throw new Error('Título es requerido');
+            if (b) {
+                await api('PUT', `/api/cms/comunicados/${b.id}`, data);
+                toast('Comunicado actualizado', 'ok');
+            } else {
+                await api('POST', '/api/cms/comunicados', data);
+                toast('Comunicado publicado', 'ok');
+            }
+            cargarComunicados();
+        });
+    }
+    function editarComunicado(b) { abrirComunicado(b); }
+    function eliminarComunicado(id) {
+        abrirConfirm('Eliminar comunicado', '¿Seguro?', async () => {
+            await api('DELETE', `/api/cms/comunicados/${id}`);
+            toast('Comunicado eliminado', 'ok');
+            cargarComunicados();
+        });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CAPACITACIONES
+    // ════════════════════════════════════════════════════════
+    async function cargarCapacitaciones() {
+        const tb = document.getElementById('tbCapacitaciones');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/capacitaciones');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="5">Sin capacitaciones</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(b => `
+                <tr>
+                    <td style="font-size:12px;">${esc(b.fecha_evento || '—')}</td>
+                    <td>
+                        <div style="font-weight:600;">${esc(b.title)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((b.content || '').slice(0, 80))}${b.content && b.content.length > 80 ? '…' : ''}</div>
+                    </td>
+                    <td style="font-size:12px;">${esc(b.lugar_evento || '—')}</td>
+                    <td>${badgePrioridad(b.priority)}</td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarCapacitacion(${JSON.stringify(b)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarCapacitacion(${b.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirCapacitacion(b) {
+        const v = b || {};
+        const evIso = (v.fecha_evento_iso || '').slice(0, 16);
+        const html = `
+            <div class="field">
+                <label>Título *</label>
+                <input id="f-title" type="text" style="width:100%;" value="${esc(v.title || '')}">
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea id="f-content">${esc(v.content || '')}</textarea>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Imagen URL</label>
+                    <input id="f-image_url" type="text" value="${esc(v.image_url || '')}">
+                </div>
+                <div class="field">
+                    <label>Video URL (opcional)</label>
+                    <input id="f-video_url" type="text" value="${esc(v.video_url || '')}">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Fecha del evento</label>
+                    <input id="f-fecha_evento" type="datetime-local" value="${evIso}">
+                </div>
+                <div class="field">
+                    <label>Lugar</label>
+                    <input id="f-lugar_evento" type="text" value="${esc(v.lugar_evento || '')}">
+                </div>
+                <div class="field">
+                    <label>Prioridad</label>
+                    <select id="f-priority">
+                        <option value="info"   ${v.priority === 'info' ? 'selected' : ''}>info</option>
+                        <option value="warning" ${v.priority === 'warning' ? 'selected' : ''}>warning</option>
+                        <option value="alert"  ${v.priority === 'alert' ? 'selected' : ''}>alert</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        abrirModal(b ? 'Editar capacitación' : 'Nueva capacitación', html, async () => {
+            const data = readModalFields(['f-title','f-content','f-image_url','f-video_url','f-fecha_evento','f-lugar_evento','f-priority']);
+            if (!data.title) throw new Error('Título es requerido');
+            if (b) {
+                await api('PUT', `/api/cms/capacitaciones/${b.id}`, data);
+                toast('Capacitación actualizada', 'ok');
+            } else {
+                await api('POST', '/api/cms/capacitaciones', data);
+                toast('Capacitación creada', 'ok');
+            }
+            cargarCapacitaciones();
+        });
+    }
+    function editarCapacitacion(b) { abrirCapacitacion(b); }
+    function eliminarCapacitacion(id) {
+        abrirConfirm('Eliminar capacitación', '¿Seguro?', async () => {
+            await api('DELETE', `/api/cms/capacitaciones/${id}`);
+            toast('Capacitación eliminada', 'ok');
+            cargarCapacitaciones();
+        });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CONVENIOS
+    // ════════════════════════════════════════════════════════
+    async function cargarConvenios() {
+        const tb = document.getElementById('tbConvenios');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/convenios');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin convenios</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(p => `
+                <tr>
+                    <td>${p.logo_url ? `<img class="thumb" src="${esc(p.logo_url)}" alt="" onerror="this.style.opacity=0.3">` : '—'}</td>
+                    <td>
+                        <div style="font-weight:600;">${esc(p.name)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc(p.description || '').slice(0, 80)}</div>
+                    </td>
+                    <td style="font-size:12px;">${esc(p.category || '—')}</td>
+                    <td><span class="badge ${p.is_verified ? 'badge-on' : 'badge-off'}">${p.is_verified ? 'Sí' : 'No'}</span></td>
+                    <td><span class="badge ${p.is_promoted ? 'badge-purple' : 'badge-off'}">${p.is_promoted ? 'Sí' : 'No'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarConvenio(${JSON.stringify(p)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarConvenio(${p.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirConvenio(p) {
+        const v = p || {};
+        const cats = ['Salud','Educación','Servicios','Restaurantes','Transporte','Turismo','Otro'];
+        const opt = cats.map(c => `<option value="${esc(c)}" ${v.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
+        const html = `
+            <div class="field-row">
+                <div class="field">
+                    <label>Nombre *</label>
+                    <input id="f-name" type="text" value="${esc(v.name || '')}">
+                </div>
+                <div class="field">
+                    <label>Categoría</label>
+                    <select id="f-category"><option value="">—</option>${opt}</select>
+                </div>
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea id="f-description">${esc(v.description || '')}</textarea>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Logo URL</label>
+                    <input id="f-logo_url" type="text" value="${esc(v.logo_url || '')}">
+                </div>
+                <div class="field">
+                    <label>Cover URL</label>
+                    <input id="f-cover_url" type="text" value="${esc(v.cover_url || '')}">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Teléfono</label>
+                    <input id="f-phone" type="text" value="${esc(v.phone || '')}">
+                </div>
+                <div class="field">
+                    <label>WhatsApp</label>
+                    <input id="f-whatsapp" type="text" value="${esc(v.whatsapp || '')}">
+                </div>
+                <div class="field">
+                    <label>Web</label>
+                    <input id="f-website_url" type="text" value="${esc(v.website_url || '')}">
+                </div>
+            </div>
+            <div class="checkbox-row">
+                <label><input id="f-is_verified" type="checkbox" ${v.is_verified ? 'checked' : ''}> Verificado</label>
+                <label><input id="f-is_promoted" type="checkbox" ${v.is_promoted ? 'checked' : ''}> Destacado</label>
+            </div>
+        `;
+        abrirModal(p ? 'Editar convenio' : 'Nuevo convenio', html, async () => {
+            const data = readModalFields([
+                'f-name','f-category','f-description','f-logo_url','f-cover_url',
+                'f-phone','f-whatsapp','f-website_url','f-is_verified','f-is_promoted'
+            ]);
+            if (!data.name) throw new Error('Nombre es requerido');
+            if (p) {
+                await api('PUT', `/api/cms/convenios/${p.id}`, data);
+                toast('Convenio actualizado', 'ok');
+            } else {
+                await api('POST', '/api/cms/convenios', data);
+                toast('Convenio creado', 'ok');
+            }
+            cargarConvenios();
+        });
+    }
+    function editarConvenio(p) { abrirConvenio(p); }
+    function eliminarConvenio(id) {
+        abrirConfirm('Eliminar convenio', '¿Seguro?', async () => {
+            await api('DELETE', `/api/cms/convenios/${id}`);
+            toast('Convenio eliminado', 'ok');
+            cargarConvenios();
+        });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // AMBIENTES
+    // ════════════════════════════════════════════════════════
+    async function cargarAmbientes() {
+        const tb = document.getElementById('tbAmbientes');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/ambientes');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin ambientes</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(a => `
+                <tr>
+                    <td>
+                        <div style="font-weight:600;">${esc(a.name)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((a.descripcion || '').slice(0, 70))}</div>
+                    </td>
+                    <td>${a.precio_colegiado != null ? 'S/ ' + Number(a.precio_colegiado).toFixed(2) : '—'}</td>
+                    <td>${a.precio_publico   != null ? 'S/ ' + Number(a.precio_publico).toFixed(2) : '—'}</td>
+                    <td>${a.aforo != null ? a.aforo : '—'}</td>
+                    <td><span class="badge ${a.is_active ? 'badge-on' : 'badge-off'}">${a.is_active ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarAmbiente(${JSON.stringify(a)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarAmbiente(${a.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirAmbiente(a) {
+        const v = a || {};
+        const html = `
+            <div class="field">
+                <label>Nombre *</label>
+                <input id="f-name" type="text" style="width:100%;" value="${esc(v.name || '')}">
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea id="f-descripcion">${esc(v.descripcion || '')}</textarea>
+            </div>
+            <div class="field">
+                <label>Imagen URL</label>
+                <input id="f-imagen_url" type="text" style="width:100%;" value="${esc(v.imagen_url || '')}">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Precio colegiado (S/)</label>
+                    <input id="f-precio_colegiado" type="number" step="0.01" value="${v.precio_colegiado ?? ''}">
+                </div>
+                <div class="field">
+                    <label>Precio público (S/)</label>
+                    <input id="f-precio_publico" type="number" step="0.01" value="${v.precio_publico ?? ''}">
+                </div>
+                <div class="field">
+                    <label>Aforo</label>
+                    <input id="f-aforo" type="number" value="${v.aforo ?? ''}">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Horarios</label>
+                    <input id="f-horarios" type="text" value="${esc(v.horarios || '')}" placeholder="L-S 7:00-22:00">
+                </div>
+                <div class="field">
+                    <label>Requisitos</label>
+                    <input id="f-requisitos" type="text" value="${esc(v.requisitos || '')}">
+                </div>
+            </div>
+            <div class="checkbox-row">
+                <label><input id="f-is_active" type="checkbox" ${v.is_active === false ? '' : 'checked'}> Activo</label>
+            </div>
+        `;
+        abrirModal(a ? 'Editar ambiente' : 'Nuevo ambiente', html, async () => {
+            const data = readModalFields([
+                'f-name','f-descripcion','f-imagen_url',
+                'f-precio_colegiado','f-precio_publico','f-aforo',
+                'f-horarios','f-requisitos','f-is_active'
+            ]);
+            if (!data.name) throw new Error('Nombre es requerido');
+            if (a) {
+                await api('PUT', `/api/cms/ambientes/${a.id}`, data);
+                toast('Ambiente actualizado', 'ok');
+            } else {
+                await api('POST', '/api/cms/ambientes', data);
+                toast('Ambiente creado', 'ok');
+            }
+            cargarAmbientes();
+        });
+    }
+    function editarAmbiente(a) { abrirAmbiente(a); }
+    function eliminarAmbiente(id) {
+        abrirConfirm('Eliminar ambiente', '¿Seguro?', async () => {
+            await api('DELETE', `/api/cms/ambientes/${id}`);
+            toast('Ambiente eliminado', 'ok');
+            cargarAmbientes();
+        });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // TIENDA
+    // ════════════════════════════════════════════════════════
+    async function cargarProductos() {
+        const tb = document.getElementById('tbProductos');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/tienda');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin productos</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(p => `
+                <tr>
+                    <td>${p.imagen_url ? `<img class="thumb" src="${esc(p.imagen_url)}" alt="" onerror="this.style.opacity=0.3">` : '—'}</td>
+                    <td>
+                        <div style="font-weight:600;">${esc(p.name)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((p.descripcion || '').slice(0, 70))}</div>
+                    </td>
+                    <td>${p.precio != null ? 'S/ ' + Number(p.precio).toFixed(2) : '—'}</td>
+                    <td>${p.stock != null ? p.stock : 0}</td>
+                    <td><span class="badge ${p.is_active ? 'badge-on' : 'badge-off'}">${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarProducto(${JSON.stringify(p)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarProducto(${p.id})">Eliminar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function abrirProducto(p) {
+        const v = p || {};
+        const html = `
+            <div class="field">
+                <label>Nombre *</label>
+                <input id="f-name" type="text" style="width:100%;" value="${esc(v.name || '')}">
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea id="f-descripcion">${esc(v.descripcion || '')}</textarea>
+            </div>
+            <div class="field">
+                <label>Imagen URL</label>
+                <input id="f-imagen_url" type="text" style="width:100%;" value="${esc(v.imagen_url || '')}">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Precio (S/)</label>
+                    <input id="f-precio" type="number" step="0.01" value="${v.precio ?? ''}">
+                </div>
+                <div class="field">
+                    <label>Stock</label>
+                    <input id="f-stock" type="number" value="${v.stock ?? 0}">
+                </div>
+            </div>
+            <div class="checkbox-row">
+                <label><input id="f-is_active" type="checkbox" ${v.is_active === false ? '' : 'checked'}> Activo</label>
+            </div>
+        `;
+        abrirModal(p ? 'Editar producto' : 'Nuevo producto', html, async () => {
+            const data = readModalFields(['f-name','f-descripcion','f-imagen_url','f-precio','f-stock','f-is_active']);
+            if (!data.name) throw new Error('Nombre es requerido');
+            if (p) {
+                await api('PUT', `/api/cms/tienda/${p.id}`, data);
+                toast('Producto actualizado', 'ok');
+            } else {
+                await api('POST', '/api/cms/tienda', data);
+                toast('Producto creado', 'ok');
+            }
+            cargarProductos();
+        });
+    }
+    function editarProducto(p) { abrirProducto(p); }
+    function eliminarProducto(id) {
+        abrirConfirm('Eliminar producto', '¿Seguro?', async () => {
+            await api('DELETE', `/api/cms/tienda/${id}`);
+            toast('Producto eliminado', 'ok');
+            cargarProductos();
+        });
+    }
+
+    // ───── Boot ─────
+    cargarSlides();
+
+    // Exponer al global
+    Object.assign(window, {
+        cambiarTab, cambiarSubtab, cerrarModal, guardarModal,
+        cerrarConfirm,
+        // Carrusel
+        abrirSlide, editarSlide, moverSlide, toggleSlide, eliminarSlide,
+        // Comunicados
+        abrirComunicado, editarComunicado, eliminarComunicado,
+        // Capacitaciones
+        abrirCapacitacion, editarCapacitacion, eliminarCapacitacion,
+        // Convenios
+        abrirConvenio, editarConvenio, eliminarConvenio,
+        // Ambientes
+        abrirAmbiente, editarAmbiente, eliminarAmbiente,
+        // Tienda
+        abrirProducto, editarProducto, eliminarProducto,
+    });
+})();
+</script>
+</body>
+</html>
