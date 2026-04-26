@@ -68,6 +68,10 @@ from app.routers.cms import (
     page_router as cms_page_router,
     public_router as cms_public_router,
 )
+from app.routers.catalogo import (
+    router as catalogo_router,
+    page_router as catalogo_page_router,
+)
 
 
 @asynccontextmanager
@@ -237,6 +241,8 @@ app.include_router(tienda_paginas_router)
 app.include_router(cms_router)
 app.include_router(cms_page_router)
 app.include_router(cms_public_router)
+app.include_router(catalogo_router)
+app.include_router(catalogo_page_router)
 
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
