@@ -34,6 +34,16 @@ logger = logging.getLogger(__name__)
 
 PERU_TZ = timezone(timedelta(hours=-5))
 
+
+def a_lima(dt, fmt: str = "%d/%m/%Y %H:%M"):
+    """Convierte un datetime a hora Lima (UTC-5) y formatea para frontend."""
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(PERU_TZ).strftime(fmt)
+
+
 ROLES_SECRETARIA = ("secretaria", "cajero", "tesorero", "admin", "sote")
 
 # ============================================================
@@ -259,6 +269,40 @@ async def deudas_completas(
         ~Debt.estado_gestion.in_(["compensada"]),
     ).order_by(Debt.periodo.asc()).all()
 
+    # ── Último log de audit_log_finanzas por deuda (una sola query) ──
+    deuda_ids = [d.id for d in deudas if d.id]
+    ultimo_log_por_deuda: Dict[int, AuditLogFinanzas] = {}
+    if deuda_ids:
+        try:
+            logs = (
+                db.query(AuditLogFinanzas)
+                .filter(
+                    AuditLogFinanzas.entidad_tipo == "debts",
+                    AuditLogFinanzas.entidad_id.in_(deuda_ids),
+                )
+                .order_by(AuditLogFinanzas.created_at.desc())
+                .all()
+            )
+            for log in logs:
+                if log.entidad_id not in ultimo_log_por_deuda:
+                    ultimo_log_por_deuda[log.entidad_id] = log
+        except Exception as e:
+            logger.warning("Error consultando audit_log_finanzas para deudas: %s", e)
+
+    def _ultimo_cambio_dict(deuda_id):
+        log = ultimo_log_por_deuda.get(deuda_id)
+        if not log:
+            return None
+        detalle = log.detalle or {}
+        motivo = detalle.get("motivo") if isinstance(detalle, dict) else None
+        if not motivo:
+            return None
+        return {
+            "motivo": motivo,
+            "usuario": log.actor_nombre or (f"user#{log.actor_id}" if log.actor_id else None),
+            "fecha": a_lima(log.created_at),
+        }
+
     hasta_2025 = []
     anio_2026 = {}
     extras_2026 = []  # deudas del año 2026 que NO encajan en uno de los 12 slots mensuales
@@ -290,6 +334,7 @@ async def deudas_completas(
             "estado_gestion": d.estado_gestion or "vigente",
             "debt_type": d.debt_type or "cuota_ordinaria",
             "fraccionamiento_id": d.fraccionamiento_id,
+            "ultimo_cambio": _ultimo_cambio_dict(d.id),
         }
 
         periodo = str(d.periodo or "")
@@ -1179,7 +1224,7 @@ async def listar_revisiones(
             "anio_origen": row["anio_origen"],
             "estado": row["estado"],
             "notas_resolucion": row["notas_resolucion"],
-            "created_at": str(row["created_at"]) if row["created_at"] else None,
+            "created_at": a_lima(row["created_at"]) if row["created_at"] else None,
             "apellidos_nombres": row.get("apellidos_nombres") or None,
             "colegiado_id": row.get("colegiado_id") or None,
         })

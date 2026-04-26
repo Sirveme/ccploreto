@@ -53,6 +53,16 @@ page_router = APIRouter(tags=["Caja"])
 
 PERU_TZ = timezone(timedelta(hours=-5))
 
+
+def a_lima(dt, fmt: str = "%d/%m/%Y %H:%M"):
+    """Convierte un datetime a hora Lima (UTC-5) y formatea para frontend."""
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(PERU_TZ).strftime(fmt)
+
+
 def _inicio_dia_peru_utc(fecha=None):
     """
     Retorna medianoche Perú convertida a UTC naive (para comparar con created_at).
@@ -981,7 +991,7 @@ async def ultimos_cobros(
 
         resultado.append({
             "id": p.id,
-            "hora": p.created_at.strftime("%H:%M") if p.created_at else "",
+            "hora": a_lima(p.created_at, "%H:%M") or "",
             "colegiado": col.apellidos_nombres if col else "Público general",
             "matricula": col.codigo_matricula if col else None,
             "concepto": p.notes or "",
@@ -1485,8 +1495,8 @@ async def historial_sesiones(
             "monto_cierre": float(s.monto_cierre) if s.monto_cierre is not None else None,
             "diferencia": float(s.diferencia) if s.diferencia is not None else None,
             "cantidad_operaciones": s.cantidad_operaciones or 0,
-            "hora_apertura": s.hora_apertura.strftime("%H:%M") if s.hora_apertura else "",
-            "hora_cierre": s.hora_cierre.strftime("%H:%M") if s.hora_cierre else "",
+            "hora_apertura": a_lima(s.hora_apertura, "%H:%M") or "",
+            "hora_cierre": a_lima(s.hora_cierre, "%H:%M") or "",
         })
 
     return resultado
