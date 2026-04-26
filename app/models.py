@@ -837,6 +837,9 @@ class ConceptoCobro(Base):
     stock_actual = Column(Integer, default=0)
     stock_minimo = Column(Integer, default=0)
 
+    # CMS público (zClaude-58) — imagen para mercadería en home/CMS
+    imagen_url = Column(String(500), nullable=True)
+
     # Estado
     activo = Column(Boolean, default=True)
     orden = Column(Integer, default=0)
