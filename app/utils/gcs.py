@@ -173,12 +173,14 @@ def upload_cms_imagen(
     carpeta: str = "cms",
 ) -> Optional[str]:
     """
-    Sube una imagen del panel CMS y devuelve la URL pública.
+    Sube una imagen o PDF del panel CMS y devuelve la URL pública.
 
     carpeta: 'carrusel' | 'comunicados' | 'capacitaciones' |
-             'convenios' | 'ambientes' | 'tienda' | 'cms'
+             'convenios' | 'ambientes' | 'tienda' | 'cms' |
+             'documentos' | 'reglamentos'
 
     Path final: {organization_id}/cms/{carpeta}/{uuid}.{ext}
+    La extensión se infiere de `filename` (incluye .pdf cuando aplica).
     Mismo patron de URL que api_comunicados.py:
         https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}
     Además solicita read ACL público (idempotente, igual que upload_foto_perfil).
