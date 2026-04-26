@@ -225,47 +225,74 @@
     <div class="carousel-viewport">
       <div class="carousel-track" id="carTrack">
 
-        <div class="carousel-slide active">
-          <img src="/static/img/ccploreto-directiva-2026-2027.webp"
-               onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'"
-               alt="Directiva CCPL 2026-2027">
-          <div class="slide-overlay">
-            <div class="slide-content">
-              <div class="slide-label">Gestión 2026 · 2027</div>
-              <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
-              <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía</p>
-              <button class="slide-btn"><span class="mi sm">groups</span> Conocer la Directiva</button>
+        {% if cms and cms.carrusel_slides %}
+          {% for s in cms.carrusel_slides %}
+            <div class="carousel-slide{% if loop.first %} active{% endif %}">
+              <img src="{{ s.imagen_url }}" alt="{{ s.titulo or 'Slide' }}"
+                   onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'">
+              <div class="slide-overlay">
+                <div class="slide-content">
+                  {% if s.titulo %}<h2>{{ s.titulo }}</h2>{% endif %}
+                  {% if s.subtitulo %}<p>{{ s.subtitulo }}</p>{% endif %}
+                  {% if s.boton_texto %}
+                    {% if s.boton_url and s.boton_url.startswith('#') %}
+                      <button class="slide-btn"
+                              onclick="document.querySelector('{{ s.boton_url }}') && document.querySelector('{{ s.boton_url }}').scrollIntoView({behavior:'smooth'})">
+                        {{ s.boton_texto }}
+                      </button>
+                    {% elif s.boton_url %}
+                      <a class="slide-btn" href="{{ s.boton_url }}" style="display:inline-flex;align-items:center;text-decoration:none">
+                        {{ s.boton_texto }}
+                      </a>
+                    {% else %}
+                      <button class="slide-btn">{{ s.boton_texto }}</button>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="carousel-slide active">
+            <img src="/static/img/ccploreto-directiva-2026-2027.webp"
+                 onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'"
+                 alt="Directiva CCPL 2026-2027">
+            <div class="slide-overlay">
+              <div class="slide-content">
+                <div class="slide-label">Gestión 2026 · 2027</div>
+                <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
+                <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía</p>
+                <button class="slide-btn"><span class="mi sm">groups</span> Conocer la Directiva</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="carousel-slide">
-          <img src="/static/img/ccploreto-capacitaciones.webp" alt="Ambientes">
-          <div class="slide-overlay">
-            <div class="slide-content">
-              <div class="slide-label">Ambientes e Instalaciones</div>
-              <h2>Capacitación para el desarrollo profesional de Contadores y Público en general</h2>
-              <p>Infraestructura moderna y equipada para brindar una experiencia de aprendizaje óptima</p>
-              <button class="slide-btn" onclick="document.getElementById('ambientes').scrollIntoView({behavior:'smooth'})">
-                <span class="mi sm">auditorium</span> Ver ambientes
-              </button>
+          <div class="carousel-slide">
+            <img src="/static/img/ccploreto-capacitaciones.webp" alt="Ambientes">
+            <div class="slide-overlay">
+              <div class="slide-content">
+                <div class="slide-label">Ambientes e Instalaciones</div>
+                <h2>Capacitación para el desarrollo profesional de Contadores y Público en general</h2>
+                <p>Infraestructura moderna y equipada para brindar una experiencia de aprendizaje óptima</p>
+                <button class="slide-btn" onclick="document.getElementById('ambientes').scrollIntoView({behavior:'smooth'})">
+                  <span class="mi sm">auditorium</span> Ver ambientes
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="carousel-slide">
-          <img src="/static/img/ccploreto-piscina.webp" alt="Capacitación">
-          <div class="slide-overlay">
-            <div class="slide-content">
-              <div class="slide-label">Esparcimiento y Confraternidad</div>
-              <h2>Espacios para el disfrute y la integración de la comunidad</h2>
-              <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
-              <button class="slide-btn" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})">
-                <span class="mi sm">school</span> Ver agenda
-              </button>
+          <div class="carousel-slide">
+            <img src="/static/img/ccploreto-piscina.webp" alt="Capacitación">
+            <div class="slide-overlay">
+              <div class="slide-content">
+                <div class="slide-label">Esparcimiento y Confraternidad</div>
+                <h2>Espacios para el disfrute y la integración de la comunidad</h2>
+                <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
+                <button class="slide-btn" onclick="document.getElementById('capacitacion').scrollIntoView({behavior:'smooth'})">
+                  <span class="mi sm">school</span> Ver agenda
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        {% endif %}
 
       </div><!-- /carousel-track -->
     </div><!-- /carousel-viewport -->
@@ -273,9 +300,10 @@
     <button class="carousel-ctrl prev" aria-label="Anterior">&#8249;</button>
     <button class="carousel-ctrl next" aria-label="Siguiente">&#8250;</button>
     <div class="carousel-dots" id="carDots">
-      <button class="car-dot car-dot-active" aria-label="Slide 1"></button>
-      <button class="car-dot" aria-label="Slide 2"></button>
-      <button class="car-dot" aria-label="Slide 3"></button>
+      {% set total_slides = cms.carrusel_slides|length if (cms and cms.carrusel_slides) else 3 %}
+      {% for i in range(total_slides) %}
+        <button class="car-dot{% if loop.first %} car-dot-active{% endif %}" aria-label="Slide {{ i + 1 }}"></button>
+      {% endfor %}
     </div>
   </div>
 </section>
@@ -365,70 +393,104 @@
     <p class="sec-sub sec-sub-lt">Selecciona un curso para ver el detalle completo</p>
 
     <div class="cap-grid">
-      <div class="cap-card" onclick="location.href='/capacitacion/'">
-        <div class="cap-card-thumb">
-          <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=70" alt="">
-          <div class="cap-thumb-overlay"></div>
-          <span class="cap-badge cap-live">🔴 En vivo</span>
-          <span class="cap-dur">HOY 18:00</span>
-        </div>
-        <div class="cap-card-body">
-          <div class="cap-canal-icon"><span class="mi">calculate</span></div>
-          <div class="cap-info">
-            <div class="cap-titulo">Cierre Contable y Estados Financieros 2025</div>
-            <div class="cap-meta"><span class="mi">calendar_month</span> Hoy · 18:00 hrs</div>
-            <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+      {% if cms and cms.capacitaciones %}
+        {% for cap in cms.capacitaciones %}
+          {% set lugar_lower = (cap.lugar_evento or '')|lower %}
+          {% set es_virtual = 'virtual' in lugar_lower or 'zoom' in lugar_lower or 'meet' in lugar_lower or 'online' in lugar_lower %}
+          <div class="cap-card" onclick="location.href='/capacitaciones/{{ cap.id }}'">
+            <div class="cap-card-thumb">
+              {% if cap.image_url %}
+                <img src="{{ cap.image_url }}" alt="{{ cap.title }}">
+              {% else %}
+                <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=70" alt="">
+              {% endif %}
+              <div class="cap-thumb-overlay"></div>
+              <span class="cap-badge">{{ 'Virtual' if es_virtual else 'Presencial' }}</span>
+              {% if cap.fecha_evento %}<span class="cap-dur">{{ cap.fecha_evento }}</span>{% endif %}
+            </div>
+            <div class="cap-card-body">
+              <div class="cap-canal-icon"><span class="mi">school</span></div>
+              <div class="cap-info">
+                <div class="cap-titulo">{{ cap.title }}</div>
+                {% if cap.fecha_evento %}<div class="cap-meta"><span class="mi">calendar_month</span> {{ cap.fecha_evento }}</div>{% endif %}
+                {% if cap.lugar_evento %}
+                  <div class="cap-meta">
+                    <span class="mi">{{ 'videocam' if es_virtual else 'location_on' }}</span> {{ cap.lugar_evento }}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="cap-card" onclick="location.href='/capacitacion/'">
+          <div class="cap-card-thumb">
+            <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=70" alt="">
+            <div class="cap-thumb-overlay"></div>
+            <span class="cap-badge cap-live">🔴 En vivo</span>
+            <span class="cap-dur">HOY 18:00</span>
+          </div>
+          <div class="cap-card-body">
+            <div class="cap-canal-icon"><span class="mi">calculate</span></div>
+            <div class="cap-info">
+              <div class="cap-titulo">Cierre Contable y Estados Financieros 2025</div>
+              <div class="cap-meta"><span class="mi">calendar_month</span> Hoy · 18:00 hrs</div>
+              <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="cap-card" onclick="location.href='/capacitacion/'">
-        <div class="cap-card-thumb">
-          <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=70" alt="">
-          <div class="cap-thumb-overlay"></div>
-          <span class="cap-badge">Próximo</span>
-          <span class="cap-dur">S/ 50</span>
-        </div>
-        <div class="cap-card-body">
-          <div class="cap-canal-icon"><span class="mi">trending_up</span></div>
-          <div class="cap-info">
-            <div class="cap-titulo">NIIF para Pymes — Aplicación Práctica 2026</div>
-            <div class="cap-meta"><span class="mi">calendar_month</span> 31 Mar · 10:00 hrs</div>
-            <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+        <div class="cap-card" onclick="location.href='/capacitacion/'">
+          <div class="cap-card-thumb">
+            <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=70" alt="">
+            <div class="cap-thumb-overlay"></div>
+            <span class="cap-badge">Próximo</span>
+            <span class="cap-dur">S/ 50</span>
+          </div>
+          <div class="cap-card-body">
+            <div class="cap-canal-icon"><span class="mi">trending_up</span></div>
+            <div class="cap-info">
+              <div class="cap-titulo">NIIF para Pymes — Aplicación Práctica 2026</div>
+              <div class="cap-meta"><span class="mi">calendar_month</span> 31 Mar · 10:00 hrs</div>
+              <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="cap-card" onclick="location.href='/capacitacion/'">
-        <div class="cap-card-thumb">
-          <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=70" alt="">
-          <div class="cap-thumb-overlay"></div>
-          <span class="cap-badge">Próximo</span>
-          <span class="cap-dur">S/ 80</span>
-        </div>
-        <div class="cap-card-body">
-          <div class="cap-canal-icon"><span class="mi">gavel</span></div>
-          <div class="cap-info">
-            <div class="cap-titulo">Peritaje Contable y Aspectos Legales</div>
-            <div class="cap-meta"><span class="mi">calendar_month</span> 05 Abr · 16:00 hrs</div>
-            <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+        <div class="cap-card" onclick="location.href='/capacitacion/'">
+          <div class="cap-card-thumb">
+            <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=70" alt="">
+            <div class="cap-thumb-overlay"></div>
+            <span class="cap-badge">Próximo</span>
+            <span class="cap-dur">S/ 80</span>
+          </div>
+          <div class="cap-card-body">
+            <div class="cap-canal-icon"><span class="mi">gavel</span></div>
+            <div class="cap-info">
+              <div class="cap-titulo">Peritaje Contable y Aspectos Legales</div>
+              <div class="cap-meta"><span class="mi">calendar_month</span> 05 Abr · 16:00 hrs</div>
+              <div class="cap-meta"><span class="mi">location_on</span> Auditorio CCPL</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="cap-card" onclick="location.href='/capacitacion/'">
-        <div class="cap-card-thumb">
-          <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=70" alt="">
-          <div class="cap-thumb-overlay"></div>
-          <span class="cap-badge">Próximo</span>
-          <span class="cap-dur">S/ 60</span>
-        </div>
-        <div class="cap-card-body">
-          <div class="cap-canal-icon"><span class="mi">receipt_long</span></div>
-          <div class="cap-info">
-            <div class="cap-titulo">Tributación Digital y Facturación Electrónica</div>
-            <div class="cap-meta"><span class="mi">calendar_month</span> 12 Abr · 09:00 hrs</div>
-            <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+        <div class="cap-card" onclick="location.href='/capacitacion/'">
+          <div class="cap-card-thumb">
+            <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=70" alt="">
+            <div class="cap-thumb-overlay"></div>
+            <span class="cap-badge">Próximo</span>
+            <span class="cap-dur">S/ 60</span>
+          </div>
+          <div class="cap-card-body">
+            <div class="cap-canal-icon"><span class="mi">receipt_long</span></div>
+            <div class="cap-info">
+              <div class="cap-titulo">Tributación Digital y Facturación Electrónica</div>
+              <div class="cap-meta"><span class="mi">calendar_month</span> 12 Abr · 09:00 hrs</div>
+              <div class="cap-meta"><span class="mi">videocam</span> Virtual (Zoom)</div>
+            </div>
           </div>
         </div>
-      </div>
+      {% endif %}
+    </div>
+    <div style="margin-top:18px;text-align:center">
+      <a href="/capacitaciones" style="font-size:13px;font-weight:700;color:#fff;text-decoration:none;background:rgba(255,255,255,0.1);padding:8px 16px;border-radius:8px">Ver agenda completa →</a>
     </div>
   </div>
 </section>
@@ -446,92 +508,126 @@
       <button class="tab-btn" data-cat="todos">Ver todos</button>
     </div>
     <div class="conv-grid" id="convGrid">
-      <div class="conv-card visible" data-cat="salud">
-        <div class="conv-icon-wrap"><span class="mi">local_hospital</span></div>
-        <h3>Clínica Emanuel</h3>
-        <div class="conv-sector">Salud General</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en consultas y análisis</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Jr. Próspero 123, Iquitos</span>
-          <span><span class="mi">phone</span> 065-123456</span>
-          <span><span class="mi">schedule</span> Lun-Sáb 8am–8pm</span>
+      {% if cms and cms.convenios %}
+        {% for c in cms.convenios %}
+          {% set cat_lower = (c.category or 'servicios')|lower %}
+          {% set cat_norm = 'salud' if 'salud' in cat_lower or 'medic' in cat_lower
+                            else ('educacion' if 'educa' in cat_lower or 'universidad' in cat_lower or 'academia' in cat_lower
+                            else 'servicios') %}
+          <div class="conv-card{% if loop.first or cat_norm == 'salud' %} visible{% endif %}" data-cat="{{ cat_norm }}">
+            <div class="conv-icon-wrap">
+              {% if c.logo_url %}
+                <img src="{{ c.logo_url }}" alt="{{ c.name }}" style="max-width:100%;max-height:100%;object-fit:contain"
+                     onerror="this.style.display='none'">
+              {% else %}
+                <span class="mi">handshake</span>
+              {% endif %}
+            </div>
+            <h3>{{ c.name }}</h3>
+            <div class="conv-sector">{{ c.category or 'Convenio' }}</div>
+            {% if c.description %}
+              <span class="conv-beneficio"><span class="mi">sell</span>
+                {{ c.description[:60] }}{% if c.description|length > 60 %}…{% endif %}
+              </span>
+            {% endif %}
+            <div class="conv-info">
+              {% if c.phone %}<span><span class="mi">phone</span> {{ c.phone }}</span>{% endif %}
+              {% if c.whatsapp %}<span><span class="mi">chat</span> {{ c.whatsapp }}</span>{% endif %}
+              {% if c.website_url %}<span><span class="mi">language</span> Web</span>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="conv-card visible" data-cat="salud">
+          <div class="conv-icon-wrap"><span class="mi">local_hospital</span></div>
+          <h3>Clínica Emanuel</h3>
+          <div class="conv-sector">Salud General</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en consultas y análisis</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Jr. Próspero 123, Iquitos</span>
+            <span><span class="mi">phone</span> 065-123456</span>
+            <span><span class="mi">schedule</span> Lun-Sáb 8am–8pm</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card visible" data-cat="salud">
-        <div class="conv-icon-wrap"><span class="mi">dentistry</span></div>
-        <h3>Vidas Dent</h3>
-        <div class="conv-sector">Odontología</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 20% desc. en tratamientos</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Av. Abelardo 456</span>
-          <span><span class="mi">phone</span> 065-234567</span>
-          <span><span class="mi">schedule</span> Lun-Vie 9am–7pm</span>
+        <div class="conv-card visible" data-cat="salud">
+          <div class="conv-icon-wrap"><span class="mi">dentistry</span></div>
+          <h3>Vidas Dent</h3>
+          <div class="conv-sector">Odontología</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 20% desc. en tratamientos</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Av. Abelardo 456</span>
+            <span><span class="mi">phone</span> 065-234567</span>
+            <span><span class="mi">schedule</span> Lun-Vie 9am–7pm</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card visible" data-cat="salud">
-        <div class="conv-icon-wrap"><span class="mi">visibility</span></div>
-        <h3>Eyes Solution</h3>
-        <div class="conv-sector">Oftalmología</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en lentes y consultas</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Jr. Lima 789</span>
-          <span><span class="mi">phone</span> 065-345678</span>
-          <span><span class="mi">schedule</span> Lun-Sáb 8am–6pm</span>
+        <div class="conv-card visible" data-cat="salud">
+          <div class="conv-icon-wrap"><span class="mi">visibility</span></div>
+          <h3>Eyes Solution</h3>
+          <div class="conv-sector">Oftalmología</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en lentes y consultas</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Jr. Lima 789</span>
+            <span><span class="mi">phone</span> 065-345678</span>
+            <span><span class="mi">schedule</span> Lun-Sáb 8am–6pm</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card visible" data-cat="salud">
-        <div class="conv-icon-wrap"><span class="mi">medical_services</span></div>
-        <h3>Clínica Ana Stahl</h3>
-        <div class="conv-sector">Salud General</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en servicios médicos</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Av. La Marina 321</span>
-          <span><span class="mi">phone</span> 065-456789</span>
-          <span><span class="mi">schedule</span> 24 horas</span>
+        <div class="conv-card visible" data-cat="salud">
+          <div class="conv-icon-wrap"><span class="mi">medical_services</span></div>
+          <h3>Clínica Ana Stahl</h3>
+          <div class="conv-sector">Salud General</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 15% desc. en servicios médicos</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Av. La Marina 321</span>
+            <span><span class="mi">phone</span> 065-456789</span>
+            <span><span class="mi">schedule</span> 24 horas</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card" data-cat="educacion">
-        <div class="conv-icon-wrap"><span class="mi">school</span></div>
-        <h3>PUCP</h3>
-        <div class="conv-sector">Universidad</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> Descuentos en diplomados</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Virtual / Presencial Lima</span>
-          <span><span class="mi">phone</span> 01-6262000</span>
+        <div class="conv-card" data-cat="educacion">
+          <div class="conv-icon-wrap"><span class="mi">school</span></div>
+          <h3>PUCP</h3>
+          <div class="conv-sector">Universidad</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> Descuentos en diplomados</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Virtual / Presencial Lima</span>
+            <span><span class="mi">phone</span> 01-6262000</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card" data-cat="educacion">
-        <div class="conv-icon-wrap"><span class="mi">menu_book</span></div>
-        <h3>Academia Intensity</h3>
-        <div class="conv-sector">Preparación</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en cursos</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Jr. Nauta 567</span>
-          <span><span class="mi">phone</span> 065-567890</span>
-          <span><span class="mi">schedule</span> Lun-Sáb 3pm–9pm</span>
+        <div class="conv-card" data-cat="educacion">
+          <div class="conv-icon-wrap"><span class="mi">menu_book</span></div>
+          <h3>Academia Intensity</h3>
+          <div class="conv-sector">Preparación</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 10% desc. en cursos</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Jr. Nauta 567</span>
+            <span><span class="mi">phone</span> 065-567890</span>
+            <span><span class="mi">schedule</span> Lun-Sáb 3pm–9pm</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card" data-cat="servicios">
-        <div class="conv-icon-wrap"><span class="mi">computer</span></div>
-        <h3>DS-CONT</h3>
-        <div class="conv-sector">Software Contable</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> Precios especiales</span>
-        <div class="conv-info">
-          <span><span class="mi">cloud</span> Virtual</span>
-          <span><span class="mi">phone</span> 965-123456</span>
+        <div class="conv-card" data-cat="servicios">
+          <div class="conv-icon-wrap"><span class="mi">computer</span></div>
+          <h3>DS-CONT</h3>
+          <div class="conv-sector">Software Contable</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> Precios especiales</span>
+          <div class="conv-info">
+            <span><span class="mi">cloud</span> Virtual</span>
+            <span><span class="mi">phone</span> 965-123456</span>
+          </div>
         </div>
-      </div>
-      <div class="conv-card" data-cat="servicios">
-        <div class="conv-icon-wrap"><span class="mi">local_gas_station</span></div>
-        <h3>Loreto Perú</h3>
-        <div class="conv-sector">Combustible</div>
-        <span class="conv-beneficio"><span class="mi">sell</span> 5% desc. en gasolina</span>
-        <div class="conv-info">
-          <span><span class="mi">location_on</span> Av. Quiñones</span>
-          <span><span class="mi">phone</span> 065-678901</span>
-          <span><span class="mi">schedule</span> 24 horas</span>
+        <div class="conv-card" data-cat="servicios">
+          <div class="conv-icon-wrap"><span class="mi">local_gas_station</span></div>
+          <h3>Loreto Perú</h3>
+          <div class="conv-sector">Combustible</div>
+          <span class="conv-beneficio"><span class="mi">sell</span> 5% desc. en gasolina</span>
+          <div class="conv-info">
+            <span><span class="mi">location_on</span> Av. Quiñones</span>
+            <span><span class="mi">phone</span> 065-678901</span>
+            <span><span class="mi">schedule</span> 24 horas</span>
+          </div>
         </div>
-      </div>
+      {% endif %}
+    </div>
+    <div style="margin-top:18px;text-align:center">
+      <a href="/convenios" style="font-size:13px;font-weight:700;color:var(--verde3);text-decoration:none">Ver todos los convenios →</a>
     </div>
   </div>
 </section>
@@ -543,82 +639,123 @@
     <h2 class="sec-title">Alquiler de Ambientes</h2>
     <p class="sec-sub">Precios diferenciados · Disponibilidad en tiempo real</p>
     <div class="amb-grid">
-      <div class="amb-card">
-        <div class="amb-top">
-          <div class="amb-icon-wrap"><span class="mi xl">pool</span></div>
-          <div class="amb-name">Piscina</div>
-          <div class="amb-prices">
-            <div class="amb-price"><div class="amb-price-amt">S/ 30 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
-            <div class="amb-price"><div class="amb-price-amt">S/ 50 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+      {% if cms and cms.ambientes %}
+        {% for amb in cms.ambientes %}
+          {% set name_lower = (amb.name or '')|lower %}
+          {% set ic = 'pool' if 'piscina' in name_lower
+                     else ('sports_soccer' if 'futbol' in name_lower or 'fútbol' in name_lower
+                     else ('sports_volleyball' if 'voley' in name_lower or 'vóley' in name_lower
+                     else ('mic' if 'auditorio' in name_lower or 'salon' in name_lower
+                     else 'stadium'))) %}
+          <div class="amb-card">
+            <div class="amb-top">
+              <div class="amb-icon-wrap"><span class="mi xl">{{ ic }}</span></div>
+              <div class="amb-name">{{ amb.name }}</div>
+              <div class="amb-prices">
+                {% if amb.precio_colegiado is not none %}
+                  <div class="amb-price">
+                    <div class="amb-price-amt">S/ {{ '%.0f'|format(amb.precio_colegiado) }} <span>/hr</span></div>
+                    <div class="amb-price-label">Colegiado hábil</div>
+                  </div>
+                {% endif %}
+                {% if amb.precio_publico is not none %}
+                  <div class="amb-price">
+                    <div class="amb-price-amt">S/ {{ '%.0f'|format(amb.precio_publico) }} <span>/hr</span></div>
+                    <div class="amb-price-label">Público general</div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="amb-body">
+              <div class="amb-horario">
+                {% if amb.horarios %}<div class="amb-horario-row"><span class="mi">schedule</span> {{ amb.horarios }}</div>{% endif %}
+                {% if amb.aforo %}<div class="amb-horario-row"><span class="mi">event_seat</span> Aforo: {{ amb.aforo }} personas</div>{% endif %}
+                {% if amb.requisitos %}<div class="amb-horario-row"><span class="mi">info</span> {{ amb.requisitos }}</div>{% endif %}
+              </div>
+              <button class="btn-reservar" onclick="abrirReserva('{{ amb.name|replace("'", "\\'") }}')">
+                <span class="mi">event_available</span> Verificar disponibilidad
+              </button>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="amb-card">
+          <div class="amb-top">
+            <div class="amb-icon-wrap"><span class="mi xl">pool</span></div>
+            <div class="amb-name">Piscina</div>
+            <div class="amb-prices">
+              <div class="amb-price"><div class="amb-price-amt">S/ 30 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+              <div class="amb-price"><div class="amb-price-amt">S/ 50 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+            </div>
+          </div>
+          <div class="amb-body">
+            <div class="amb-horario">
+              <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 6am – 8pm</div>
+              <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 7am – 7pm</div>
+            </div>
+            <button class="btn-reservar" onclick="abrirReserva('Piscina')">
+              <span class="mi">event_available</span> Verificar disponibilidad
+            </button>
           </div>
         </div>
-        <div class="amb-body">
-          <div class="amb-horario">
-            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 6am – 8pm</div>
-            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 7am – 7pm</div>
+        <div class="amb-card">
+          <div class="amb-top">
+            <div class="amb-icon-wrap"><span class="mi xl">sports_soccer</span></div>
+            <div class="amb-name">Cancha de Fútbol</div>
+            <div class="amb-prices">
+              <div class="amb-price"><div class="amb-price-amt">S/ 25 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+              <div class="amb-price"><div class="amb-price-amt">S/ 40 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+            </div>
           </div>
-          <button class="btn-reservar" onclick="abrirReserva('Piscina')">
-            <span class="mi">event_available</span> Verificar disponibilidad
-          </button>
-        </div>
-      </div>
-      <div class="amb-card">
-        <div class="amb-top">
-          <div class="amb-icon-wrap"><span class="mi xl">sports_soccer</span></div>
-          <div class="amb-name">Cancha de Fútbol</div>
-          <div class="amb-prices">
-            <div class="amb-price"><div class="amb-price-amt">S/ 25 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
-            <div class="amb-price"><div class="amb-price-amt">S/ 40 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
-          </div>
-        </div>
-        <div class="amb-body">
-          <div class="amb-horario">
-            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
-            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
-          </div>
-          <button class="btn-reservar" onclick="abrirReserva('Cancha de Fútbol')">
-            <span class="mi">event_available</span> Verificar disponibilidad
-          </button>
-        </div>
-      </div>
-      <div class="amb-card">
-        <div class="amb-top">
-          <div class="amb-icon-wrap"><span class="mi xl">sports_volleyball</span></div>
-          <div class="amb-name">Cancha de Vóley</div>
-          <div class="amb-prices">
-            <div class="amb-price"><div class="amb-price-amt">S/ 20 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
-            <div class="amb-price"><div class="amb-price-amt">S/ 35 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+          <div class="amb-body">
+            <div class="amb-horario">
+              <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
+              <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
+            </div>
+            <button class="btn-reservar" onclick="abrirReserva('Cancha de Fútbol')">
+              <span class="mi">event_available</span> Verificar disponibilidad
+            </button>
           </div>
         </div>
-        <div class="amb-body">
-          <div class="amb-horario">
-            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
-            <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
+        <div class="amb-card">
+          <div class="amb-top">
+            <div class="amb-icon-wrap"><span class="mi xl">sports_volleyball</span></div>
+            <div class="amb-name">Cancha de Vóley</div>
+            <div class="amb-prices">
+              <div class="amb-price"><div class="amb-price-amt">S/ 20 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+              <div class="amb-price"><div class="amb-price-amt">S/ 35 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+            </div>
           </div>
-          <button class="btn-reservar" onclick="abrirReserva('Cancha de Vóley')">
-            <span class="mi">event_available</span> Verificar disponibilidad
-          </button>
-        </div>
-      </div>
-      <div class="amb-card">
-        <div class="amb-top">
-          <div class="amb-icon-wrap"><span class="mi xl">mic</span></div>
-          <div class="amb-name">Auditorio</div>
-          <div class="amb-prices">
-            <div class="amb-price"><div class="amb-price-amt">S/ 150 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
-            <div class="amb-price"><div class="amb-price-amt">S/ 200 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+          <div class="amb-body">
+            <div class="amb-horario">
+              <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 5am – 10pm</div>
+              <div class="amb-horario-row"><span class="mi">schedule</span> Sáb-Dom: 6am – 10pm</div>
+            </div>
+            <button class="btn-reservar" onclick="abrirReserva('Cancha de Vóley')">
+              <span class="mi">event_available</span> Verificar disponibilidad
+            </button>
           </div>
         </div>
-        <div class="amb-body">
-          <div class="amb-horario">
-            <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 8am – 9pm</div>
-            <div class="amb-horario-row"><span class="mi">event_seat</span> Aforo: 80 personas</div>
+        <div class="amb-card">
+          <div class="amb-top">
+            <div class="amb-icon-wrap"><span class="mi xl">mic</span></div>
+            <div class="amb-name">Auditorio</div>
+            <div class="amb-prices">
+              <div class="amb-price"><div class="amb-price-amt">S/ 150 <span>/hr</span></div><div class="amb-price-label">Colegiado hábil</div></div>
+              <div class="amb-price"><div class="amb-price-amt">S/ 200 <span>/hr</span></div><div class="amb-price-label">Público general</div></div>
+            </div>
           </div>
-          <button class="btn-reservar" onclick="abrirReserva('Auditorio')">
-            <span class="mi">event_available</span> Verificar disponibilidad
-          </button>
+          <div class="amb-body">
+            <div class="amb-horario">
+              <div class="amb-horario-row"><span class="mi">schedule</span> Lun-Vie: 8am – 9pm</div>
+              <div class="amb-horario-row"><span class="mi">event_seat</span> Aforo: 80 personas</div>
+            </div>
+            <button class="btn-reservar" onclick="abrirReserva('Auditorio')">
+              <span class="mi">event_available</span> Verificar disponibilidad
+            </button>
+          </div>
         </div>
-      </div>
+      {% endif %}
     </div>
     <div class="pagos-strip">
       <h3><span class="mi">payment</span> Métodos de Pago</h3>
@@ -664,24 +801,41 @@
     <h2 class="sec-title">Últimos Comunicados</h2>
     <p class="sec-sub">Para descargar o compartir debes identificarte como colegiado hábil</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
-      <a href="/comunicado/comunicado-008-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">15 Ene 2026</div>
-        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 008-2026</h3>
-        <p style="font-size:13px;color:var(--txt2);flex:1">Proceso Electoral 2026 — Cronograma actualizado</p>
-        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
-      </a>
-      <a href="/comunicado/comunicado-007-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">12 Ene 2026</div>
-        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 007-2026</h3>
-        <p style="font-size:13px;color:var(--txt2);flex:1">Inscripción de listas para elecciones del Consejo Directivo</p>
-        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
-      </a>
-      <a href="/comunicado/comunicado-n-006-2025/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-        <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">08 Ene 2026</div>
-        <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 006-2026</h3>
-        <p style="font-size:13px;color:var(--txt2);flex:1">Convocatoria a Asamblea General Ordinaria</p>
-        <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
-      </a>
+      {% if cms and cms.comunicados %}
+        {% for c in cms.comunicados %}
+          <a href="/comunicados/{{ c.id }}" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra);text-decoration:none">
+            <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">{{ c.created_at or '' }}</div>
+            <h3 style="font-size:14px;font-weight:700;color:var(--verde)">{{ c.title }}</h3>
+            <p style="font-size:13px;color:var(--txt2);flex:1">
+              {% set txt = c.content|striptags if c.content else '' %}
+              {{ txt[:120] }}{% if txt|length > 120 %}…{% endif %}
+            </p>
+            <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+          </a>
+        {% endfor %}
+      {% else %}
+        <a href="/comunicado/comunicado-008-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">15 Ene 2026</div>
+          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 008-2026</h3>
+          <p style="font-size:13px;color:var(--txt2);flex:1">Proceso Electoral 2026 — Cronograma actualizado</p>
+          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        </a>
+        <a href="/comunicado/comunicado-007-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">12 Ene 2026</div>
+          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 007-2026</h3>
+          <p style="font-size:13px;color:var(--txt2);flex:1">Inscripción de listas para elecciones del Consejo Directivo</p>
+          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        </a>
+        <a href="/comunicado/comunicado-n-006-2025/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
+          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">08 Ene 2026</div>
+          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 006-2026</h3>
+          <p style="font-size:13px;color:var(--txt2);flex:1">Convocatoria a Asamblea General Ordinaria</p>
+          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        </a>
+      {% endif %}
+    </div>
+    <div style="margin-top:18px;text-align:center">
+      <a href="/comunicados" style="font-size:13px;font-weight:700;color:var(--verde3);text-decoration:none">Ver todos los comunicados →</a>
     </div>
   </div>
 </section>
