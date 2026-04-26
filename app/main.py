@@ -63,6 +63,7 @@ from app.services.fomo_scheduler import iniciar_scheduler
 
 from app.routers.api_generador import router as generador_router
 from app.routers.api_tienda import router as tienda_router, router_paginas as tienda_paginas_router
+from app.routers.cms import router as cms_router, page_router as cms_page_router
 
 
 @asynccontextmanager
@@ -229,6 +230,8 @@ app.include_router(generador_router)
 
 app.include_router(tienda_router)
 app.include_router(tienda_paginas_router)
+app.include_router(cms_router)
+app.include_router(cms_page_router)
 
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
@@ -253,17 +256,17 @@ async def home(request: Request):
 
     # 2. VALIDAR SI EL TOKEN ES DE ESTA ORGANIZACIÓN
     should_redirect = False
-    
+
     if token and current_org:
         try:
             # Limpiar "Bearer " si existe
             token_clean = token.replace("Bearer ", "")
             # Decodificar sin verificar firma a fondo (solo lectura rápida)
             payload = jwt.decode(token_clean, SECRET_KEY, algorithms=[ALGORITHM])
-            
+
             # ¿El token tiene el nombre de esta organización?
             token_org = payload.get("org_name")
-            
+
             if token_org == current_org['name']:
                 should_redirect = True
             else:
@@ -274,9 +277,9 @@ async def home(request: Request):
 
     if should_redirect:
         return RedirectResponse(url="/dashboard")
-    
+
     # 3. Si no redirige, mostramos contenido público
-    
+
     # Caso A: Landing Page de Venta (Dominio desconocido)
     if not current_org:
         return templates.TemplateResponse("landing/resumen.html", {"request": request})
@@ -284,8 +287,33 @@ async def home(request: Request):
     # Caso B: Portal del Cliente (Ej: ccp-loreto.html)
     template_path = f"sites/{current_org['slug']}.html"
     if os.path.exists(os.path.join("app", "templates", template_path)):
+        # zClaude-55: contenido dinámico desde BD (carrusel, comunicados, convenios,
+        # capacitaciones, ambientes). En el template usar:
+        #   {% for s in cms.carrusel_slides %}{{ s.imagen_url }}{% endfor %}
+        # Si la BD no tiene datos, las listas llegan vacías y el home cae al hardcoded.
+        cms_ctx = {
+            "carrusel_slides": [],
+            "comunicados":     [],
+            "capacitaciones":  [],
+            "convenios":       [],
+            "ambientes":       [],
+        }
+        try:
+            from app.database import SessionLocal
+            from app.routers.cms import get_home_context
+            db = SessionLocal()
+            try:
+                cms_ctx = get_home_context(db, organization_id=current_org.get('id') or 1)
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"⚠️ home cms_ctx: {e}")
+
         return templates.TemplateResponse(template_path, {
-            "request": request, "org": current_org, "theme": request.state.theme
+            "request": request,
+            "org": current_org,
+            "theme": request.state.theme,
+            "cms": cms_ctx,
         })
 
     # Caso C: Login por defecto

@@ -166,11 +166,18 @@ class Resource(Base):
     __tablename__ = "resources"
     id = Column(Integer, primary_key=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"))
-    
+
     name = Column(String) # Zona Parrilla 1, Cancha Tenis
     rules = Column(JSON) # { "max_hours": 2, "cost": 20.00 }
     is_active = Column(Boolean, default=True)
-    
+
+    # CMS público (zClaude-55) — usado por /admin/cms (ambientes y tienda)
+    tipo        = Column(String(30), default="ambiente")  # ambiente | producto
+    precio      = Column(Numeric(10, 2), nullable=True)
+    stock       = Column(Integer, default=0)
+    imagen_url  = Column(String(500), nullable=True)
+    descripcion = Column(Text, nullable=True)
+
     organization = relationship("Organization", back_populates="resources")
     bookings = relationship("Booking", back_populates="resource")
 
@@ -1072,3 +1079,21 @@ class NotificacionBancaria(Base):
     organization = relationship("Organization")
     cuenta = relationship("CuentaReceptora")
     payment = relationship("Payment")
+
+
+# --- MÓDULO CMS PÚBLICO (zClaude-55) ---
+class CarruselSlide(Base):
+    """Slide del carrusel del home público — gestionado desde /admin/cms."""
+    __tablename__ = "carrusel_slides"
+
+    id              = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, default=1)
+    orden           = Column(Integer, default=0)
+    imagen_url      = Column(String(500), nullable=False)
+    titulo          = Column(String(200))
+    subtitulo       = Column(String(300))
+    boton_texto     = Column(String(100))
+    boton_url       = Column(String(300))
+    activo          = Column(Boolean, default=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = Column(DateTime(timezone=True), onupdate=func.now())
