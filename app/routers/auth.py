@@ -370,6 +370,8 @@ def create_session_response(user, member, db=None):
         target_url = "/centinela"
     elif member.role in ["cajero", "tesorero"]:
         target_url = "/caja"
+    elif member.role == "editor":
+        target_url = "/admin/cms"
     elif member.role == "secretaria":
         target_url = "/secretaria"
     elif member.role == "colegiado":
