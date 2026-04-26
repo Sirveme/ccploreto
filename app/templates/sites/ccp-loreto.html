@@ -795,47 +795,163 @@
 </section>
 
 <!-- ══ SECCIÓN: COMUNICADOS ═════════════════════════ -->
+<style>
+  /* zClaude-57: tarjetas comunicados home */
+  .comunicados-grid-home {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .comunicado-card-home {
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .comunicado-card-home:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    text-decoration: none;
+  }
+  .comunicado-card-img {
+    width: 100%;
+    height: 180px;
+    background-size: cover;
+    background-position: center;
+    background-color: #f0f4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .comunicado-card-img--placeholder {
+    background: linear-gradient(135deg, #e8f0fe, #f0f4f8);
+  }
+  .comunicado-card-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .comunicado-card-fecha {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .comunicado-card-titulo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--verde, #1a3a5c);
+    margin: 0;
+    line-height: 1.3;
+  }
+  .comunicado-card-preview {
+    font-size: 13px;
+    color: #555;
+    margin: 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+  }
+  .comunicado-card-link {
+    font-size: 13px;
+    color: var(--verde3, #1a73e8);
+    font-weight: 600;
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-ver-todos {
+    display: inline-block;
+    padding: 8px 20px;
+    border: 1px solid var(--verde, #1a3a5c);
+    border-radius: 20px;
+    color: var(--verde, #1a3a5c);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-ver-todos:hover {
+    background: var(--verde, #1a3a5c);
+    color: #fff;
+    text-decoration: none;
+  }
+</style>
+
 <section class="page-section" id="comunicados">
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">campaign</span><span>Noticias oficiales</span></div>
     <h2 class="sec-title">Últimos Comunicados</h2>
     <p class="sec-sub">Para descargar o compartir debes identificarte como colegiado hábil</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+    <div class="comunicados-grid-home">
       {% if cms and cms.comunicados %}
-        {% for c in cms.comunicados %}
-          <a href="/comunicados/{{ c.id }}" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra);text-decoration:none">
-            <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">{{ c.created_at or '' }}</div>
-            <h3 style="font-size:14px;font-weight:700;color:var(--verde)">{{ c.title }}</h3>
-            <p style="font-size:13px;color:var(--txt2);flex:1">
-              {% set txt = c.content|striptags if c.content else '' %}
-              {{ txt[:120] }}{% if txt|length > 120 %}…{% endif %}
-            </p>
-            <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        {% for com in cms.comunicados %}
+          <a href="/comunicados/{{ com.id }}" class="comunicado-card-home">
+            {% if com.image_url %}
+              <div class="comunicado-card-img" style="background-image:url('{{ com.image_url }}')"></div>
+            {% else %}
+              <div class="comunicado-card-img comunicado-card-img--placeholder">
+                <span class="mi" style="font-size:48px;color:#b8c5d6">campaign</span>
+              </div>
+            {% endif %}
+            <div class="comunicado-card-body">
+              {% if com.fecha %}<span class="comunicado-card-fecha">{{ com.fecha }}</span>{% endif %}
+              <h3 class="comunicado-card-titulo">{{ com.title }}</h3>
+              {% if com.preview %}<p class="comunicado-card-preview">{{ com.preview }}</p>{% endif %}
+              <span class="comunicado-card-link">Leer más <span class="mi" style="font-size:14px">arrow_forward</span></span>
+            </div>
           </a>
         {% endfor %}
       {% else %}
-        <a href="/comunicado/comunicado-008-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">15 Ene 2026</div>
-          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 008-2026</h3>
-          <p style="font-size:13px;color:var(--txt2);flex:1">Proceso Electoral 2026 — Cronograma actualizado</p>
-          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        <a href="/comunicado/comunicado-008-2025-ce/" class="comunicado-card-home">
+          <div class="comunicado-card-img comunicado-card-img--placeholder">
+            <span class="mi" style="font-size:48px;color:#b8c5d6">campaign</span>
+          </div>
+          <div class="comunicado-card-body">
+            <span class="comunicado-card-fecha">15 Ene 2026</span>
+            <h3 class="comunicado-card-titulo">Comunicado N° 008-2026</h3>
+            <p class="comunicado-card-preview">Proceso Electoral 2026 — Cronograma actualizado</p>
+            <span class="comunicado-card-link">Leer más <span class="mi" style="font-size:14px">arrow_forward</span></span>
+          </div>
         </a>
-        <a href="/comunicado/comunicado-007-2025-ce/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">12 Ene 2026</div>
-          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 007-2026</h3>
-          <p style="font-size:13px;color:var(--txt2);flex:1">Inscripción de listas para elecciones del Consejo Directivo</p>
-          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        <a href="/comunicado/comunicado-007-2025-ce/" class="comunicado-card-home">
+          <div class="comunicado-card-img comunicado-card-img--placeholder">
+            <span class="mi" style="font-size:48px;color:#b8c5d6">campaign</span>
+          </div>
+          <div class="comunicado-card-body">
+            <span class="comunicado-card-fecha">12 Ene 2026</span>
+            <h3 class="comunicado-card-titulo">Comunicado N° 007-2026</h3>
+            <p class="comunicado-card-preview">Inscripción de listas para elecciones del Consejo Directivo</p>
+            <span class="comunicado-card-link">Leer más <span class="mi" style="font-size:14px">arrow_forward</span></span>
+          </div>
         </a>
-        <a href="/comunicado/comunicado-n-006-2025/" style="background:white;border-radius:10px;border:1px solid var(--borde);padding:18px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--sombra)">
-          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">08 Ene 2026</div>
-          <h3 style="font-size:14px;font-weight:700;color:var(--verde)">Comunicado N° 006-2026</h3>
-          <p style="font-size:13px;color:var(--txt2);flex:1">Convocatoria a Asamblea General Ordinaria</p>
-          <span style="font-size:12px;font-weight:700;color:var(--verde3);display:flex;align-items:center;gap:4px"><span class="mi" style="font-size:14px">open_in_new</span> Leer más</span>
+        <a href="/comunicado/comunicado-n-006-2025/" class="comunicado-card-home">
+          <div class="comunicado-card-img comunicado-card-img--placeholder">
+            <span class="mi" style="font-size:48px;color:#b8c5d6">campaign</span>
+          </div>
+          <div class="comunicado-card-body">
+            <span class="comunicado-card-fecha">08 Ene 2026</span>
+            <h3 class="comunicado-card-titulo">Comunicado N° 006-2026</h3>
+            <p class="comunicado-card-preview">Convocatoria a Asamblea General Ordinaria</p>
+            <span class="comunicado-card-link">Leer más <span class="mi" style="font-size:14px">arrow_forward</span></span>
+          </div>
         </a>
       {% endif %}
     </div>
-    <div style="margin-top:18px;text-align:center">
-      <a href="/comunicados" style="font-size:13px;font-weight:700;color:var(--verde3);text-decoration:none">Ver todos los comunicados →</a>
+    <div style="margin-top:24px;text-align:center">
+      <a href="/comunicados" class="btn-ver-todos">Ver todos los comunicados →</a>
     </div>
   </div>
 </section>
@@ -888,6 +1004,35 @@
       display: block;
       margin-bottom: 10px;
     }
+    #tienda .tienda-img {
+      width: 96px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin: 0 auto 12px;
+      display: block;
+      background: #f1f5f9;
+    }
+    #tienda .tienda-card--agotado {
+      opacity: 0.55;
+      cursor: default;
+    }
+    #tienda .tienda-card--agotado:hover {
+      transform: none;
+      border-color: #e2e8f0;
+      box-shadow: 0 2px 8px rgba(27, 77, 53, .06);
+    }
+    #tienda .tienda-badge-agotado {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      margin-top: 6px;
+    }
     #tienda .tienda-nombre {
       font-size: 14px;
       font-weight: 600;
@@ -936,26 +1081,55 @@
   </div>
 
   <div class="tienda-grid">
-    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
-      <span class="tienda-emoji">🧢</span>
-      <div class="tienda-nombre">Gorro Institucional</div>
-      <div class="tienda-precio">S/ 25</div>
-    </div>
-    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
-      <span class="tienda-emoji">👕</span>
-      <div class="tienda-nombre">Polo Institucional</div>
-      <div class="tienda-precio">S/ 35</div>
-    </div>
-    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
-      <span class="tienda-emoji">🥇</span>
-      <div class="tienda-nombre">Medalla</div>
-      <div class="tienda-precio">S/ 50</div>
-    </div>
-    <div class="tienda-card" onclick="Modales.catalogo.abrir()">
-      <span class="tienda-emoji">☕</span>
-      <div class="tienda-nombre">Taza Institucional</div>
-      <div class="tienda-precio">S/ 20</div>
-    </div>
+    {% if cms and cms.productos_tienda %}
+      {% for prod in cms.productos_tienda %}
+        {% set name_lower = (prod.nombre or '')|lower %}
+        {% set emoji = '🧢' if 'gorro' in name_lower
+                       else ('👕' if 'polo' in name_lower
+                       else ('🥇' if 'medalla' in name_lower
+                       else ('☕' if 'tasa' in name_lower or 'taza' in name_lower
+                       else ('📌' if 'pin' in name_lower
+                       else ('✏️' if 'lapicero' in name_lower or 'lápiz' in name_lower
+                       else ('📁' if 'folder' in name_lower or 'carpeta' in name_lower
+                       else '🛍️')))))) %}
+        <div class="tienda-card{% if prod.agotado %} tienda-card--agotado{% endif %}"
+             {% if not prod.agotado %}onclick="Modales.catalogo.abrir()"{% endif %}>
+          {% if prod.imagen_url %}
+            <img class="tienda-img" src="{{ prod.imagen_url }}" alt="{{ prod.nombre }}"
+                 onerror="this.style.display='none'; this.parentNode.querySelector('.tienda-emoji-fallback').style.display='block'">
+            <span class="tienda-emoji tienda-emoji-fallback" style="display:none">{{ emoji }}</span>
+          {% else %}
+            <span class="tienda-emoji">{{ emoji }}</span>
+          {% endif %}
+          <div class="tienda-nombre">{{ prod.nombre }}</div>
+          <div class="tienda-precio">S/ {{ "%.0f"|format(prod.precio) }}</div>
+          {% if prod.agotado %}
+            <span class="tienda-badge-agotado">Agotado</span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+        <span class="tienda-emoji">🧢</span>
+        <div class="tienda-nombre">Gorro Institucional</div>
+        <div class="tienda-precio">S/ 25</div>
+      </div>
+      <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+        <span class="tienda-emoji">👕</span>
+        <div class="tienda-nombre">Polo Institucional</div>
+        <div class="tienda-precio">S/ 35</div>
+      </div>
+      <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+        <span class="tienda-emoji">🥇</span>
+        <div class="tienda-nombre">Medalla</div>
+        <div class="tienda-precio">S/ 50</div>
+      </div>
+      <div class="tienda-card" onclick="Modales.catalogo.abrir()">
+        <span class="tienda-emoji">☕</span>
+        <div class="tienda-nombre">Taza Institucional</div>
+        <div class="tienda-precio">S/ 20</div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="tienda-cta-wrap">
