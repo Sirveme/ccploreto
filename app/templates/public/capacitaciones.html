@@ -1,0 +1,70 @@
+{% extends "public/_layout.html" %}
+{% set active = 'capacitaciones' %}
+{% block title %}Capacitaciones y Eventos{% endblock %}
+{% block description %}Agenda académica del Colegio de Contadores Públicos de Loreto: cursos, talleres y eventos profesionales.{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Capacitaciones y Eventos</h1>
+<p class="page-subtitle">Cursos, talleres y eventos académicos para el desarrollo profesional de los contadores públicos.</p>
+
+<div class="filtros" id="filtros">
+    <button class="filtro-btn active" data-filtro="todos">Todos</button>
+    <button class="filtro-btn" data-filtro="presencial">Presencial</button>
+    <button class="filtro-btn" data-filtro="virtual">Virtual</button>
+</div>
+
+{% if capacitaciones %}
+<div class="cards-grid" id="lista-capacitaciones">
+    {% for c in capacitaciones %}
+        {% set lugar_lower = (c.lugar_evento or '')|lower %}
+        {% set es_virtual = 'virtual' in lugar_lower or 'zoom' in lugar_lower or 'meet' in lugar_lower or 'online' in lugar_lower %}
+        {% set tipo = 'virtual' if es_virtual else 'presencial' %}
+        <article class="card" data-tipo="{{ tipo }}">
+            <a href="/capacitaciones/{{ c.id }}">
+                {% if c.image_url %}
+                    <img class="card-img" src="{{ c.image_url }}" alt="{{ c.title }}" loading="lazy">
+                {% else %}
+                    <div class="card-img"></div>
+                {% endif %}
+                <div class="card-body">
+                    <div class="card-meta">
+                        {% if c.fecha_evento %}📅 {{ c.fecha_evento }}{% endif %}
+                        <span class="badge {{ 'badge-purple' if es_virtual else 'badge-green' }}" style="margin-left:6px;">
+                            {{ 'Virtual' if es_virtual else 'Presencial' }}
+                        </span>
+                    </div>
+                    <h2 class="card-title">{{ c.title }}</h2>
+                    {% if c.lugar_evento %}<div class="card-meta">📍 {{ c.lugar_evento }}</div>{% endif %}
+                    <p class="card-excerpt">
+                        {% set txt = c.content|striptags if c.content else '' %}
+                        {{ txt[:120] }}{% if txt|length > 120 %}…{% endif %}
+                    </p>
+                </div>
+            </a>
+        </article>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+    Aún no hay capacitaciones programadas.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const filtros = document.getElementById('filtros');
+    if (!filtros) return;
+    filtros.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filtro-btn');
+        if (!btn) return;
+        document.querySelectorAll('.filtro-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const filtro = btn.dataset.filtro;
+        document.querySelectorAll('#lista-capacitaciones .card').forEach(card => {
+            card.style.display = (filtro === 'todos' || card.dataset.tipo === filtro) ? '' : 'none';
+        });
+    });
+})();
+</script>
+{% endblock %}

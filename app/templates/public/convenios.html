@@ -1,0 +1,86 @@
+{% extends "public/_layout.html" %}
+{% set active = 'convenios' %}
+{% block title %}Convenios Institucionales{% endblock %}
+{% block description %}Convenios y beneficios para colegiados del Colegio de Contadores Públicos de Loreto.{% endblock %}
+
+{% block extra_css %}
+.convenio-card { padding: 0; }
+.convenio-card .logo-wrap {
+    background: linear-gradient(135deg,#f8fafc,#eff6ff);
+    padding: 18px; display:flex; align-items:center; justify-content:center;
+    height: 130px;
+}
+.convenio-card .logo-wrap img { max-height: 80px; max-width: 80%; object-fit: contain; }
+.convenio-card .convenio-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; }
+.convenio-card .convenio-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.convenio-card .convenio-cat { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.convenio-card p { font-size: 13px; color: var(--text-sec); line-height: 1.5; }
+.convenio-card .contacto { font-size: 12.5px; color: var(--text-sec); margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; }
+.convenio-card .contacto a { color: var(--accent); }
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Convenios Institucionales</h1>
+<p class="page-subtitle">Beneficios y descuentos exclusivos para colegiados del CCPL.</p>
+
+{% if categorias %}
+<div class="filtros" id="filtros-cat">
+    <button class="filtro-btn active" data-cat="todos">Todos</button>
+    {% for cat in categorias %}
+        <button class="filtro-btn" data-cat="{{ cat|lower }}">{{ cat }}</button>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if convenios %}
+<div class="cards-grid" id="lista-convenios">
+    {% for c in convenios %}
+        <article class="card convenio-card" data-cat="{{ (c.category or '')|lower }}">
+            <div class="logo-wrap">
+                {% if c.logo_url %}
+                    <img src="{{ c.logo_url }}" alt="{{ c.name }}" loading="lazy" onerror="this.style.opacity=0.3">
+                {% else %}
+                    <span style="color:var(--text-dim); font-size:13px;">{{ c.name[:24] }}</span>
+                {% endif %}
+            </div>
+            <div class="convenio-body">
+                <div class="convenio-cat">{{ c.category or 'Convenio' }}</div>
+                <div class="convenio-name">
+                    {{ c.name }}
+                    {% if c.is_verified %}<span class="badge badge-green" style="margin-left:4px;">Verificado</span>{% endif %}
+                    {% if c.is_promoted %}<span class="badge badge-purple" style="margin-left:4px;">Destacado</span>{% endif %}
+                </div>
+                {% if c.description %}<p>{{ c.description[:180] }}{% if c.description|length > 180 %}…{% endif %}</p>{% endif %}
+                <div class="contacto">
+                    {% if c.phone %}<span>📞 {{ c.phone }}</span>{% endif %}
+                    {% if c.whatsapp %}<a href="https://wa.me/{{ c.whatsapp|replace('+','')|replace(' ','') }}" target="_blank" rel="noopener">💬 WhatsApp</a>{% endif %}
+                    {% if c.website_url %}<a href="{{ c.website_url }}" target="_blank" rel="noopener">🌐 Web</a>{% endif %}
+                </div>
+            </div>
+        </article>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+    Aún no hay convenios publicados.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const filtros = document.getElementById('filtros-cat');
+    if (!filtros) return;
+    filtros.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filtro-btn');
+        if (!btn) return;
+        document.querySelectorAll('#filtros-cat .filtro-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const cat = btn.dataset.cat;
+        document.querySelectorAll('#lista-convenios .card').forEach(card => {
+            card.style.display = (cat === 'todos' || card.dataset.cat === cat) ? '' : 'none';
+        });
+    });
+})();
+</script>
+{% endblock %}

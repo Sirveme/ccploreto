@@ -1,0 +1,59 @@
+{% extends "public/_layout.html" %}
+{% set active = 'comunicados' %}
+{% block title %}Comunicados Oficiales{% endblock %}
+{% block description %}Comunicados oficiales del Colegio de Contadores Públicos de Loreto: anuncios, normativas y novedades institucionales.{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Comunicados Oficiales</h1>
+<p class="page-subtitle">Anuncios, normativas y novedades institucionales del CCPL.</p>
+
+{% if comunicados %}
+<div class="cards-grid">
+    {% for c in comunicados %}
+    <article class="card">
+        <a href="/comunicados/{{ c.id }}">
+            {% if c.image_url %}
+                <img class="card-img" src="{{ c.image_url }}" alt="{{ c.title }}" loading="lazy">
+            {% else %}
+                <div class="card-img"></div>
+            {% endif %}
+            <div class="card-body">
+                <div class="card-meta">
+                    {% if c.created_at %}{{ c.created_at }}{% endif %}
+                    {% if c.priority and c.priority != 'info' %}
+                        <span class="badge {{ 'badge-warn' if c.priority == 'warning' else 'badge-red' }}" style="margin-left:6px;">
+                            {{ c.priority|title }}
+                        </span>
+                    {% endif %}
+                </div>
+                <h2 class="card-title">{{ c.title }}</h2>
+                <p class="card-excerpt">
+                    {% set txt = c.content|striptags if c.content else '' %}
+                    {{ txt[:140] }}{% if txt|length > 140 %}…{% endif %}
+                </p>
+            </div>
+        </a>
+    </article>
+    {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}<a href="/comunicados?page={{ page - 1 }}">← Anterior</a>{% endif %}
+    {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+            <span class="current">{{ p }}</span>
+        {% else %}
+            <a href="/comunicados?page={{ p }}">{{ p }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page < total_pages %}<a href="/comunicados?page={{ page + 1 }}">Siguiente →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+    Aún no hay comunicados publicados.
+</div>
+{% endif %}
+{% endblock %}

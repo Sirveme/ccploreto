@@ -1,0 +1,47 @@
+{% extends "public/_layout.html" %}
+{% set active = 'capacitaciones' %}
+{% block title %}{{ capacitacion.title }}{% endblock %}
+{% block description %}{{ (capacitacion.content|striptags)[:155] if capacitacion.content else 'Capacitación CCPL' }}{% endblock %}
+
+{% block content %}
+<p style="margin-bottom:14px;"><a href="/capacitaciones">← Volver a Capacitaciones</a></p>
+
+{% if capacitacion.image_url %}
+<img class="detalle-cover" src="{{ capacitacion.image_url }}" alt="{{ capacitacion.title }}">
+{% endif %}
+
+{% set lugar_lower = (capacitacion.lugar_evento or '')|lower %}
+{% set es_virtual = 'virtual' in lugar_lower or 'zoom' in lugar_lower or 'meet' in lugar_lower or 'online' in lugar_lower %}
+
+<h1 class="page-title">{{ capacitacion.title }}</h1>
+<div class="detalle-meta">
+    {% if capacitacion.fecha_evento %}<span>📅 <b>{{ capacitacion.fecha_evento }}</b></span>{% endif %}
+    {% if capacitacion.lugar_evento %}<span>📍 {{ capacitacion.lugar_evento }}</span>{% endif %}
+    <span class="badge {{ 'badge-purple' if es_virtual else 'badge-green' }}">
+        {{ 'Virtual' if es_virtual else 'Presencial' }}
+    </span>
+</div>
+
+<div class="detalle-content">
+    {% set raw = capacitacion.content or '' %}
+    {% if '<' in raw and '>' in raw %}
+        {{ raw|safe }}
+    {% else %}
+        {% for parrafo in raw.split('\n\n') %}
+            {% if parrafo.strip() %}<p>{{ parrafo|replace('\n', '<br>')|safe }}</p>{% endif %}
+        {% endfor %}
+    {% endif %}
+</div>
+
+<div class="detalle-actions">
+    <a class="btn btn-primary"
+       href="https://wa.me/51965655474?text={{ ('Hola, quisiera información sobre: ' ~ capacitacion.title)|urlencode }}"
+       target="_blank" rel="noopener">
+        💬 Consultar inscripción
+    </a>
+    {% if capacitacion.video_url %}
+        <a class="btn btn-ghost" href="{{ capacitacion.video_url }}" target="_blank" rel="noopener">▶ Ver video</a>
+    {% endif %}
+    <a class="btn btn-ghost" href="/capacitaciones">Ver agenda completa</a>
+</div>
+{% endblock %}

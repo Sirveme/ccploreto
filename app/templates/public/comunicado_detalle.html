@@ -1,0 +1,41 @@
+{% extends "public/_layout.html" %}
+{% set active = 'comunicados' %}
+{% block title %}{{ comunicado.title }}{% endblock %}
+{% block description %}{{ (comunicado.content|striptags)[:155] if comunicado.content else 'Comunicado oficial CCPL' }}{% endblock %}
+
+{% block content %}
+<p style="margin-bottom:14px;"><a href="/comunicados">← Volver a Comunicados</a></p>
+
+{% if comunicado.image_url %}
+<img class="detalle-cover" src="{{ comunicado.image_url }}" alt="{{ comunicado.title }}">
+{% endif %}
+
+<h1 class="page-title">{{ comunicado.title }}</h1>
+<div class="detalle-meta">
+    <span>Publicado: <b>{{ comunicado.created_at or '—' }}</b></span>
+    {% if comunicado.expires_at %}<span>Vigente hasta: {{ comunicado.expires_at }}</span>{% endif %}
+    {% if comunicado.priority and comunicado.priority != 'info' %}
+        <span class="badge {{ 'badge-warn' if comunicado.priority == 'warning' else 'badge-red' }}">
+            {{ comunicado.priority|title }}
+        </span>
+    {% endif %}
+</div>
+
+<div class="detalle-content">
+    {% set raw = comunicado.content or '' %}
+    {% if '<' in raw and '>' in raw %}
+        {{ raw|safe }}
+    {% else %}
+        {% for parrafo in raw.split('\n\n') %}
+            {% if parrafo.strip() %}<p>{{ parrafo|replace('\n', '<br>')|safe }}</p>{% endif %}
+        {% endfor %}
+    {% endif %}
+</div>
+
+<div class="detalle-actions">
+    {% if comunicado.file_url %}
+        <a class="btn btn-primary" href="{{ comunicado.file_url }}" target="_blank" rel="noopener">📄 Descargar PDF</a>
+    {% endif %}
+    <a class="btn btn-ghost" href="/comunicados">Ver todos los comunicados</a>
+</div>
+{% endblock %}
