@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
+from fastapi import APIRouter, Depends, HTTPException, Body, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, or_
@@ -97,9 +97,234 @@ async def cms_index(
 
 
 # ============================================================
+# PÁGINAS PÚBLICAS BLOG (zClaude-56 PARTE B) — sin login
+# ============================================================
+public_router = APIRouter(tags=["CMS Público"])
+
+
+def _org_publica(request: Request) -> int:
+    org = getattr(request.state, "org", None)
+    if isinstance(org, dict) and org.get("id"):
+        return org["id"]
+    return 1
+
+
+def _org_publica_dict(request: Request) -> dict:
+    org = getattr(request.state, "org", None)
+    if isinstance(org, dict):
+        return org
+    return {"id": 1, "name": "CCPL", "slug": "ccp-loreto", "config": {}}
+
+
+# ── Comunicados ──
+@public_router.get("/comunicados", response_class=HTMLResponse)
+async def public_comunicados(
+    request: Request,
+    page: int = 1,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    per_page = 20
+    ahora = datetime.now(timezone.utc)
+
+    base_q = db.query(Bulletin).filter(
+        Bulletin.organization_id == org_id,
+        Bulletin.tipo == "comunicado",
+        or_(Bulletin.expires_at.is_(None), Bulletin.expires_at > ahora),
+    )
+    total = base_q.count()
+    items = (
+        base_q.order_by(desc(Bulletin.created_at))
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "public/comunicados.html",
+        {
+            "request":    request,
+            "org":        _org_publica_dict(request),
+            "theme":      getattr(request.state, "theme", None),
+            "comunicados":[_bulletin_dict(b) for b in items],
+            "page":       page,
+            "per_page":   per_page,
+            "total":      total,
+            "total_pages":(total + per_page - 1) // per_page if total else 1,
+        },
+    )
+
+
+@public_router.get("/comunicados/{bulletin_id}", response_class=HTMLResponse)
+async def public_comunicado_detalle(
+    bulletin_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    b = (
+        db.query(Bulletin)
+        .filter(
+            Bulletin.id == bulletin_id,
+            Bulletin.organization_id == org_id,
+            Bulletin.tipo == "comunicado",
+        )
+        .first()
+    )
+    if not b:
+        raise HTTPException(404, "Comunicado no encontrado")
+
+    return templates.TemplateResponse(
+        "public/comunicado_detalle.html",
+        {
+            "request":    request,
+            "org":        _org_publica_dict(request),
+            "theme":      getattr(request.state, "theme", None),
+            "comunicado": _bulletin_dict(b),
+        },
+    )
+
+
+# ── Capacitaciones ──
+@public_router.get("/capacitaciones", response_class=HTMLResponse)
+async def public_capacitaciones(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    items = (
+        db.query(Bulletin)
+        .filter(
+            Bulletin.organization_id == org_id,
+            Bulletin.tipo == "capacitacion",
+        )
+        .order_by(asc(Bulletin.fecha_evento), desc(Bulletin.created_at))
+        .all()
+    )
+    return templates.TemplateResponse(
+        "public/capacitaciones.html",
+        {
+            "request":        request,
+            "org":            _org_publica_dict(request),
+            "theme":          getattr(request.state, "theme", None),
+            "capacitaciones": [_bulletin_dict(b) for b in items],
+        },
+    )
+
+
+@public_router.get("/capacitaciones/{bulletin_id}", response_class=HTMLResponse)
+async def public_capacitacion_detalle(
+    bulletin_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    b = (
+        db.query(Bulletin)
+        .filter(
+            Bulletin.id == bulletin_id,
+            Bulletin.organization_id == org_id,
+            Bulletin.tipo == "capacitacion",
+        )
+        .first()
+    )
+    if not b:
+        raise HTTPException(404, "Capacitación no encontrada")
+    return templates.TemplateResponse(
+        "public/capacitacion_detalle.html",
+        {
+            "request":      request,
+            "org":          _org_publica_dict(request),
+            "theme":        getattr(request.state, "theme", None),
+            "capacitacion": _bulletin_dict(b),
+        },
+    )
+
+
+# ── Convenios ──
+@public_router.get("/convenios", response_class=HTMLResponse)
+async def public_convenios(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    items = (
+        db.query(Partner)
+        .filter(or_(Partner.organization_id == org_id, Partner.organization_id.is_(None)))
+        .order_by(desc(Partner.is_promoted), desc(Partner.is_verified), asc(Partner.name))
+        .all()
+    )
+    convenios = [_partner_dict(p) for p in items]
+    categorias = sorted({c["category"] for c in convenios if c.get("category")})
+    return templates.TemplateResponse(
+        "public/convenios.html",
+        {
+            "request":    request,
+            "org":        _org_publica_dict(request),
+            "theme":      getattr(request.state, "theme", None),
+            "convenios":  convenios,
+            "categorias": categorias,
+        },
+    )
+
+
+# ============================================================
 # API /api/cms/*
 # ============================================================
 router = APIRouter(prefix="/api/cms", tags=["CMS"])
+
+
+# ────────────────────────────────────────────────────────────
+# UPLOAD DE IMÁGENES A GCS (zClaude-56 PARTE A)
+# ────────────────────────────────────────────────────────────
+_CARPETAS_VALIDAS = {
+    "carrusel", "comunicados", "capacitaciones", "convenios",
+    "ambientes", "tienda", "cms",
+}
+_TIPOS_IMG_VALIDOS = {
+    "image/jpeg", "image/jpg", "image/pjpeg",
+    "image/png", "image/webp", "image/gif",
+}
+_MAX_IMG_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/upload-imagen")
+async def upload_imagen_cms(
+    request: Request,
+    file: UploadFile = File(...),
+    carpeta: str = Form("cms"),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """Sube una imagen al bucket GCS y devuelve la URL pública.
+    Usado por todos los formularios del panel CMS."""
+    from app.utils.gcs import upload_cms_imagen
+
+    ct = (file.content_type or "").lower()
+    if ct not in _TIPOS_IMG_VALIDOS:
+        raise HTTPException(400, "Solo se aceptan imágenes JPG, PNG, WebP o GIF")
+
+    carpeta_norm = (carpeta or "").strip().lower()
+    if carpeta_norm not in _CARPETAS_VALIDAS:
+        carpeta_norm = "cms"
+
+    contenido = await file.read()
+    if len(contenido) > _MAX_IMG_SIZE:
+        raise HTTPException(400, "Imagen demasiado grande (máx 5 MB)")
+    if not contenido:
+        raise HTTPException(400, "Archivo vacío")
+
+    org_id = _org_id(request, member)
+    url = upload_cms_imagen(
+        file_bytes      = contenido,
+        filename        = file.filename or "image.jpg",
+        content_type    = ct,
+        organization_id = org_id,
+        carpeta         = carpeta_norm,
+    )
+    if not url:
+        raise HTTPException(500, "GCS no disponible o falló la subida")
+
+    return {"ok": True, "url": url, "carpeta": carpeta_norm}
 
 
 # ────────────────────────────────────────────────────────────
