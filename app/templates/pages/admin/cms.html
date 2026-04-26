@@ -635,11 +635,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/carrusel');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin slides — agrega el primero</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(s => `
+            tb.innerHTML = r.items.map(s => `
                 <tr>
                     <td><b>${s.orden}</b></td>
                     <td><img class="thumb" src="${esc(s.imagen_url)}" alt="" onerror="this.style.opacity=0.3"></td>
@@ -748,11 +748,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/comunicados');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="5">Sin comunicados</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(b => `
+            tb.innerHTML = r.items.map(b => `
                 <tr>
                     <td style="font-size:12px;">${esc(b.created_at || '—')}</td>
                     <td>
@@ -828,11 +828,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/capacitaciones');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="5">Sin capacitaciones</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(b => `
+            tb.innerHTML = r.items.map(b => `
                 <tr>
                     <td style="font-size:12px;">${esc(b.fecha_evento || '—')}</td>
                     <td>
@@ -916,11 +916,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/convenios');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin convenios</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(p => `
+            tb.innerHTML = r.items.map(p => `
                 <tr>
                     <td>${p.logo_url ? `<img class="thumb" src="${esc(p.logo_url)}" alt="" onerror="this.style.opacity=0.3">` : '—'}</td>
                     <td>
@@ -1011,11 +1011,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/ambientes');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin ambientes</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(a => `
+            tb.innerHTML = r.items.map(a => `
                 <tr>
                     <td>
                         <div style="font-weight:600;">${esc(a.name)}</div>
@@ -1115,11 +1115,11 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         tb.innerHTML = '<tr class="empty-row"><td colspan="7">Cargando…</td></tr>';
         try {
             const r = await api('GET', '/api/cms/tienda');
-            if (!r.productos.length) {
+            if (!r.items.length) {
                 tb.innerHTML = '<tr class="empty-row"><td colspan="7">Sin productos</td></tr>';
                 return;
             }
-            tb.innerHTML = r.productos.map(p => `
+            tb.innerHTML = r.items.map(p => `
                 <tr>
                     <td>${p.imagen_url ? `<img class="thumb" src="${esc(p.imagen_url)}" alt="" onerror="this.style.opacity=0.3">` : '—'}</td>
                     <td><code style="font-size:11.5px;">${esc(p.codigo || '—')}</code></td>
