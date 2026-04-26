@@ -165,6 +165,58 @@ def upload_documento(
         return None
 
 
+def upload_cms_imagen(
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+    organization_id: int = 1,
+    carpeta: str = "cms",
+) -> Optional[str]:
+    """
+    Sube una imagen del panel CMS y devuelve la URL pública.
+
+    carpeta: 'carrusel' | 'comunicados' | 'capacitaciones' |
+             'convenios' | 'ambientes' | 'tienda' | 'cms'
+
+    Path final: {organization_id}/cms/{carpeta}/{uuid}.{ext}
+    Mismo patron de URL que api_comunicados.py:
+        https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}
+    Además solicita read ACL público (idempotente, igual que upload_foto_perfil).
+    """
+    import uuid
+
+    client = _get_client()
+    if not client:
+        print("⚠️ GCS no configurado — imagen CMS no guardada")
+        return None
+
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
+    if ext == "jpeg":
+        ext = "jpg"
+    blob_path = f"{organization_id}/cms/{carpeta}/{uuid.uuid4().hex}.{ext}"
+
+    try:
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(file_bytes, content_type=content_type)
+        blob.cache_control = "public, max-age=3600"
+        try:
+            blob.patch()
+        except Exception:
+            pass
+        try:
+            blob.acl.all().grant_read()
+            blob.acl.save()
+        except Exception as acl_err:
+            print(f"ℹ️ GCS CMS: no se pudo aplicar ACL pública ({acl_err}); "
+                  f"el bucket podría tener uniform access habilitado.")
+        return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
+
+    except Exception as e:
+        print(f"⚠️ GCS: Error subiendo imagen CMS: {e}")
+        return None
+
+
 def generar_signed_url(blob_path: str, minutos: int = 5) -> Optional[str]:
     """
     Genera URL temporal para descargar documento privado.
