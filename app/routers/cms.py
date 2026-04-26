@@ -16,6 +16,7 @@ from sqlalchemy import desc, asc, or_
 from app.database import get_db
 from app.models import (
     Member, Organization, Bulletin, Partner, Resource, CarruselSlide,
+    ConceptoCobro,
 )
 from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
@@ -281,11 +282,17 @@ _CARPETAS_VALIDAS = {
     "carrusel", "comunicados", "capacitaciones", "convenios",
     "ambientes", "tienda", "cms",
 }
+_CARPETAS_PDF = {
+    "comunicados", "capacitaciones", "convenios",
+    "documentos", "reglamentos",
+}
 _TIPOS_IMG_VALIDOS = {
     "image/jpeg", "image/jpg", "image/pjpeg",
     "image/png", "image/webp", "image/gif",
 }
-_MAX_IMG_SIZE = 5 * 1024 * 1024  # 5 MB
+_TIPOS_PDF_VALIDOS = {"application/pdf"}
+_MAX_IMG_SIZE = 5 * 1024 * 1024     # 5 MB
+_MAX_PDF_SIZE = 20 * 1024 * 1024    # 20 MB
 
 
 @router.post("/upload-imagen")
@@ -325,6 +332,49 @@ async def upload_imagen_cms(
         raise HTTPException(500, "GCS no disponible o falló la subida")
 
     return {"ok": True, "url": url, "carpeta": carpeta_norm}
+
+
+@router.post("/upload-pdf")
+async def upload_pdf_cms(
+    request: Request,
+    file: UploadFile = File(...),
+    carpeta: str = Form("documentos"),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """Sube un PDF al bucket GCS y devuelve la URL pública + nombre original."""
+    from app.utils.gcs import upload_cms_imagen
+
+    ct = (file.content_type or "").lower()
+    if ct not in _TIPOS_PDF_VALIDOS:
+        raise HTTPException(400, "Solo se aceptan archivos PDF")
+
+    carpeta_norm = (carpeta or "").strip().lower()
+    if carpeta_norm not in _CARPETAS_PDF:
+        carpeta_norm = "documentos"
+
+    contenido = await file.read()
+    if len(contenido) > _MAX_PDF_SIZE:
+        raise HTTPException(400, "PDF demasiado grande (máx 20 MB)")
+    if not contenido:
+        raise HTTPException(400, "Archivo vacío")
+
+    org_id = _org_id(request, member)
+    url = upload_cms_imagen(
+        file_bytes      = contenido,
+        filename        = file.filename or "documento.pdf",
+        content_type    = "application/pdf",
+        organization_id = org_id,
+        carpeta         = carpeta_norm,
+    )
+    if not url:
+        raise HTTPException(500, "GCS no disponible o falló la subida")
+
+    return {
+        "ok":      True,
+        "url":     url,
+        "nombre":  file.filename or "documento.pdf",
+        "carpeta": carpeta_norm,
+    }
 
 
 # ────────────────────────────────────────────────────────────
@@ -479,11 +529,25 @@ async def mover_slide(
 # ────────────────────────────────────────────────────────────
 # C2. COMUNICADOS y CAPACITACIONES (Bulletin)
 # ────────────────────────────────────────────────────────────
+def _strip_html(texto: str) -> str:
+    """Quita etiquetas HTML para previews seguros en listados."""
+    import re as _re
+    if not texto:
+        return ""
+    return _re.sub(r"<[^>]+>", "", texto).strip()
+
+
 def _bulletin_dict(b: Bulletin) -> dict:
+    content_raw = b.content or ""
+    preview_txt = _strip_html(content_raw)
+    if len(preview_txt) > 150:
+        preview_txt = preview_txt[:150].rstrip() + "..."
+
     return {
         "id":                    b.id,
         "title":                 b.title or "",
-        "content":               b.content or "",
+        "content":               content_raw,
+        "preview":               preview_txt,
         "image_url":             b.image_url or "",
         "file_url":              b.file_url or "",
         "video_url":             b.video_url or "",
@@ -496,6 +560,7 @@ def _bulletin_dict(b: Bulletin) -> dict:
         "expires_at_iso":        b.expires_at.isoformat() if b.expires_at else None,
         "requiere_confirmacion": bool(b.requiere_confirmacion),
         "created_at":            _a_lima(b.created_at),
+        "fecha":                 _a_lima(b.created_at),
     }
 
 
@@ -923,7 +988,24 @@ async def eliminar_ambiente(
     return {"ok": True}
 
 
-# ── Tienda (productos) ──
+# ── Tienda (productos · ConceptoCobro categoria='mercaderia') ──
+def _producto_tienda_dict(p: ConceptoCobro) -> dict:
+    return {
+        "id":           p.id,
+        "codigo":       p.codigo,
+        "nombre":       p.nombre or "",
+        "descripcion":  p.descripcion or "",
+        "precio":       float(p.monto_base or 0),
+        "stock":        int(p.stock_actual or 0),
+        "stock_min":    int(p.stock_minimo or 0),
+        "maneja_stock": bool(p.maneja_stock),
+        "activo":       bool(p.activo),
+        "orden":        int(p.orden or 0),
+        "imagen_url":   getattr(p, "imagen_url", None) or "",
+        "is_active":    bool(p.activo),  # alias para compatibilidad UI
+    }
+
+
 @router.get("/tienda")
 async def listar_productos(
     request: Request,
@@ -932,12 +1014,15 @@ async def listar_productos(
 ):
     org_id = _org_id(request, member)
     items = (
-        db.query(Resource)
-        .filter(Resource.organization_id == org_id, Resource.tipo == "producto")
-        .order_by(asc(Resource.name))
+        db.query(ConceptoCobro)
+        .filter(
+            ConceptoCobro.organization_id == org_id,
+            ConceptoCobro.categoria == "mercaderia",
+        )
+        .order_by(asc(ConceptoCobro.orden), asc(ConceptoCobro.nombre))
         .all()
     )
-    return {"ok": True, "items": [_resource_dict(r) for r in items]}
+    return {"ok": True, "items": [_producto_tienda_dict(p) for p in items]}
 
 
 @router.post("/tienda")
@@ -947,74 +1032,136 @@ async def crear_producto(
     db: Session = Depends(get_db),
     member: Member = Depends(require_admin_or_editor),
 ):
+    import uuid as _uuid
+
     org_id = _org_id(request, member)
-    name = (body.get("name") or body.get("nombre") or "").strip()
-    if not name:
-        raise HTTPException(400, "name es requerido")
+    nombre = (body.get("nombre") or body.get("name") or "").strip()
+    if not nombre:
+        raise HTTPException(400, "nombre es requerido")
 
-    try: precio = float(body.get("precio")) if body.get("precio") not in (None, "") else None
-    except (TypeError, ValueError): precio = None
-    try: stock = int(body.get("stock")) if body.get("stock") not in (None, "") else 0
+    codigo = (body.get("codigo") or "").strip().upper()
+    if not codigo:
+        codigo = f"MERC-{_uuid.uuid4().hex[:4].upper()}"
+    if (
+        db.query(ConceptoCobro.id)
+        .filter(
+            ConceptoCobro.organization_id == org_id,
+            ConceptoCobro.codigo == codigo,
+        )
+        .first()
+    ):
+        raise HTTPException(400, f"Ya existe un concepto con código '{codigo}'")
+
+    try:    precio = float(body.get("precio") or 0)
+    except (TypeError, ValueError): precio = 0.0
+    try:    stock = int(body.get("stock") or 0)
     except (TypeError, ValueError): stock = 0
+    try:    stock_min = int(body.get("stock_min") or 0)
+    except (TypeError, ValueError): stock_min = 0
+    try:    orden = int(body.get("orden") or 0)
+    except (TypeError, ValueError): orden = 0
 
-    r = Resource(
-        organization_id = org_id,
-        name            = name[:150],
-        tipo            = "producto",
-        is_active       = bool(body.get("is_active", True)),
-        imagen_url      = (body.get("imagen_url") or "")[:500] or None,
-        descripcion     = body.get("descripcion") or None,
-        precio          = precio,
-        stock           = stock,
-        rules           = {},
+    actor_id = getattr(member, "user_id", None) or getattr(member, "id", None)
+
+    p = ConceptoCobro(
+        organization_id          = org_id,
+        codigo                   = codigo[:20],
+        nombre                   = nombre[:150],
+        descripcion              = body.get("descripcion") or None,
+        categoria                = "mercaderia",
+        periodicidad             = "unico",
+        monto_base               = precio,
+        maneja_stock             = True,
+        stock_actual             = stock,
+        stock_minimo             = stock_min,
+        activo                   = bool(body.get("activo", body.get("is_active", True))),
+        orden                    = orden,
+        requiere_colegiado       = False,
+        aplica_a_publico         = True,
+        genera_deuda             = False,
+        requiere_aprobacion      = False,
+        genera_comprobante       = True,
+        tipo_comprobante_default = "03",
+        afecto_igv               = False,
+        tipo_afectacion_igv      = "20",
+        imagen_url               = (body.get("imagen_url") or "")[:500] or None,
+        created_by               = actor_id,
     )
-    db.add(r)
+    db.add(p)
     db.commit()
-    db.refresh(r)
-    return {"ok": True, "item": _resource_dict(r)}
+    db.refresh(p)
+    return {"ok": True, "item": _producto_tienda_dict(p)}
 
 
-@router.put("/tienda/{resource_id}")
+@router.put("/tienda/{producto_id}")
 async def editar_producto(
-    resource_id: int,
+    producto_id: int,
+    request: Request,
     body: dict = Body(...),
     db: Session = Depends(get_db),
     member: Member = Depends(require_admin_or_editor),
 ):
-    r = db.query(Resource).filter(Resource.id == resource_id, Resource.tipo == "producto").first()
-    if not r:
+    org_id = _org_id(request, member)
+    p = (
+        db.query(ConceptoCobro)
+        .filter(
+            ConceptoCobro.id == producto_id,
+            ConceptoCobro.organization_id == org_id,
+            ConceptoCobro.categoria == "mercaderia",
+        )
+        .first()
+    )
+    if not p:
         raise HTTPException(404, "Producto no encontrado")
 
-    if "name"        in body or "nombre" in body:
-        v = (body.get("name") or body.get("nombre") or "").strip()
-        if v: r.name = v[:150]
-    if "descripcion" in body: r.descripcion = body.get("descripcion") or None
-    if "imagen_url"  in body: r.imagen_url  = (body.get("imagen_url") or "")[:500] or None
-    if "is_active"   in body: r.is_active   = bool(body.get("is_active"))
-    if "precio"      in body:
-        try: r.precio = float(body.get("precio")) if body.get("precio") not in (None, "") else None
+    if "nombre" in body or "name" in body:
+        v = (body.get("nombre") or body.get("name") or "").strip()
+        if v: p.nombre = v[:150]
+    if "descripcion" in body: p.descripcion = body.get("descripcion") or None
+    if "imagen_url"  in body: p.imagen_url  = (body.get("imagen_url") or "")[:500] or None
+    if "activo"      in body: p.activo      = bool(body.get("activo"))
+    elif "is_active" in body: p.activo      = bool(body.get("is_active"))
+    if "precio" in body:
+        try: p.monto_base = float(body.get("precio") or 0)
         except (TypeError, ValueError): pass
-    if "stock"       in body:
-        try: r.stock  = int(body.get("stock"))   if body.get("stock") not in (None, "")  else 0
+    if "stock" in body:
+        try: p.stock_actual = int(body.get("stock") or 0)
+        except (TypeError, ValueError): pass
+    if "stock_min" in body:
+        try: p.stock_minimo = int(body.get("stock_min") or 0)
+        except (TypeError, ValueError): pass
+    if "orden" in body:
+        try: p.orden = int(body.get("orden") or 0)
         except (TypeError, ValueError): pass
 
     db.commit()
-    db.refresh(r)
-    return {"ok": True, "item": _resource_dict(r)}
+    db.refresh(p)
+    return {"ok": True, "item": _producto_tienda_dict(p)}
 
 
-@router.delete("/tienda/{resource_id}")
-async def eliminar_producto(
-    resource_id: int,
+@router.delete("/tienda/{producto_id}")
+async def desactivar_producto(
+    producto_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     member: Member = Depends(require_admin_or_editor),
 ):
-    r = db.query(Resource).filter(Resource.id == resource_id, Resource.tipo == "producto").first()
-    if not r:
+    """Soft-delete: solo desactiva (activo=False) para no romper FKs históricas."""
+    org_id = _org_id(request, member)
+    p = (
+        db.query(ConceptoCobro)
+        .filter(
+            ConceptoCobro.id == producto_id,
+            ConceptoCobro.organization_id == org_id,
+            ConceptoCobro.categoria == "mercaderia",
+        )
+        .first()
+    )
+    if not p:
         raise HTTPException(404, "Producto no encontrado")
-    db.delete(r)
+    p.activo = False
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "mensaje": "Producto desactivado"}
 
 
 # ============================================================
@@ -1035,11 +1182,12 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
     """
     ahora = datetime.now(timezone.utc)
     ctx = {
-        "carrusel_slides": [],
-        "comunicados":     [],
-        "capacitaciones":  [],
-        "convenios":       [],
-        "ambientes":       [],
+        "carrusel_slides":  [],
+        "comunicados":      [],
+        "capacitaciones":   [],
+        "convenios":        [],
+        "ambientes":        [],
+        "productos_tienda": [],
     }
 
     try:
@@ -1114,5 +1262,31 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
         ctx["ambientes"] = [_resource_dict(r) for r in ambientes]
     except Exception as e:
         logger.warning("get_home_context: ambientes no disponibles: %s", e)
+
+    try:
+        productos = (
+            db.query(ConceptoCobro)
+            .filter(
+                ConceptoCobro.organization_id == organization_id,
+                ConceptoCobro.categoria == "mercaderia",
+                ConceptoCobro.activo.is_(True),
+            )
+            .order_by(asc(ConceptoCobro.orden), asc(ConceptoCobro.nombre))
+            .all()
+        )
+        ctx["productos_tienda"] = [
+            {
+                "id":         p.id,
+                "codigo":     p.codigo,
+                "nombre":     p.nombre or "",
+                "precio":     float(p.monto_base or 0),
+                "stock":      int(p.stock_actual or 0),
+                "imagen_url": getattr(p, "imagen_url", None) or "",
+                "agotado":    bool(p.maneja_stock and (p.stock_actual or 0) <= 0),
+            }
+            for p in productos
+        ]
+    except Exception as e:
+        logger.warning("get_home_context: productos_tienda no disponibles: %s", e)
 
     return ctx
