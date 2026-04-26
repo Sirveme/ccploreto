@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo de Servicios · CCPL</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #0f1117;
+    --bg-elevated: #181a20;
+    --surface: #1e2028;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8ed;
+    --text-sec: #8b8d97;
+    --text-dim: #5a5d68;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --mono: 'JetBrains Mono', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 18px;
+}
+.wrap { max-width: 1500px; margin: 0 auto; }
+h1 { font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: var(--text-sec); font-size: 13px; margin-bottom: 16px; }
+.back-link { display:inline-block; color: var(--text-sec); font-size:13px; margin-bottom: 10px; text-decoration:none; }
+.back-link:hover { color: var(--accent); }
+
+.tabs-bar {
+    display: flex; gap: 4px; border-bottom: 1px solid var(--border);
+    margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end;
+}
+.tab-btn {
+    padding: 9px 14px; cursor: pointer; border: none; background: transparent;
+    color: var(--text-sec); font-family: inherit; font-size: 12.5px; font-weight: 600;
+    border-bottom: 2px solid transparent;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn .tab-count {
+    display: inline-block; margin-left: 5px; padding: 0 7px;
+    background: rgba(99,102,241,0.18); color: var(--accent);
+    border-radius: 999px; font-size: 11px; font-weight: 700;
+}
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+
+.panel {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+}
+.panel.flush { padding: 0; overflow: hidden; }
+
+.btn {
+    padding: 8px 14px; border: none; border-radius: 7px;
+    font-family: inherit; font-weight: 600; font-size: 12.5px;
+    cursor: pointer; transition: all 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #4f51d1; }
+.btn-success { background: linear-gradient(135deg,#16a34a,#15803d); color: #fff; }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.4); }
+.btn-warn { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.4); }
+.btn-ghost { background: transparent; color: var(--text-sec); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+.btn-icon { padding: 5px 10px; font-size: 12.5px; }
+
+input[type=text], input[type=url], input[type=number], input[type=search],
+select, textarea {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 10px; border-radius: 7px;
+    font-family: inherit; font-size: 13px;
+}
+textarea { width: 100%; min-height: 70px; resize: vertical; font-family: inherit; }
+label { font-size: 12px; color: var(--text-sec); display: block; margin-bottom: 4px; }
+.field { margin-bottom: 10px; }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.checkbox-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.checkbox-row label { display: flex; align-items: center; gap: 6px; margin: 0; }
+
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl thead th {
+    text-align: left; padding: 10px; background: #222530;
+    color: var(--text-sec); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 1;
+}
+.tbl tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tbl tbody tr:hover { background: rgba(99,102,241,0.04); }
+.tbl tbody tr.inactivo { opacity: 0.55; }
+.cell-actions { white-space: nowrap; display: flex; gap: 5px; }
+
+.badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 700;
+}
+.badge-on    { background: rgba(34,197,94,0.16); color: var(--green); border: 1px solid rgba(34,197,94,0.35); }
+.badge-off   { background: rgba(100,116,139,0.16); color: var(--text-sec); border: 1px solid rgba(100,116,139,0.35); }
+.badge-warn  { background: rgba(245,158,11,0.16); color: var(--amber); border: 1px solid rgba(245,158,11,0.35); }
+.badge-info  { background: rgba(59,130,246,0.16); color: var(--blue); border: 1px solid rgba(59,130,246,0.35); }
+.badge-purple{ background: rgba(168,85,247,0.16); color: var(--purple); border: 1px solid rgba(168,85,247,0.35); }
+.badge-red   { background: rgba(239,68,68,0.16); color: var(--red); border: 1px solid rgba(239,68,68,0.35); }
+
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    display: flex; align-items: center; justify-content: center; z-index: 9990;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px; width: 94%; max-width: 760px;
+    max-height: 92vh; overflow: auto;
+}
+.modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 16px; }
+.modal-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 12px;
+}
+.modal-section h4 {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;
+}
+.modal-footer {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.x-btn {
+    background: transparent; border: none; color: var(--text-sec);
+    cursor: pointer; font-size: 18px; padding: 4px 8px;
+}
+.x-btn:hover { color: var(--text); }
+
+#toast-root { position: fixed; right: 20px; bottom: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent); padding: 10px 14px;
+    border-radius: 8px; font-size: 13px; min-width: 240px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+.toast.ok  { border-left-color: var(--green); }
+.toast.err { border-left-color: var(--red); }
+
+.spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.2); border-top-color: currentColor;
+    border-radius: 50%; animation: sp 0.8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+}
+@keyframes sp { to { transform: rotate(360deg); } }
+
+.empty-row td {
+    text-align: center; padding: 30px 10px !important;
+    color: var(--text-dim); font-size: 13px;
+}
+
+.cat-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.4px; color: var(--text-dim);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <a class="back-link" href="/admin">← Volver al panel admin</a>
+    <h1>⚙️ Catálogo de Servicios · CCPL</h1>
+    <p class="subtitle">
+        Configura los conceptos de cobro del sistema (cuotas, multas, capacitaciones, mercadería, etc.).
+        Sesión: <b>{{ user.name }}</b> · rol <code>{{ user.role }}</code>.
+    </p>
+
+    <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Buscar por código, nombre o descripción…"
+               style="flex:1; min-width:220px;" oninput="window.__cat.debouncedSearch()">
+        <label style="display:flex; align-items:center; gap:6px; margin:0;">
+            <input type="checkbox" id="incluirInactivos" checked onchange="window.__cat.cargarConceptos()">
+            <span style="font-size:12.5px; color:var(--text-sec);">Mostrar inactivos</span>
+        </label>
+        <button class="btn btn-primary" onclick="window.__cat.abrirConcepto(null)">＋ Nuevo concepto</button>
+    </div>
+
+    <div class="tabs-bar" id="tabsBar">
+        <button class="tab-btn active" data-cat="todos" onclick="window.__cat.cambiarCat('todos', this)">
+            Todos <span class="tab-count" id="count-todos">0</span>
+        </button>
+        {% for cat in categorias_validas %}
+            <button class="tab-btn" data-cat="{{ cat }}" onclick="window.__cat.cambiarCat('{{ cat }}', this)">
+                {{ cat|capitalize }} <span class="tab-count" id="count-{{ cat }}">0</span>
+            </button>
+        {% endfor %}
+    </div>
+
+    <div class="panel flush">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th style="width:120px;">Código</th>
+                    <th>Nombre</th>
+                    <th style="width:130px;">Categoría</th>
+                    <th style="width:130px;">Monto base</th>
+                    <th style="width:110px;">Periodo</th>
+                    <th style="width:110px;">Comprobante</th>
+                    <th style="width:130px;">Stock</th>
+                    <th style="width:90px;">Activo</th>
+                    <th style="width:170px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbConceptos">
+                <tr class="empty-row"><td colspan="9">Cargando…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════ MODAL ════════ -->
+<div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">—</h3>
+            <button class="x-btn" type="button" onclick="window.__cat.cerrarModal()">✕</button>
+        </div>
+        <div id="modalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" onclick="window.__cat.cerrarModal()">Cancelar</button>
+            <button class="btn btn-success" type="button" id="modalSave" onclick="window.__cat.guardarModal()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ MODAL CONFIRM ════════ -->
+<div class="modal-overlay hidden" id="confirmOverlay">
+    <div class="modal" style="max-width:420px;">
+        <div class="modal-header">
+            <h3 id="confirmTitle">Confirmar</h3>
+            <button class="x-btn" type="button" onclick="window.__cat.cerrarConfirm()">✕</button>
+        </div>
+        <div id="confirmMsg" style="color:var(--text-sec); font-size:13px;"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" onclick="window.__cat.cerrarConfirm()">Cancelar</button>
+            <button class="btn btn-warn" type="button" id="confirmYes">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-root"></div>
+
+<script>
+(() => {
+    'use strict';
+
+    const CATEGORIAS = {{ categorias_validas|tojson }};
+    const PERIODICIDADES = {{ periodicidades_validas|tojson }};
+
+    let _conceptos = [];
+    let _catActiva = 'todos';
+    let _searchTimer = null;
+    let _modalSave = null;
+
+    const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    function toast(msg, tipo='ok') {
+        const root = document.getElementById('toast-root');
+        const el = document.createElement('div');
+        el.className = 'toast ' + tipo;
+        el.textContent = msg;
+        root.appendChild(el);
+        setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; }, 3500);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    async function api(method, url, body) {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const r = await fetch(url, opts);
+        let data = null;
+        try { data = await r.json(); } catch {}
+        if (!r.ok) throw new Error((data && (data.detail || data.error)) || `HTTP ${r.status}`);
+        return data;
+    }
+
+    // ═══ Tabs ═══
+    function cambiarCat(cat, btn) {
+        _catActiva = cat;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        cargarConceptos();
+    }
+
+    async function cargarCategorias() {
+        try {
+            const r = await api('GET', '/api/catalogo/categorias');
+            // Total
+            const todosEl = document.getElementById('count-todos');
+            if (todosEl) todosEl.textContent = r.total || 0;
+            // Por categoría
+            (r.items || []).forEach(it => {
+                const el = document.getElementById('count-' + it.codigo);
+                if (el) el.textContent = it.total || 0;
+            });
+        } catch (e) { /* silencioso */ }
+    }
+
+    // ═══ Listado ═══
+    function periodoBadge(p) {
+        const map = {
+            mensual:  'badge-info',
+            anual:    'badge-purple',
+            unico:    'badge-off',
+            por_uso:  'badge-warn',
+            variable: 'badge-warn',
+        };
+        return `<span class="badge ${map[p] || 'badge-off'}">${esc(p || '—')}</span>`;
+    }
+
+    function comprobanteBadge(c) {
+        if (!c.genera_comprobante) return `<span class="badge badge-off">No</span>`;
+        const tipo = c.tipo_comprobante_default;
+        const txt = tipo === '01' ? 'Factura' : (tipo === '03' ? 'Boleta' : tipo);
+        return `<span class="badge badge-info">${esc(txt)}</span>`;
+    }
+
+    function stockCell(c) {
+        if (!c.maneja_stock) return '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
+        const s   = Number(c.stock_actual || 0);
+        const min = Number(c.stock_minimo || 0);
+        if (s <= 0)   return `<span class="badge badge-red">Agotado</span>`;
+        if (s <= min) return `<span class="badge badge-warn">⚠ ${s} (mín ${min})</span>`;
+        return `<span class="badge badge-on">${s}</span>`;
+    }
+
+    async function cargarConceptos() {
+        const tb = document.getElementById('tbConceptos');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="9">Cargando…</td></tr>';
+        const params = new URLSearchParams();
+        if (_catActiva && _catActiva !== 'todos') params.set('categoria', _catActiva);
+        params.set('incluir_inactivos', document.getElementById('incluirInactivos').checked ? 'true' : 'false');
+        const search = document.getElementById('searchInput').value.trim();
+        if (search) params.set('search', search);
+
+        try {
+            const r = await api('GET', '/api/catalogo/conceptos?' + params.toString());
+            _conceptos = r.items || [];
+            if (!_conceptos.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="9">Sin conceptos en esta categoría</td></tr>';
+                return;
+            }
+            tb.innerHTML = _conceptos.map(c => `
+                <tr class="${c.activo ? '' : 'inactivo'}">
+                    <td><code style="font-size:11.5px;">${esc(c.codigo)}</code></td>
+                    <td>
+                        <div style="font-weight:600;">${esc(c.nombre)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((c.descripcion || '').slice(0, 80))}</div>
+                    </td>
+                    <td><span class="cat-label">${esc(c.categoria)}</span></td>
+                    <td style="font-family:var(--mono); font-size:12.5px;">S/ ${Number(c.monto_base || 0).toFixed(2)}</td>
+                    <td>${periodoBadge(c.periodicidad)}</td>
+                    <td>${comprobanteBadge(c)}</td>
+                    <td>${stockCell(c)}</td>
+                    <td><span class="badge ${c.activo ? 'badge-on' : 'badge-off'}">${c.activo ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='window.__cat.editarConcepto(${JSON.stringify(c)})'>✏️ Editar</button>
+                        <button class="btn ${c.activo ? 'btn-warn' : 'btn-ghost'} btn-icon" onclick="window.__cat.toggleConcepto(${c.id})">
+                            ${c.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) {
+            tb.innerHTML = `<tr class="empty-row"><td colspan="9">Error: ${esc(e.message)}</td></tr>`;
+        }
+    }
+
+    function debouncedSearch() {
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(cargarConceptos, 280);
+    }
+
+    // ═══ Modal ═══
+    function abrirModal(titulo, html, onSave) {
+        document.getElementById('modalTitle').textContent = titulo;
+        document.getElementById('modalBody').innerHTML = html;
+        _modalSave = onSave;
+        document.getElementById('modalOverlay').classList.remove('hidden');
+        const first = document.querySelector('#modalBody input,#modalBody textarea,#modalBody select');
+        if (first) first.focus();
+    }
+    function cerrarModal() {
+        document.getElementById('modalOverlay').classList.add('hidden');
+        _modalSave = null;
+    }
+    async function guardarModal() {
+        if (!_modalSave) return cerrarModal();
+        const btn = document.getElementById('modalSave');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Guardando...';
+        try {
+            await _modalSave();
+            cerrarModal();
+        } catch (e) {
+            toast(e.message || 'Error', 'err');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Guardar';
+        }
+    }
+
+    function abrirConfirm(titulo, mensaje, onYes) {
+        document.getElementById('confirmTitle').textContent = titulo;
+        document.getElementById('confirmMsg').textContent = mensaje;
+        const overlay = document.getElementById('confirmOverlay');
+        overlay.classList.remove('hidden');
+        const btn = document.getElementById('confirmYes');
+        const handler = async () => {
+            btn.removeEventListener('click', handler);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>...';
+            try { await onYes(); }
+            catch (e) { toast(e.message || 'Error', 'err'); }
+            finally {
+                btn.disabled = false;
+                btn.textContent = 'Confirmar';
+                cerrarConfirm();
+            }
+        };
+        btn.addEventListener('click', handler);
+    }
+    function cerrarConfirm() {
+        document.getElementById('confirmOverlay').classList.add('hidden');
+    }
+
+    document.getElementById('modalOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'modalOverlay') cerrarModal();
+    });
+    document.getElementById('confirmOverlay').addEventListener('click', (e) => {
+        if (e.target.id === 'confirmOverlay') cerrarConfirm();
+    });
+
+    function readModalFields(ids) {
+        const out = {};
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const k = id.replace(/^f-/, '');
+            if (el.type === 'checkbox') out[k] = el.checked;
+            else if (el.type === 'number') out[k] = el.value === '' ? null : Number(el.value);
+            else out[k] = el.value;
+        });
+        return out;
+    }
+
+    // ═══ Form ═══
+    function abrirConcepto(c) {
+        const v = c || {};
+        const isNew = !c;
+
+        const optCat = CATEGORIAS.map(cat =>
+            `<option value="${esc(cat)}" ${v.categoria === cat ? 'selected' : ''}>${esc(cat)}</option>`
+        ).join('');
+        const optPer = PERIODICIDADES.map(p =>
+            `<option value="${esc(p)}" ${v.periodicidad === p ? 'selected' : ''}>${esc(p)}</option>`
+        ).join('');
+        const optAfecto = `
+            <option value="20" ${v.tipo_afectacion_igv === '20' ? 'selected' : ''}>20 — Exonerado</option>
+            <option value="10" ${v.tipo_afectacion_igv === '10' ? 'selected' : ''}>10 — Gravado</option>
+            <option value="30" ${v.tipo_afectacion_igv === '30' ? 'selected' : ''}>30 — Inafecto</option>
+        `;
+        const optComp = `
+            <option value="03" ${v.tipo_comprobante_default === '03' ? 'selected' : ''}>03 — Boleta</option>
+            <option value="01" ${v.tipo_comprobante_default === '01' ? 'selected' : ''}>01 — Factura</option>
+        `;
+
+        const html = `
+            <div class="modal-section">
+                <h4>Identificación</h4>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Código${isNew ? ' (auto si vacío)' : ''}</label>
+                        <input id="f-codigo" type="text" value="${esc(v.codigo || '')}"
+                               ${isNew ? '' : 'disabled style="opacity:0.6;cursor:not-allowed"'}>
+                    </div>
+                    <div class="field" style="grid-column: span 2;">
+                        <label>Nombre *</label>
+                        <input id="f-nombre" type="text" value="${esc(v.nombre || '')}">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Nombre corto</label>
+                        <input id="f-nombre_corto" type="text" value="${esc(v.nombre_corto || '')}">
+                    </div>
+                    <div class="field">
+                        <label>Categoría</label>
+                        <select id="f-categoria">${optCat}</select>
+                    </div>
+                    <div class="field">
+                        <label>Periodicidad</label>
+                        <select id="f-periodicidad">${optPer}</select>
+                    </div>
+                    <div class="field">
+                        <label>Orden</label>
+                        <input id="f-orden" type="number" value="${v.orden ?? 0}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Descripción</label>
+                    <textarea id="f-descripcion">${esc(v.descripcion || '')}</textarea>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Montos</h4>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Monto base (S/) *</label>
+                        <input id="f-monto_base" type="number" step="0.01" min="0" value="${v.monto_base ?? ''}">
+                    </div>
+                    <div class="field">
+                        <label>Monto mínimo</label>
+                        <input id="f-monto_minimo" type="number" step="0.01" min="0" value="${v.monto_minimo ?? 0}">
+                    </div>
+                    <div class="field">
+                        <label>Monto máximo</label>
+                        <input id="f-monto_maximo" type="number" step="0.01" min="0" value="${v.monto_maximo ?? 0}">
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <label><input id="f-permite_monto_libre" type="checkbox" ${v.permite_monto_libre ? 'checked' : ''}> Permite monto libre</label>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Impuestos y Comprobante</h4>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Tipo afectación IGV</label>
+                        <select id="f-tipo_afectacion_igv">${optAfecto}</select>
+                    </div>
+                    <div class="field">
+                        <label>Tipo comprobante default</label>
+                        <select id="f-tipo_comprobante_default">${optComp}</select>
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <label><input id="f-afecto_igv" type="checkbox" ${v.afecto_igv ? 'checked' : ''}> Afecto a IGV</label>
+                    <label><input id="f-genera_comprobante" type="checkbox" ${v.genera_comprobante !== false ? 'checked' : ''}> Genera comprobante</label>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Comportamiento</h4>
+                <div class="checkbox-row">
+                    <label><input id="f-requiere_colegiado" type="checkbox" ${v.requiere_colegiado !== false ? 'checked' : ''}> Requiere colegiado</label>
+                    <label><input id="f-aplica_a_publico" type="checkbox" ${v.aplica_a_publico ? 'checked' : ''}> Aplica a público</label>
+                    <label><input id="f-genera_deuda" type="checkbox" ${v.genera_deuda ? 'checked' : ''}> Genera deuda</label>
+                    <label><input id="f-requiere_aprobacion" type="checkbox" ${v.requiere_aprobacion ? 'checked' : ''}> Requiere aprobación</label>
+                </div>
+            </div>
+
+            <div class="modal-section" id="seccion-cuotas" style="display:none;">
+                <h4>Cuotas mensuales</h4>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Día de vencimiento</label>
+                        <input id="f-dia_vencimiento" type="number" min="0" max="31" value="${v.dia_vencimiento ?? 0}">
+                    </div>
+                    <div class="field" style="display:flex; align-items:flex-end;">
+                        <label style="display:flex; align-items:center; gap:6px; margin:0;">
+                            <input id="f-es_cuota_mensual" type="checkbox" ${v.es_cuota_mensual ? 'checked' : ''}>
+                            <span>Es cuota mensual</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section" id="seccion-stock" style="display:none;">
+                <h4>Stock (mercadería)</h4>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Stock actual</label>
+                        <input id="f-stock_actual" type="number" min="0" value="${v.stock_actual ?? 0}">
+                    </div>
+                    <div class="field">
+                        <label>Stock mínimo</label>
+                        <input id="f-stock_minimo" type="number" min="0" value="${v.stock_minimo ?? 0}">
+                    </div>
+                    <div class="field" style="display:flex; align-items:flex-end;">
+                        <label style="display:flex; align-items:center; gap:6px; margin:0;">
+                            <input id="f-maneja_stock" type="checkbox" ${v.maneja_stock ? 'checked' : ''}>
+                            <span>Maneja stock</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Estado</h4>
+                <div class="checkbox-row">
+                    <label><input id="f-activo" type="checkbox" ${v.activo !== false ? 'checked' : ''}> Activo</label>
+                </div>
+            </div>
+        `;
+
+        abrirModal(isNew ? 'Nuevo concepto de cobro' : `Editar: ${v.codigo} — ${v.nombre}`, html, async () => {
+            const fields = [
+                'f-codigo','f-nombre','f-nombre_corto','f-descripcion','f-categoria','f-periodicidad','f-orden',
+                'f-monto_base','f-monto_minimo','f-monto_maximo','f-permite_monto_libre',
+                'f-tipo_afectacion_igv','f-tipo_comprobante_default','f-afecto_igv','f-genera_comprobante',
+                'f-requiere_colegiado','f-aplica_a_publico','f-genera_deuda','f-requiere_aprobacion',
+                'f-dia_vencimiento','f-es_cuota_mensual',
+                'f-stock_actual','f-stock_minimo','f-maneja_stock',
+                'f-activo',
+            ];
+            const data = readModalFields(fields);
+            if (!data.nombre) throw new Error('Nombre es requerido');
+            if (data.monto_base == null || data.monto_base === '') data.monto_base = 0;
+
+            if (isNew) {
+                await api('POST', '/api/catalogo/conceptos', data);
+                toast('Concepto creado', 'ok');
+            } else {
+                delete data.codigo; // backend lo ignora pero no lo enviamos por claridad
+                await api('PUT', `/api/catalogo/conceptos/${v.id}`, data);
+                toast('Concepto actualizado', 'ok');
+            }
+            await Promise.all([cargarConceptos(), cargarCategorias()]);
+        });
+
+        // Toggle de secciones según categoría/periodicidad
+        const upd = () => {
+            const cat = document.getElementById('f-categoria').value;
+            const per = document.getElementById('f-periodicidad').value;
+            document.getElementById('seccion-stock').style.display = (cat === 'mercaderia') ? 'block' : 'none';
+            document.getElementById('seccion-cuotas').style.display = (per === 'mensual') ? 'block' : 'none';
+        };
+        document.getElementById('f-categoria').addEventListener('change', upd);
+        document.getElementById('f-periodicidad').addEventListener('change', upd);
+        upd();
+    }
+
+    function editarConcepto(c) { abrirConcepto(c); }
+
+    async function toggleConcepto(id) {
+        const concepto = _conceptos.find(c => c.id === id);
+        const accion = concepto && concepto.activo ? 'Desactivar' : 'Activar';
+        const detalle = concepto ? `${accion}: ${concepto.codigo} — ${concepto.nombre}` : `${accion} concepto`;
+        abrirConfirm(accion + ' concepto', detalle + '. ¿Continuar?', async () => {
+            const r = await api('PUT', `/api/catalogo/conceptos/${id}/toggle`);
+            toast(r.activo ? 'Concepto activado' : 'Concepto desactivado', 'ok');
+            await Promise.all([cargarConceptos(), cargarCategorias()]);
+        });
+    }
+
+    // ═══ Boot ═══
+    cargarCategorias();
+    cargarConceptos();
+
+    window.__cat = {
+        cambiarCat, cargarConceptos, debouncedSearch,
+        abrirConcepto, editarConcepto, toggleConcepto,
+        cerrarModal, guardarModal, cerrarConfirm,
+    };
+})();
+</script>
+</body>
+</html>
