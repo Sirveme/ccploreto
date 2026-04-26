@@ -2004,15 +2004,25 @@ async def parsear_excel_fraccionamientos(
     cache_col: Dict[str, Optional[Colegiado]] = {}
     fraccionamientos: Dict[tuple, dict] = {}
     errores: List[dict] = []
-
+    _last_fecha_fracc = None
+    _last_num_fracc   = ""
+    _last_matricula   = ""
     for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         try:
             if not row or all(c is None or (isinstance(c, str) and not c.strip()) for c in row):
                 continue
+            fecha_fracc_raw = row[2] if len(row) > 2 else None
+            num_fracc_raw   = str(row[3] or "").strip() if len(row) > 3 else ""
+            matricula_raw   = str(row[4] or "").strip() if len(row) > 4 else ""
 
-            fecha_fracc   = row[2] if len(row) > 2 else None
-            num_fracc     = str(row[3] or "").strip() if len(row) > 3 else ""
-            matricula     = str(row[4] or "").strip() if len(row) > 4 else ""
+            fecha_fracc = fecha_fracc_raw if fecha_fracc_raw else _last_fecha_fracc
+            num_fracc   = num_fracc_raw   if num_fracc_raw   else _last_num_fracc
+            matricula   = matricula_raw   if matricula_raw   else _last_matricula
+
+            if num_fracc:   _last_num_fracc   = num_fracc
+            if matricula:   _last_matricula   = matricula
+            if fecha_fracc: _last_fecha_fracc = fecha_fracc
+
             num_cuota_txt = str(row[5] or "").strip() if len(row) > 5 else ""
             monto_raw     = row[6] if len(row) > 6 else None
             vencimiento   = row[7] if len(row) > 7 else None
