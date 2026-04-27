@@ -174,6 +174,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         <button class="tab-btn"        data-tab="comunicados"  onclick="cambiarTab('comunicados')">📣 Comunicados</button>
         <button class="tab-btn"        data-tab="capacitaciones" onclick="cambiarTab('capacitaciones')">🎓 Capacitaciones</button>
         <button class="tab-btn"        data-tab="convenios"    onclick="cambiarTab('convenios')">🤝 Convenios</button>
+        <button class="tab-btn"        data-tab="galeria"      onclick="cambiarTab('galeria')">📷 Galería</button>
         <button class="tab-btn"        data-tab="ambientes"    onclick="cambiarTab('ambientes')">🏛️ Ambientes y Tienda</button>
     </div>
 
@@ -277,6 +278,39 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
                     </tr>
                 </thead>
                 <tbody id="tbConvenios">
+                    <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ GALERÍA ════════ -->
+    <div class="tab-pane" id="tab-galeria">
+        <div class="subtabs">
+            <button class="subtab-btn active" data-galcat="institucional" onclick="cambiarGaleriaCat('institucional', this)">🏛️ Institucional</button>
+            <button class="subtab-btn"        data-galcat="academico"     onclick="cambiarGaleriaCat('academico', this)">🎓 Académico</button>
+            <button class="subtab-btn"        data-galcat="deportivo"     onclick="cambiarGaleriaCat('deportivo', this)">⚽ Deportivo</button>
+            <button class="subtab-btn"        data-galcat="social"        onclick="cambiarGaleriaCat('social', this)">🎉 Social</button>
+        </div>
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Galería · <span id="galCatLabel">Institucional</span></h2>
+                <button class="btn btn-primary" onclick="abrirGaleriaFoto(null)">＋ Nueva foto</button>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">Imagen</th>
+                        <th>Título</th>
+                        <th style="width:130px;">Fecha evento</th>
+                        <th style="width:70px;">Orden</th>
+                        <th style="width:90px;">Activo</th>
+                        <th style="width:230px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbGaleria">
                     <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
                 </tbody>
             </table>
@@ -416,6 +450,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         else if (tab === 'comunicados')    cargarComunicados();
         else if (tab === 'capacitaciones') cargarCapacitaciones();
         else if (tab === 'convenios')      cargarConvenios();
+        else if (tab === 'galeria')        cargarGaleria();
         else if (tab === 'ambientes')      cargarAmbientes();
     }
 
@@ -1208,6 +1243,132 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
             });
     }
 
+    // ════════════════════════════════════════════════════════
+    // GALERÍA INSTITUCIONAL (zClaude-60)
+    // ════════════════════════════════════════════════════════
+    let _galCat = 'institucional';
+    const GALERIA_LABELS = {
+        institucional: 'Institucional',
+        academico:     'Académico',
+        deportivo:     'Deportivo',
+        social:        'Social',
+    };
+
+    function cambiarGaleriaCat(cat, btn) {
+        _galCat = cat;
+        document.querySelectorAll('#tab-galeria .subtab-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.galcat === cat)
+        );
+        document.getElementById('galCatLabel').textContent = GALERIA_LABELS[cat] || cat;
+        cargarGaleria();
+    }
+
+    async function cargarGaleria() {
+        const tb = document.getElementById('tbGaleria');
+        if (!tb) return;
+        tb.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+        try {
+            const params = new URLSearchParams({ categoria: _galCat });
+            const r = await api('GET', '/api/cms/galeria?' + params.toString());
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="6">Sin fotos en esta categoría</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(f => `
+                <tr class="${f.activo ? '' : 'inactivo'}" style="${f.activo ? '' : 'opacity:0.55;'}">
+                    <td><img class="thumb" src="${esc(f.imagen_url)}" alt="" onerror="this.style.opacity=0.3"></td>
+                    <td>
+                        <div style="font-weight:600;">${esc(f.titulo || '— sin título —')}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((f.descripcion || '').slice(0, 90))}</div>
+                    </td>
+                    <td style="font-size:12px;">${esc(f.fecha_evento || '—')}</td>
+                    <td><b>${f.orden}</b></td>
+                    <td><span class="badge ${f.activo ? 'badge-on' : 'badge-off'}">${f.activo ? 'Activo' : 'Inactivo'}</span></td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" title="Subir orden" onclick="moverGaleria(${f.id},'subir')">▲</button>
+                        <button class="btn btn-ghost btn-icon" title="Bajar orden" onclick="moverGaleria(${f.id},'bajar')">▼</button>
+                        <button class="btn btn-ghost btn-icon" onclick='editarGaleriaFoto(${JSON.stringify(f)})'>Editar</button>
+                        <button class="btn btn-danger btn-icon" onclick="eliminarGaleriaFoto(${f.id})">Desactivar</button>
+                    </td>
+                </tr>`).join('');
+        } catch (e) {
+            tb.innerHTML = `<tr class="empty-row"><td colspan="6">Error: ${esc(e.message)}</td></tr>`;
+        }
+    }
+
+    function abrirGaleriaFoto(f) {
+        const v = f || { categoria: _galCat };
+        const optsCat = Object.entries(GALERIA_LABELS).map(([cod, label]) =>
+            `<option value="${cod}" ${v.categoria === cod ? 'selected' : ''}>${esc(label)}</option>`
+        ).join('');
+        const fechaIso = (v.fecha_evento_iso || '').slice(0, 10);
+        const html = `
+            <div class="field-row">
+                <div class="field">
+                    <label>Categoría</label>
+                    <select id="f-categoria">${optsCat}</select>
+                </div>
+                <div class="field">
+                    <label>Fecha del evento</label>
+                    <input id="f-fecha_evento" type="date" value="${esc(fechaIso)}">
+                </div>
+                <div class="field">
+                    <label>Orden</label>
+                    <input id="f-orden" type="number" value="${v.orden ?? 0}">
+                </div>
+            </div>
+            <div class="field">
+                <label>Título</label>
+                <input id="f-titulo" type="text" style="width:100%;" value="${esc(v.titulo || '')}">
+            </div>
+            <div class="field">
+                <label>Descripción</label>
+                <textarea id="f-descripcion">${esc(v.descripcion || '')}</textarea>
+            </div>
+            ${imageUploadField({ label: 'Imagen *', urlFieldId: 'f-imagen_url', currentUrl: v.imagen_url || '', folder: 'galeria' })}
+            <div class="checkbox-row">
+                <label><input id="f-activo" type="checkbox" ${v.activo === false ? '' : 'checked'}> Activa</label>
+            </div>
+        `;
+        abrirModal(f ? 'Editar foto' : 'Nueva foto', html, async () => {
+            const data = readModalFields([
+                'f-categoria','f-fecha_evento','f-orden','f-titulo','f-descripcion','f-imagen_url','f-activo'
+            ]);
+            if (!data.imagen_url) throw new Error('La imagen es requerida');
+            if (f) {
+                await api('PUT', `/api/cms/galeria/${f.id}`, data);
+                toast('Foto actualizada', 'ok');
+            } else {
+                await api('POST', '/api/cms/galeria', data);
+                toast('Foto agregada', 'ok');
+            }
+            // Si la categoría cambió, mostrar la nueva categoría seleccionada
+            if (data.categoria && data.categoria !== _galCat) {
+                const btn = document.querySelector(`.subtab-btn[data-galcat="${data.categoria}"]`);
+                if (btn) cambiarGaleriaCat(data.categoria, btn);
+                else cargarGaleria();
+            } else {
+                cargarGaleria();
+            }
+        });
+    }
+    function editarGaleriaFoto(f) { abrirGaleriaFoto(f); }
+    async function moverGaleria(id, direccion) {
+        try {
+            await api('PUT', `/api/cms/galeria/${id}/orden`, { direccion });
+            cargarGaleria();
+        } catch (e) { toast(e.message, 'err'); }
+    }
+    function eliminarGaleriaFoto(id) {
+        abrirConfirm('Desactivar foto',
+            'Se desactivará (no se elimina). ¿Continuar?',
+            async () => {
+                await api('DELETE', `/api/cms/galeria/${id}`);
+                toast('Foto desactivada', 'ok');
+                cargarGaleria();
+            });
+    }
+
     // ───── Boot ─────
     cargarSlides();
 
@@ -1226,6 +1387,8 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         abrirCapacitacion, editarCapacitacion, eliminarCapacitacion,
         // Convenios
         abrirConvenio, editarConvenio, eliminarConvenio,
+        // Galería
+        cambiarGaleriaCat, abrirGaleriaFoto, editarGaleriaFoto, moverGaleria, eliminarGaleriaFoto,
         // Ambientes
         abrirAmbiente, editarAmbiente, eliminarAmbiente,
         // Tienda
