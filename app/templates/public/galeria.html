@@ -1,0 +1,270 @@
+{% extends "public/_layout.html" %}
+{% set active = 'galeria' %}
+{% block title %}Galería Institucional{% endblock %}
+{% block description %}Galería de fotos del Colegio de Contadores Públicos de Loreto: eventos institucionales, académicos, deportivos y sociales.{% endblock %}
+
+{% block extra_css %}
+.galeria-tabs { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; }
+.galeria-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+}
+@media (max-width: 600px) {
+    .galeria-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+}
+.foto-card {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #e2e8f0;
+    border: 1px solid var(--border);
+}
+.foto-card img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.3s;
+}
+.foto-card:hover img { transform: scale(1.06); }
+.foto-card-overlay {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.78));
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.foto-card-overlay .ttl { font-weight: 700; }
+.foto-card-overlay .fecha { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+
+.cat-section { scroll-margin-top: 70px; }
+.cat-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--text);
+}
+.cat-section .count {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+/* Lightbox */
+#lightbox {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 30px 20px;
+}
+#lightbox.show { display: flex; }
+#lightbox .lb-stage {
+    position: relative;
+    max-width: 1100px;
+    width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+#lightbox img {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+#lightbox .lb-info {
+    color: #fff;
+    text-align: center;
+    margin-top: 12px;
+    font-size: 14px;
+    max-width: 720px;
+}
+#lightbox .lb-info .ttl { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+#lightbox .lb-info .meta { color: rgba(255,255,255,0.7); font-size: 12px; }
+#lightbox .lb-counter {
+    position: absolute; top: -28px; right: 4px;
+    color: rgba(255,255,255,0.85);
+    font-size: 12.5px; font-weight: 600;
+}
+#lightbox .lb-btn {
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    font-size: 26px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+#lightbox .lb-btn:hover { background: rgba(255,255,255,0.25); }
+#lightbox .lb-prev { left: -60px; }
+#lightbox .lb-next { right: -60px; }
+@media (max-width: 768px) {
+    #lightbox .lb-prev { left: 8px; }
+    #lightbox .lb-next { right: 8px; }
+}
+#lightbox .lb-close {
+    position: absolute;
+    top: -32px; left: 4px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 10px;
+}
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Galería Institucional</h1>
+<p class="page-subtitle">Eventos, capacitaciones, actividades deportivas y sociales del CCPL.</p>
+
+{% if total_fotos %}
+<div class="galeria-tabs">
+    <button class="filtro-btn active" data-cat="todos" onclick="window.__gal.filtrarCat('todos', this)">Todos</button>
+    {% for cat, label in categorias_labels.items() %}
+        {% if cat in grupos %}
+            <button class="filtro-btn" data-cat="{{ cat }}" onclick="window.__gal.filtrarCat('{{ cat }}', this)">
+                {{ label }}
+                <span style="opacity:0.7; font-weight:500; margin-left:4px;">({{ grupos[cat]|length }})</span>
+            </button>
+        {% endif %}
+    {% endfor %}
+</div>
+
+{% for cat, fotos in grupos.items() %}
+<section class="cat-section" id="{{ cat }}" data-cat="{{ cat }}">
+    <h2>
+        {{ categorias_labels.get(cat, cat|capitalize) }}
+        <span class="count">{{ fotos|length }} foto{{ '' if fotos|length == 1 else 's' }}</span>
+    </h2>
+    <div class="galeria-grid">
+        {% for foto in fotos %}
+            <div class="foto-card"
+                 data-cat="{{ cat }}"
+                 onclick="window.__gal.abrirLightbox('{{ cat }}', {{ loop.index0 }})">
+                <img src="{{ foto.imagen_url }}" alt="{{ foto.titulo or 'Foto' }}"
+                     loading="lazy"
+                     onerror="this.parentElement.style.opacity=0.3">
+                {% if foto.titulo or foto.fecha_evento %}
+                <div class="foto-card-overlay">
+                    {% if foto.titulo %}<div class="ttl">{{ foto.titulo }}</div>{% endif %}
+                    {% if foto.fecha_evento %}<div class="fecha">{{ foto.fecha_evento }}</div>{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+<!-- Lightbox -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Visor de foto">
+    <div class="lb-stage">
+        <button class="lb-close" type="button" onclick="window.__gal.cerrarLightbox()" aria-label="Cerrar">✕</button>
+        <span class="lb-counter" id="lb-counter">0 / 0</span>
+        <button class="lb-btn lb-prev" type="button" onclick="window.__gal.lightboxAnterior()" aria-label="Anterior">‹</button>
+        <img id="lb-img" src="" alt="">
+        <button class="lb-btn lb-next" type="button" onclick="window.__gal.lightboxSiguiente()" aria-label="Siguiente">›</button>
+        <div class="lb-info">
+            <div class="ttl" id="lb-titulo"></div>
+            <div class="meta" id="lb-meta"></div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="empty">Aún no hay fotos publicadas.</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    'use strict';
+
+    const grupos = {{ grupos|tojson }};
+    let _fotos = [];
+    let _idx = 0;
+
+    function filtrarCat(cat, btn) {
+        document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        document.querySelectorAll('.cat-section').forEach(sec => {
+            sec.style.display = (cat === 'todos' || sec.dataset.cat === cat) ? '' : 'none';
+        });
+        if (cat !== 'todos') {
+            const target = document.getElementById(cat);
+            if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        } else {
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+    }
+
+    function abrirLightbox(cat, idx) {
+        _fotos = grupos[cat] || [];
+        if (!_fotos.length) return;
+        _idx = idx;
+        renderLightbox();
+        document.getElementById('lightbox').classList.add('show');
+    }
+
+    function renderLightbox() {
+        const f = _fotos[_idx];
+        if (!f) return;
+        document.getElementById('lb-img').src    = f.imagen_url;
+        document.getElementById('lb-img').alt    = f.titulo || 'Foto';
+        document.getElementById('lb-titulo').textContent = f.titulo || '';
+        document.getElementById('lb-meta').textContent   = f.fecha_evento || '';
+        document.getElementById('lb-counter').textContent = (_idx + 1) + ' / ' + _fotos.length;
+    }
+
+    function lightboxAnterior() {
+        if (!_fotos.length) return;
+        _idx = (_idx - 1 + _fotos.length) % _fotos.length;
+        renderLightbox();
+    }
+    function lightboxSiguiente() {
+        if (!_fotos.length) return;
+        _idx = (_idx + 1) % _fotos.length;
+        renderLightbox();
+    }
+    function cerrarLightbox() {
+        document.getElementById('lightbox').classList.remove('show');
+    }
+
+    // Cierre al click sobre el fondo
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+        if (e.target.id === 'lightbox') cerrarLightbox();
+    });
+
+    // Teclado
+    document.addEventListener('keydown', (e) => {
+        const lb = document.getElementById('lightbox');
+        if (!lb.classList.contains('show')) return;
+        if (e.key === 'Escape')      cerrarLightbox();
+        else if (e.key === 'ArrowLeft')  lightboxAnterior();
+        else if (e.key === 'ArrowRight') lightboxSiguiente();
+    });
+
+    // Si la URL tiene #categoria, activar ese tab al cargar
+    const initial = (location.hash || '').replace('#', '').toLowerCase();
+    if (initial && document.getElementById(initial)) {
+        const btn = document.querySelector(`.filtro-btn[data-cat="${initial}"]`);
+        if (btn) filtrarCat(initial, btn);
+    }
+
+    window.__gal = { filtrarCat, abrirLightbox, lightboxAnterior, lightboxSiguiente, cerrarLightbox };
+})();
+</script>
+{% endblock %}
