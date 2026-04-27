@@ -16,7 +16,7 @@ from sqlalchemy import desc, asc, or_
 from app.database import get_db
 from app.models import (
     Member, Organization, Bulletin, Partner, Resource, CarruselSlide,
-    ConceptoCobro,
+    ConceptoCobro, GaleriaFoto,
 )
 from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
@@ -269,6 +269,64 @@ async def public_convenios(
     )
 
 
+# ── Galería institucional (zClaude-60) ──
+GALERIA_CATEGORIAS_LABEL = {
+    "institucional": "Institucional",
+    "academico":     "Académico",
+    "deportivo":     "Deportivo",
+    "social":        "Social",
+}
+
+
+@public_router.get("/galeria", response_class=HTMLResponse)
+async def public_galeria(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    fotos = (
+        db.query(GaleriaFoto)
+        .filter(
+            GaleriaFoto.organization_id == org_id,
+            GaleriaFoto.activo.is_(True),
+        )
+        .order_by(
+            asc(GaleriaFoto.categoria),
+            asc(GaleriaFoto.orden),
+            desc(GaleriaFoto.fecha_evento),
+            desc(GaleriaFoto.id),
+        )
+        .all()
+    )
+
+    grupos = {}
+    for f in fotos:
+        cat = f.categoria or "institucional"
+        grupos.setdefault(cat, []).append(_galeria_dict(f))
+
+    # Ordenar grupos según orden conocido + extras al final
+    orden_cat = list(GALERIA_CATEGORIAS_LABEL.keys())
+    grupos_ordenados = {}
+    for cat in orden_cat:
+        if cat in grupos:
+            grupos_ordenados[cat] = grupos[cat]
+    for cat in grupos:
+        if cat not in grupos_ordenados:
+            grupos_ordenados[cat] = grupos[cat]
+
+    return templates.TemplateResponse(
+        "public/galeria.html",
+        {
+            "request":            request,
+            "org":                _org_publica_dict(request),
+            "theme":              getattr(request.state, "theme", None),
+            "grupos":             grupos_ordenados,
+            "categorias_labels":  GALERIA_CATEGORIAS_LABEL,
+            "total_fotos":        sum(len(v) for v in grupos_ordenados.values()),
+        },
+    )
+
+
 # ============================================================
 # API /api/cms/*
 # ============================================================
@@ -280,7 +338,7 @@ router = APIRouter(prefix="/api/cms", tags=["CMS"])
 # ────────────────────────────────────────────────────────────
 _CARPETAS_VALIDAS = {
     "carrusel", "comunicados", "capacitaciones", "convenios",
-    "ambientes", "tienda", "cms",
+    "ambientes", "tienda", "cms", "galeria",
 }
 _CARPETAS_PDF = {
     "comunicados", "capacitaciones", "convenios",
@@ -1164,6 +1222,215 @@ async def desactivar_producto(
     return {"ok": True, "mensaje": "Producto desactivado"}
 
 
+# ────────────────────────────────────────────────────────────
+# GALERÍA INSTITUCIONAL (zClaude-60)
+# ────────────────────────────────────────────────────────────
+GALERIA_CATEGORIAS = ("institucional", "academico", "deportivo", "social")
+
+
+def _galeria_dict(f: GaleriaFoto) -> dict:
+    return {
+        "id":          f.id,
+        "categoria":   f.categoria or "institucional",
+        "titulo":      f.titulo or "",
+        "descripcion": f.descripcion or "",
+        "imagen_url":  f.imagen_url or "",
+        "orden":       int(f.orden or 0),
+        "activo":      bool(f.activo),
+        "fecha_evento":     f.fecha_evento.strftime("%d/%m/%Y") if f.fecha_evento else "",
+        "fecha_evento_iso": f.fecha_evento.isoformat() if f.fecha_evento else "",
+        "created_at":  _a_lima(f.created_at),
+    }
+
+
+def _normalizar_galeria(body: dict) -> dict:
+    out = {}
+    if "categoria" in body:
+        v = (body.get("categoria") or "institucional").strip().lower()
+        out["categoria"] = v if v in GALERIA_CATEGORIAS else "institucional"
+    if "titulo" in body:
+        out["titulo"] = (body.get("titulo") or "").strip()[:200] or None
+    if "descripcion" in body:
+        out["descripcion"] = body.get("descripcion") or None
+    if "imagen_url" in body:
+        v = (body.get("imagen_url") or "").strip()
+        out["imagen_url"] = v[:500] if v else None
+    if "orden" in body:
+        try: out["orden"] = int(body.get("orden") or 0)
+        except (TypeError, ValueError): pass
+    if "activo" in body:
+        out["activo"] = bool(body.get("activo"))
+    if "fecha_evento" in body:
+        v = (body.get("fecha_evento") or "").strip()
+        if not v:
+            out["fecha_evento"] = None
+        else:
+            parsed = None
+            for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    parsed = datetime.strptime(v, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if parsed is not None:
+                out["fecha_evento"] = parsed
+    return out
+
+
+@router.get("/galeria")
+async def listar_galeria(
+    request: Request,
+    categoria: Optional[str] = None,
+    incluir_inactivos: bool = True,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    q = db.query(GaleriaFoto).filter(GaleriaFoto.organization_id == org_id)
+    if categoria and categoria.lower() != "todos":
+        q = q.filter(GaleriaFoto.categoria == categoria.lower())
+    if not incluir_inactivos:
+        q = q.filter(GaleriaFoto.activo.is_(True))
+    items = (
+        q.order_by(
+            asc(GaleriaFoto.categoria),
+            asc(GaleriaFoto.orden),
+            desc(GaleriaFoto.fecha_evento),
+            desc(GaleriaFoto.id),
+        )
+        .all()
+    )
+    return {"ok": True, "items": [_galeria_dict(f) for f in items]}
+
+
+@router.post("/galeria")
+async def crear_galeria_foto(
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    data = _normalizar_galeria(body)
+
+    if not data.get("imagen_url"):
+        raise HTTPException(400, "imagen_url es requerida")
+
+    actor_id = getattr(member, "user_id", None) or getattr(member, "id", None)
+
+    f = GaleriaFoto(
+        organization_id = org_id,
+        categoria       = data.get("categoria", "institucional"),
+        titulo          = data.get("titulo"),
+        descripcion     = data.get("descripcion"),
+        imagen_url      = data["imagen_url"],
+        orden           = data.get("orden", 0),
+        activo          = data.get("activo", True),
+        fecha_evento    = data.get("fecha_evento"),
+        created_by      = actor_id,
+    )
+    db.add(f)
+    db.commit()
+    db.refresh(f)
+    return {"ok": True, "item": _galeria_dict(f)}
+
+
+@router.put("/galeria/{foto_id}")
+async def editar_galeria_foto(
+    foto_id: int,
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    f = (
+        db.query(GaleriaFoto)
+        .filter(GaleriaFoto.id == foto_id, GaleriaFoto.organization_id == org_id)
+        .first()
+    )
+    if not f:
+        raise HTTPException(404, "Foto no encontrada")
+
+    data = _normalizar_galeria(body)
+    if "imagen_url" in data and not data["imagen_url"]:
+        # No permitir borrar la imagen mediante PUT vacío
+        data.pop("imagen_url")
+
+    for k, v in data.items():
+        setattr(f, k, v)
+
+    db.commit()
+    db.refresh(f)
+    return {"ok": True, "item": _galeria_dict(f)}
+
+
+@router.delete("/galeria/{foto_id}")
+async def desactivar_galeria_foto(
+    foto_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """Soft-delete: marca activo=False (no elimina el archivo en GCS)."""
+    org_id = _org_id(request, member)
+    f = (
+        db.query(GaleriaFoto)
+        .filter(GaleriaFoto.id == foto_id, GaleriaFoto.organization_id == org_id)
+        .first()
+    )
+    if not f:
+        raise HTTPException(404, "Foto no encontrada")
+    f.activo = False
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/galeria/{foto_id}/orden")
+async def mover_galeria_foto(
+    foto_id: int,
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """body.direccion: 'subir' | 'bajar' (dentro de la misma categoría)."""
+    direccion = (body.get("direccion") or "").lower()
+    if direccion not in ("subir", "bajar"):
+        raise HTTPException(400, "direccion debe ser 'subir' o 'bajar'")
+
+    org_id = _org_id(request, member)
+    f = (
+        db.query(GaleriaFoto)
+        .filter(GaleriaFoto.id == foto_id, GaleriaFoto.organization_id == org_id)
+        .first()
+    )
+    if not f:
+        raise HTTPException(404, "Foto no encontrada")
+
+    q = db.query(GaleriaFoto).filter(
+        GaleriaFoto.organization_id == org_id,
+        GaleriaFoto.categoria == f.categoria,
+    )
+    if direccion == "subir":
+        vecino = (
+            q.filter(GaleriaFoto.orden < (f.orden or 0))
+            .order_by(desc(GaleriaFoto.orden))
+            .first()
+        )
+    else:
+        vecino = (
+            q.filter(GaleriaFoto.orden > (f.orden or 0))
+            .order_by(asc(GaleriaFoto.orden))
+            .first()
+        )
+
+    if vecino:
+        f.orden, vecino.orden = vecino.orden, f.orden
+        db.commit()
+    return {"ok": True}
+
+
 # ============================================================
 # HELPERS PÚBLICOS — usados por el endpoint home (/) para inyectar
 # datos dinámicos (PARTE E del plan zClaude-55).
@@ -1188,6 +1455,7 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
         "convenios":        [],
         "ambientes":        [],
         "productos_tienda": [],
+        "galeria_preview":  [],
     }
 
     try:
@@ -1288,5 +1556,32 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
         ]
     except Exception as e:
         logger.warning("get_home_context: productos_tienda no disponibles: %s", e)
+
+    try:
+        fotos = (
+            db.query(GaleriaFoto)
+            .filter(
+                GaleriaFoto.organization_id == organization_id,
+                GaleriaFoto.activo.is_(True),
+            )
+            .order_by(
+                desc(GaleriaFoto.fecha_evento),
+                desc(GaleriaFoto.created_at),
+            )
+            .limit(8)
+            .all()
+        )
+        ctx["galeria_preview"] = [
+            {
+                "id":         f.id,
+                "categoria":  f.categoria or "institucional",
+                "titulo":     f.titulo or "",
+                "imagen_url": f.imagen_url,
+                "fecha":      f.fecha_evento.strftime("%d/%m/%Y") if f.fecha_evento else "",
+            }
+            for f in fotos
+        ]
+    except Exception as e:
+        logger.warning("get_home_context: galeria_preview no disponible: %s", e)
 
     return ctx
