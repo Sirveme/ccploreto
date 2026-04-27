@@ -446,8 +446,277 @@
   @media (max-width: 700px) {
     .sote-layout { grid-template-columns: 1fr; }
     .sote-sidebar { display: none; }
-    .sote-main { padding: 16px; }
+    .sote-main { padding: 12px; }
+    .panel-body { padding: 12px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { padding: 12px; }
+    .stat-value { font-size: 22px; }
   }
+
+  /* ── Mobile-first overrides (zClaude-60) ───── */
+  .mobile-nav {
+    display: none;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--sote-surface);
+    border-bottom: 1px solid var(--sote-border);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .mobile-nav button {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-muted);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: var(--sote-font);
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mobile-nav button.active {
+    border-color: var(--sote-accent);
+    color: var(--sote-accent);
+    background: rgba(0,212,255,0.07);
+  }
+  @media (max-width: 700px) { .mobile-nav { display: flex; } }
+
+  /* ── Estado del Sistema cards ──────────────── */
+  .estado-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .estado-card {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .estado-icon {
+    font-size: 22px;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .estado-text { min-width: 0; flex: 1; }
+  .estado-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--sote-muted);
+    margin-bottom: 2px;
+  }
+  .estado-value {
+    font-size: 13px;
+    color: var(--sote-text);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .estado-card.alerta { border-color: var(--sote-yellow); }
+  .estado-card.alerta .estado-value { color: var(--sote-yellow); }
+  .estado-card.peligro { border-color: var(--sote-red); }
+  .estado-card.peligro .estado-value { color: var(--sote-red); }
+
+  .badge-rojo {
+    background: var(--sote-red);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+  }
+
+  /* ── User cards (gestión) ──────────────────── */
+  .user-card {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .user-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .user-card-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sote-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .user-card-meta {
+    font-size: 11px;
+    color: var(--sote-muted);
+    margin-bottom: 8px;
+  }
+  .user-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .user-card-actions button {
+    flex: 1;
+    min-height: 44px;
+    min-width: 110px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--sote-font);
+    letter-spacing: 1px;
+    border: 1px solid var(--sote-border);
+    background: var(--sote-bg);
+    color: var(--sote-text);
+    padding: 8px 10px;
+    transition: all 0.15s;
+  }
+  .user-card-actions .btn-reset {
+    border-color: var(--sote-accent2);
+    color: var(--sote-accent2);
+  }
+  .user-card-actions .btn-reset:hover { background: rgba(255,107,53,0.10); }
+  .user-card-actions .btn-toggle.activo {
+    border-color: var(--sote-red);
+    color: var(--sote-red);
+  }
+  .user-card-actions .btn-toggle.inactivo {
+    border-color: var(--sote-green);
+    color: var(--sote-green);
+  }
+
+  /* ── Inputs grandes (mobile-friendly, no zoom iOS) ── */
+  .sote-input-lg {
+    background: var(--sote-bg);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-text);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-family: var(--sote-font);
+    font-size: 16px;
+    width: 100%;
+    outline: none;
+  }
+  .sote-input-lg:focus { border-color: var(--sote-accent); }
+  .sote-select-lg {
+    background: var(--sote-bg);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-text);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-family: var(--sote-font);
+    font-size: 16px;
+    width: 100%;
+    outline: none;
+  }
+  .form-row { margin-bottom: 12px; }
+  .form-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--sote-muted);
+    margin-bottom: 4px;
+  }
+  .btn-action {
+    min-height: 44px;
+    padding: 12px 18px;
+    font-family: var(--sote-font);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--sote-border);
+    background: var(--sote-bg);
+    color: var(--sote-text);
+    transition: all 0.15s;
+  }
+  .btn-action.primary { background: var(--sote-accent); color: #000; border-color: var(--sote-accent); }
+  .btn-action.primary:hover { background: #00b8d9; }
+  .btn-action.danger { border-color: var(--sote-red); color: var(--sote-red); }
+  .btn-action.danger:hover { background: rgba(255,68,68,0.10); }
+  .btn-action.ghost:hover { border-color: var(--sote-accent); color: var(--sote-accent); }
+
+  /* ── Modal (reemplazo de alert/confirm/prompt) ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+  }
+  .modal-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--sote-border);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--sote-accent);
+    font-weight: 700;
+  }
+  .modal-body { padding: 18px; }
+  .modal-msg {
+    color: var(--sote-text);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 12px 18px 18px;
+    flex-wrap: wrap;
+  }
+  .modal-actions .btn-action { flex: 1 1 auto; min-width: 110px; }
+
+  .toast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--sote-card);
+    border: 1px solid var(--sote-border);
+    color: var(--sote-text);
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 2000;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    max-width: 90vw;
+    text-align: center;
+    display: none;
+  }
+  .toast.show { display: block; }
+  .toast.ok    { border-color: var(--sote-green); }
+  .toast.error { border-color: var(--sote-red); }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -478,18 +747,26 @@
   <!-- Sidebar -->
   <nav class="sote-sidebar">
     <div class="sote-nav-section">Inspección</div>
-    <a class="sote-nav-item active" onclick="showSection('stats')" href="#">
+    <a class="sote-nav-item active" onclick="showSection('estado', this)" href="#">
+      <span class="nav-icon">◆</span> Estado del Sistema
+    </a>
+    <a class="sote-nav-item" onclick="showSection('stats', this)" href="#">
       <span class="nav-icon">◈</span> Dashboard
     </a>
-    <a class="sote-nav-item" onclick="showSection('usuarios')" href="#">
+    <a class="sote-nav-item" onclick="showSection('usuarios', this)" href="#">
       <span class="nav-icon">◉</span> Usuarios
     </a>
-    <a class="sote-nav-item" onclick="showSection('activos')" href="#">
+    <a class="sote-nav-item" onclick="showSection('activos', this)" href="#">
       <span class="nav-icon">◎</span> Sesiones
     </a>
 
+    <div class="sote-nav-section" style="margin-top:12px;">Gestión</div>
+    <a class="sote-nav-item" onclick="showSection('gestion', this)" href="#">
+      <span class="nav-icon">⚒</span> Gestión Usuarios
+    </a>
+
     <div class="sote-nav-section" style="margin-top:12px;">Mantenimiento</div>
-    <a class="sote-nav-item" onclick="showSection('reset')" href="#">
+    <a class="sote-nav-item" onclick="showSection('reset', this)" href="#">
       <span class="nav-icon">⟳</span> Reset Password
     </a>
 
@@ -511,8 +788,60 @@
   <!-- Main -->
   <main class="sote-main">
 
+    <!-- Mobile nav (visible solo en celular) -->
+    <div class="mobile-nav" id="mobile-nav">
+      <button class="active" onclick="showSection('estado', this)">ESTADO</button>
+      <button onclick="showSection('gestion', this)">USUARIOS</button>
+      <button onclick="showSection('stats', this)">STATS</button>
+      <button onclick="showSection('activos', this)">SESIONES</button>
+      <button onclick="showSection('reset', this)">RESET</button>
+    </div>
+
+    <!-- ═══ SECTION: ESTADO DEL SISTEMA (zClaude-60) ═══ -->
+    <section id="section-estado">
+      <div class="section-header">
+        <span class="section-title">Estado del Sistema</span>
+        <div class="section-line"></div>
+        <button class="btn-action ghost" style="padding:6px 12px;font-size:10px;" onclick="cargarEstadoSistema()">↻ ACTUALIZAR</button>
+      </div>
+      <div id="estado-container">
+        <div style="color:var(--sote-muted);font-size:11px;padding:20px 0;">Cargando estado...</div>
+      </div>
+    </section>
+
+    <!-- ═══ SECTION: GESTIÓN DE USUARIOS (zClaude-60) ═══ -->
+    <section id="section-gestion" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">Gestión de Usuarios</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Buscar — Todos los Roles</span>
+          <button class="btn-action primary" style="padding:8px 14px;font-size:11px;" onclick="abrirModalNuevoUsuario()">➕ NUEVO</button>
+        </div>
+        <div class="panel-body">
+          <div class="form-row">
+            <input
+              type="text"
+              class="sote-input-lg"
+              id="input-gestion"
+              placeholder="DNI o nombre (mín. 2 caracteres)..."
+              autocomplete="off"
+              oninput="onBuscarUsuarioInput(this.value)"
+            >
+          </div>
+          <div id="lista-usuarios-api">
+            <div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">
+              Ingresa DNI o nombre para buscar usuarios.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ═══ SECTION: STATS ═══ -->
-    <section id="section-stats">
+    <section id="section-stats" style="display:none;">
       <div class="section-header">
         <span class="section-title">Dashboard</span>
         <div class="section-line"></div>
@@ -676,20 +1005,83 @@
 
 </div><!-- end font wrapper -->
 
+<!-- ═══ Modal de confirmación reusable (zClaude-60) ═══ -->
+<div class="modal-backdrop" id="modal-confirm" onclick="if(event.target===this) cerrarModalConfirm()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head" id="modal-confirm-titulo">CONFIRMAR</div>
+    <div class="modal-body">
+      <div class="modal-msg" id="modal-confirm-msg"></div>
+      <div id="modal-confirm-input-wrap" style="display:none;">
+        <label class="form-label">Nueva clave (opcional, vacío = DNI)</label>
+        <input type="text" class="sote-input-lg" id="modal-confirm-input" autocomplete="off" placeholder="Dejar vacío para usar DNI">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action ghost" onclick="cerrarModalConfirm()">CANCELAR</button>
+      <button class="btn-action danger" id="modal-confirm-ok">CONFIRMAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal nuevo usuario (zClaude-60) ═══ -->
+<div class="modal-backdrop" id="modal-nuevo" onclick="if(event.target===this) cerrarModalNuevoUsuario()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">NUEVO USUARIO OPERATIVO</div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-label">DNI *</label>
+        <input type="text" class="sote-input-lg" id="nu-dni" inputmode="numeric" maxlength="15" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Nombre completo *</label>
+        <input type="text" class="sote-input-lg" id="nu-nombre" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Rol *</label>
+        <select class="sote-select-lg" id="nu-rol">
+          <option value="cajero">Cajero</option>
+          <option value="secretaria">Secretaria</option>
+          <option value="editor">Editor (CMS)</option>
+          <option value="tesorero">Tesorero</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Email (opcional)</label>
+        <input type="email" class="sote-input-lg" id="nu-email" autocomplete="off">
+      </div>
+      <div style="color:var(--sote-yellow);font-size:11px;line-height:1.5;">
+        ⚠ La clave inicial será el DNI. El usuario deberá cambiarla al primer login.
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action ghost" onclick="cerrarModalNuevoUsuario()">CANCELAR</button>
+      <button class="btn-action primary" id="modal-nuevo-ok" onclick="crearUsuarioApi()">CREAR USUARIO</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
 <script>
 // ── Navegación entre secciones ──────────────────────────────
-function showSection(name) {
+function showSection(name, el) {
   document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
-  document.getElementById('section-' + name).style.display = 'block';
+  const target = document.getElementById('section-' + name);
+  if (target) target.style.display = 'block';
   document.querySelectorAll('.sote-nav-item').forEach(i => i.classList.remove('active'));
-  event.currentTarget.classList.add('active');
+  document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (name === 'estado') cargarEstadoSistema();
 }
 
 // ── Reloj ───────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
-  document.getElementById('clock').textContent =
+  const el = document.getElementById('clock');
+  if (el) el.textContent =
     `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ` +
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
@@ -714,5 +1106,315 @@ document.addEventListener('htmx:configRequest', function(evt) {
     delete evt.detail.parameters.q_reset;
   }
 });
+
+// ════════════════════════════════════════════════════════════
+//  zClaude-60 — Estado del sistema + Gestión de usuarios
+// ════════════════════════════════════════════════════════════
+
+// ── Toast (reemplaza alert) ─────────────────────────────────
+let toastTimer = null;
+function toast(msg, tipo) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (tipo || 'ok');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── Modal confirm (reemplaza confirm/prompt) ────────────────
+let _confirmCallback = null;
+function abrirModalConfirm(opts) {
+  document.getElementById('modal-confirm-titulo').textContent = (opts.titulo || 'CONFIRMAR').toUpperCase();
+  document.getElementById('modal-confirm-msg').textContent = opts.mensaje || '';
+  const inpWrap = document.getElementById('modal-confirm-input-wrap');
+  const inp = document.getElementById('modal-confirm-input');
+  if (opts.conInput) { inpWrap.style.display = 'block'; inp.value = ''; }
+  else { inpWrap.style.display = 'none'; inp.value = ''; }
+  const btn = document.getElementById('modal-confirm-ok');
+  btn.textContent = (opts.textoOk || 'CONFIRMAR').toUpperCase();
+  btn.className = 'btn-action ' + (opts.peligro ? 'danger' : 'primary');
+  _confirmCallback = opts.onOk || null;
+  document.getElementById('modal-confirm').classList.add('show');
+  setTimeout(() => { (opts.conInput ? inp : btn).focus(); }, 50);
+}
+function cerrarModalConfirm() {
+  document.getElementById('modal-confirm').classList.remove('show');
+  _confirmCallback = null;
+}
+document.getElementById('modal-confirm-ok').addEventListener('click', () => {
+  const valor = document.getElementById('modal-confirm-input').value;
+  const cb = _confirmCallback;
+  cerrarModalConfirm();
+  if (cb) cb(valor);
+});
+
+// ── Estado del sistema ──────────────────────────────────────
+let _estadoTimer = null;
+async function cargarEstadoSistema() {
+  const cont = document.getElementById('estado-container');
+  try {
+    const r = await fetch('/sote/api/sistema/estado');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    cont.innerHTML = renderEstado(d);
+  } catch (e) {
+    cont.innerHTML = `<div style="color:var(--sote-red);font-size:12px;padding:16px;">Error cargando estado: ${e.message}</div>`;
+  }
+  clearTimeout(_estadoTimer);
+  _estadoTimer = setTimeout(cargarEstadoSistema, 30000);
+}
+
+function renderEstado(d) {
+  const caja = d.caja || {};
+  const ub = d.ultima_boleta || {};
+  const pendientes = (d.alertas && d.alertas.comprobantes_pendientes) || 0;
+  const cajaCls = caja.colgada ? 'peligro' : (caja.abierta ? '' : '');
+  const cajaIcono = caja.colgada ? '🔴' : (caja.abierta ? '🟢' : '⚪');
+  const cajaTxt = caja.abierta
+    ? `Abierta ${caja.desde || ''}${caja.colgada ? ' (>24h)' : ''}`
+    : 'Cerrada';
+
+  let cajaActions = '';
+  if (caja.abierta && caja.colgada && caja.id) {
+    cajaActions = `<div style="margin-top:6px;">
+      <button class="btn-action danger" style="padding:8px 12px;font-size:10px;"
+        onclick="cerrarCajaEmergencia(${caja.id})">⚠ CERRAR EMERGENCIA</button>
+    </div>`;
+  }
+
+  const ubTxt = ub.serie_numero
+    ? `${ub.serie_numero}` + (ub.total != null ? ` · S/${ub.total.toFixed(2)}` : '')
+    : '—';
+  const ubSub = ub.hora ? ub.hora + (ub.status ? ` · ${ub.status}` : '') : '';
+
+  const pendCls = pendientes > 0 ? 'alerta' : '';
+  const pendBadge = pendientes > 0 ? `<span class="badge-rojo">${pendientes}</span>` : '';
+
+  return `
+    <div class="estado-grid">
+      <div class="estado-card">
+        <div class="estado-icon">🟢</div>
+        <div class="estado-text">
+          <div class="estado-label">Sistema</div>
+          <div class="estado-value">Activo · ${d.hora_servidor || ''}</div>
+        </div>
+      </div>
+      <div class="estado-card ${cajaCls}">
+        <div class="estado-icon">💰</div>
+        <div class="estado-text">
+          <div class="estado-label">Caja</div>
+          <div class="estado-value">${cajaIcono} ${cajaTxt}</div>
+          ${cajaActions}
+        </div>
+      </div>
+      <div class="estado-card">
+        <div class="estado-icon">📄</div>
+        <div class="estado-text">
+          <div class="estado-label">Última Boleta</div>
+          <div class="estado-value">${ubTxt}</div>
+          ${ubSub ? `<div style="font-size:10px;color:var(--sote-muted);">${ubSub}</div>` : ''}
+        </div>
+      </div>
+      <div class="estado-card ${pendCls}">
+        <div class="estado-icon">⚠️</div>
+        <div class="estado-text">
+          <div class="estado-label">Pendientes SUNAT</div>
+          <div class="estado-value">${pendientes}${pendBadge}</div>
+        </div>
+      </div>
+      <div class="estado-card">
+        <div class="estado-icon">👥</div>
+        <div class="estado-text">
+          <div class="estado-label">Usuarios Hoy</div>
+          <div class="estado-value">${d.usuarios_activos_hoy || 0}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function cerrarCajaEmergencia(sesionId) {
+  abrirModalConfirm({
+    titulo: 'Cierre de emergencia',
+    mensaje: `¿Cerrar de emergencia la sesión de caja #${sesionId}? Indica un motivo (opcional).`,
+    conInput: true,
+    peligro: true,
+    textoOk: 'Cerrar caja',
+    onOk: async (motivo) => {
+      try {
+        const r = await fetch(`/sote/api/caja/cerrar-emergencia/${sesionId}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({motivo: motivo || ''})
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Error');
+        toast(d.mensaje || 'Sesión cerrada', 'ok');
+        cargarEstadoSistema();
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+  });
+}
+
+// ── Búsqueda de usuarios (API JSON) ─────────────────────────
+let _buscarTimer = null;
+function onBuscarUsuarioInput(q) {
+  clearTimeout(_buscarTimer);
+  _buscarTimer = setTimeout(() => buscarUsuariosApi(q), 300);
+}
+
+async function buscarUsuariosApi(q) {
+  const cont = document.getElementById('lista-usuarios-api');
+  const termino = (q || '').trim();
+  if (termino.length < 2) {
+    cont.innerHTML = '<div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">Ingresa DNI o nombre (mín. 2 caracteres).</div>';
+    return;
+  }
+  cont.innerHTML = '<div style="color:var(--sote-muted);font-size:11px;padding:14px;">Buscando...</div>';
+  try {
+    const r = await fetch('/sote/api/usuarios/buscar?q=' + encodeURIComponent(termino));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    cont.innerHTML = renderUsuarios(d.usuarios || []);
+  } catch (e) {
+    cont.innerHTML = `<div style="color:var(--sote-red);font-size:12px;padding:16px;">Error: ${e.message}</div>`;
+  }
+}
+
+function renderUsuarios(usuarios) {
+  if (!usuarios.length) {
+    return '<div style="color:var(--sote-muted);font-size:12px;padding:20px;text-align:center;">Sin resultados.</div>';
+  }
+  return usuarios.map(u => {
+    const activoBadge = u.activo
+      ? '<span style="color:var(--sote-green);font-size:10px;">● ACTIVO</span>'
+      : '<span style="color:var(--sote-red);font-size:10px;">● INACTIVO</span>';
+    const cambioBadge = u.debe_cambiar_clave
+      ? '<span style="color:var(--sote-yellow);font-size:10px;margin-left:6px;">⚑ debe cambiar clave</span>'
+      : '';
+    const rolBadge = `<span class="role-badge role-${u.rol}">${u.rol}</span>`;
+    const toggleTxt = u.activo ? 'DESACTIVAR' : 'ACTIVAR';
+    const toggleCls = u.activo ? 'activo' : 'inactivo';
+    const nombreEsc = (u.nombre || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    return `
+      <div class="user-card">
+        <div class="user-card-head">
+          <div class="user-card-name">${escapeHtml(u.nombre || '')}</div>
+          ${rolBadge}
+        </div>
+        <div class="user-card-meta">
+          <span style="color:var(--sote-accent);font-weight:600;">${escapeHtml(u.dni || '')}</span>
+          ${u.email ? ' · ' + escapeHtml(u.email) : ''}
+          <br>${activoBadge}${cambioBadge}
+        </div>
+        <div class="user-card-actions">
+          <button class="btn-reset" onclick="confirmarReset(${u.id}, '${nombreEsc}', '${u.dni}')">⟳ RESET CLAVE</button>
+          <button class="btn-toggle ${toggleCls}" onclick="confirmarToggle(${u.id}, '${nombreEsc}', ${u.activo})">${toggleTxt}</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function confirmarReset(userId, nombre, dni) {
+  abrirModalConfirm({
+    titulo: 'Reset de clave',
+    mensaje: `Resetear clave de ${nombre}. Si dejas vacío se usará el DNI (${dni}).`,
+    conInput: true,
+    peligro: false,
+    textoOk: 'Resetear',
+    onOk: async (nuevaClave) => {
+      try {
+        const r = await fetch(`/sote/api/usuarios/${userId}/reset-clave`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({nueva_clave: nuevaClave || null})
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Error');
+        toast(d.mensaje || 'Clave reseteada', 'ok');
+        const inp = document.getElementById('input-gestion');
+        buscarUsuariosApi(inp.value);
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+  });
+}
+
+function confirmarToggle(userId, nombre, estaActivo) {
+  const accion = estaActivo ? 'desactivar' : 'activar';
+  abrirModalConfirm({
+    titulo: accion.toUpperCase() + ' usuario',
+    mensaje: `¿${accion.charAt(0).toUpperCase()+accion.slice(1)} a ${nombre}?`,
+    conInput: false,
+    peligro: estaActivo,
+    textoOk: accion,
+    onOk: async () => {
+      try {
+        const r = await fetch(`/sote/api/usuarios/${userId}/toggle-activo`, {method: 'POST'});
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Error');
+        toast(d.mensaje || 'Usuario actualizado', 'ok');
+        const inp = document.getElementById('input-gestion');
+        buscarUsuariosApi(inp.value);
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+  });
+}
+
+// ── Crear nuevo usuario ─────────────────────────────────────
+function abrirModalNuevoUsuario() {
+  ['nu-dni','nu-nombre','nu-email'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nu-rol').value = 'cajero';
+  document.getElementById('modal-nuevo').classList.add('show');
+  setTimeout(() => document.getElementById('nu-dni').focus(), 50);
+}
+function cerrarModalNuevoUsuario() {
+  document.getElementById('modal-nuevo').classList.remove('show');
+}
+async function crearUsuarioApi() {
+  const dni    = document.getElementById('nu-dni').value.trim();
+  const nombre = document.getElementById('nu-nombre').value.trim();
+  const rol    = document.getElementById('nu-rol').value;
+  const email  = document.getElementById('nu-email').value.trim();
+
+  if (!dni || !nombre) {
+    toast('DNI y nombre son obligatorios', 'error');
+    return;
+  }
+  const btn = document.getElementById('modal-nuevo-ok');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/sote/api/usuarios/crear', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dni, nombre, rol, email})
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Error al crear usuario');
+    toast(d.mensaje || 'Usuario creado', 'ok');
+    cerrarModalNuevoUsuario();
+    document.getElementById('input-gestion').value = dni;
+    buscarUsuariosApi(dni);
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Auto-load estado al abrir el dashboard ──────────────────
+document.addEventListener('DOMContentLoaded', cargarEstadoSistema);
 </script>
 {% endblock %}
