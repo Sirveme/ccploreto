@@ -12,17 +12,24 @@ Rutas:
   GET  /sote/stats          → Stats del sistema (HTMX)
 """
 
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, Body, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, or_, cast, Date
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
-from app.models import User, Member, Colegiado
+from app.models import (
+    User, Member, Colegiado,
+    Rol, UsuarioAdmin, SesionCaja, Comprobante,
+)
 from app.routers.dashboard import get_current_member
 from app.utils.security import get_password_hash
+
+PERU_TZ = timezone(timedelta(hours=-5))
+ROLES_OPERATIVOS = {"cajero", "secretaria", "editor", "tesorero", "admin"}
+ROLES_CON_USUARIO_ADMIN = {"cajero", "secretaria", "tesorero", "admin"}
 
 router = APIRouter(prefix="/sote", tags=["sote"])
 
@@ -283,3 +290,261 @@ async def sote_activos(
         "activos": activos,
         "horas": horas,
     })
+
+
+# ════════════════════════════════════════════════════════════════
+# API JSON: gestión extendida de usuarios + estado sistema
+# (mobile-first dashboard /sote — zClaude-60)
+# ════════════════════════════════════════════════════════════════
+
+# ── A2: buscar usuarios (todos los roles, JSON) ─────────────
+@router.get("/api/usuarios/buscar")
+async def api_buscar_usuario(
+    q: str = "",
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Busca usuarios por DNI o nombre — todos los roles, JSON."""
+    termino = (q or "").strip()
+    if len(termino) < 2:
+        return {"ok": True, "usuarios": []}
+
+    org_id = current_member.organization_id
+    users = db.query(User).filter(
+        or_(
+            User.public_id.ilike(f"%{termino}%"),
+            User.name.ilike(f"%{termino}%"),
+        )
+    ).limit(20).all()
+
+    resultado = []
+    for u in users:
+        member = db.query(Member).filter(
+            Member.user_id == u.id,
+            Member.organization_id == org_id,
+        ).first()
+        resultado.append({
+            "id":                u.id,
+            "dni":               u.public_id,
+            "nombre":            u.name,
+            "email":             u.email or "",
+            "rol":               member.role if member else "sin rol",
+            "activo":            bool(member.is_active) if member else False,
+            "debe_cambiar_clave": bool(u.debe_cambiar_clave),
+        })
+
+    return {"ok": True, "usuarios": resultado}
+
+
+# ── A3: reset clave para cualquier usuario ──────────────────
+@router.post("/api/usuarios/{user_id}/reset-clave")
+async def api_reset_clave_usuario(
+    user_id: int,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Resetea clave de cualquier usuario. Si no se provee nueva_clave usa el DNI."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    nueva_clave_input = (body or {}).get("nueva_clave")
+    nueva_clave = (nueva_clave_input or "").strip() or user.public_id
+    user.access_code = get_password_hash(nueva_clave)
+    user.debe_cambiar_clave = True
+    db.commit()
+
+    es_dni = not (nueva_clave_input or "").strip()
+    return {
+        "ok": True,
+        "mensaje": (
+            f"Clave reseteada para {user.name}. "
+            f"{'Clave = DNI' if es_dni else 'Clave personalizada'}. "
+            f"Deberá cambiarla al próximo login."
+        ),
+    }
+
+
+# ── A4: activar/desactivar usuario ──────────────────────────
+@router.post("/api/usuarios/{user_id}/toggle-activo")
+async def api_toggle_activo_usuario(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    org_id = current_member.organization_id
+    member = db.query(Member).filter(
+        Member.user_id == user_id,
+        Member.organization_id == org_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member no encontrado")
+
+    member.is_active = not bool(member.is_active)
+    db.commit()
+    return {
+        "ok": True,
+        "activo": bool(member.is_active),
+        "mensaje": f"Usuario {'activado' if member.is_active else 'desactivado'}",
+    }
+
+
+# ── B1: crear usuario operativo ─────────────────────────────
+@router.post("/api/usuarios/crear")
+async def api_crear_usuario(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Crea un nuevo usuario operativo (cajero, secretaria, editor, tesorero, admin)."""
+    dni    = (body.get("dni") or "").strip()
+    nombre = (body.get("nombre") or "").strip()
+    rol    = (body.get("rol") or "").strip()
+    email  = (body.get("email") or "").strip() or None
+
+    if not dni or not nombre:
+        raise HTTPException(status_code=400, detail="DNI y nombre son obligatorios")
+    if rol not in ROLES_OPERATIVOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Rol inválido. Válidos: {', '.join(sorted(ROLES_OPERATIVOS))}",
+        )
+
+    if db.query(User).filter(User.public_id == dni).first():
+        raise HTTPException(status_code=400, detail=f"Ya existe un usuario con DNI {dni}")
+
+    org_id = current_member.organization_id
+
+    nuevo_user = User(
+        public_id          = dni,
+        access_code        = get_password_hash(dni),
+        name               = nombre,
+        email              = email,
+        debe_cambiar_clave = True,
+        login_count        = 0,
+    )
+    db.add(nuevo_user)
+    db.flush()
+
+    db.add(Member(
+        user_id         = nuevo_user.id,
+        organization_id = org_id,
+        role            = rol,
+        is_active       = True,
+    ))
+
+    if rol in ROLES_CON_USUARIO_ADMIN:
+        rol_obj = db.query(Rol).filter(
+            Rol.organization_id == org_id,
+            Rol.codigo == rol,
+        ).first()
+        if rol_obj:
+            db.add(UsuarioAdmin(
+                organization_id = org_id,
+                user_id         = nuevo_user.id,
+                rol_id          = rol_obj.id,
+                nombre_completo = nombre,
+                email           = email or "",
+                cargo           = rol.capitalize(),
+                activo          = True,
+            ))
+
+    db.commit()
+    return {
+        "ok":      True,
+        "user_id": nuevo_user.id,
+        "mensaje": f"Usuario {nombre} creado con rol {rol}. Clave inicial = DNI ({dni}).",
+    }
+
+
+# ── C1: estado general del sistema ──────────────────────────
+@router.get("/api/sistema/estado")
+async def api_estado_sistema(
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    org_id = current_member.organization_id
+    ahora = datetime.now(PERU_TZ)
+
+    sesion_caja = db.query(SesionCaja).filter(
+        SesionCaja.organization_id == org_id,
+        SesionCaja.estado == "abierta",
+    ).order_by(SesionCaja.id.desc()).first()
+
+    sesion_colgada = False
+    if sesion_caja and sesion_caja.hora_apertura:
+        delta = datetime.now(timezone.utc) - sesion_caja.hora_apertura
+        sesion_colgada = delta > timedelta(hours=24)
+
+    ultima_boleta = db.query(Comprobante).filter(
+        Comprobante.organization_id == org_id,
+        Comprobante.tipo == "03",
+    ).order_by(Comprobante.id.desc()).first()
+
+    pendientes = db.query(Comprobante).filter(
+        Comprobante.organization_id == org_id,
+        Comprobante.status.in_(["pending", "rejected"]),
+    ).count()
+
+    usuarios_hoy = db.query(User).filter(
+        cast(User.ultimo_login, Date) == ahora.date()
+    ).count()
+
+    return {
+        "ok":            True,
+        "hora_servidor": ahora.strftime("%d/%m/%Y %H:%M"),
+        "caja": {
+            "abierta": sesion_caja is not None,
+            "id":      sesion_caja.id if sesion_caja else None,
+            "desde": (
+                sesion_caja.hora_apertura.astimezone(PERU_TZ).strftime("%H:%M")
+                if sesion_caja and sesion_caja.hora_apertura else None
+            ),
+            "colgada": sesion_colgada,
+        },
+        "ultima_boleta": {
+            "serie_numero": (
+                f"{ultima_boleta.serie}-{str(ultima_boleta.numero).zfill(8)}"
+                if ultima_boleta and ultima_boleta.serie else None
+            ),
+            "status": ultima_boleta.status if ultima_boleta else None,
+            "total":  float(ultima_boleta.total) if ultima_boleta and ultima_boleta.total else None,
+            "hora": (
+                ultima_boleta.created_at.astimezone(PERU_TZ).strftime("%d/%m %H:%M")
+                if ultima_boleta and ultima_boleta.created_at else None
+            ),
+        },
+        "alertas": {
+            "comprobantes_pendientes": pendientes,
+        },
+        "usuarios_activos_hoy": usuarios_hoy,
+    }
+
+
+# ── C2: cerrar sesión de caja colgada ───────────────────────
+@router.post("/api/caja/cerrar-emergencia/{sesion_id}")
+async def api_cerrar_caja_emergencia(
+    sesion_id: int,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Cierre de emergencia de una sesión de caja colgada desde /sote."""
+    org_id = current_member.organization_id
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.id == sesion_id,
+        SesionCaja.organization_id == org_id,
+    ).first()
+    if not sesion:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    if sesion.estado == "cerrada":
+        return {"ok": True, "mensaje": "La sesión ya estaba cerrada"}
+
+    motivo = (body or {}).get("motivo") or "sin motivo"
+    sesion.estado = "cerrada"
+    sesion.hora_cierre = datetime.now(timezone.utc)
+    sesion.observaciones_cierre = f"Cierre de emergencia desde /sote — {motivo}"
+    db.commit()
+
+    return {"ok": True, "mensaje": f"Sesión #{sesion_id} cerrada correctamente"}

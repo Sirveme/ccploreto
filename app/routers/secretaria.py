@@ -2001,9 +2001,11 @@ async def parsear_excel_fraccionamientos(
     # a todas las celdas secundarias del rango combinado
     for rango in list(ws.merged_cells.ranges):
         celda_origen = ws.cell(rango.min_row, rango.min_col)
+        valor = celda_origen.value
+        ws.unmerge_cells(str(rango))
         for fila in range(rango.min_row, rango.max_row + 1):
             for col in range(rango.min_col, rango.max_col + 1):
-                ws.cell(fila, col).value = celda_origen.value
+                ws.cell(fila, col).value = valor
     org = db.query(Organization).first()
 
     org_id = org.id if org else 1
@@ -2255,9 +2257,11 @@ async def parsear_excel_deudas(
     # a todas las celdas secundarias del rango combinado
     for rango in list(ws.merged_cells.ranges):
         celda_origen = ws.cell(rango.min_row, rango.min_col)
+        valor = celda_origen.value
+        ws.unmerge_cells(str(rango))
         for fila in range(rango.min_row, rango.max_row + 1):
             for col in range(rango.min_col, rango.max_col + 1):
-                ws.cell(fila, col).value = celda_origen.value
+                ws.cell(fila, col).value = valor
     org = db.query(Organization).first()
     org_id = org.id if org else 1
 
