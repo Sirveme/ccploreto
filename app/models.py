@@ -1100,3 +1100,22 @@ class CarruselSlide(Base):
     activo          = Column(Boolean, default=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+# --- GALERÍA INSTITUCIONAL (zClaude-60) ---
+class GaleriaFoto(Base):
+    """Foto de galería institucional — gestionada desde /admin/cms tab Galería."""
+    __tablename__ = "galeria_fotos"
+
+    id              = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, default=1)
+    categoria       = Column(String(50), default="institucional")
+    # institucional | academico | deportivo | social
+    titulo          = Column(String(200))
+    descripcion     = Column(Text)
+    imagen_url      = Column(String(500), nullable=False)
+    orden           = Column(Integer, default=0)
+    activo          = Column(Boolean, default=True)
+    fecha_evento    = Column(Date, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    created_by      = Column(Integer, nullable=True)
