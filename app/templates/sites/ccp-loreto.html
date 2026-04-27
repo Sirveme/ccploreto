@@ -781,16 +781,95 @@
   </div>
 </section>
 
-<!-- ══ SECCIÓN: GALERÍA (placeholder) ═══════════════ -->
+<!-- ══ SECCIÓN: GALERÍA INSTITUCIONAL (zClaude-60) ══ -->
+<style>
+  .galeria-grid-home {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+  }
+  @media (max-width: 768px) {
+    .galeria-grid-home { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  }
+  .galeria-item-home {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 8px;
+    display: block;
+    background: #e2e8f0;
+    text-decoration: none;
+    color: inherit;
+  }
+  .galeria-item-home img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+  }
+  .galeria-item-home:hover img { transform: scale(1.05); }
+  .galeria-item-home:hover { text-decoration: none; }
+  .galeria-item-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: #fff;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .galeria-cta-home {
+    text-align: center;
+    margin-top: 18px;
+  }
+  .galeria-cta-home a {
+    display: inline-block;
+    padding: 8px 20px;
+    border: 1px solid var(--verde, #1a3a5c);
+    border-radius: 20px;
+    color: var(--verde, #1a3a5c);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .galeria-cta-home a:hover {
+    background: var(--verde, #1a3a5c);
+    color: #fff;
+    text-decoration: none;
+  }
+</style>
+
 <section class="page-section-alt" id="galeria">
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">photo_library</span><span>Galería institucional</span></div>
     <h2 class="sec-title">Galería de Imágenes</h2>
-    <p class="sec-sub">Próximamente — sección en desarrollo</p>
-    <div style="background:white;border-radius:10px;padding:32px;text-align:center;color:var(--txt2);border:1px solid var(--borde)">
-      <span class="mi" style="font-size:48px;color:var(--borde)">photo_library</span>
-      <p style="margin-top:12px;font-size:14px">Galería fotográfica de eventos y actividades institucionales</p>
-    </div>
+    {% if cms and cms.galeria_preview %}
+      <p class="sec-sub">Eventos, actividades académicas, deportivas y sociales del CCPL</p>
+      <div class="galeria-grid-home">
+        {% for foto in cms.galeria_preview %}
+          <a href="/galeria#{{ foto.categoria }}" class="galeria-item-home">
+            <img src="{{ foto.imagen_url }}"
+                 alt="{{ foto.titulo or 'Galería' }}"
+                 loading="lazy"
+                 onerror="this.parentElement.style.opacity='0.3'">
+            {% if foto.titulo %}
+              <div class="galeria-item-overlay">{{ foto.titulo }}</div>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+      <div class="galeria-cta-home">
+        <a href="/galeria">Ver galería completa →</a>
+      </div>
+    {% else %}
+      <p class="sec-sub">Próximamente — sección en desarrollo</p>
+      <div style="background:white;border-radius:10px;padding:32px;text-align:center;color:var(--txt2);border:1px solid var(--borde)">
+        <span class="mi" style="font-size:48px;color:var(--borde)">photo_library</span>
+        <p style="margin-top:12px;font-size:14px">Galería fotográfica de eventos y actividades institucionales</p>
+      </div>
+    {% endif %}
   </div>
 </section>
 
