@@ -1997,8 +1997,15 @@ async def parsear_excel_fraccionamientos(
     except Exception as e:
         return {"ok": False, "error": f"No se pudo abrir el Excel: {e}"}
     ws = wb.active
-
+    # Resolver celdas combinadas: copiar el valor de la celda superior
+    # a todas las celdas secundarias del rango combinado
+    for rango in list(ws.merged_cells.ranges):
+        celda_origen = ws.cell(rango.min_row, rango.min_col)
+        for fila in range(rango.min_row, rango.max_row + 1):
+            for col in range(rango.min_col, rango.max_col + 1):
+                ws.cell(fila, col).value = celda_origen.value
     org = db.query(Organization).first()
+
     org_id = org.id if org else 1
 
     cache_col: Dict[str, Optional[Colegiado]] = {}
@@ -2244,7 +2251,13 @@ async def parsear_excel_deudas(
     except Exception as e:
         return {"ok": False, "error": f"No se pudo abrir el Excel: {e}"}
     ws = wb.active
-
+    # Resolver celdas combinadas: copiar el valor de la celda superior
+    # a todas las celdas secundarias del rango combinado
+    for rango in list(ws.merged_cells.ranges):
+        celda_origen = ws.cell(rango.min_row, rango.min_col)
+        for fila in range(rango.min_row, rango.max_row + 1):
+            for col in range(rango.min_col, rango.max_col + 1):
+                ws.cell(fila, col).value = celda_origen.value
     org = db.query(Organization).first()
     org_id = org.id if org else 1
 
