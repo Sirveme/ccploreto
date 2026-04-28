@@ -12,6 +12,7 @@ from typing import Optional, List
 from decimal import Decimal
 import logging
 import json
+import base64
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
@@ -251,7 +252,12 @@ async def obtener_deudas(
     resultado = []
     for d in deudas:
         monto = float(d.amount or 0)
-        saldo = float(d.balance or 0)
+        # Para status='pending' la deuda no tiene pagos aplicados → saldo = amount.
+        # Defensivo contra corrupción donde balance quedó en 0 tras revertir.
+        if d.status == "pending":
+            saldo = monto
+        else:
+            saldo = float(d.balance or 0)
         resultado.append(DeudaResponse(
             id=d.id,
             concepto=d.concept or "Cuota",
@@ -373,7 +379,11 @@ async def registrar_cobro(
             if not deuda:
                 raise HTTPException(400, detail=f"Deuda {item.deuda_id} no encontrada o ya pagada")
 
-            saldo = float(deuda.balance or 0)
+            # Para status='pending' la deuda no tiene pagos aplicados → saldo = amount.
+            if deuda.status == "pending":
+                saldo = float(deuda.amount or 0)
+            else:
+                saldo = float(deuda.balance or 0)
             items_procesados.append({
                 "tipo": "deuda",
                 "deuda_id": deuda.id,
@@ -447,13 +457,34 @@ async def registrar_cobro(
     # Incluir IDs de deudas en notes para reconstruir en facturación
     ids_deudas = [str(d.id) for d in deudas_a_pagar]
     ids_str = ",".join(ids_deudas)
+
+    # Conceptos sin Debt asociado (ej. constancias con genera_deuda=False)
+    # se serializan en base64 para que _construir_items los emita como ítems.
+    conceptos_para_boleta = [
+        {
+            "nombre": i["descripcion"],
+            "monto_unitario": float(i.get("monto_unitario") or 0) or float(i["monto_total"]) / max(int(i.get("cantidad", 1)), 1),
+            "monto_total": float(i["monto_total"]),
+            "cantidad": int(i.get("cantidad", 1)),
+            "codigo": i.get("codigo") or "SRV001",
+        }
+        for i in items_procesados
+        if i["tipo"] == "concepto"
+    ]
+    notes_str = f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]"
+    if conceptos_para_boleta:
+        cb = base64.b64encode(
+            json.dumps(conceptos_para_boleta, ensure_ascii=False).encode("utf-8")
+        ).decode("ascii")
+        notes_str += f" [CONCEPTOS_B64:{cb}]"
+
     payment = Payment(
         organization_id=org.id,
         colegiado_id=cobro.colegiado_id,
         amount=Decimal(str(cobro.total)),
         payment_method=cobro.metodo_pago,
         operation_code=cobro.referencia_pago,
-        notes=f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]",
+        notes=notes_str,
         status="approved",
         reviewed_at=ahora,
     )
@@ -582,7 +613,10 @@ async def preview_cobro(
             ).first()
             if not deuda:
                 return {"ok": False, "error": f"Deuda {item.deuda_id} no encontrada o ya pagada"}
-            saldo = float(deuda.balance or 0)
+            if deuda.status == "pending":
+                saldo = float(deuda.amount or 0)
+            else:
+                saldo = float(deuda.balance or 0)
             deudas_mock.append(deuda)
             items_mock.append({
                 "tipo": "deuda",
@@ -645,13 +679,31 @@ async def preview_cobro(
     ids_deudas = [str(d.id) for d in deudas_mock]
     ids_str = ",".join(ids_deudas)
 
+    conceptos_para_boleta = [
+        {
+            "nombre": i["descripcion"],
+            "monto_unitario": float(i.get("monto_unitario") or 0) or float(i["monto_total"]) / max(int(i.get("cantidad", 1)), 1),
+            "monto_total": float(i["monto_total"]),
+            "cantidad": int(i.get("cantidad", 1)),
+            "codigo": i.get("codigo") or "SRV001",
+        }
+        for i in items_mock
+        if i["tipo"] == "concepto"
+    ]
+    notes_str = f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]"
+    if conceptos_para_boleta:
+        cb = base64.b64encode(
+            json.dumps(conceptos_para_boleta, ensure_ascii=False).encode("utf-8")
+        ).decode("ascii")
+        notes_str += f" [CONCEPTOS_B64:{cb}]"
+
     payment_mock = Payment(
         organization_id=org.id,
         colegiado_id=cobro.colegiado_id,
         amount=float(cobro.total),
         payment_method=cobro.metodo_pago,
         operation_code=cobro.referencia_pago,
-        notes=f"[CAJA] {descripcion_pago} [DEBT_IDS:{ids_str}]",
+        notes=notes_str,
         status="approved",
         reviewed_at=ahora,
     )
@@ -1078,15 +1130,15 @@ _METODOS_EFECTIVO = {"efectivo", "cash", "en efectivo"}
 
 def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
     """
-    Suma SOLO payments que tienen boleta (tipo 03) aceptada por SUNAT desde
+    Suma SOLO payments que tienen boleta o factura aceptada por SUNAT desde
     la apertura de esta sesión. Parte de comprobantes y hace JOIN a payments
-    para garantizar que no entran pagos huérfanos (sin boleta emitida).
+    para garantizar que no entran pagos huérfanos (sin comprobante emitido).
     """
     subq = (
         db.query(Comprobante.payment_id)
         .filter(
             Comprobante.organization_id == organization_id,
-            Comprobante.tipo == "03",
+            Comprobante.tipo.in_(["01", "03"]),
             Comprobante.status == "accepted",
             Comprobante.payment_id.isnot(None),
             Comprobante.created_at >= hora_apertura,
