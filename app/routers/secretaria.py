@@ -2208,13 +2208,45 @@ async def ejecutar_excel_fraccionamientos(
             db.add(nuevo)
             db.flush()
 
+            colegiado_obj = db.query(Colegiado).filter(
+                Colegiado.id == fracc["colegiado_id"]
+            ).first()
+            member_id_col = getattr(colegiado_obj, "member_id", None) if colegiado_obj else None
+
             for c in cuotas_norm:
-                db.add(FraccionamientoCuota(
+                cuota_orm = FraccionamientoCuota(
                     fraccionamiento_id = nuevo.id,
                     numero_cuota       = c["numero_cuota"],
                     monto              = c["monto"],
                     fecha_vencimiento  = c["fecha_vencimiento"] or fecha_inicio,
                     pagada             = False,
+                )
+                db.add(cuota_orm)
+                db.flush()
+
+                # Crear Debt espejo para que Caja la encuentre.
+                fecha_v = c["fecha_vencimiento"] or fecha_inicio
+                due_dt = (
+                    datetime.combine(fecha_v, datetime.min.time(), tzinfo=timezone.utc)
+                    if fecha_v else None
+                )
+                periodo = fecha_v.strftime("%Y-%m") if fecha_v else None
+
+                db.add(Debt(
+                    organization_id    = org.id,
+                    colegiado_id       = fracc["colegiado_id"],
+                    member_id          = member_id_col,
+                    concept            = f"Cuota {c['numero_cuota']} Fraccionamiento {fracc['num_fracc']}",
+                    debt_type          = "fraccionamiento",
+                    amount             = float(c["monto"]),
+                    balance             = float(c["monto"]),
+                    status             = "pending",
+                    estado_gestion     = "fraccionada",
+                    periodo            = periodo,
+                    due_date           = due_dt,
+                    fraccionamiento_id = nuevo.id,
+                    notes              = f"fracc_id:{nuevo.id} cuota_id:{cuota_orm.id} num:{c['numero_cuota']}",
+                    origen             = "migracion_xlsx",
                 ))
 
             sp.commit()
