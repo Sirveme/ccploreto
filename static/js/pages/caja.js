@@ -862,15 +862,12 @@ async function solicitarPreview() {
     btn.disabled = true;
     btn.textContent = '⏳ Generando...';
 
-    // Abrir la ventana ANTES del fetch para evitar bloqueo de popups
+    // Pre-abrir ventana ANTES del fetch (mantiene contexto de click → reduce
+    // bloqueos en navegadores estándar). Si falla, haremos fallback a descarga.
     const win = window.open('', '_blank');
-    if (!win) {
-        toast('Activa los popups para este sitio en tu navegador', 'err');
-        btn.disabled = false;
-        btn.textContent = textoOriginal;
-        return;
+    if (win) {
+        win.document.write('<html><body style="margin:0;font-family:sans-serif;padding:24px;color:#555">Generando vista previa…</body></html>');
     }
-    win.document.write('<html><body style="margin:0;font-family:sans-serif;padding:24px;color:#555">Generando vista previa…</body></html>');
 
     try {
         const r = await fetch(`${API}/cobrar/preview`, {
@@ -882,30 +879,42 @@ async function solicitarPreview() {
         if (!r.ok) {
             let detalle = '';
             try { const err = await r.json(); detalle = err.detail || err.error || ''; } catch (_) {}
-            win.close();
+            if (win && !win.closed) win.close();
             toast(detalle || `Error ${r.status} al generar preview`, 'err');
             return;
         }
 
         const data = await r.json();
         if (!data.ok || !data.pdf_base64) {
-            win.close();
+            if (win && !win.closed) win.close();
             toast(data.error || 'No se pudo generar el PDF (respuesta vacía)', 'err');
             return;
         }
 
-        // Construir blob desde base64 y cargarlo en la ventana ya abierta
+        // Construir blob desde base64
         const binary = atob(data.pdf_base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        win.location.href = url;
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
 
-        toast('Vista previa generada. Revisa el PDF antes de confirmar.', 'ok');
+        if (win && !win.closed) {
+            win.location.href = url;
+            toast('Vista previa generada. Revisa el PDF antes de confirmar.', 'ok');
+        } else {
+            // Popup bloqueado — fallback: descarga directa
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.nombre || 'preview_boleta.pdf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            toast('PDF descargado (activa popups para verlo en pantalla)', 'info');
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
-        win.close();
+        if (win && !win.closed) win.close();
         toast('Error de conexión al generar preview', 'err');
     } finally {
         btn.disabled = false;
@@ -1136,8 +1145,13 @@ async function registrarEgreso() {
             ['eMonto', 'eResp', 'eConc', 'eDet'].forEach(x => document.getElementById(x).value = '');
             document.getElementById('eTipo').value = 'gasto';
             cargarEgresos();
-        } else toast(d.detail || 'Error', 'err');
-    } catch (e) { toast('Error', 'err'); }
+        } else {
+            const msg = (d.detail && typeof d.detail === 'object')
+                ? (d.detail.mensaje || d.detail.message || JSON.stringify(d.detail))
+                : (d.detail || d.mensaje || d.message || 'Error desconocido');
+            toast(msg, 'err');
+        }
+    } catch (e) { toast(e.message || 'Error de conexión', 'err'); }
 }
 
 
@@ -1181,8 +1195,13 @@ async function ejecutarLiq() {
         });
         const d = await r.json();
         if (d.success) { cerrarModalLiq(); toast(d.mensaje, 'ok'); cargarEgresos(); }
-        else toast(d.detail || 'Error', 'err');
-    } catch (e) { toast('Error', 'err'); }
+        else {
+            const msg = (d.detail && typeof d.detail === 'object')
+                ? (d.detail.mensaje || d.detail.message || JSON.stringify(d.detail))
+                : (d.detail || d.mensaje || d.message || 'Error desconocido');
+            toast(msg, 'err');
+        }
+    } catch (e) { toast(e.message || 'Error de conexión', 'err'); }
 }
 
 
