@@ -613,6 +613,9 @@ select.egr-input { cursor: pointer; }
 .mbtn-cancel:hover { border-color: var(--text-dim); }
 .mbtn-ok { background: linear-gradient(135deg, var(--green-dark), #047857); border: none; color: white; }
 .mbtn-ok:hover { opacity: 0.9; }
+.mbtn-preview { background: linear-gradient(135deg, #1d4ed8, #1e40af); border: none; color: white; }
+.mbtn-preview:hover { opacity: 0.9; }
+.mbtn-preview:disabled { opacity: 0.55; cursor: wait; }
 
 /* Modal inputs */
 .m-input {
@@ -812,6 +815,7 @@ select.egr-input { cursor: pointer; }
 @keyframes tIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
 .toast-err { background: #7f1d1d; color: #fecaca; border: 1px solid var(--red-border); }
 .toast-ok { background: #064e3b; color: #a7f3d0; border: 1px solid var(--green-border); }
+.toast-info { background: #1e3a8a; color: #bfdbfe; border: 1px solid #3b82f6; }
 
 
 /* ══════════════════════════════════════════════════
@@ -1025,6 +1029,41 @@ select.egr-input { cursor: pointer; }
     cursor: pointer; transition: all 0.15s; min-height: 32px;
 }
 .co-btn-anul:hover { background: var(--red); color: white; border-color: var(--red); }
+
+/* Botón Reenviar comprobante */
+.co-btn-reenviar {
+    padding: 4px 10px; background: #fff3cd;
+    border: 1px solid #ffc107; border-radius: 6px;
+    color: #856404; font-size: 11px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s; min-height: 32px;
+}
+.co-btn-reenviar:hover { background: #ffc107; color: #fff; }
+.co-btn-reenviar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Ícono info mensaje SUNAT */
+.sunat-msg-icon {
+    cursor: pointer; font-size: 13px; margin-left: 4px;
+    user-select: none; opacity: 0.85;
+}
+.sunat-msg-icon:hover { opacity: 1; }
+
+/* Modal mensaje SUNAT */
+.sunat-msg-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 9999; display: flex; align-items: center; justify-content: center;
+}
+.sunat-msg-box {
+    background: var(--bg, #fff); color: var(--text, #111);
+    border: 1px solid var(--border, #ccc); border-radius: 10px;
+    padding: 18px 22px; max-width: 440px; width: calc(100% - 40px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25); font-size: 13px;
+}
+.sunat-msg-body { margin: 10px 0 16px; line-height: 1.5; white-space: pre-wrap; }
+.sunat-msg-close {
+    float: right; padding: 6px 16px; cursor: pointer;
+    background: var(--accent, #4f46e5); color: #fff;
+    border: none; border-radius: 6px; font-weight: 600;
+}
 
 
 /* ══════════════════════════════════════════════════
