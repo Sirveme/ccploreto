@@ -65,6 +65,7 @@ def generar_pdf_preview(
     org_ruc: str = "",
     org_direccion: str = "",
     matricula: str = None,
+    observaciones: str = None,
 ) -> bytes:
     """Retorna bytes del PDF preview."""
     buf = io.BytesIO()
@@ -207,8 +208,24 @@ def generar_pdf_preview(
         ('TOPPADDING', (0, 0), (-1, -1), 4),
     ]))
     story.append(tbl_tot)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))
 
+    # ── Observaciones (pie de habilidad) ──
+    if observaciones and str(observaciones).strip():
+        story.append(HRFlowable(width="100%", thickness=0.5, color=BORDE, spaceAfter=4))
+        story.append(Paragraph(
+            "<b>OBSERVACIONES</b>",
+            ParagraphStyle('obs_lbl', parent=styles['Normal'], fontSize=9,
+                           textColor=AZUL_MEDIO, spaceAfter=2)
+        ))
+        story.append(Paragraph(
+            str(observaciones).replace("\n", "<br/>"),
+            ParagraphStyle('obs_val', parent=styles['Normal'],
+                           fontName='Helvetica-Bold', fontSize=10,
+                           textColor=AZUL, spaceAfter=10)
+        ))
+
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDE, spaceAfter=4))
     story.append(Paragraph(
         "Al confirmar se emitirá el comprobante real: se asignará correlativo, se enviará a SUNAT vía facturalo.pro y se generará el PDF oficial.",

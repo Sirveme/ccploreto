@@ -42,6 +42,21 @@ logger = logging.getLogger(__name__)
 # Timezone Perú (UTC-5)
 TZ_PERU = timezone(timedelta(hours=-5))
 
+# Marcadores internos que no deben aparecer en el comprobante público.
+_MARCADORES_INTERNOS_RE = re.compile(
+    r"\[(?:DEBT_IDS|CONCEPTOS_B64)\s*:[^\]]*\]|\[CAJA\]",
+    re.IGNORECASE,
+)
+
+
+def _limpiar_notes_publicas(texto):
+    """Quita marcadores internos de Payment.notes para uso en descripciones públicas."""
+    if not texto:
+        return ""
+    limpio = _MARCADORES_INTERNOS_RE.sub("", texto)
+    limpio = re.sub(r"\s{2,}", " ", limpio).strip()
+    return limpio
+
 
 # ═══════════════════════════════════════════════════════════════
 # RESOLUCIÓN DE SERIES POR SEDE
@@ -218,6 +233,39 @@ class FacturacionService:
             if slug:
                 url_consulta = f"{slug}/consulta/habilidad"
 
+        # ── Pie de habilidad para observaciones ──
+        # Detectar si el cobro incluye CONST-HAB (vía CONCEPTOS_B64).
+        incluye_const_hab = False
+        notas = payment.notes or ""
+        m_cb = re.search(r'\[CONCEPTOS_B64:([A-Za-z0-9+/=]+)\]', notas)
+        if m_cb:
+            try:
+                cb_decoded = base64.b64decode(m_cb.group(1)).decode("utf-8")
+                cb_items = json.loads(cb_decoded) or []
+                incluye_const_hab = any(
+                    (c.get("codigo") or "").strip().upper() == "CONST-HAB"
+                    for c in cb_items
+                )
+            except Exception:
+                incluye_const_hab = False
+
+        obs_habilidad = ""
+        if colegiado:
+            try:
+                self.db.refresh(colegiado)
+            except Exception:
+                pass
+            from datetime import date as _date_cls
+            fv = getattr(colegiado, "habilidad_vence", None)
+            if fv:
+                fv_date = fv.date() if hasattr(fv, "date") else fv
+                if fv_date >= _date_cls.today():
+                    fv_str = fv_date.strftime("%d/%m/%Y")
+                    if incluye_const_hab:
+                        obs_habilidad = f"CONSTANCIA DE HABILIDAD VÁLIDA HASTA {fv_str}"
+                    else:
+                        obs_habilidad = f"Colegiado HÁBIL hasta {fv_str}"
+
         # Crear comprobante en BD
         comprobante = Comprobante(
             organization_id=self.org_id,
@@ -247,6 +295,7 @@ class FacturacionService:
             habil_hasta=habil_hasta,
             url_consulta=url_consulta,
             forma_pago=forma_pago,
+            observaciones=obs_habilidad or None,
         )
 
         if resultado["success"]:
@@ -717,16 +766,34 @@ class FacturacionService:
                     "linea_1": linea_1.upper(),
                     "cantidad": cantidad,
                     "monto_total": float(datos["monto_total"] or 0),
+                    "es_const_hab": False,
                 })
 
             for c in conceptos_extra:
                 nombre_c = (c.get("nombre") or "Concepto").upper()
                 cant_c = int(c.get("cantidad") or 1) or 1
+                codigo_c = (c.get("codigo") or "").strip().upper()
                 descriptores.append({
                     "linea_1": nombre_c,
                     "cantidad": cant_c,
                     "monto_total": float(c.get("monto_total") or 0),
+                    "es_const_hab": codigo_c == "CONST-HAB",
                 })
+
+            # Si hay CONST-HAB, leer habilidad_vence del colegiado para
+            # agregar línea de vigencia al ítem.
+            fecha_vig = None
+            hay_const_hab = any(d["es_const_hab"] for d in descriptores)
+            if hay_const_hab and colegiado:
+                try:
+                    self.db.refresh(colegiado)
+                except Exception:
+                    pass
+                fecha_vig = getattr(colegiado, "habilidad_vence", None)
+                if not fecha_vig:
+                    logger.warning(
+                        f"CONST-HAB en pago #{getattr(payment, 'id', '?')} sin habilidad_vence"
+                    )
 
             # Cada ítem usa la suma exacta de su monto.
             # El último ítem absorbe cualquier diferencia de céntimos contra payment.amount.
@@ -749,6 +816,14 @@ class FacturacionService:
                     descripcion += f"\n{linea_docs}"
                 descripcion += f"\n{linea_pago}"
 
+                # Línea extra de vigencia para el ítem CONST-HAB.
+                if desc.get("es_const_hab") and fecha_vig:
+                    try:
+                        fv_str = fecha_vig.strftime("%d/%m/%Y")
+                        descripcion += f"\nVálida hasta {fv_str}"
+                    except Exception:
+                        pass
+
                 items.append({
                     "codigo": "SRV001",
                     "descripcion": descripcion,
@@ -762,7 +837,8 @@ class FacturacionService:
 
         # ── Fallback: sin deudas asociadas ──
         if not items:
-            descripcion_raw = notas.replace("[CAJA] ", "").split("\n")[0]
+            # Limpiar marcadores internos ([DEBT_IDS:..], [CONCEPTOS_B64:..], [CAJA]).
+            descripcion_raw = _limpiar_notes_publicas(notas).split("\n")[0]
             linea_1 = descripcion_raw if descripcion_raw else "Pago de cuotas de colegiatura"
 
             descripcion = linea_1.upper()
@@ -889,7 +965,7 @@ class FacturacionService:
             "Izipay-Tarjeta": "Izipay - Tarjeta",
         }
 
-        metodo = payment.payment_method or "Efectivo"
+        metodo = (payment.payment_method or "Efectivo").strip()
         # Buscar case-insensitive
         etiqueta = metodo  # fallback
         for key, val in ETIQUETAS.items():
@@ -913,15 +989,18 @@ class FacturacionService:
             fecha_str = ""
             hora_str = ""
 
-        # ── Construir línea ──
-        op_code = payment.operation_code or ""
+        # Construir por partes; segmentos opcionales solo si tienen valor.
+        partes = [f"{etiqueta}:"]
+        if fecha_str:
+            partes.append(f"Fecha [{fecha_str}]")
+        if hora_str:
+            partes.append(f"Hora [{hora_str}]")
 
-        # Efectivo no tiene N° Operación
-        if metodo == "Efectivo":
-            return f"{etiqueta}: Fecha [{fecha_str}] Hora [{hora_str}]"
+        op_code = (payment.operation_code or "").strip()
+        if op_code:
+            partes.append(f"N° Operación [{op_code}]")
 
-        # Todos los demás incluyen N° Operación
-        return f"{etiqueta}: Fecha [{fecha_str}] Hora [{hora_str}] N° Operación [{op_code}]"
+        return " ".join(partes)
 
     # ───────────────────────────────────────────────────────
     # ENVÍO A FACTURALO.PRO
@@ -930,11 +1009,20 @@ class FacturacionService:
     async def _enviar_a_facturalo(self, comprobante: Comprobante,
                                    codigo_matricula=None, estado_colegiado=None,
                                    habil_hasta=None, url_consulta=None,
-                                   forma_pago="contado") -> Dict:
+                                   forma_pago="contado",
+                                   observaciones=None) -> Dict:
         """Envía el comprobante a facturalo.pro con campos extra para el PDF"""
 
         # Fecha y hora de emisión en timezone Perú (UTC-5)
         ahora_peru = datetime.now(TZ_PERU)
+
+        # Observaciones existentes (si las hubiera) + pie de habilidad limpio.
+        obs_existente = _limpiar_notes_publicas(getattr(comprobante, "observaciones", "") or "")
+        obs_pie = (observaciones or "").strip()
+        if obs_existente and obs_pie:
+            observaciones_final = f"{obs_existente}\n{obs_pie}"
+        else:
+            observaciones_final = obs_pie or obs_existente or ""
 
         payload = {
             "tipo_comprobante": comprobante.tipo,
@@ -947,6 +1035,7 @@ class FacturacionService:
             "estado_colegiado": estado_colegiado,
             "habil_hasta": habil_hasta,
             "url_consulta": url_consulta,
+            "observaciones": observaciones_final,
             "cliente": {
                 "tipo_documento": comprobante.cliente_tipo_doc,
                 "numero_documento": comprobante.cliente_num_doc,
