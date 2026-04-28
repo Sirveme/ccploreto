@@ -93,7 +93,14 @@ def verificar_limite(
         )
 
     # 0 = no permitido para este rol → siempre a cola de aprobación
+    # 0 = no permitido para este rol → a cola, salvo que aprobador sea 'ninguno'
     if limite == 0:
+        if row.aprobador_siguiente == 'ninguno':
+            return ResultadoLimite(
+                permitido=True, requiere_aprobacion=False,
+                aprobador='ninguno', limite_aplicado=0,
+                mensaje="Operación permitida sin límite de monto."
+            )
         return ResultadoLimite(
             permitido=False, requiere_aprobacion=True,
             aprobador=row.aprobador_siguiente,
