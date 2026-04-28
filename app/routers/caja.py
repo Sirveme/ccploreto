@@ -497,6 +497,30 @@ async def registrar_cobro(
     db.add(payment)
     db.flush()
 
+    # ── Si el cobro incluye Constancia de Habilidad, emitir certificado
+    #    para que la vigencia se registre y refleje en boleta/observaciones. ──
+    incluye_const_hab = any(
+        (it.get("codigo") or "").strip().upper() == "CONST-HAB"
+        for it in items_procesados if it.get("tipo") == "concepto"
+    )
+    if incluye_const_hab and cobro.colegiado_id:
+        try:
+            from app.services.emitir_certificado_service import emitir_certificado_automatico
+            from datetime import date as _date_cls, time as _time_cls, timezone as _tz_cls
+            res_cert = emitir_certificado_automatico(
+                db=db,
+                colegiado_id=cobro.colegiado_id,
+                payment_id=payment.id,
+            )
+            if res_cert.get("emitido") and res_cert.get("vigencia_hasta") and colegiado:
+                fv = _date_cls.fromisoformat(res_cert["vigencia_hasta"])
+                colegiado.habilidad_vence = datetime.combine(fv, _time_cls.min, tzinfo=_tz_cls.utc)
+                if hasattr(colegiado, "condicion") and colegiado.condicion not in ("vitalicio",):
+                    colegiado.condicion = "habil"
+            db.flush()
+        except Exception as e:
+            logger.warning(f"Error emitiendo certificado en cobro #{payment.id}: {e}")
+
     # ── MARCAR DEUDAS COMO PAGADAS ──
     for deuda in deudas_a_pagar:
         deuda.status = "paid"
@@ -713,6 +737,28 @@ async def preview_cobro(
         payment_mock.pagador_documento = cobro.cliente_ruc
         payment_mock.pagador_nombre = cobro.cliente_razon_social
 
+    # ── Simular vigencia si el preview incluye CONST-HAB (no emite certificado real) ──
+    incluye_const_hab_prev = any(
+        (it.get("codigo") or "").strip().upper() == "CONST-HAB"
+        for it in items_mock if it.get("tipo") == "concepto"
+    )
+    if incluye_const_hab_prev and cobro.colegiado_id:
+        try:
+            from app.services.emitir_certificado_service import calcular_vigencia
+            from datetime import date as _date_p, time as _time_p, timezone as _tz_p
+            colegiado_prev = db.query(Colegiado).filter(
+                Colegiado.id == cobro.colegiado_id
+            ).first()
+            if colegiado_prev:
+                en_fracc = bool(getattr(colegiado_prev, "tiene_fraccionamiento", False))
+                fv_sim = calcular_vigencia(_date_p.today(), en_fracc)
+                # Setear in-memory (sin commit) para que _construir_items lo lea.
+                colegiado_prev.habilidad_vence = datetime.combine(
+                    fv_sim, _time_p.min, tzinfo=_tz_p.utc
+                )
+        except Exception as e:
+            logger.warning(f"Preview: error simulando vigencia CONST-HAB: {e}")
+
     # ── Reutilizar pipeline: cliente + items exactamente como en /cobrar real ──
     try:
         service = FacturacionService(db, org.id)
@@ -761,6 +807,21 @@ async def preview_cobro(
         org_ruc_txt = (cfg.ruc if cfg and cfg.ruc else "") or ""
         org_direccion_txt = (cfg.direccion if cfg and cfg.direccion else "") or ""
 
+        # ── Pie de habilidad para preview (mismo formato que la boleta real) ──
+        from datetime import date as _d_now
+        obs_habilidad_prev = ""
+        if cobro.colegiado_id:
+            col_obs = db.query(Colegiado).filter(Colegiado.id == cobro.colegiado_id).first()
+            fv_obs = getattr(col_obs, "habilidad_vence", None) if col_obs else None
+            if fv_obs:
+                fv_obs_d = fv_obs.date() if hasattr(fv_obs, "date") else fv_obs
+                if fv_obs_d >= _d_now.today():
+                    fv_obs_str = fv_obs_d.strftime("%d/%m/%Y")
+                    if incluye_const_hab_prev:
+                        obs_habilidad_prev = f"CONSTANCIA DE HABILIDAD VÁLIDA HASTA {fv_obs_str}"
+                    else:
+                        obs_habilidad_prev = f"Colegiado HÁBIL hasta {fv_obs_str}"
+
         pdf_bytes = generar_pdf_preview(
             tipo_comprobante=tipo,
             serie=serie,
@@ -775,6 +836,7 @@ async def preview_cobro(
             org_ruc=org_ruc_txt,
             org_direccion=org_direccion_txt,
             matricula=matricula,
+            observaciones=obs_habilidad_prev or None,
         )
 
         return {
@@ -2387,7 +2449,7 @@ async def correccion_aplicar(
         if condicion == "habil":
             col.motivo_inhabilidad = None
             from datetime import date as _date
-            col.habilidad_vence = _date(2026, 12, 31)
+            col.habilidad_vence = _date(_date.today().year, 12, 31)
 
     # Cambios en deudas
     for dc in deudas:
