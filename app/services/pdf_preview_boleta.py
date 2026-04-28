@@ -32,6 +32,12 @@ def _f(v):
     return f"{float(v or 0):,.2f}"
 
 
+def _f_unit(v):
+    """Precio unitario: sin céntimos si es entero, con 2 decimales si tiene fracción."""
+    n = float(v or 0)
+    return f"{n:,.0f}" if n == int(n) else f"{n:,.2f}"
+
+
 def _watermark(canvas_obj, doc):
     canvas_obj.saveState()
     canvas_obj.setFont("Helvetica-Bold", 72)
@@ -163,7 +169,7 @@ def generar_pdf_preview(
             Paragraph(desc_html, estilo_item),
             Paragraph(str(it.get("cantidad", 1)),
                       ParagraphStyle('x', parent=estilo_item, alignment=TA_CENTER)),
-            Paragraph(f"S/ {_f(it.get('precio_unitario'))}",
+            Paragraph(f"S/ {_f_unit(it.get('precio_unitario'))}",
                       ParagraphStyle('x', parent=estilo_item, alignment=TA_RIGHT)),
             Paragraph(f"S/ {_f(it.get('valor_venta'))}",
                       ParagraphStyle('x', parent=estilo_item, alignment=TA_RIGHT)),

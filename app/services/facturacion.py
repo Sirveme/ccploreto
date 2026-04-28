@@ -21,6 +21,7 @@ import httpx
 import os
 import re
 import json
+import base64
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
@@ -656,7 +657,18 @@ class FacturacionService:
                 deudas_pagadas = [deuda]
         # Si no hay nada, items vacío → boleta sin detalle de deudas
 
-        if deudas_pagadas:
+        # Conceptos sin Debt (ej. constancias con genera_deuda=False).
+        # Caja serializa estos items en notes como [CONCEPTOS_B64:<base64>].
+        conceptos_extra = []
+        match_conceptos = re.search(r'\[CONCEPTOS_B64:([A-Za-z0-9+/=]+)\]', notas)
+        if match_conceptos:
+            try:
+                decoded = base64.b64decode(match_conceptos.group(1)).decode('utf-8')
+                conceptos_extra = json.loads(decoded) or []
+            except Exception:
+                conceptos_extra = []
+
+        if deudas_pagadas or conceptos_extra:
             # Normalizar clave de agrupación: quitar mes/año del concepto
             # (las deudas se crean con concepto "Cuota Ordinaria <Mes> <Año>" — sin
             # normalizar, cada mes formaría su propio item y la boleta se multiplicaría).
@@ -681,27 +693,14 @@ class FacturacionService:
                     grupos[clave]["periodos"].append(deuda.periodo)
                 grupos[clave]["monto_total"] += float(deuda.amount or deuda.balance or 0)
 
-            # Distribuir payment.amount proporcionalmente entre grupos
-            # (si hay un solo grupo, recibe todo el monto).
-            total_base = sum(g["monto_total"] for g in grupos.values()) or float(payment.amount)
-            asignado = 0.0
-            claves = orden
-            tipo_afect = self.config.tipo_afectacion_igv
-            for idx, clave in enumerate(claves):
+            # Construir lista unificada de descriptores de ítem.
+            # Primero los grupos de deudas, luego los conceptos sin Debt
+            # (constancias, etc.). El último ítem absorbe céntimos residuales.
+            descriptores = []
+            for clave in orden:
                 datos = grupos[clave]
                 periodos = datos["periodos"]
                 cantidad = len(periodos) if periodos else 1
-
-                if idx == len(claves) - 1:
-                    # Último grupo: absorbe cualquier resto por redondeo
-                    valor_venta = round(float(payment.amount) - asignado, 2)
-                else:
-                    share = datos["monto_total"] / total_base if total_base > 0 else 1 / len(claves)
-                    valor_venta = round(float(payment.amount) * share, 2)
-                    asignado += valor_venta
-
-                precio_unitario = round(valor_venta / cantidad, 2) if cantidad else valor_venta
-
                 if periodos:
                     periodos_fmt = self._formatear_periodos(periodos)
                     nombre_upper = datos["nombre"].upper()
@@ -714,8 +713,36 @@ class FacturacionService:
                         linea_1 += f" ({cantidad} MESES)"
                 else:
                     linea_1 = datos["nombre"]
+                descriptores.append({
+                    "linea_1": linea_1.upper(),
+                    "cantidad": cantidad,
+                    "monto_total": float(datos["monto_total"] or 0),
+                })
 
-                descripcion = linea_1.upper()
+            for c in conceptos_extra:
+                nombre_c = (c.get("nombre") or "Concepto").upper()
+                cant_c = int(c.get("cantidad") or 1) or 1
+                descriptores.append({
+                    "linea_1": nombre_c,
+                    "cantidad": cant_c,
+                    "monto_total": float(c.get("monto_total") or 0),
+                })
+
+            # Cada ítem usa la suma exacta de su monto.
+            # El último ítem absorbe cualquier diferencia de céntimos contra payment.amount.
+            asignado = 0.0
+            tipo_afect = self.config.tipo_afectacion_igv
+            for idx, desc in enumerate(descriptores):
+                cantidad = desc["cantidad"] or 1
+                if idx == len(descriptores) - 1:
+                    valor_venta = round(float(payment.amount) - asignado, 2)
+                else:
+                    valor_venta = round(desc["monto_total"], 2)
+                    asignado += valor_venta
+
+                precio_unitario = round(valor_venta / cantidad, 2) if cantidad else valor_venta
+
+                descripcion = desc["linea_1"]
                 if linea_nombre:
                     descripcion += f"\n{linea_nombre}"
                 if linea_docs:
