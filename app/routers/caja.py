@@ -33,7 +33,7 @@ from app.models import (
     UsuarioAdmin, CentroCosto, Organization,
     ConfiguracionFacturacion
 )
-from app.models_debt_management import Debt
+from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
 
 from starlette.responses import StreamingResponse
 import httpx
@@ -2433,6 +2433,18 @@ async def correccion_aplicar(
     if not motivo:
         return JSONResponse({"error": "motivo_nota obligatorio"}, status_code=400)
 
+    CONDICIONES_VALIDAS = {"habil", "inhabil", "fallecido", "vitalicio"}
+    if condicion is not None and condicion not in CONDICIONES_VALIDAS:
+        return JSONResponse(
+            {"error": f"Condición inválida. Permitidas: {sorted(CONDICIONES_VALIDAS)}"},
+            status_code=400,
+        )
+    if condicion in ("fallecido", "vitalicio") and not motivo:
+        return JSONResponse(
+            {"error": f"Motivo es obligatorio para marcar como {condicion.upper()}"},
+            status_code=400,
+        )
+
     col = db.query(_Col).filter(
         _Col.id == col_id,
         _Col.organization_id == member.organization_id
@@ -2450,6 +2462,8 @@ async def correccion_aplicar(
             col.motivo_inhabilidad = None
             from datetime import date as _date
             col.habilidad_vence = _date(_date.today().year, 12, 31)
+        elif condicion in ("fallecido", "vitalicio"):
+            col.habilidad_vence = None
 
     # Cambios en deudas
     for dc in deudas:
@@ -2522,3 +2536,143 @@ async def correccion_log(
     """), {"org": member.organization_id, "lim": limit, "off": offset}).fetchall()
 
     return JSONResponse([dict(r._mapping) for r in rows])
+
+
+# ═══════════════════════════════════════════════════════════
+# FRACCIONAMIENTO — Detalle del plan + cuotas para tab de Caja
+# ═══════════════════════════════════════════════════════════
+
+@router.get("/fraccionamiento/{colegiado_id}")
+async def fraccionamiento_detalle_caja(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Devuelve el plan de fraccionamiento activo del colegiado + detalle de cuotas
+    enlazadas a su Debt espejo. Si no hay plan activo: {"plan": null, "cuotas": []}.
+
+    Estrategia para enlazar cuota → Debt:
+      1. Si la columna fraccionamiento_cuotas.debt_id existe → usar.
+      2. Si no, fallback por (fraccionamiento_id, debt_type='fraccionamiento')
+         y matching por notes ('num:N') o por (monto, fecha_vencimiento).
+    """
+    from datetime import date as dt_date
+
+    fracc = (
+        db.query(Fraccionamiento)
+        .filter(
+            Fraccionamiento.colegiado_id == colegiado_id,
+            Fraccionamiento.estado == "activo",
+        )
+        .order_by(Fraccionamiento.created_at.desc())
+        .first()
+    )
+    if not fracc:
+        return {"plan": None, "cuotas": []}
+
+    cuotas = (
+        db.query(FraccionamientoCuota)
+        .filter(FraccionamientoCuota.fraccionamiento_id == fracc.id)
+        .order_by(FraccionamientoCuota.numero_cuota)
+        .all()
+    )
+
+    has_debt_id_col = db.execute(text("""
+        SELECT 1 FROM information_schema.columns
+         WHERE table_name='fraccionamiento_cuotas'
+           AND column_name='debt_id'
+         LIMIT 1
+    """)).scalar() is not None
+
+    cuota_debt_map: dict = {}
+
+    if has_debt_id_col:
+        rows = db.execute(text("""
+            SELECT fc.id AS cuota_id, fc.debt_id,
+                   d.id AS d_id, d.status AS d_status
+              FROM fraccionamiento_cuotas fc
+              LEFT JOIN debts d ON d.id = fc.debt_id
+             WHERE fc.fraccionamiento_id = :fid
+        """), {"fid": fracc.id}).fetchall()
+        for r in rows:
+            if r.d_id:
+                cuota_debt_map[r.cuota_id] = {"id": r.d_id, "status": r.d_status}
+
+    # Fallback para cuotas sin enlace
+    falta = [c for c in cuotas if c.id not in cuota_debt_map]
+    if falta:
+        debts_fracc = (
+            db.query(Debt)
+            .filter(
+                Debt.fraccionamiento_id == fracc.id,
+                Debt.debt_type == "fraccionamiento",
+            )
+            .all()
+        )
+        for c in falta:
+            mejor = None
+            for d in debts_fracc:
+                notes = (d.notes or "")
+                if (
+                    f"num:{c.numero_cuota} " in notes
+                    or notes.endswith(f"num:{c.numero_cuota}")
+                    or f"cuota_id:{c.id} " in notes
+                    or notes.endswith(f"cuota_id:{c.id}")
+                ):
+                    mejor = d
+                    break
+            if mejor is None:
+                for d in debts_fracc:
+                    monto_ok = abs(float(d.amount or 0) - float(c.monto or 0)) < 0.01
+                    fv = d.due_date.date() if d.due_date else None
+                    if monto_ok and fv == c.fecha_vencimiento:
+                        mejor = d
+                        break
+            if mejor is not None:
+                cuota_debt_map[c.id] = {"id": mejor.id, "status": mejor.status}
+
+    hoy = dt_date.today()
+    cuotas_payload = []
+    for c in cuotas:
+        if c.pagada:
+            estado = "pagada"
+        elif c.fecha_vencimiento and c.fecha_vencimiento < hoy:
+            estado = "vencida"
+        else:
+            estado = "pendiente"
+
+        item = {
+            "numero": c.numero_cuota,
+            "monto": float(c.monto or 0),
+            "fecha_vencimiento": c.fecha_vencimiento.isoformat() if c.fecha_vencimiento else None,
+            "estado": estado,
+            "pagada": bool(c.pagada),
+            "fecha_pago": c.fecha_pago.isoformat() if c.fecha_pago else None,
+            "vencida": (estado == "vencida"),
+        }
+
+        d_info = cuota_debt_map.get(c.id)
+        if d_info and d_info.get("status") in ("pending", "partial"):
+            item["debt_id"] = d_info["id"]
+
+        cuotas_payload.append(item)
+
+    plan_payload = {
+        "id": fracc.id,
+        "numero_solicitud": fracc.numero_solicitud,
+        "estado": fracc.estado,
+        "deuda_total_original": float(fracc.deuda_total_original or 0),
+        "cuota_inicial": float(fracc.cuota_inicial or 0),
+        "cuota_inicial_pagada": bool(fracc.cuota_inicial_pagada),
+        "saldo_pendiente": float(fracc.saldo_pendiente or 0),
+        "num_cuotas": fracc.num_cuotas,
+        "monto_cuota": float(fracc.monto_cuota or 0),
+        "cuotas_pagadas": fracc.cuotas_pagadas or 0,
+        "cuotas_atrasadas": fracc.cuotas_atrasadas or 0,
+        "fecha_inicio": fracc.fecha_inicio.isoformat() if fracc.fecha_inicio else None,
+        "fecha_fin_estimada": fracc.fecha_fin_estimada.isoformat() if fracc.fecha_fin_estimada else None,
+        "proxima_cuota_fecha": fracc.proxima_cuota_fecha.isoformat() if fracc.proxima_cuota_fecha else None,
+        "proxima_cuota_numero": fracc.proxima_cuota_numero,
+    }
+
+    return {"plan": plan_payload, "cuotas": cuotas_payload}
