@@ -2079,16 +2079,13 @@ function _renderModal(data) {
 
         <!-- TAB: FRACCIONAMIENTO -->
         <div id="mtab-body-fracc" style="display:none">
-            ${plan_activo ? `
-            <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
-                        border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
-                <div style="font-size:20px;margin-bottom:8px">📋</div>
-                <div style="font-size:14px;font-weight:700;color:#60a5fa">Plan de fraccionamiento activo</div>
-                <div style="font-size:12px;color:#94a3b8;margin-top:4px">
-                    El colegiado tiene un plan vigente en curso. Puede pagar la siguiente cuota en caja.
-                </div>
-            </div>` : ''}
+            <!-- Detalle del plan + cuotas (se llena vía /api/caja/fraccionamiento/{id}) -->
+            <div id="fracc-detalle-wrap">
+                <div style="text-align:center;padding:24px;color:#64748b;font-size:12px">Cargando plan…</div>
+            </div>
 
+            <!-- Simulador / empty state (sólo si NO hay plan activo) -->
+            <div id="fracc-sim-wrap" style="display:none">
             ${califica_fraccionamiento ? `
             <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);
                         border-radius:12px;padding:18px;margin-bottom:16px">
@@ -2148,6 +2145,7 @@ function _renderModal(data) {
                 <div style="font-size:13px">Deuda mínima para fraccionar: S/ 250</div>
                 <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
             </div>`}
+            </div>
 
             <!-- Reglamento -->
             <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
@@ -2243,7 +2241,175 @@ function _tabModal(tab) {
         if (body) body.style.display = active ? 'block' : 'none';
     });
     if (tab === 'beneficios') _startNotifAnim();
-    if (tab === 'fracc' && _modalSit) _calcSim(_modalSit.total);
+    if (tab === 'fracc' && _modalSit) {
+        _calcSim(_modalSit.total);
+        _loadFraccDetalle(_modalSit.colegiado?.id);
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FRACCIONAMIENTO — detalle del plan + cuotas (zClaude-69)
+   ══════════════════════════════════════════════════════════════════ */
+let _fraccData = null;          // { plan, cuotas } del último fetch
+
+async function _loadFraccDetalle(colegiadoId) {
+    if (!colegiadoId) return;
+    const wrap = document.getElementById('fracc-detalle-wrap');
+    const sim  = document.getElementById('fracc-sim-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:12px">Cargando plan…</div>';
+
+    try {
+        const r = await fetch(`/api/caja/fraccionamiento/${colegiadoId}`);
+        if (!r.ok) throw new Error('http ' + r.status);
+        _fraccData = await r.json();
+    } catch (e) {
+        console.warn('[CAJA] Error cargando fraccionamiento:', e);
+        wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;font-size:12px">⚠ No se pudo cargar el plan</div>';
+        return;
+    }
+
+    if (!_fraccData || !_fraccData.plan) {
+        wrap.innerHTML = '';
+        if (sim) sim.style.display = 'block';
+        return;
+    }
+    if (sim) sim.style.display = 'none';
+    wrap.innerHTML = _renderFraccDetalle(_fraccData);
+    _bindFraccCheckboxes();
+}
+
+function _renderFraccDetalle(data) {
+    const p = data.plan;
+    const cs = data.cuotas || [];
+    const fmt = n => 'S/ ' + (Number(n) || 0).toFixed(2);
+    const fmtFecha = iso => {
+        if (!iso) return '—';
+        const [a, m, d] = iso.split('-');
+        return `${d}/${m}/${a}`;
+    };
+    const proxima = p.proxima_cuota_fecha ? fmtFecha(p.proxima_cuota_fecha) : '—';
+    const cuotasPagadas = cs.filter(c => c.pagada).length;
+
+    const filas = cs.map(c => {
+        const tieneDebt = !!c.debt_id;
+        const seleccionable = !c.pagada && tieneDebt;
+        const cls = c.pagada ? 'fc-pagada' : (c.estado === 'vencida' ? 'fc-vencida' : 'fc-pendiente');
+        const estadoTxt = c.pagada ? 'Pagada' : (c.estado === 'vencida' ? 'Vencida' : 'Pendiente');
+        const chk = seleccionable
+            ? `<input type="checkbox" class="fc-chk" data-debt-id="${c.debt_id}" data-monto="${c.monto}" data-num="${c.numero}" data-fracc="${p.numero_solicitud}">`
+            : `<input type="checkbox" disabled>`;
+        return `<tr class="${cls}" data-num="${c.numero}">
+            <td style="padding:6px 8px;border-bottom:1px solid #222;text-align:center">${chk}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #222">${c.numero}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #222;text-align:right">${fmt(c.monto)}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #222">${fmtFecha(c.fecha_vencimiento)}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #222">
+                <span class="fc-estado">${estadoTxt}</span>${!tieneDebt && !c.pagada ? ' <span style="color:#64748b">·sin enlace</span>' : ''}
+            </td>
+        </tr>`;
+    }).join('');
+
+    return `
+    <style>
+        #fracc-detalle-wrap .fracc-resumen { padding:12px 14px; background:#1a1a1a; border-radius:10px; margin-bottom:12px; border:1px solid rgba(96,165,250,.15); }
+        #fracc-detalle-wrap .fracc-numero  { font-weight:800; color:#60a5fa; margin-bottom:8px; font-size:13px; letter-spacing:.3px; }
+        #fracc-detalle-wrap .fracc-grid    { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; font-size:12px; }
+        #fracc-detalle-wrap .fracc-grid label { display:block; color:#64748b; font-size:10px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.5px; }
+        #fracc-detalle-wrap .fracc-grid strong { color:#e2e8f0; font-size:13px; }
+        #fracc-detalle-wrap .fracc-cuotas  { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+        #fracc-detalle-wrap .fracc-cuotas th { padding:6px 8px; border-bottom:1px solid #333; text-align:left; color:#94a3b8; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+        #fracc-detalle-wrap tr.fc-pagada    { opacity:.45; text-decoration:line-through; }
+        #fracc-detalle-wrap tr.fc-vencida .fc-estado { color:#f87171; font-weight:700; }
+        #fracc-detalle-wrap tr.fc-pendiente .fc-estado { color:#a3a3a3; }
+        #fracc-detalle-wrap .fracc-bottom  { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:10px 12px; background:rgba(99,102,241,.06); border-radius:10px; }
+        #fracc-detalle-wrap .fracc-bottom strong#fcTotalSel { color:#818cf8; font-size:14px; }
+        #fracc-detalle-wrap button#fcBtnAgregar { padding:9px 16px; border:none; border-radius:8px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; font-weight:700; font-size:12px; cursor:pointer; }
+        #fracc-detalle-wrap button#fcBtnAgregar:disabled { opacity:.4; cursor:not-allowed; }
+    </style>
+
+    <div class="fracc-resumen">
+        <div class="fracc-numero">📋 ${p.numero_solicitud || 'Plan'} · ${p.estado}</div>
+        <div class="fracc-grid">
+            <div><label>Saldo pendiente</label><strong>${fmt(p.saldo_pendiente)}</strong></div>
+            <div><label>Cuotas pagadas</label><strong>${cuotasPagadas} de ${cs.length}</strong></div>
+            <div><label>Próxima cuota</label><strong>${proxima}</strong></div>
+            <div><label>Cuotas atrasadas</label><strong style="color:${(p.cuotas_atrasadas||0) > 0 ? '#f87171' : '#e2e8f0'}">${p.cuotas_atrasadas || 0}</strong></div>
+        </div>
+    </div>
+
+    <table class="fracc-cuotas">
+        <thead>
+            <tr>
+                <th style="width:32px;text-align:center"><input type="checkbox" id="fcSelAll"></th>
+                <th>N°</th>
+                <th style="text-align:right">Monto</th>
+                <th>Vence</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${filas || '<tr><td colspan="5" style="padding:14px;text-align:center;color:#64748b">Sin cuotas</td></tr>'}
+        </tbody>
+    </table>
+
+    <div class="fracc-bottom">
+        <span style="font-size:12px;color:#94a3b8">Seleccionado: <strong id="fcTotalSel">S/ 0.00</strong></span>
+        <button id="fcBtnAgregar" disabled>🛒 Agregar al carrito</button>
+    </div>`;
+}
+
+function _bindFraccCheckboxes() {
+    const all = document.getElementById('fcSelAll');
+    const chks = Array.from(document.querySelectorAll('#fracc-detalle-wrap .fc-chk'));
+    const tot  = document.getElementById('fcTotalSel');
+    const btn  = document.getElementById('fcBtnAgregar');
+    if (!chks.length) return;
+
+    const recalc = () => {
+        let s = 0;
+        chks.forEach(c => { if (c.checked) s += parseFloat(c.dataset.monto || 0); });
+        if (tot) tot.textContent = 'S/ ' + s.toFixed(2);
+        if (btn) btn.disabled = s <= 0;
+    };
+
+    chks.forEach(c => c.addEventListener('change', recalc));
+    if (all) {
+        all.addEventListener('change', () => {
+            chks.forEach(c => { if (!c.disabled) c.checked = all.checked; });
+            recalc();
+        });
+    }
+    if (btn) btn.addEventListener('click', _fcAgregarCarrito);
+    recalc();
+}
+
+function _fcAgregarCarrito() {
+    const chks = Array.from(document.querySelectorAll('#fracc-detalle-wrap .fc-chk'));
+    let agregadas = 0;
+    chks.forEach(c => {
+        if (!c.checked) return;
+        const did = parseInt(c.dataset.debtId);
+        if (!did) return;
+        if (carrito.some(i => i.tipo === 'deuda' && i.deuda_id === did)) return;
+        const monto = parseFloat(c.dataset.monto || 0);
+        const num   = c.dataset.num;
+        const sol   = c.dataset.fracc;
+        carrito.push({
+            tipo: 'deuda',
+            deuda_id: did,
+            descripcion: `Cuota N°${num} fraccionamiento ${sol}`,
+            monto: monto,
+        });
+        agregadas++;
+    });
+    if (!agregadas) {
+        toast('No se agregó ninguna cuota', 'warn');
+        return;
+    }
+    renderCarrito();
+    toast(`${agregadas} cuota${agregadas !== 1 ? 's' : ''} agregada${agregadas !== 1 ? 's' : ''} al carrito`, 'ok');
+    cerrarModalInhabil();
 }
 
 /* ── SIMULADOR ───────────────────────────────────────────────────── */

@@ -149,8 +149,8 @@ const CorrPanel = (() => {
         document.getElementById('corr-edit-matricula').textContent = col.codigo_matricula;
         document.getElementById('corr-edit-id').value              = col.id;
         document.getElementById('corr-edit-cond-actual').value     = col.condicion;
-        // Marcar condición actual
-        corrSelCondUI(col.condicion);
+        // Bloquear el botón de la condición actual; no preseleccionar nada
+        _corrLockCurrent(col.condicion);
       }
     } catch(e) {}
 
@@ -215,12 +215,38 @@ const CorrPanel = (() => {
 
   function corrSelCondUI(val) {
     document.querySelectorAll('.corr-cond-btn').forEach(b => {
+      // No tocar el botón bloqueado (condición actual)
+      if (b.disabled) return;
       const isActive = b.dataset.val === val;
       b.style.background = isActive ? 'rgba(245,158,11,.15)' : 'rgba(255,255,255,.03)';
       b.style.borderColor = isActive ? '#f59e0b' : 'var(--border,#2a2a3a)';
       b.style.color = isActive ? '#f59e0b' : '#888';
     });
     _condNueva = val;
+    // Enfocar el textarea de motivo cuando se selecciona fallecido/vitalicio
+    if (val === 'fallecido' || val === 'vitalicio') {
+      const ta = document.getElementById('corr-motivo');
+      if (ta) ta.focus();
+    }
+  }
+
+  // Bloquea el botón cuya data-val coincide con la condición actual
+  function _corrLockCurrent(currentCond) {
+    document.querySelectorAll('.corr-cond-btn').forEach(b => {
+      if (b.dataset.val === currentCond) {
+        b.disabled = true;
+        b.classList.add('btn-cond-current');
+        b.style.opacity = '.4';
+        b.style.cursor = 'not-allowed';
+        b.title = 'Condición actual';
+      } else {
+        b.disabled = false;
+        b.classList.remove('btn-cond-current');
+        b.style.opacity = '';
+        b.style.cursor = 'pointer';
+        b.title = '';
+      }
+    });
   }
 
   function cerrarModalEdit() {
@@ -235,7 +261,7 @@ const CorrPanel = (() => {
   async function guardar() {
     const motivo = (document.getElementById('corr-motivo')?.value || '').trim();
     if (!motivo) {
-      alert('El motivo de corrección es obligatorio.');
+      _toast('El motivo de corrección es obligatorio.', 'warn');
       document.getElementById('corr-motivo')?.focus();
       return;
     }
@@ -248,8 +274,33 @@ const CorrPanel = (() => {
     }));
 
     if (!condicion && deudas.length === 0) {
-      alert('No hay cambios que guardar.');
+      _toast('No hay cambios que guardar.', 'warn');
       return;
+    }
+
+    // Validación específica: motivo obligatorio para fallecido/vitalicio
+    if ((condicion === 'fallecido' || condicion === 'vitalicio') && !motivo) {
+      _toast(`Motivo es obligatorio para esta acción`, 'warn');
+      return;
+    }
+
+    // Confirmación extra para FALLECIDO (acción difícil de revertir)
+    if (condicion === 'fallecido') {
+      const nombre = document.getElementById('corr-edit-nombre')?.textContent || 'el colegiado';
+      const ok = await _confirmar(
+        `Marcar a ${nombre} como FALLECIDO.\n\nEsta acción cambia su condición y NO toca las deudas pendientes.\n¿Continuar?`,
+        'Marcar fallecido',
+        true,
+      );
+      if (!ok) return;
+    } else if (condicion === 'vitalicio') {
+      const nombre = document.getElementById('corr-edit-nombre')?.textContent || 'el colegiado';
+      const ok = await _confirmar(
+        `Marcar a ${nombre} como VITALICIO.\n\nNo caduca su habilidad.\n¿Continuar?`,
+        'Marcar vitalicio',
+        false,
+      );
+      if (!ok) return;
     }
 
     try {
@@ -266,21 +317,42 @@ const CorrPanel = (() => {
       const d = await r.json();
       if (d.ok) {
         cerrarModalEdit();
-        // Mostrar confirmación
-        const toast = document.getElementById('toastBox');
-        if (toast) {
-          toast.innerHTML = `<div class="toast toast-success">✅ ${d.mensaje}</div>`;
-          setTimeout(() => { toast.innerHTML = ''; }, 3000);
-        } else {
-          alert(`✅ ${d.mensaje}`);
-        }
+        const sufijo = condicion ? ` — ahora ${condicion.toUpperCase()}` : '';
+        _toast(`✅ ${d.mensaje}${sufijo}`, 'ok');
         cargarCasos();  // Recargar lista
       } else {
-        alert(`Error: ${d.error || d.mensaje}`);
+        _toast(`Error: ${d.error || d.mensaje}`, 'err');
       }
     } catch(e) {
-      alert(`Error de conexión: ${e.message}`);
+      _toast(`Error de conexión: ${e.message}`, 'err');
     }
+  }
+
+  // ── Helpers: toast / confirmar (sin alert/confirm/prompt nativos) ──
+  function _toast(msg, type = 'ok') {
+    if (typeof window.toast === 'function') {
+      window.toast(msg, type);
+      return;
+    }
+    // Fallback minimal: insertar en #toastBox
+    const tb = document.getElementById('toastBox');
+    if (tb) {
+      const cls = type === 'ok' ? 'toast-success' : (type === 'err' ? 'toast-error' : 'toast-warning');
+      tb.innerHTML = `<div class="toast ${cls}">${msg}</div>`;
+      setTimeout(() => { tb.innerHTML = ''; }, 3000);
+    }
+  }
+
+  function _confirmar(mensaje, labelOk, peligroso) {
+    return new Promise(resolve => {
+      if (window.cajaModal && typeof window.cajaModal.confirmar === 'function') {
+        window.cajaModal.confirmar(mensaje, labelOk, val => resolve(!!val), !!peligroso);
+      } else {
+        // Fallback: doble click textareas not available — resolver false para no continuar
+        _toast('Confirmación no disponible', 'err');
+        resolve(false);
+      }
+    });
   }
 
   // ── Log de cambios ───────────────────────────────────────────
