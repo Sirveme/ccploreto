@@ -16,6 +16,8 @@ from datetime import date, datetime, timezone
 from calendar import monthrange
 from typing import Optional
 
+from dateutil.relativedelta import relativedelta
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -81,6 +83,26 @@ def generar_cuotas_ordinarias(
     detalle   = []
 
     for col in colegiados:
+        # ── Período de gracia: 3 meses desde el MES de colegiatura ─────────
+        if col.fecha_colegiatura:
+            fc = col.fecha_colegiatura
+            if hasattr(fc, 'date'):
+                fc = fc.date()
+            mes_inscripcion = date(fc.year, fc.month, 1)
+            primer_mes_pago = mes_inscripcion + relativedelta(months=3)
+            primer_dia_mes  = date(anio, mes, 1)
+            if primer_dia_mes < primer_mes_pago:
+                omitidas += 1
+                detalle.append({
+                    "colegiado_id": col.id,
+                    "matricula":    col.codigo_matricula,
+                    "nombre":       col.apellidos_nombres,
+                    "accion":       "omitida",
+                    "motivo":       f"En período de gracia hasta {(primer_mes_pago - relativedelta(months=1)).strftime('%m/%Y')}. Paga desde {primer_mes_pago.strftime('%m/%Y')}",
+                })
+                continue
+        # ── Fin verificación gracia ─────────────────────────────────────────
+
         # Verificar si ya existe deuda para este periodo
         existe = db.query(Debt).filter(
             Debt.organization_id  == organization_id,
