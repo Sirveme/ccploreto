@@ -242,6 +242,28 @@ function iniciarApp() {
     cargarCats();
     cargarConceptos();
     document.getElementById('searchInput').focus();
+
+    // Precarga desde query string (cross-link desde /secretaria)
+    const _qs = new URLSearchParams(window.location.search);
+    const _pre = _qs.get('dni') || _qs.get('matricula');
+    if (_pre) {
+        _precargarColegiado(_pre);
+    }
+}
+
+async function _precargarColegiado(termino) {
+    try {
+        const r = await fetch(`${API}/buscar-colegiado?q=${encodeURIComponent(termino)}`);
+        const arr = await r.json();
+        if (Array.isArray(arr) && arr.length >= 1) {
+            // Match exacto por dni o matrícula si hay varios; si no, primero
+            const exact = arr.find(c =>
+                (c.dni && c.dni === termino) ||
+                (c.codigo_matricula && c.codigo_matricula === termino)
+            );
+            selCol(exact || arr[0]);
+        }
+    } catch (e) { /* silencioso */ }
 }
 
 
@@ -519,6 +541,14 @@ function selCol(col) {
     cargarDeudas(col.id);
     cambiarTab('deudas');
 
+    // Cross-link a /secretaria
+    const ls = document.getElementById('linkSecretaria');
+    if (ls) {
+        const ref = col.dni || col.codigo_matricula || '';
+        ls.href = `/secretaria?dni=${encodeURIComponent(ref)}`;
+        ls.style.display = ref ? 'inline-block' : 'none';
+    }
+
     // ← AÑADIR ESTA LÍNEA:
     if (!col.habilitado) setTimeout(() => abrirModalInhabil(col), 200);
 }
@@ -532,6 +562,9 @@ function limpiarCol() {
     carrito = carrito.filter(i => i.tipo !== 'deuda');
     renderCarrito();
     document.getElementById('searchInput').focus();
+
+    const ls = document.getElementById('linkSecretaria');
+    if (ls) ls.style.display = 'none';
 
     // ← AÑADIR ESTA LÍNEA:
     limpiarSituacion();
@@ -1747,11 +1780,7 @@ function renderSituacion(data) {
             </div>
             <div id="sit-fracc-result" style="font-size:11px;color:#94a3b8;text-align:center"></div>
         </div>` : (plan_activo ? `
-        <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);
-                    border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12px">
-            📋 <strong style="color:#60a5fa">Plan de fraccionamiento activo</strong>
-            <div style="color:#94a3b8;margin-top:4px">El colegiado tiene un plan vigente en curso.</div>
-        </div>` : '');
+        <div id="sit-fracc-detalle" style="margin-top:14px"></div>` : '');
 
     // Botón constancia
     const constanciaBtn = `
@@ -1809,6 +1838,11 @@ function renderSituacion(data) {
 
     // Calcular resultado inicial del simulador
     if (califica_fraccionamiento) calcSitFracc(total);
+
+    // Cargar detalle del plan de fraccionamiento (si hay uno activo)
+    if (plan_activo && data.colegiado?.id) {
+        _loadFraccDetalle(data.colegiado.id, '#sit-fracc-detalle');
+    }
 }
 
 function toggleSitAnio(id) {
@@ -2252,10 +2286,10 @@ function _tabModal(tab) {
    ══════════════════════════════════════════════════════════════════ */
 let _fraccData = null;          // { plan, cuotas } del último fetch
 
-async function _loadFraccDetalle(colegiadoId) {
+async function _loadFraccDetalle(colegiadoId, wrapSel = '#fracc-detalle-wrap') {
     if (!colegiadoId) return;
-    const wrap = document.getElementById('fracc-detalle-wrap');
-    const sim  = document.getElementById('fracc-sim-wrap');
+    const wrap = document.querySelector(wrapSel);
+    const sim  = document.getElementById('fracc-sim-wrap'); // sólo existe en el modal de tabs
     if (!wrap) return;
     wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:12px">Cargando plan…</div>';
 
@@ -2275,11 +2309,11 @@ async function _loadFraccDetalle(colegiadoId) {
         return;
     }
     if (sim) sim.style.display = 'none';
-    wrap.innerHTML = _renderFraccDetalle(_fraccData);
-    _bindFraccCheckboxes();
+    wrap.innerHTML = _renderFraccDetalle(_fraccData, wrapSel);
+    _bindFraccCheckboxes(wrapSel);
 }
 
-function _renderFraccDetalle(data) {
+function _renderFraccDetalle(data, wrapSel = '#fracc-detalle-wrap') {
     const p = data.plan;
     const cs = data.cuotas || [];
     const fmt = n => 'S/ ' + (Number(n) || 0).toFixed(2);
@@ -2312,20 +2346,20 @@ function _renderFraccDetalle(data) {
 
     return `
     <style>
-        #fracc-detalle-wrap .fracc-resumen { padding:12px 14px; background:#1a1a1a; border-radius:10px; margin-bottom:12px; border:1px solid rgba(96,165,250,.15); }
-        #fracc-detalle-wrap .fracc-numero  { font-weight:800; color:#60a5fa; margin-bottom:8px; font-size:13px; letter-spacing:.3px; }
-        #fracc-detalle-wrap .fracc-grid    { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; font-size:12px; }
-        #fracc-detalle-wrap .fracc-grid label { display:block; color:#64748b; font-size:10px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.5px; }
-        #fracc-detalle-wrap .fracc-grid strong { color:#e2e8f0; font-size:13px; }
-        #fracc-detalle-wrap .fracc-cuotas  { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
-        #fracc-detalle-wrap .fracc-cuotas th { padding:6px 8px; border-bottom:1px solid #333; text-align:left; color:#94a3b8; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
-        #fracc-detalle-wrap tr.fc-pagada    { opacity:.45; text-decoration:line-through; }
-        #fracc-detalle-wrap tr.fc-vencida .fc-estado { color:#f87171; font-weight:700; }
-        #fracc-detalle-wrap tr.fc-pendiente .fc-estado { color:#a3a3a3; }
-        #fracc-detalle-wrap .fracc-bottom  { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:10px 12px; background:rgba(99,102,241,.06); border-radius:10px; }
-        #fracc-detalle-wrap .fracc-bottom strong#fcTotalSel { color:#818cf8; font-size:14px; }
-        #fracc-detalle-wrap button#fcBtnAgregar { padding:9px 16px; border:none; border-radius:8px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; font-weight:700; font-size:12px; cursor:pointer; }
-        #fracc-detalle-wrap button#fcBtnAgregar:disabled { opacity:.4; cursor:not-allowed; }
+        ${wrapSel} .fracc-resumen { padding:12px 14px; background:#1a1a1a; border-radius:10px; margin-bottom:12px; border:1px solid rgba(96,165,250,.15); }
+        ${wrapSel} .fracc-numero  { font-weight:800; color:#60a5fa; margin-bottom:8px; font-size:13px; letter-spacing:.3px; }
+        ${wrapSel} .fracc-grid    { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; font-size:12px; }
+        ${wrapSel} .fracc-grid label { display:block; color:#64748b; font-size:10px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.5px; }
+        ${wrapSel} .fracc-grid strong { color:#e2e8f0; font-size:13px; }
+        ${wrapSel} .fracc-cuotas  { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+        ${wrapSel} .fracc-cuotas th { padding:6px 8px; border-bottom:1px solid #333; text-align:left; color:#94a3b8; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+        ${wrapSel} tr.fc-pagada    { opacity:.45; text-decoration:line-through; }
+        ${wrapSel} tr.fc-vencida .fc-estado { color:#f87171; font-weight:700; }
+        ${wrapSel} tr.fc-pendiente .fc-estado { color:#a3a3a3; }
+        ${wrapSel} .fracc-bottom  { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:10px 12px; background:rgba(99,102,241,.06); border-radius:10px; }
+        ${wrapSel} .fracc-bottom strong#fcTotalSel { color:#818cf8; font-size:14px; }
+        ${wrapSel} button#fcBtnAgregar { padding:9px 16px; border:none; border-radius:8px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; font-weight:700; font-size:12px; cursor:pointer; }
+        ${wrapSel} button#fcBtnAgregar:disabled { opacity:.4; cursor:not-allowed; }
     </style>
 
     <div class="fracc-resumen">
@@ -2359,11 +2393,13 @@ function _renderFraccDetalle(data) {
     </div>`;
 }
 
-function _bindFraccCheckboxes() {
-    const all = document.getElementById('fcSelAll');
-    const chks = Array.from(document.querySelectorAll('#fracc-detalle-wrap .fc-chk'));
-    const tot  = document.getElementById('fcTotalSel');
-    const btn  = document.getElementById('fcBtnAgregar');
+function _bindFraccCheckboxes(wrapSel = '#fracc-detalle-wrap') {
+    const wrap = document.querySelector(wrapSel);
+    if (!wrap) return;
+    const all  = wrap.querySelector('#fcSelAll');
+    const chks = Array.from(wrap.querySelectorAll('.fc-chk'));
+    const tot  = wrap.querySelector('#fcTotalSel');
+    const btn  = wrap.querySelector('#fcBtnAgregar');
     if (!chks.length) return;
 
     const recalc = () => {
@@ -2380,12 +2416,14 @@ function _bindFraccCheckboxes() {
             recalc();
         });
     }
-    if (btn) btn.addEventListener('click', _fcAgregarCarrito);
+    if (btn) btn.addEventListener('click', () => _fcAgregarCarrito(wrapSel));
     recalc();
 }
 
-function _fcAgregarCarrito() {
-    const chks = Array.from(document.querySelectorAll('#fracc-detalle-wrap .fc-chk'));
+function _fcAgregarCarrito(wrapSel = '#fracc-detalle-wrap') {
+    const wrap = document.querySelector(wrapSel);
+    if (!wrap) return;
+    const chks = Array.from(wrap.querySelectorAll('.fc-chk'));
     let agregadas = 0;
     chks.forEach(c => {
         if (!c.checked) return;
@@ -2409,7 +2447,10 @@ function _fcAgregarCarrito() {
     }
     renderCarrito();
     toast(`${agregadas} cuota${agregadas !== 1 ? 's' : ''} agregada${agregadas !== 1 ? 's' : ''} al carrito`, 'ok');
-    cerrarModalInhabil();
+    // Solo cerrar el modal de tabs si estamos dentro de él
+    if (wrapSel === '#fracc-detalle-wrap') {
+        cerrarModalInhabil();
+    }
 }
 
 /* ── SIMULADOR ───────────────────────────────────────────────────── */
