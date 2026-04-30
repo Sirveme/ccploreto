@@ -655,8 +655,18 @@ async def actualizar_condicion(
     """
     ahora = datetime.now(PERU_TZ)
 
-    if datos.condicion not in ("habil", "inhabil"):
-        raise HTTPException(400, detail="Condición debe ser 'habil' o 'inhabil'")
+    CONDICIONES_VALIDAS = {"habil", "inhabil", "fallecido", "vitalicio"}
+    if datos.condicion not in CONDICIONES_VALIDAS:
+        raise HTTPException(
+            400,
+            detail=f"Condición inválida. Permitidas: {sorted(CONDICIONES_VALIDAS)}",
+        )
+    motivo = (datos.motivo or "").strip()
+    if datos.condicion in ("fallecido", "vitalicio") and not motivo:
+        raise HTTPException(
+            400,
+            detail=f"Motivo es obligatorio para marcar como {datos.condicion.upper()}",
+        )
 
     colegiado = db.query(Colegiado).filter(Colegiado.id == datos.colegiado_id).first()
     if not colegiado:
@@ -683,7 +693,11 @@ async def actualizar_condicion(
         else:
             colegiado.habilidad_vence = datetime(2026, 12, 31, tzinfo=PERU_TZ)
         colegiado.motivo_inhabilidad = None
-    else:
+    elif datos.condicion in ("fallecido", "vitalicio"):
+        # Sin caducidad. No tocar deudas.
+        colegiado.habilidad_vence = None
+        colegiado.motivo_inhabilidad = motivo
+    else:  # inhabil
         colegiado.habilidad_vence = None
         colegiado.motivo_inhabilidad = datos.motivo
 
@@ -697,6 +711,25 @@ async def actualizar_condicion(
         nota_audit += f" Motivo: {datos.motivo}"
 
     logger.info(nota_audit + f" | colegiado_id={colegiado.id}")
+
+    # Persistir en caja_correccion_log para consistencia con /caja
+    try:
+        from sqlalchemy import text as _text_cc
+        db.execute(_text_cc("""
+            INSERT INTO caja_correccion_log
+                (organization_id, colegiado_id, member_id, motivo, cambios, created_at)
+            VALUES
+                (:org, :col, :mem, :motivo, :cambios, NOW())
+        """), {
+            "org":     current_member.organization_id,
+            "col":     colegiado.id,
+            "mem":     current_member.id,
+            "motivo":  motivo or "(sin motivo)",
+            "cambios": f"condicion: {condicion_anterior} → {datos.condicion} (vía /secretaria)",
+        })
+    except Exception as _e:
+        # No bloquear el cambio por fallo de auditoría; queda en logger.info
+        logger.warning(f"[SECRETARIA] No se pudo escribir caja_correccion_log: {_e}")
 
     db.commit()
     db.refresh(colegiado)
