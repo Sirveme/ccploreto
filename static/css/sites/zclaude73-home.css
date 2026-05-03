@@ -13,8 +13,8 @@ body.ccpl-tokens .header {
   border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 
-/* el <a class="header-logo brand"> reemplaza al div legacy */
-body.ccpl-tokens .header-logo.brand {
+/* zClaude-75: brand con dos líneas (jerarquía sin "60 AÑOS") */
+body.ccpl-tokens .brand {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -31,29 +31,34 @@ body.ccpl-tokens .brand-logo {
   display: block;
 }
 
-body.ccpl-tokens .header-title strong {
-  display: block;
+body.ccpl-tokens .brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, .85);
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: .01em;
+  min-width: 0;
+}
+body.ccpl-tokens .brand-text strong {
   color: #fff;
   font-family: var(--font-display);
-  font-size: 14px;
   font-weight: var(--fw-bold);
-  line-height: 1.2;
-  letter-spacing: -.01em;
-}
-
-body.ccpl-tokens .header-title span {
-  display: block;
-  color: rgba(255, 255, 255, .72);
-  font-family: var(--font-body);
-  font-size: 10px;
-  letter-spacing: 1.2px;
-  margin-top: 2px;
+  font-size: 15px;
+  letter-spacing: -.005em;
 }
 
 @media (max-width: 480px) {
-  body.ccpl-tokens .brand-logo { width: 38px; height: 38px; }
-  body.ccpl-tokens .header-title strong { font-size: 13px; }
-  body.ccpl-tokens .header-title span { font-size: 9px; letter-spacing: .8px; }
+  body.ccpl-tokens .brand-logo { width: 36px; height: 36px; }
+  body.ccpl-tokens .brand-text { font-size: 11px; }
+  body.ccpl-tokens .brand-text strong { font-size: 13px; }
+}
+
+@media (max-width: 360px) {
+  /* En pantallas muy pequeñas, ocultar la primera línea y mantener "Públicos de Loreto" */
+  body.ccpl-tokens .brand-text { font-size: 0; }
+  body.ccpl-tokens .brand-text strong { font-size: 13px; }
 }
 
 body.ccpl-tokens .btn-acceder {
@@ -221,23 +226,32 @@ body.ccpl-tokens .car-dot.car-dot-active {
   letter-spacing: .04em;
 }
 
+/* zClaude-75: dígitos uniformes — Bodoni Moda + tnum/lnum */
 .num-60 {
+  font-family: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 700;
   font-size: clamp(72px, 16vw, 128px);
   line-height: 1;
+  letter-spacing: -.02em;
   background: linear-gradient(180deg, #F4D78A 0%, #D4A933 50%, #B8901F 100%);
   -webkit-background-clip: text;
           background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow:
-    0 2px 0 rgba(0, 0, 0, .3),
-    0 6px 14px rgba(212, 169, 51, .45);
+    0 2px 0 rgba(0, 0, 0, .2),
+    0 6px 14px rgba(212, 169, 51, .4);
   position: relative;
 }
 .grado {
-  font-size: clamp(36px, 8vw, 60px);
+  font-family: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
+  font-size: clamp(28px, 6vw, 48px);
   color: var(--ccpl-dorado);
-  font-weight: var(--fw-regular);
-  margin-left: -8px;
+  font-weight: 400;
+  margin-left: -6px;
+  align-self: flex-start;
+  margin-top: .4em;
 }
 .aniv-text {
   font-size: clamp(20px, 4.5vw, 36px);
@@ -463,15 +477,18 @@ body.ccpl-tokens #videos .video-thumb-placeholder {
 }
 .pagos-icon .mi { font-size: 20px; color: var(--ccpl-verde-700); }
 
+/* zClaude-75: defensivos contra cualquier regla mobile que pise */
 .pagos-grid {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   gap: var(--sp-3);
 }
 
-.pago-card {
-  display: flex;
-  align-items: center;
+.pago-card,
+.pagos .pago-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   gap: var(--sp-4);
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-md);
@@ -480,6 +497,8 @@ body.ccpl-tokens #videos .video-thumb-placeholder {
   border-left-width: 4px;
   box-shadow: var(--shadow-1);
   transition: var(--t-base);
+  text-decoration: none;
+  color: inherit;
 }
 .pago-card:hover {
   transform: translateY(-2px);
@@ -487,12 +506,12 @@ body.ccpl-tokens #videos .video-thumb-placeholder {
 }
 
 .pago-logo {
-  width: 48px;
-  height: 48px;
+  width: 48px !important;
+  height: 48px !important;
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   color: #fff;
   font-weight: var(--fw-bold);
   font-size: 16px;
@@ -502,9 +521,10 @@ body.ccpl-tokens #videos .video-thumb-placeholder {
 }
 
 .pago-info {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   min-width: 0;
+  flex: 1;
 }
 .pago-marca {
   font-size: var(--fs-body);
@@ -529,6 +549,15 @@ body.ccpl-tokens #videos .video-thumb-placeholder {
 
 .pago-bn    { border-left-color: #B8901F; }
 .pago-bn    .pago-logo { background: linear-gradient(135deg, #D4A933, #8B6914); font-size: 14px; }
+
+@media (max-width: 480px) {
+  .pago-card { padding: var(--sp-3); gap: var(--sp-3); }
+  .pago-logo { width: 40px !important; height: 40px !important; font-size: 13px; }
+  .pago-bcp .pago-logo,
+  .pago-bn  .pago-logo { font-size: 11px; }
+  .pago-marca { font-size: var(--fs-small); }
+  .pago-detalle { font-size: var(--fs-tiny); }
+}
 
 
 /* ──────────────────────────────────────────────────────────────
