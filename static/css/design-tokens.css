@@ -1,0 +1,88 @@
+/* ═══════════════════════════════════════════════════════════════
+   SISTEMA DE DISEÑO CCPL — zClaude-73
+   Variables base para todo el sitio público
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Paleta ───────────────────────────────────────────── */
+  --ccpl-verde-900: #0E3A1F;   /* Verde más oscuro — fondos profundos */
+  --ccpl-verde-700: #155A2C;   /* Verde principal — navbar, cards de ambientes */
+  --ccpl-verde-500: #1E7A3D;   /* Verde medio — botones, acentos */
+  --ccpl-verde-300: #4FAE73;   /* Verde claro — badges, hovers */
+  --ccpl-verde-50:  #E8F4EC;   /* Verde lavado — backgrounds suaves */
+
+  --ccpl-dorado:    #D4A933;   /* Dorado del logo y CTA Ingresar */
+  --ccpl-dorado-h:  #B8901F;   /* Dorado hover */
+
+  --ccpl-rojo:      #C62828;   /* Rojo del escudo (logo) — usar muy puntual */
+
+  --ccpl-bg:        #FAF8F3;   /* Fondo crema cálido del body */
+  --ccpl-superficie:#FFFFFF;   /* Cards y superficies blancas */
+  --ccpl-borde:     #E5DFD2;   /* Bordes y separadores cálidos */
+
+  --ccpl-texto:     #1A1F1B;   /* Texto principal */
+  --ccpl-texto-2:   #5A615C;   /* Texto secundario */
+  --ccpl-texto-3:   #8B8F8C;   /* Texto terciario / labels */
+
+  /* ── Tipografía ───────────────────────────────────────── */
+  --font-display: 'Playfair Display', 'Georgia', serif;
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+
+  --fs-hero:      clamp(28px, 6vw, 48px);
+  --fs-h1:        clamp(24px, 5vw, 36px);
+  --fs-h2:        clamp(20px, 4vw, 28px);
+  --fs-body:      16px;
+  --fs-small:     14px;
+  --fs-tiny:      12px;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ── Espaciado (escala 4) ─────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+
+  /* ── Sombras ──────────────────────────────────────────── */
+  --shadow-1: 0 1px 3px rgba(14, 58, 31, .08);
+  --shadow-2: 0 4px 12px rgba(14, 58, 31, .10);
+  --shadow-3: 0 8px 24px rgba(14, 58, 31, .14);
+  --shadow-hover: 0 10px 30px rgba(14, 58, 31, .18);
+
+  /* ── Radios ───────────────────────────────────────────── */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* ── Transiciones ─────────────────────────────────────── */
+  --t-fast: 150ms cubic-bezier(.4, 0, .2, 1);
+  --t-base: 250ms cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ── Tipografía base — solo se aplica donde NO haya estilos heredados ── */
+body.ccpl-tokens {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--ccpl-texto);
+  background: var(--ccpl-bg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.ccpl-tokens h1,
+body.ccpl-tokens h2,
+body.ccpl-tokens h3 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  letter-spacing: -.01em;
+}
