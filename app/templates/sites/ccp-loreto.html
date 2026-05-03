@@ -248,7 +248,6 @@
                    onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'">
               <div class="slide-overlay">
                 <div class="slide-content">
-                  <span class="hero-badge">60° ANIVERSARIO</span>
                   {% if s.titulo %}<h2>{{ s.titulo }}</h2>{% endif %}
                   {% if s.subtitulo %}<p>{{ s.subtitulo }}</p>{% endif %}
                   {% if s.boton_texto %}
@@ -276,7 +275,6 @@
                  alt="Directiva CCPL 2026-2027">
             <div class="slide-overlay">
               <div class="slide-content">
-                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Gestión 2026 · 2027</div>
                 <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
                 <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía</p>
@@ -288,7 +286,6 @@
             <img src="/static/img/ccploreto-capacitaciones.webp" alt="Ambientes">
             <div class="slide-overlay">
               <div class="slide-content">
-                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Ambientes e Instalaciones</div>
                 <h2>Capacitación para el desarrollo profesional de Contadores y Público en general</h2>
                 <p>Infraestructura moderna y equipada para brindar una experiencia de aprendizaje óptima</p>
@@ -302,7 +299,6 @@
             <img src="/static/img/ccploreto-piscina.webp" alt="Capacitación">
             <div class="slide-overlay">
               <div class="slide-content">
-                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Esparcimiento y Confraternidad</div>
                 <h2>Espacios para el disfrute y la integración de la comunidad</h2>
                 <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
@@ -328,23 +324,16 @@
   </div>
 </section>
 
-<!-- ══ FRANJA INSTITUCIONAL — 60° + cifras (zClaude-73) ═══════════ -->
-<section class="franja-institucional" aria-label="Identidad institucional">
-  <div class="franja-inner">
-    <div class="franja-item">
-      <span class="franja-num">60</span>
-      <span class="franja-label">Años de historia</span>
-    </div>
-    <div class="franja-sep" aria-hidden="true"></div>
-    <div class="franja-item">
-      <span class="franja-num">1156</span>
-      <span class="franja-label">Colegiados activos</span>
-    </div>
-    <div class="franja-sep" aria-hidden="true"></div>
-    <div class="franja-item">
-      <span class="franja-icon mi" aria-hidden="true">place</span>
-      <span class="franja-label">Iquitos, Perú</span>
-    </div>
+<!-- ══ FRANJA 60° ANIVERSARIO — protagonista (zClaude-74) ═══════════ -->
+<section class="franja-60" aria-label="60 Aniversario CCPL">
+  <div class="franja-60-inner">
+    <h2 class="franja-60-titulo">
+      <span class="num-60" aria-hidden="true">60</span><span class="grado" aria-hidden="true">°</span>
+      <span class="aniv-text">ANIVERSARIO</span>
+    </h2>
+    <p class="franja-60-sub">
+      <strong>1150+</strong> colegiados activos · al servicio de la profesión contable
+    </p>
   </div>
 </section>
 
@@ -797,14 +786,42 @@
         </div>
       {% endif %}
     </div>
-    <div class="pagos-strip">
-      <h3><span class="mi">payment</span> Métodos de Pago</h3>
+    <section class="pagos" aria-label="Métodos de pago">
+      <h3 class="pagos-titulo">
+        <span class="pagos-icon" aria-hidden="true"><span class="mi">payment</span></span>
+        Métodos de Pago
+      </h3>
       <div class="pagos-grid">
-        <div class="pago-item"><span class="mi">smartphone</span><div class="pago-item-info"><strong>Yape / Plin</strong><span>979 169 813</span></div></div>
-        <div class="pago-item"><span class="mi">account_balance</span><div class="pago-item-info"><strong>BCP</strong><span>N° 123-4567890-1-23</span></div></div>
-        <div class="pago-item"><span class="mi">account_balance</span><div class="pago-item-info"><strong>Banco de la Nación</strong><span>N° 00-987-654321</span></div></div>
+        <div class="pago-card pago-yape">
+          <div class="pago-logo" aria-hidden="true">Y</div>
+          <div class="pago-info">
+            <span class="pago-marca">Yape</span>
+            <span class="pago-detalle">979 169 813</span>
+          </div>
+        </div>
+        <div class="pago-card pago-plin">
+          <div class="pago-logo" aria-hidden="true">P</div>
+          <div class="pago-info">
+            <span class="pago-marca">Plin</span>
+            <span class="pago-detalle">979 169 813</span>
+          </div>
+        </div>
+        <div class="pago-card pago-bcp">
+          <div class="pago-logo" aria-hidden="true">BCP</div>
+          <div class="pago-info">
+            <span class="pago-marca">BCP — Cuenta Corriente</span>
+            <span class="pago-detalle">N° 123-4567890-1-23</span>
+          </div>
+        </div>
+        <div class="pago-card pago-bn">
+          <div class="pago-logo" aria-hidden="true">BN</div>
+          <div class="pago-info">
+            <span class="pago-marca">Banco de la Nación</span>
+            <span class="pago-detalle">N° 00-987-654321</span>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 </section>
 
@@ -1262,11 +1279,16 @@
 <!-- ══ FOOTER ════════════════════════════════════════ -->
 <footer>
   <div class="footer-inner">
-    <!-- Bloque marca (zClaude-73) -->
+    <!-- Bloque marca (zClaude-74): logo + texto a la derecha -->
     <div class="footer-brand">
       <img src="/static/img/LOGO-CONTADORES.svg" alt="CCPL" class="footer-logo">
-      <p class="footer-name">Colegio de Contadores Públicos de Loreto</p>
-      <p class="footer-aniv"><span class="aniv-num">60</span> años · Iquitos, Perú</p>
+      <div class="footer-brand-text">
+        <p class="footer-name"><strong>Colegio de Contadores Públicos</strong><br>de Loreto</p>
+        <p class="footer-aniv">
+          <span class="aniv-num">60°</span>
+          <span class="aniv-label">Aniversario · Iquitos, Perú</span>
+        </p>
+      </div>
     </div>
 
     <div>
@@ -1275,45 +1297,53 @@
         <span>📍 Calle Echenique 451, Iquitos — Loreto</span>
         <span>📞 (065) 24-2821</span>
         <span>📱 979 169 813</span>
-        <span>✉ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="412222312d2e3324352e01262c20282d6f222e2c">[email&#160;protected]</a></span>
       </div>
+      <a href="https://wa.me/51979169813?text=Hola%2C%20escribo%20desde%20la%20web%20del%20CCPL"
+         class="footer-wa-btn" target="_blank" rel="noopener">
+        <span class="wa-icon" aria-hidden="true">💬</span>
+        <span>
+          <strong>WhatsApp</strong>
+          <small>Respuesta rápida · 979 169 813</small>
+        </span>
+      </a>
       <div class="footer-social">
-        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener">
+        <a href="https://www.facebook.com/ccploreto.oficial/" target="_blank" rel="noopener" aria-label="Facebook">
           <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
         </a>
-        <a href="https://wa.me/51979169813" target="_blank" rel="noopener">
+        <a href="https://wa.me/51979169813" target="_blank" rel="noopener" aria-label="WhatsApp">
           <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
         </a>
       </div>
     </div>
-    <div>
+    <div class="footer-col-links">
       <h4>Accesos</h4>
-      <div class="footer-links">
-        <a href="/consulta/habilidad">Consultar Habilidad</a>
-        <a href="/institucional/">Institucional</a>
-        <a href="/colegiados/">Colegiados</a>
-        <a href="/reglamento/">Reglamento</a>
-        <a href="/transparencia/">Transparencia</a>
-        <a href="/login/">Acceso Colegiados</a>
-      </div>
+      <a href="/consulta/habilidad">Consultar Habilidad</a>
+      <a href="/institucional/">Institucional</a>
+      <a href="/colegiados/">Colegiados</a>
+      <a href="/reglamento/">Reglamento</a>
+      <a href="/transparencia/">Transparencia</a>
+      <a href="/login/">Acceso Colegiados</a>
     </div>
-    <div>
+    <div class="footer-col-links">
       <h4>Legal</h4>
-      <div class="footer-links">
-        <a href="/politica-privacidad/">Política de Privacidad</a>
-        <a href="/terminos/">Términos y Condiciones</a>
-        <a href="/libro-reclamaciones/">Libro de Reclamaciones</a>
-      </div>
+      <a href="/politica-privacidad/">Política de Privacidad</a>
+      <a href="/terminos/">Términos y Condiciones</a>
+      <a href="/libro-reclamaciones/">Libro de Reclamaciones</a>
     </div>
     <div class="footer-bottom">
       <p>&copy; 2026 Colegio de Contadores Públicos de Loreto. Todos los derechos reservados.</p>
-      <div class="footer-dev">
-        <span class="mi">code</span>
-        <span>Plataforma desarrollada por
-          <a href="https://sigcosystems.com" target="_blank" rel="noopener">SigcoSystems</a>
-          &amp;
-          <a href="https://duilio.store" target="_blank" rel="noopener" style="color: #e8f0eb;">Duilio Restuccia</a> · <a href="https://perusistemas.pro" target="_blank" rel="noopener" style="color: crimson;">Perú Sistemas PRO</a>
-        </span>
+      <div class="footer-credit">
+        <div class="credit-line">
+          <span class="credit-tag">‹/›</span>
+          <span class="credit-text">
+            Plataforma desarrollada por
+            <a href="https://duilio.store" target="_blank" rel="noopener"><strong>Duilio Restuccia</strong></a>
+          </span>
+        </div>
+        <div class="credit-line credit-brand">
+          <span>POWERED BY</span>
+          <a href="https://perusistemas.pro" target="_blank" rel="noopener"><strong>PERÚ SISTEMAS PRO</strong></a>
+        </div>
       </div>
     </div>
   </div>
