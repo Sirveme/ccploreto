@@ -264,6 +264,13 @@ body.ccpl-tokens .car-dot.car-dot-active {
     align-items: center;
     gap: 0;
   }
+
+  /* La regla nueva — mantener 60 y ° en línea aunque el padre sea columna */
+  .num-grupo {
+    display: inline-flex;
+    align-items: baseline;
+  }
+
   .aniv-text { margin-left: 0; margin-top: var(--sp-1); letter-spacing: .25em; }
 }
 
