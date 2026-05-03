@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
 
+<!-- ── zClaude-73: tokens + fuentes ─────────────────────────────── -->
+<link rel="stylesheet" href="/static/css/design-tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <!-- Base: tokens, header, hero, footer, layout -->
 <link rel="stylesheet" href="/static/css/sites/ccp-loreto.css">
 <link rel="stylesheet" href="/static/css/sections/nav-dropdowns.css">
@@ -14,21 +20,31 @@
 <link rel="stylesheet" href="/static/css/sections/ambientes.css">
 <link rel="stylesheet" href="/static/css/sections/videos-capacitacion.css">
 
-<link rel="icon" href="/static/img/favicon.ico">
+<!-- ── zClaude-73: rediseño home (carga al final para sobreescribir) -->
+<link rel="stylesheet" href="/static/css/sites/zclaude73-home.css">
+
+<!-- ── Favicons + meta institucional ────────────────────────────── -->
+<link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+<link rel="alternate icon" type="image/png" href="/static/img/favicon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/static/img/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="/static/img/icon-512.png">
+<meta name="theme-color" content="#155A2C">
+<meta property="og:title" content="Colegio de Contadores Públicos de Loreto — 60 Años">
+<meta property="og:image" content="/static/img/icon-512.png">
 </head>
-<body>
+<body class="ccpl-tokens">
 
 
 <!-- ══ HEADER ══════════════════════════════════════════════════ -->
 <header class="header">
   <div class="header-inner">
-    <div class="header-logo">
-      <div class="logo-mark">CC<br>PL</div>
+    <a href="/" class="header-logo brand" aria-label="CCPL — Contadores Públicos de Loreto">
+      <img src="/static/img/LOGO-CONTADORES.svg" alt="Logo CCPL" class="brand-logo" width="44" height="44">
       <div class="header-title">
         <strong>Contadores Públicos de Loreto</strong>
         <span>60 AÑOS · IQUITOS, PERÚ</span>
       </div>
-    </div>
+    </a>
     <!-- Solo visible en mobile — ocultar en desktop via CSS -->
     <div class="header-actions">
       <button class="btn-verificar" onclick="toggleVerify()">
@@ -232,6 +248,7 @@
                    onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'">
               <div class="slide-overlay">
                 <div class="slide-content">
+                  <span class="hero-badge">60° ANIVERSARIO</span>
                   {% if s.titulo %}<h2>{{ s.titulo }}</h2>{% endif %}
                   {% if s.subtitulo %}<p>{{ s.subtitulo }}</p>{% endif %}
                   {% if s.boton_texto %}
@@ -259,6 +276,7 @@
                  alt="Directiva CCPL 2026-2027">
             <div class="slide-overlay">
               <div class="slide-content">
+                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Gestión 2026 · 2027</div>
                 <h2>Nuevo Consejo Directivo al servicio de Loreto</h2>
                 <p>Compromiso con el desarrollo profesional de los contadores públicos de la Amazonía</p>
@@ -270,6 +288,7 @@
             <img src="/static/img/ccploreto-capacitaciones.webp" alt="Ambientes">
             <div class="slide-overlay">
               <div class="slide-content">
+                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Ambientes e Instalaciones</div>
                 <h2>Capacitación para el desarrollo profesional de Contadores y Público en general</h2>
                 <p>Infraestructura moderna y equipada para brindar una experiencia de aprendizaje óptima</p>
@@ -283,6 +302,7 @@
             <img src="/static/img/ccploreto-piscina.webp" alt="Capacitación">
             <div class="slide-overlay">
               <div class="slide-content">
+                <span class="hero-badge">60° ANIVERSARIO</span>
                 <div class="slide-label">Esparcimiento y Confraternidad</div>
                 <h2>Espacios para el disfrute y la integración de la comunidad</h2>
                 <p>Piscina, canchas de fútbol y vóley disponibles para colegiados y el público en general</p>
@@ -304,6 +324,26 @@
       {% for i in range(total_slides) %}
         <button class="car-dot{% if loop.first %} car-dot-active{% endif %}" aria-label="Slide {{ i + 1 }}"></button>
       {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ══ FRANJA INSTITUCIONAL — 60° + cifras (zClaude-73) ═══════════ -->
+<section class="franja-institucional" aria-label="Identidad institucional">
+  <div class="franja-inner">
+    <div class="franja-item">
+      <span class="franja-num">60</span>
+      <span class="franja-label">Años de historia</span>
+    </div>
+    <div class="franja-sep" aria-hidden="true"></div>
+    <div class="franja-item">
+      <span class="franja-num">1156</span>
+      <span class="franja-label">Colegiados activos</span>
+    </div>
+    <div class="franja-sep" aria-hidden="true"></div>
+    <div class="franja-item">
+      <span class="franja-icon mi" aria-hidden="true">place</span>
+      <span class="franja-label">Iquitos, Perú</span>
     </div>
   </div>
 </section>
@@ -377,7 +417,7 @@
         </div>
       </div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:14px;text-align:left">
+    <p class="video-disclaimer">
       * Videos disponibles a partir del lanzamiento del sistema.
     </p>
   </div>
@@ -768,18 +808,17 @@
   </div>
 </section>
 
-<!-- ══ SECCIÓN: EVENTOS (placeholder) ══════════════ -->
+<!-- ══ SECCIÓN: EVENTOS — solo si el CMS la pobla (zClaude-73 6.7) ═ -->
+{% if cms and cms.eventos %}
 <section class="page-section" id="eventos">
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">event</span><span>Agenda institucional</span></div>
     <h2 class="sec-title">Eventos del Año</h2>
-    <p class="sec-sub">Próximamente — sección en desarrollo</p>
-    <div style="background:var(--verde-lt);border-radius:10px;padding:32px;text-align:center;color:var(--txt2)">
-      <span class="mi" style="font-size:48px;color:var(--borde)">event</span>
-      <p style="margin-top:12px;font-size:14px">Calendario de eventos 2026 — disponible próximamente</p>
-    </div>
+    <p class="sec-sub">Calendario institucional 2026</p>
+    {# El render real de la lista se agregará cuando el CMS exponga `cms.eventos`. #}
   </div>
 </section>
+{% endif %}
 
 <!-- ══ SECCIÓN: GALERÍA INSTITUCIONAL (zClaude-60) ══ -->
 <style>
@@ -973,7 +1012,7 @@
   <div class="section-inner">
     <div class="sec-eyebrow"><span class="mi">campaign</span><span>Noticias oficiales</span></div>
     <h2 class="sec-title">Últimos Comunicados</h2>
-    <p class="sec-sub">Para descargar o compartir debes identificarte como colegiado hábil</p>
+    <p class="sec-sub">Inicia sesión como colegiado hábil para descargar o compartir.</p>
     <div class="comunicados-grid-home">
       {% if cms and cms.comunicados %}
         {% for com in cms.comunicados %}
@@ -1155,8 +1194,9 @@
   </style>
 
   <div class="tienda-head">
+    <span class="tienda-eyebrow">Merchandising institucional</span>
     <h2>Tienda CCPL</h2>
-    <p>Merchandising institucional</p>
+    <p>Productos oficiales del Colegio — colegiados y público en general</p>
   </div>
 
   <div class="tienda-grid">
@@ -1222,6 +1262,13 @@
 <!-- ══ FOOTER ════════════════════════════════════════ -->
 <footer>
   <div class="footer-inner">
+    <!-- Bloque marca (zClaude-73) -->
+    <div class="footer-brand">
+      <img src="/static/img/LOGO-CONTADORES.svg" alt="CCPL" class="footer-logo">
+      <p class="footer-name">Colegio de Contadores Públicos de Loreto</p>
+      <p class="footer-aniv"><span class="aniv-num">60</span> años · Iquitos, Perú</p>
+    </div>
+
     <div>
       <h4>Contacto</h4>
       <div class="footer-links">
