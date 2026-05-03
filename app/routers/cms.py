@@ -25,14 +25,17 @@ logger = logging.getLogger(__name__)
 
 PERU_TZ = timezone(timedelta(hours=-5))
 ROLES_CMS = ("admin", "editor")
+EDITOR_DNI_OVERRIDE = {"05393776"}  # SOTE — acceso directo a /admin/cms (zClaude-72)
 
 
 def require_admin_or_editor(
     current_member: Member = Depends(get_current_member),
 ) -> Member:
-    if current_member.role not in ROLES_CMS:
-        raise HTTPException(status_code=403, detail="Acceso restringido a admin/editor")
-    return current_member
+    if current_member.role in ROLES_CMS:
+        return current_member
+    if current_member.user and current_member.user.public_id in EDITOR_DNI_OVERRIDE:
+        return current_member
+    raise HTTPException(status_code=403, detail="Acceso restringido a admin/editor")
 
 
 def _a_lima(dt, fmt: str = "%d/%m/%Y %H:%M"):
