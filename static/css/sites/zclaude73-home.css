@@ -55,11 +55,7 @@ body.ccpl-tokens .brand-text strong {
   body.ccpl-tokens .brand-text strong { font-size: 13px; }
 }
 
-@media (max-width: 360px) {
-  /* En pantallas muy pequeñas, ocultar la primera línea y mantener "Públicos de Loreto" */
-  body.ccpl-tokens .brand-text { font-size: 0; }
-  body.ccpl-tokens .brand-text strong { font-size: 13px; }
-}
+
 
 body.ccpl-tokens .btn-acceder {
   background: var(--ccpl-dorado);
@@ -580,6 +576,9 @@ body.ccpl-tokens .footer-inner {
   body.ccpl-tokens .footer-inner {
     grid-template-columns: 1fr;
     gap: var(--sp-6);
+  }
+  body.ccpl-tokens .footer {
+    padding-bottom: 96px; /* ~80px del bottom-nav + 16px de aire */
   }
 }
 
