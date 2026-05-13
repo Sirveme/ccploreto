@@ -27,7 +27,11 @@ from app.routers.admin_config_router import router as admin_config_router
 from app.routers.admin_views import router as admin_views_router
 from app.routers import router_certificados
 from app.routers import api_publico
-from app.routers.caja import router as caja_router, page_router as caja_page_router
+from app.routers.caja import (
+    router as caja_router,
+    page_router as caja_page_router,
+    admin_caja_router,
+)
 
 from app.routers.reportes import router as reportes_router
 from app.routers.conciliacion import router as conciliacion_router
@@ -208,6 +212,7 @@ app.include_router(router_certificados.router)
 app.include_router(api_publico.router)
 app.include_router(caja_router)
 app.include_router(caja_page_router)
+app.include_router(admin_caja_router)
 app.include_router(reportes_router)
 app.include_router(conciliacion_router)
 app.include_router(finanzas_router)
