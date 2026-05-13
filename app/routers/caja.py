@@ -42,6 +42,7 @@ from app.routers.dashboard import get_current_member
 from app.models import Member
 
 from app.services.facturacion import FacturacionService
+from app.utils.comprobantes import get_numero_display, get_estado_display
 
 logger = logging.getLogger(__name__)
 
@@ -927,12 +928,15 @@ async def obtener_comprobante_pago(
     # Retornar proxy URL en lugar de la URL directa de facturalo.pro
     proxy_pdf = f"/api/caja/comprobante/{payment_id}/pdf" if (comp.pdf_url or comp.facturalo_id) else None
 
+    estado_label, estado_color = get_estado_display(comp)
     return {
         "payment_id": payment_id,
         "comprobante_id": comp.id,
         "tipo": comp.tipo,
-        "numero_formato": f"{comp.serie}-{str(comp.numero).zfill(8)}",
+        "numero_formato": get_numero_display(comp),
         "status": comp.status,
+        "estado_label": estado_label,
+        "estado_color": estado_color,
         "pdf_url": proxy_pdf,
         "sunat_hash": comp.sunat_hash,
         "sunat_response": comp.sunat_response_description,
@@ -1993,12 +1997,14 @@ async def ver_comprobante(payment_id: int, db: Session = Depends(get_db)):
                 "tipo_nombre": {"01": "Factura", "03": "Boleta", "07": "Nota de Crédito", "08": "Nota de Débito"}.get(c.tipo, c.tipo),
                 "serie": c.serie,
                 "numero": c.numero,
-                "numero_formato": f"{c.serie}-{str(c.numero).zfill(8)}",
+                "numero_formato": get_numero_display(c),
                 "fecha": c.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if c.created_at else "",
                 "cliente_nombre": c.cliente_nombre,
                 "cliente_doc": c.cliente_num_doc,
                 "total": float(c.total or 0),
                 "status": c.status,
+                "estado_label": get_estado_display(c)[0],
+                "estado_color": get_estado_display(c)[1],
                 "pdf_url": c.pdf_url,
                 "sunat_response": c.sunat_response_description,
                 "comprobante_ref_id": c.comprobante_ref_id,
@@ -2066,27 +2072,30 @@ async def listar_comps(
         Comprobante.created_at.desc()
     ).offset((page - 1) * limit).limit(limit).all()
 
+    def _serialize(c):
+        estado_label, estado_color = get_estado_display(c)
+        return {
+            "id": c.id,
+            "tipo": c.tipo,
+            "serie": c.serie,
+            "numero": c.numero,
+            "numero_formato": get_numero_display(c),
+            "fecha": c.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if c.created_at else "",
+            "cliente_nombre": c.cliente_nombre,
+            "cliente_doc": c.cliente_num_doc,
+            "total": float(c.total or 0),
+            "status": c.status,
+            "estado_label": estado_label,
+            "estado_color": estado_color,
+            "payment_id": c.payment_id,
+            "pdf_url": c.pdf_url,
+            "comprobante_ref_id": c.comprobante_ref_id,
+            "observaciones": c.observaciones,
+            "sunat_response_description": c.sunat_response_description or "",
+        }
+
     return {
-        "comprobantes": [
-            {
-                "id": c.id,
-                "tipo": c.tipo,
-                "serie": c.serie,
-                "numero": c.numero,
-                "numero_formato": f"{c.serie}-{str(c.numero).zfill(8)}",
-                "fecha": c.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if c.created_at else "",
-                "cliente_nombre": c.cliente_nombre,
-                "cliente_doc": c.cliente_num_doc,
-                "total": float(c.total or 0),
-                "status": c.status,
-                "payment_id": c.payment_id,
-                "pdf_url": c.pdf_url,
-                "comprobante_ref_id": c.comprobante_ref_id,
-                "observaciones": c.observaciones,
-                "sunat_response_description": c.sunat_response_description or "",
-            }
-            for c in comprobantes
-        ],
+        "comprobantes": [_serialize(c) for c in comprobantes],
         "total": total,
         "page": page,
         "pages": (total + limit - 1) // limit,
@@ -2676,3 +2685,123 @@ async def fraccionamiento_detalle_caja(
     }
 
     return {"plan": plan_payload, "cuotas": cuotas_payload}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SINCRONIZACIÓN DE ESTADOS SUNAT
+# Recorre comprobantes accepted sin codigo_sunat y consulta facturalo.pro
+# para traer el estado real del CDR de SUNAT.
+# ══════════════════════════════════════════════════════════════════════════════
+
+admin_caja_router = APIRouter(prefix="/admin/caja", tags=["Admin Caja"])
+
+
+@admin_caja_router.get("/sync-sunat")
+async def sync_sunat_estados(
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """
+    Sincroniza el estado SUNAT de los comprobantes que Facturalo encoló
+    (status='accepted') pero aún no tienen `codigo_sunat` en
+    `facturalo_response → comprobante`.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    candidatos = db.query(Comprobante).filter(
+        Comprobante.organization_id == member.organization_id,
+        Comprobante.status == "accepted",
+        Comprobante.facturalo_id.isnot(None),
+    ).order_by(Comprobante.created_at.desc()).limit(limit).all()
+
+    pendientes = []
+    for c in candidatos:
+        fr = c.facturalo_response if isinstance(c.facturalo_response, dict) else {}
+        comp = fr.get("comprobante") if isinstance(fr, dict) else None
+        comp = comp if isinstance(comp, dict) else {}
+        if comp.get("codigo_sunat") in (None, ""):
+            pendientes.append(c)
+
+    if not pendientes:
+        return {
+            "total_revisados": 0,
+            "actualizados": 0,
+            "errores": 0,
+            "mensaje": "No hay comprobantes pendientes de sincronización",
+        }
+
+    config = db.query(ConfiguracionFacturacion).filter(
+        ConfiguracionFacturacion.organization_id == member.organization_id,
+        ConfiguracionFacturacion.activo == True,
+    ).first()
+    if not config or not config.facturalo_token:
+        raise HTTPException(400, detail="Facturación no configurada para esta organización")
+
+    actualizados = 0
+    errores = 0
+    detalles = []
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for c in pendientes:
+            try:
+                r = await client.get(
+                    f"{config.facturalo_url}/comprobantes/{c.facturalo_id}",
+                    headers={
+                        "X-API-Key": config.facturalo_token,
+                        "X-API-Secret": config.facturalo_secret,
+                    },
+                )
+                if r.status_code != 200:
+                    errores += 1
+                    detalles.append({"id": c.id, "error": f"HTTP {r.status_code}"})
+                    continue
+
+                data = r.json() if r.content else {}
+                comp_data = data.get("comprobante", data) if isinstance(data, dict) else {}
+                if not isinstance(comp_data, dict):
+                    errores += 1
+                    continue
+
+                codigo_sunat = comp_data.get("codigo_sunat")
+                if codigo_sunat in (None, ""):
+                    # SUNAT aún no procesa; lo dejamos para el próximo barrido
+                    continue
+
+                nuevo_fr = c.facturalo_response if isinstance(c.facturalo_response, dict) else {}
+                existing = nuevo_fr.get("comprobante", {}) if isinstance(nuevo_fr.get("comprobante"), dict) else {}
+                existing.update(comp_data)
+                nuevo_fr["comprobante"] = existing
+                c.facturalo_response = nuevo_fr
+                flag_modified(c, "facturalo_response")
+
+                if not c.sunat_response_code:
+                    c.sunat_response_code = str(codigo_sunat)
+                mensaje_sunat = comp_data.get("mensaje_sunat") or comp_data.get("estado")
+                if mensaje_sunat and not c.sunat_response_description:
+                    c.sunat_response_description = mensaje_sunat
+
+                actualizados += 1
+                detalles.append({
+                    "id": c.id,
+                    "facturalo_id": c.facturalo_id,
+                    "codigo_sunat": str(codigo_sunat),
+                    "numero_formato": comp_data.get("numero_formato"),
+                })
+            except httpx.HTTPError as e:
+                errores += 1
+                detalles.append({"id": c.id, "error": f"red: {str(e)[:120]}"})
+                logger.warning(f"sync-sunat red error comp {c.id}: {e}")
+            except Exception as e:
+                errores += 1
+                detalles.append({"id": c.id, "error": str(e)[:120]})
+                logger.warning(f"sync-sunat error comp {c.id}: {e}")
+
+    db.commit()
+
+    return {
+        "total_revisados": len(pendientes),
+        "actualizados": actualizados,
+        "errores": errores,
+        "detalles": detalles[:50],
+    }
