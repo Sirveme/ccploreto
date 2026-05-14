@@ -1332,3 +1332,50 @@ select.egr-input { cursor: pointer; }
     .cart-fab { bottom: calc(12px + env(safe-area-inset-bottom)); }
     .modal-box { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
+
+/* ============ zClaude-79: info-box matrícula previa ============ */
+.alta-info-box {
+  margin: 0 0 16px 0;
+  padding: 12px 14px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font-size: 0.88em;
+}
+.alta-info-loading {
+  color: #94a3b8;
+  font-style: italic;
+}
+.alta-info-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+.alta-info-label {
+  color: #94a3b8;
+  font-size: 0.9em;
+}
+.alta-info-value {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+.alta-info-value.proxima {
+  color: #3b82f6;
+  font-size: 1.05em;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+.alta-info-note {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #334155;
+  color: #64748b;
+  font-size: 0.8em;
+  font-style: italic;
+}
+.alta-info-error {
+  color: #f59e0b;
+  font-size: 0.85em;
+}
