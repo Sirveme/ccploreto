@@ -1333,6 +1333,50 @@ select.egr-input { cursor: pointer; }
     .modal-box { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
 
+/* ============ zClaude-80: Scroll vertical en carrito (Cobro actual) ============ */
+/* Selector real: #panelRight.panel-right > .cart-head / #cartBody.cart-body / .cart-foot.
+   El layout ya era flex; lo que faltaba era `min-height: 0` en .cart-body
+   (clásico flexbox: sin esto, flex:1 no permite que el hijo encoja por
+   debajo de su altura natural y el overflow no se activa). */
+
+#panelRight,
+.panel-right {
+    min-height: 0;          /* permite que los flex children encojan */
+    overflow: hidden;        /* el scroll vive en .cart-body, no aquí */
+}
+
+.cart-head {
+    flex: 0 0 auto;
+}
+
+#cartBody,
+.cart-body {
+    flex: 1 1 auto;
+    min-height: 0;          /* CRITICO para que overflow-y:auto funcione */
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+}
+
+/* Scrollbar custom */
+#cartBody::-webkit-scrollbar,
+.cart-body::-webkit-scrollbar { width: 8px; }
+#cartBody::-webkit-scrollbar-track,
+.cart-body::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; }
+#cartBody::-webkit-scrollbar-thumb,
+.cart-body::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+#cartBody::-webkit-scrollbar-thumb:hover,
+.cart-body::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+.cart-foot {
+    flex: 0 0 auto;
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35)), var(--bg-card, #0f172a);
+    border-top: 1px solid var(--border, #334155);
+    z-index: 1;
+}
+
 /* ============ zClaude-79: info-box matrícula previa ============ */
 .alta-info-box {
   margin: 0 0 16px 0;
