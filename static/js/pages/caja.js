@@ -3523,17 +3523,69 @@ function _recalcFraccSel() {
 const AltaRapida = (() => {
   const $ = id => document.getElementById(id);
 
-  function abrir() {
+  async function abrir() {
     limpiar();
     const modal = $('modal-alta-rapida');
     if (!modal) return;
     modal.classList.add('is-open');
-    setTimeout(() => $('alta-dni')?.focus(), 50);
+    await cargarInfo();
+    $('alta-dni')?.focus();
   }
 
   function cerrar() {
     const modal = $('modal-alta-rapida');
     if (modal) modal.classList.remove('is-open');
+  }
+
+  async function cargarInfo() {
+    const box = $('alta-info-box');
+    if (!box) return;
+    box.innerHTML = '<div class="alta-info-loading">Cargando información…</div>';
+    try {
+      const r = await fetch('/api/caja/colegiado/proxima-matricula');
+      if (!r.ok) throw new Error('Error de servidor');
+      const data = await r.json();
+
+      let ultimoHtml;
+      if (data.ultimo_registrado) {
+        const u = data.ultimo_registrado;
+        let fecha = '—';
+        if (u.fecha_inscripcion) {
+          try {
+            fecha = new Date(u.fecha_inscripcion + 'T00:00:00').toLocaleDateString('es-PE', {
+              day: '2-digit', month: '2-digit', year: 'numeric'
+            });
+          } catch (_) { fecha = u.fecha_inscripcion; }
+        }
+        const nombre = (u.nombre_completo || '').trim() || '—';
+        ultimoHtml = `
+          <span class="alta-info-label">Último registrado:</span>
+          <span class="alta-info-value">${u.matricula} — ${nombre} (${fecha})</span>
+        `;
+      } else {
+        ultimoHtml = `
+          <span class="alta-info-label">Último registrado:</span>
+          <span class="alta-info-value">—</span>
+        `;
+      }
+
+      box.innerHTML = `
+        <div class="alta-info-grid">
+          <span class="alta-info-label">Próxima matrícula:</span>
+          <span class="alta-info-value proxima">${data.proxima_matricula}</span>
+          ${ultimoHtml}
+          <span class="alta-info-note">
+            Matrícula referencial. Se confirma al guardar.
+          </span>
+        </div>
+      `;
+    } catch (e) {
+      box.innerHTML = `
+        <div class="alta-info-error">
+          No se pudo cargar la información de matrícula. Puedes continuar igual.
+        </div>
+      `;
+    }
   }
 
   function limpiar() {
