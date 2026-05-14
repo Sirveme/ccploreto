@@ -3527,13 +3527,13 @@ const AltaRapida = (() => {
     limpiar();
     const modal = $('modal-alta-rapida');
     if (!modal) return;
-    modal.style.display = 'flex';
+    modal.classList.add('is-open');
     setTimeout(() => $('alta-dni')?.focus(), 50);
   }
 
   function cerrar() {
     const modal = $('modal-alta-rapida');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.remove('is-open');
   }
 
   function limpiar() {
@@ -3664,7 +3664,7 @@ const AltaRapida = (() => {
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         const m = $('modal-alta-rapida');
-        if (m && m.style.display !== 'none') cerrar();
+        if (m && m.classList.contains('is-open')) cerrar();
       }
     });
 
