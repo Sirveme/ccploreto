@@ -2124,7 +2124,11 @@ function _renderModal(data) {
             <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);
                         border-radius:12px;padding:18px;margin-bottom:16px">
                 <div style="font-size:13px;font-weight:700;color:#818cf8;margin-bottom:4px">
-                    🧮 Simulador de Plan de Pago
+                    🧮 Simulador de Plan de Pago (vista previa)
+                </div>
+                <div style="font-size:10px;color:#64748b;margin-bottom:8px">
+                    Calcula sobre el total de deuda. Para crear el plan, usa
+                    <strong style="color:#818cf8">"Crear fraccionamiento"</strong> abajo.
                 </div>
                 <div style="font-size:11px;color:#94a3b8;margin-bottom:16px">
                     Deuda total: <strong style="color:#e2e8f0">S/ ${total.toFixed(2)}</strong> ·
@@ -2180,6 +2184,9 @@ function _renderModal(data) {
                 <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
             </div>`}
             </div>
+
+            <!-- zClaude-77: Crear fraccionamiento (selector de deudas) -->
+            <div id="frac-selector-wrap" style="margin-top:16px"></div>
 
             <!-- Reglamento -->
             <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
@@ -2901,19 +2908,16 @@ function _inyectarBotonCobroFracc() {
     btnDiv.style.cssText = 'margin-top:14px;display:grid;gap:8px';
     btnDiv.innerHTML = `
         <button onclick="_agregarFraccAlCarrito()"
-            style="padding:13px;border:none;border-radius:12px;font-size:13px;
-                   font-weight:700;cursor:pointer;width:100%;
-                   background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;
+            style="padding:13px;border:1px solid rgba(124,58,237,.4);border-radius:12px;
+                   font-size:13px;font-weight:700;cursor:pointer;width:100%;
+                   background:rgba(124,58,237,.08);color:#a78bfa;
                    display:flex;align-items:center;justify-content:center;gap:8px;
                    font-family:inherit">
-            🛒 Cobrar cuota inicial ahora
-            <span style="font-size:11px;background:rgba(255,255,255,.2);
-                         padding:2px 8px;border-radius:20px">
-                Pasa a hábil al instante
-            </span>
+            🧮 Solo simular (no crea el plan)
         </button>
         <div style="font-size:10px;color:#64748b;text-align:center">
-            El plan de cuotas queda registrado · Se le notificará cada vencimiento
+            El simulador es solo vista previa. Para crear el plan, usa
+            <strong style="color:#a78bfa">"Crear fraccionamiento"</strong> abajo.
         </div>
     `;
     simResult.parentNode.appendChild(btnDiv);
@@ -3321,6 +3325,432 @@ async function ejecutarRollback() {
     } catch(e) {
         el.innerHTML = `<span style="color:#ef4444">❌ Error de conexión</span>`;
     }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   zClaude-77 — Selector "Crear fraccionamiento" (FRACCIONAR LO SELECCIONADO)
+   ══════════════════════════════════════════════════════════════════ */
+
+const _tabModalZ77Prev = window._tabModal;
+window._tabModal = function(tab) {
+    _tabModalZ77Prev(tab);
+    if (tab === 'fracc' && _modalSit) {
+        setTimeout(() => _renderFraccSelector(_modalSit.deudas || []), 120);
+    }
+};
+
+function _fNum(v) { return (Math.round((+v || 0) * 100) / 100); }
+
+function _renderFraccSelector(deudas) {
+    const wrap = document.getElementById('frac-selector-wrap');
+    if (!wrap) return;
+
+    const todas    = (deudas || []).filter(d => (+d.balance || 0) > 0);
+    const visibles = todas.filter(d => d.mostrar !== false);
+    const futuras  = todas.filter(d => d.categoria === 'ordinaria_actual_futura');
+
+    if (visibles.length === 0) {
+        wrap.innerHTML = `
+            <div style="background:rgba(99,102,241,.04);border:1px solid rgba(99,102,241,.12);
+                        border-radius:12px;padding:14px;text-align:center;color:#64748b;font-size:12px">
+                Sin deudas elegibles para fraccionar.
+            </div>`;
+        return;
+    }
+
+    const fila = (d) => {
+        const checked  = d.preseleccionada ? 'checked' : '';
+        const disabled = d.bloqueada      ? 'disabled' : '';
+        const badgeOblig = d.bloqueada
+            ? '<span style="background:#1e3a5f;color:#8ab4f8;padding:1px 6px;border-radius:4px;font-size:9px;margin-left:6px;font-weight:700;letter-spacing:.3px">OBLIGATORIA</span>'
+            : '';
+        const badgeMes = d.categoria === 'ordinaria_actual_mes_en_curso'
+            ? '<span style="background:#4a3a1e;color:#f9c64a;padding:1px 6px;border-radius:4px;font-size:9px;margin-left:6px;font-weight:700;letter-spacing:.3px">MES ACTUAL</span>'
+            : '';
+        return `
+        <label class="frac-fila" data-debt-id="${d.id}"
+            style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+                   border-top:1px solid rgba(255,255,255,.04);cursor:${d.bloqueada?'not-allowed':'pointer'};
+                   opacity:${d.bloqueada?'.85':'1'}">
+            <input type="checkbox" class="frac-check"
+                   value="${d.id}" ${checked} ${disabled}
+                   data-balance="${(+d.balance||0).toFixed(2)}"
+                   style="width:16px;height:16px;cursor:${d.bloqueada?'not-allowed':'pointer'};accent-color:#818cf8">
+            <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    ${d.concept || d.concepto || 'Cuota'} ${badgeOblig} ${badgeMes}
+                </div>
+                <div style="font-size:10px;color:#64748b">${d.period_label || d.periodo || ''}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:#fca5a5">
+                S/ ${(+d.balance||0).toFixed(2)}
+            </div>
+        </label>`;
+    };
+
+    const collapsable = futuras.length > 0 ? `
+        <details class="frac-cuotas-futuras"
+            style="margin:10px 0;padding:0;border:1px dashed rgba(255,255,255,.12);border-radius:8px;background:rgba(0,0,0,.15)">
+            <summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;list-style:none">
+                ▶ Mostrar cuotas posteriores del año
+                (<span>${futuras.length}</span>)
+            </summary>
+            <div style="border-top:1px solid rgba(255,255,255,.06)">
+                ${futuras.map(fila).join('')}
+            </div>
+        </details>` : '';
+
+    wrap.innerHTML = `
+        <div style="background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.18);
+                    border-radius:12px;padding:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:800;color:#a78bfa">📋 Crear fraccionamiento</span>
+            </div>
+            <div style="font-size:10px;color:#64748b;margin-bottom:10px">
+                Selecciona los conceptos a incluir. Las cuotas
+                <strong style="color:#8ab4f8">OBLIGATORIAS</strong> no se pueden desmarcar.
+            </div>
+
+            <div style="background:#0a0d16;border:1px solid rgba(255,255,255,.05);
+                        border-radius:10px;overflow:hidden">
+                ${visibles.filter(d => d.categoria !== 'ordinaria_actual_futura').map(fila).join('')}
+            </div>
+
+            ${collapsable}
+
+            <div style="background:#0a0d16;border-radius:10px;padding:12px;margin-top:10px;
+                        border:1px solid rgba(124,58,237,.18);display:grid;gap:8px">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+                    <span style="color:#94a3b8">Seleccionado:</span>
+                    <strong id="frac-total-seleccionado" style="color:#e2e8f0;font-size:14px">S/ 0.00</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+                    <span style="color:#94a3b8">Inicial mínimo (20%):</span>
+                    <strong id="frac-inicial-minimo" style="color:#94a3b8">S/ 0.00</strong>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12px">
+                    <label for="frac-inicial-actual" style="color:#94a3b8">Inicial a cobrar:</label>
+                    <input type="number" id="frac-inicial-actual" step="0.10" min="0"
+                        style="width:120px;padding:6px 10px;background:#1e2535;
+                               border:1px solid rgba(124,58,237,.3);border-radius:8px;
+                               color:#fff;font-size:13px;font-weight:700;font-family:inherit;text-align:right">
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+                    <span style="color:#94a3b8">Saldo a fraccionar:</span>
+                    <strong id="frac-saldo-fraccionar" style="color:#e2e8f0">S/ 0.00</strong>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12px">
+                    <label for="frac-num-cuotas" style="color:#94a3b8">N° de cuotas:</label>
+                    <input type="number" id="frac-num-cuotas" min="2" max="12" value="6"
+                        style="width:70px;padding:6px 10px;background:#1e2535;
+                               border:1px solid rgba(124,58,237,.3);border-radius:8px;
+                               color:#fff;font-size:13px;font-weight:700;font-family:inherit;text-align:right">
+                </div>
+                <div id="frac-mensaje" style="font-size:11px;margin-top:2px"></div>
+            </div>
+
+            <button id="btn-fraccionar-seleccionado" disabled
+                onclick="_fraccionarSeleccionado()"
+                style="margin-top:10px;width:100%;padding:13px;border:none;border-radius:12px;
+                       font-size:13px;font-weight:800;cursor:pointer;
+                       background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;
+                       font-family:inherit;letter-spacing:.5px">
+                FRACCIONAR LO SELECCIONADO
+            </button>
+        </div>
+    `;
+
+    wrap.querySelectorAll('.frac-check').forEach(c => {
+        c.addEventListener('change', _recalcFraccSel);
+    });
+    const inpIni = document.getElementById('frac-inicial-actual');
+    inpIni.addEventListener('input', e => {
+        e.target.dataset.touched = 'true';
+        _recalcFraccSel();
+    });
+    document.getElementById('frac-num-cuotas').addEventListener('input', _recalcFraccSel);
+
+    _recalcFraccSel();
+}
+
+function _recalcFraccSel() {
+    const wrap = document.getElementById('frac-selector-wrap');
+    if (!wrap) return;
+    const checks = wrap.querySelectorAll('.frac-check:checked');
+    let seleccionado = 0;
+    checks.forEach(c => { seleccionado += parseFloat(c.dataset.balance || 0); });
+    seleccionado = _fNum(seleccionado);
+
+    const minimo = Math.ceil(seleccionado * 0.20 * 100) / 100;
+    const inpIni = document.getElementById('frac-inicial-actual');
+    let inicial = parseFloat(inpIni.value) || 0;
+
+    if (inpIni.dataset.touched !== 'true') {
+        inpIni.value = seleccionado > 0 ? minimo.toFixed(2) : '';
+        inicial = minimo;
+    }
+
+    const saldo = Math.max(0, _fNum(seleccionado - inicial));
+    const numCuotas = parseInt(document.getElementById('frac-num-cuotas').value, 10) || 0;
+    const btn = document.getElementById('btn-fraccionar-seleccionado');
+    const msg = document.getElementById('frac-mensaje');
+
+    document.getElementById('frac-total-seleccionado').textContent = `S/ ${seleccionado.toFixed(2)}`;
+    document.getElementById('frac-inicial-minimo').textContent     = `S/ ${minimo.toFixed(2)}`;
+    document.getElementById('frac-saldo-fraccionar').textContent   = `S/ ${saldo.toFixed(2)}`;
+
+    msg.textContent = ''; msg.style.color = '#94a3b8';
+    const setErr  = (txt) => { msg.textContent = txt; msg.style.color = '#f87171'; btn.disabled = true; };
+    const setWarn = (txt) => { msg.textContent = txt; msg.style.color = '#f9c64a'; btn.disabled = true; };
+
+    if (seleccionado <= 0)               return setWarn('Selecciona al menos un concepto.');
+    if (seleccionado < 250)              return setErr(`Deuda mínima para fraccionar: S/ 250.00 (actual: S/ ${seleccionado.toFixed(2)}).`);
+    if (inicial + 0.009 < minimo)        return setErr(`El inicial debe ser al menos S/ ${minimo.toFixed(2)} (20%).`);
+    if (inicial >= seleccionado)         return setWarn('El inicial cubre el total. Cobra directamente en lugar de fraccionar.');
+    if (numCuotas < 2 || numCuotas > 12) return setErr('El número de cuotas debe estar entre 2 y 12.');
+
+    const mensual = _fNum(saldo / numCuotas);
+    if (mensual < 100) return setErr(`Cuota mensual S/ ${mensual.toFixed(2)} < S/ 100. Reduce el N° de cuotas o aumenta el inicial.`);
+
+    btn.disabled = false;
+    msg.textContent = `Cuota mensual estimada: S/ ${mensual.toFixed(2)}`;
+    msg.style.color = '#4ade80';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   zClaude-78 — Alta rápida de colegiado desde /caja
+   ══════════════════════════════════════════════════════════════════ */
+const AltaRapida = (() => {
+  const $ = id => document.getElementById(id);
+
+  function abrir() {
+    limpiar();
+    const modal = $('modal-alta-rapida');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    setTimeout(() => $('alta-dni')?.focus(), 50);
+  }
+
+  function cerrar() {
+    const modal = $('modal-alta-rapida');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function limpiar() {
+    ['alta-dni', 'alta-apenom', 'alta-whatsapp', 'alta-email']
+      .forEach(id => { const el = $(id); if (el) el.value = ''; });
+    mostrarMensaje('', '');
+    validar();
+  }
+
+  function validar() {
+    const dni      = $('alta-dni')?.value.trim() || '';
+    const apenom   = $('alta-apenom')?.value.trim() || '';
+    const whatsapp = $('alta-whatsapp')?.value.trim() || '';
+    const email    = $('alta-email')?.value.trim() || '';
+
+    const okDni  = /^\d{8}$/.test(dni);
+    const okWha  = /^9\d{8}$/.test(whatsapp);
+    const okMail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const okText = apenom.length >= 4 && /^[A-Za-zÁÉÍÓÚÑáéíóúñ\s\.\-,]+$/.test(apenom);
+
+    const btn = $('btn-confirmar-alta');
+    if (btn) btn.disabled = !(okDni && okWha && okMail && okText);
+  }
+
+  async function consultarReniec() {
+    const dni = $('alta-dni')?.value.trim() || '';
+    if (!/^\d{8}$/.test(dni)) {
+      mostrarMensaje('DNI debe ser 8 dígitos', 'error');
+      return;
+    }
+    mostrarMensaje('Consultando RENIEC…', 'info');
+    try {
+      const r = await fetch(`/api/publico/dni/${dni}`);
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d && d.ok && d.nombre) {
+        $('alta-apenom').value = String(d.nombre).toUpperCase();
+        mostrarMensaje('✓ Datos cargados. Verifica antes de guardar.', 'ok');
+        validar();
+      } else {
+        mostrarMensaje('No se pudo consultar. Ingresa los datos manualmente.', 'warn');
+      }
+    } catch (e) {
+      mostrarMensaje('Sin conexión con RENIEC. Ingresa los datos manualmente.', 'warn');
+    }
+  }
+
+  async function confirmar() {
+    const payload = {
+      dni:               $('alta-dni').value.trim(),
+      apellidos_nombres: $('alta-apenom').value.trim().toUpperCase(),
+      telefono:          $('alta-whatsapp').value.trim(),
+      email:             $('alta-email').value.trim().toLowerCase(),
+    };
+
+    const btn = $('btn-confirmar-alta');
+    if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+    mostrarMensaje('Registrando…', 'info');
+
+    try {
+      const r = await fetch('/api/caja/colegiado/alta-rapida', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => ({}));
+
+      if (r.status === 409) {
+        const det = (data && data.detail) || {};
+        const mat = det.codigo_matricula || '—';
+        const nom = det.apellidos_nombres || '';
+        cajaModal.confirmar(
+          `El DNI ${payload.dni} ya está registrado con matrícula ${mat}\n` +
+          `(${nom}).\n\nBúscalo directamente en el buscador.`,
+          'Entendido',
+          () => {}, false
+        );
+        if (btn) { btn.disabled = false; btn.textContent = 'Registrar y seleccionar'; }
+        mostrarMensaje('DNI duplicado.', 'error');
+        return;
+      }
+
+      if (!r.ok) {
+        const detalle = (data && data.detail) || `HTTP ${r.status}`;
+        const txt = Array.isArray(detalle)
+          ? detalle.map(x => x.msg || JSON.stringify(x)).join('; ')
+          : (typeof detalle === 'object' ? JSON.stringify(detalle) : detalle);
+        mostrarMensaje(`Error: ${txt}`, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Registrar y seleccionar'; }
+        return;
+      }
+
+      // Éxito — cerrar modal y seleccionar al nuevo colegiado en /caja.
+      cerrar();
+      const colSel = {
+        id: data.id,
+        dni: data.dni,
+        codigo_matricula: data.codigo_matricula,
+        apellidos_nombres: data.apellidos_nombres,
+        habilitado: !!data.habilitado,
+        total_deuda: 0,
+      };
+      if (typeof selCol === 'function') selCol(colSel);
+      toast(`✓ Colegiado ${data.codigo_matricula} registrado. Procede al cobro.`, 'ok');
+    } catch (e) {
+      console.error('[zClaude-78] error:', e);
+      mostrarMensaje('Error de conexión', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Registrar y seleccionar'; }
+    }
+  }
+
+  function mostrarMensaje(txt, tipo) {
+    const el = $('alta-mensaje');
+    if (!el) return;
+    el.textContent = txt;
+    el.className = 'alta-mensaje ' + (tipo || '');
+  }
+
+  function bind() {
+    const btnAbrir = $('btn-alta-rapida');
+    if (!btnAbrir) return; // no estamos en /caja
+    btnAbrir.addEventListener('click', abrir);
+    $('alta-btn-reniec')?.addEventListener('click', consultarReniec);
+    $('btn-confirmar-alta')?.addEventListener('click', confirmar);
+    document.querySelectorAll('[data-action="cerrar-alta"]')
+      .forEach(b => b.addEventListener('click', cerrar));
+
+    // Cierre con Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        const m = $('modal-alta-rapida');
+        if (m && m.style.display !== 'none') cerrar();
+      }
+    });
+
+    ['alta-dni', 'alta-apenom', 'alta-whatsapp', 'alta-email'].forEach(id => {
+      $(id)?.addEventListener('input', validar);
+    });
+
+    // Solo dígitos en DNI y WhatsApp
+    ['alta-dni', 'alta-whatsapp'].forEach(id => {
+      $(id)?.addEventListener('input', e => {
+        e.target.value = e.target.value.replace(/\D/g, '');
+        validar();
+      });
+    });
+
+    // Enter en DNI → consultar RENIEC
+    $('alta-dni')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); consultarReniec(); }
+    });
+  }
+
+  return { init: bind };
+})();
+
+document.addEventListener('DOMContentLoaded', AltaRapida.init);
+window.AltaRapida = AltaRapida;
+
+async function _fraccionarSeleccionado() {
+    const wrap = document.getElementById('frac-selector-wrap');
+    if (!wrap || !_modalSit) return;
+    const checks = wrap.querySelectorAll('.frac-check:checked');
+    const debt_ids = Array.from(checks).map(c => parseInt(c.value, 10)).filter(Boolean);
+    if (debt_ids.length === 0) { toast('Selecciona al menos un concepto', 'warn'); return; }
+
+    const inicial   = parseFloat(document.getElementById('frac-inicial-actual').value) || 0;
+    const numCuotas = parseInt(document.getElementById('frac-num-cuotas').value, 10) || 0;
+    let total = 0; checks.forEach(c => { total += parseFloat(c.dataset.balance || 0); });
+    total = _fNum(total);
+    const saldo   = _fNum(total - inicial);
+    const mensual = _fNum(saldo / numCuotas);
+    const col = _modalSit.colegiado;
+
+    const msgConfirm =
+        `Crear fraccionamiento para ${col?.nombre || ''} (Mat. ${col?.matricula || ''})\n\n` +
+        `• Conceptos: ${debt_ids.length}\n` +
+        `• Total: S/ ${total.toFixed(2)}\n` +
+        `• Inicial: S/ ${inicial.toFixed(2)}\n` +
+        `• ${numCuotas} cuotas de ~S/ ${mensual.toFixed(2)}\n\n` +
+        `¿Confirmar?`;
+
+    cajaModal.confirmar(msgConfirm, 'Crear plan', async (ok) => {
+        if (!ok) return;
+        const btn = document.getElementById('btn-fraccionar-seleccionado');
+        if (btn) { btn.disabled = true; btn.textContent = 'Creando…'; }
+        try {
+            const r = await fetch('/api/secretaria/registrar-fraccionamiento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    colegiado_id: col.id,
+                    deuda_ids: debt_ids,
+                    n_cuotas: numCuotas,
+                    monto_cuota_inicial: inicial,
+                    monto_cuota_mensual: mensual,
+                    nota: 'Creado desde modal de Caja (zClaude-77)',
+                }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                const detalle = (data && (data.detail || data.message)) || `HTTP ${r.status}`;
+                const txt = Array.isArray(detalle)
+                    ? detalle.map(x => x.msg || JSON.stringify(x)).join('; ')
+                    : detalle;
+                toast(`Error al crear plan: ${txt}`, 'err');
+                if (btn) { btn.disabled = false; btn.textContent = 'FRACCIONAR LO SELECCIONADO'; }
+                return;
+            }
+            toast(`✓ ${data.mensaje || 'Plan creado'}`, 'ok');
+            cerrarModalInhabil();
+            if (typeof cargarDeudas === 'function' && col?.id) cargarDeudas(col.id);
+        } catch (e) {
+            console.error('[zClaude-77] error:', e);
+            toast('Error de conexión al crear el plan', 'err');
+            if (btn) { btn.disabled = false; btn.textContent = 'FRACCIONAR LO SELECCIONADO'; }
+        }
+    }, false);
 }
 
 
