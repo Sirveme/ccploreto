@@ -421,6 +421,53 @@ async def colegiado_alta_rapida(
     raise HTTPException(500, "No se pudo asignar matrícula tras varios intentos")
 
 
+# zClaude-79: vista previa antes de capturar datos en el modal
+@router.get("/colegiado/proxima-matricula")
+async def colegiado_proxima_matricula(
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """
+    Devuelve la matrícula que SE ASIGNARÍA en este momento (referencial,
+    no reservada) y el último colegiado registrado con prefijo 10-.
+    """
+    if member.role not in ("cajero", "secretaria", "tesorero", "admin", "sote"):
+        raise HTTPException(403, "Acceso restringido")
+
+    proxima = calcular_siguiente_matricula(db)
+
+    sql = text("""
+        SELECT id, codigo_matricula, apellidos_nombres, fecha_colegiatura, created_at
+        FROM colegiados
+        WHERE codigo_matricula LIKE :prefijo
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    row = db.execute(sql, {"prefijo": "10-%"}).fetchone()
+
+    ultimo = None
+    if row:
+        fecha_iso = None
+        if row.fecha_colegiatura:
+            fecha_iso = row.fecha_colegiatura.date().isoformat() \
+                if hasattr(row.fecha_colegiatura, "date") \
+                else str(row.fecha_colegiatura)
+        elif row.created_at:
+            fecha_iso = row.created_at.date().isoformat() \
+                if hasattr(row.created_at, "date") \
+                else str(row.created_at)
+        ultimo = {
+            "matricula": row.codigo_matricula,
+            "nombre_completo": (row.apellidos_nombres or "").strip(),
+            "fecha_inscripcion": fecha_iso,
+        }
+
+    return {
+        "proxima_matricula": proxima,
+        "ultimo_registrado": ultimo,
+    }
+
+
 @router.get("/conceptos")
 async def listar_conceptos(
     categoria: Optional[str] = None,
