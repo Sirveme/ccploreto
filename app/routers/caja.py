@@ -42,7 +42,14 @@ from app.routers.dashboard import get_current_member
 from app.models import Member
 
 from app.services.facturacion import FacturacionService
+from app.services.colegiado_alta_service import calcular_siguiente_matricula
 from app.utils.comprobantes import get_numero_display, get_estado_display
+from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamiento
+
+from sqlalchemy.exc import IntegrityError
+from pydantic import field_validator, EmailStr
+import re as _re_z78
+from datetime import date as _date_z78
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +126,12 @@ class DeudaResponse(BaseModel):
     saldo: float = 0
     fecha_vencimiento: Optional[str] = None
     estado: str
+    debt_type: Optional[str] = None
+    # zClaude-77: clasificacion para el modal de fraccionamiento
+    mostrar: bool = True
+    preseleccionada: bool = True
+    bloqueada: bool = False
+    categoria: str = "historica"
 
     class Config:
         from_attributes = True
@@ -177,6 +190,36 @@ class LiquidarEgresoRequest(BaseModel):
     monto_factura: float
     numero_documento: Optional[str] = None
     observaciones: Optional[str] = None
+
+
+# zClaude-78: alta rapida de colegiado desde /caja
+class AltaRapidaSchema(BaseModel):
+    dni: str = Field(..., min_length=8, max_length=8)
+    apellidos_nombres: str = Field(..., min_length=4, max_length=300)
+    telefono: str = Field(..., min_length=9, max_length=9)
+    email: EmailStr
+
+    @field_validator("dni")
+    @classmethod
+    def dni_solo_digitos(cls, v):
+        if not v.isdigit():
+            raise ValueError("DNI debe ser 8 dígitos numéricos")
+        return v
+
+    @field_validator("telefono")
+    @classmethod
+    def whatsapp_peruano(cls, v):
+        if not _re_z78.match(r"^9\d{8}$", v):
+            raise ValueError("WhatsApp debe ser 9 dígitos comenzando en 9")
+        return v
+
+    @field_validator("apellidos_nombres")
+    @classmethod
+    def texto_valido(cls, v):
+        v = v.strip()
+        if not _re_z78.match(r"^[A-Za-zÁÉÍÓÚÑáéíóúñ\s\.\-]+$", v):
+            raise ValueError("Solo letras, espacios, guiones y puntos")
+        return v
 
 
 # ============================================================
@@ -259,6 +302,7 @@ async def obtener_deudas(
             saldo = monto
         else:
             saldo = float(d.balance or 0)
+        clasif = clasificar_deuda_para_fraccionamiento(d)
         resultado.append(DeudaResponse(
             id=d.id,
             concepto=d.concept or "Cuota",
@@ -268,6 +312,8 @@ async def obtener_deudas(
             saldo=saldo,
             fecha_vencimiento=d.due_date.strftime("%d/%m/%Y") if d.due_date else None,
             estado=d.status,
+            debt_type=d.debt_type,
+            **clasif,
         ))
 
     return {
@@ -281,6 +327,98 @@ async def obtener_deudas(
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
     }
+
+
+# zClaude-78: alta rapida de colegiado desde /caja
+@router.post("/colegiado/alta-rapida")
+async def colegiado_alta_rapida(
+    payload: AltaRapidaSchema,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """
+    Registro inmediato de colegiado desde /caja.
+    - Asigna matrícula 10-NNNN auto (siguiente disponible).
+    - Reintenta hasta 5 veces ante carrera concurrente (IntegrityError).
+    - NO crea User ni genera deudas.
+    """
+    if member.role not in ("cajero", "secretaria", "tesorero", "admin", "sote"):
+        raise HTTPException(403, "Acceso restringido")
+
+    org = db.query(Organization).first()
+    if not org:
+        raise HTTPException(500, "Sin organización configurada")
+
+    # 1. DNI duplicado
+    existente = db.query(Colegiado).filter(Colegiado.dni == payload.dni).first()
+    if existente:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "DNI_EXISTE",
+                "colegiado_id": existente.id,
+                "codigo_matricula": existente.codigo_matricula,
+                "apellidos_nombres": existente.apellidos_nombres,
+            },
+        )
+
+    MAX_INTENTOS = 5
+    for intento in range(MAX_INTENTOS):
+        codigo_matricula = calcular_siguiente_matricula(db)
+        try:
+            nuevo = Colegiado(
+                organization_id=org.id,
+                codigo_matricula=codigo_matricula,
+                dni=payload.dni,
+                apellidos_nombres=payload.apellidos_nombres.upper().strip(),
+                telefono=payload.telefono.strip(),
+                email=payload.email.lower().strip(),
+                condicion="habil",
+                fecha_colegiatura=datetime.now(PERU_TZ),
+                tiene_dni_real=True,
+                tipo_documento="DNI",
+            )
+            db.add(nuevo)
+            db.commit()
+            db.refresh(nuevo)
+            logger.info(
+                "[zClaude-78] Alta rápida colegiado id=%s mat=%s dni=%s por member_id=%s",
+                nuevo.id, codigo_matricula, payload.dni, member.id,
+            )
+            return {
+                "id": nuevo.id,
+                "codigo_matricula": nuevo.codigo_matricula,
+                "dni": nuevo.dni,
+                "apellidos_nombres": nuevo.apellidos_nombres,
+                "email": nuevo.email,
+                "telefono": nuevo.telefono,
+                "condicion": nuevo.condicion,
+                "habilitado": True,
+                "fecha_colegiatura": nuevo.fecha_colegiatura.isoformat() if nuevo.fecha_colegiatura else None,
+                "total_deuda": 0.0,
+                "deudas_pendientes": 0,
+            }
+        except IntegrityError as e:
+            db.rollback()
+            msg = str(getattr(e, "orig", e)).lower()
+            if "matricula" in msg and intento < MAX_INTENTOS - 1:
+                continue  # carrera: otro cajero ganó esta matrícula
+            if "dni" in msg:
+                # DNI duplicado en ventana de carrera
+                ya = db.query(Colegiado).filter(Colegiado.dni == payload.dni).first()
+                raise HTTPException(
+                    409,
+                    detail={
+                        "code": "DNI_EXISTE",
+                        "colegiado_id": ya.id if ya else None,
+                        "codigo_matricula": ya.codigo_matricula if ya else None,
+                        "apellidos_nombres": ya.apellidos_nombres if ya else None,
+                    },
+                )
+            logger.error("[zClaude-78] IntegrityError no recuperable: %s", e)
+            raise HTTPException(500, "No se pudo registrar el colegiado")
+
+    raise HTTPException(500, "No se pudo asignar matrícula tras varios intentos")
 
 
 @router.get("/conceptos")

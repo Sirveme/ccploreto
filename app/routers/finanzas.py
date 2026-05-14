@@ -21,6 +21,7 @@ from app.models_debt_management import Debt
 
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
+from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamiento
 from app.routers.dashboard import get_current_member  # igual que en finance.py
 
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
@@ -517,6 +518,8 @@ async def situacion_colegiado_caja(
             "status":         d.status,
             "estado_gestion": d.estado_gestion,
             "due_date":       d.due_date.isoformat() if d.due_date else None,
+            # zClaude-77: clasificacion para el modal de fraccionamiento
+            **clasificar_deuda_para_fraccionamiento(d),
         }
         for d in deudas_qs
     ]
@@ -530,7 +533,7 @@ async def situacion_colegiado_caja(
         )
         .first()
     )
-    califica_fracc = (total >= 500.0) and (plan_activo is None)
+    califica_fracc = (total >= 250.0) and (plan_activo is None)
 
     # Campaña activa
     hoy = dt_date.today()
