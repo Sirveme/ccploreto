@@ -1112,6 +1112,178 @@ select.egr-input { cursor: pointer; }
     .sesion-indicator { padding: 4px 8px; }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   zClaude-78 — Alta rápida de colegiado desde /caja
+   ════════════════════════════════════════════════════════════════ */
+.btn-alta-rapida {
+    margin-left: 8px;
+    padding: 6px 12px;
+    background: rgba(96, 165, 250, .08);
+    color: #8ab4f8;
+    border: 1px solid rgba(96, 165, 250, .25);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+}
+.btn-alta-rapida:hover {
+    background: rgba(96, 165, 250, .14);
+    border-color: rgba(96, 165, 250, .45);
+}
+.btn-alta-rapida .icon-plus {
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.modal-alta {
+    position: fixed; inset: 0;
+    z-index: 1600;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+}
+.modal-alta[style*="flex"] { display: flex !important; }
+.modal-alta-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, .7);
+    backdrop-filter: blur(4px);
+}
+.modal-alta-dialog {
+    position: relative;
+    background: #0f1117;
+    border: 1px solid rgba(96, 165, 250, .25);
+    border-radius: 16px;
+    width: 100%; max-width: 460px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .8);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+}
+.modal-alta-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    background: linear-gradient(135deg, rgba(96, 165, 250, .1), rgba(96, 165, 250, .04));
+}
+.modal-alta-header h3 {
+    margin: 0;
+    font-size: 15px; font-weight: 800;
+    color: #e2e8f0;
+}
+.modal-alta-close {
+    background: none; border: none;
+    color: #64748b; font-size: 22px;
+    cursor: pointer; line-height: 1;
+    padding: 4px;
+}
+.modal-alta-body {
+    padding: 18px 20px;
+    max-height: 70vh; overflow-y: auto;
+}
+.modal-alta-dialog .alta-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin: 0 0 14px;
+    line-height: 1.5;
+}
+.modal-alta-dialog .form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+.modal-alta-dialog .form-row label {
+    display: block;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.modal-alta-dialog .form-row input {
+    width: 100%;
+    padding: 9px 12px;
+    background: #1e2535;
+    color: #e2e8f0;
+    border: 1px solid rgba(96, 165, 250, .25);
+    border-radius: 9px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color .15s;
+}
+.modal-alta-dialog .form-row input:focus {
+    border-color: rgba(96, 165, 250, .65);
+}
+.modal-alta-dialog .dni-wrap {
+    display: flex;
+    gap: 6px;
+}
+.modal-alta-dialog .dni-wrap input { flex: 1; }
+.modal-alta-dialog .btn-mini {
+    padding: 0 12px;
+    background: rgba(96, 165, 250, .12);
+    border: 1px solid rgba(96, 165, 250, .35);
+    color: #8ab4f8;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.modal-alta-dialog .btn-mini:hover { background: rgba(96, 165, 250, .2); }
+
+.alta-mensaje {
+    margin-top: 10px;
+    font-size: 12px;
+    min-height: 1.2em;
+    color: #94a3b8;
+}
+.alta-mensaje.error { color: #f87171; }
+.alta-mensaje.warn  { color: #f9c64a; }
+.alta-mensaje.info  { color: #94a3b8; }
+.alta-mensaje.ok    { color: #4ade80; }
+
+.modal-alta-footer {
+    display: flex; gap: 10px; justify-content: flex-end;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(255, 255, 255, .06);
+    background: rgba(0, 0, 0, .25);
+}
+.btn-alta-secondary, .btn-alta-primary {
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s, filter .15s;
+}
+.btn-alta-secondary {
+    background: transparent;
+    color: #94a3b8;
+    border: 1px solid rgba(255, 255, 255, .15);
+}
+.btn-alta-secondary:hover { background: rgba(255, 255, 255, .04); }
+.btn-alta-primary {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    border: none;
+}
+.btn-alta-primary:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    filter: grayscale(.4);
+}
+.btn-alta-primary:not(:disabled):hover { filter: brightness(1.1); }
+
 
 /* ══════════════════════════════════════════════════════════════
    RESPONSIVE — CELULARES GRANDES (≤600px)
