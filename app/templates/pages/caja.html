@@ -85,6 +85,10 @@
                 <input type="text" class="search-input" id="searchInput"
                        placeholder="Buscar por DNI, matrícula o nombre..." autocomplete="off">
                 <span class="search-shortcut">F2</span>
+                <button id="btn-alta-rapida" class="btn-alta-rapida" type="button"
+                        title="Registrar nuevo colegiado (atajo de caja)">
+                    <span class="icon-plus">+</span> Nuevo Colegiado
+                </button>
                 <div class="search-results" id="searchResults"></div>
             </div>
             <div class="col-card" id="colCard">
@@ -94,6 +98,13 @@
                     <div class="col-detail" id="colDetail">--</div>
                 </div>
                 <span class="badge" id="colBadge"></span>
+                <a id="linkSecretaria" href="#" target="_blank" rel="noopener"
+                   title="Ver en /secretaria"
+                   style="display:none;font-size:11px;color:#94a3b8;text-decoration:none;
+                          padding:3px 8px;border:1px solid rgba(255,255,255,.12);
+                          border-radius:6px;margin-left:6px">
+                    📋 /secretaria
+                </a>
                 <button class="col-clear" onclick="limpiarCol()">✕</button>
             </div>
         </div>
@@ -797,8 +808,66 @@
   </div>
 </div>
 
+<!-- zClaude-78: Modal de Alta Rápida de Colegiado -->
+<div id="modal-alta-rapida" class="modal-alta" style="display:none;">
+  <div class="modal-alta-backdrop" data-action="cerrar-alta"></div>
+  <div class="modal-alta-dialog" role="dialog" aria-modal="true">
+    <header class="modal-alta-header">
+      <h3>+ Nuevo Colegiado</h3>
+      <button type="button" class="modal-alta-close" data-action="cerrar-alta" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal-alta-body">
+      <p class="alta-hint">
+        Registro inmediato. La matrícula se asigna automáticamente al guardar.
+        Para alta completa (foto, estudios, dirección, portal) usar /secretaria.
+      </p>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label>DNI *</label>
+          <div class="dni-wrap">
+            <input type="text" id="alta-dni" maxlength="8" inputmode="numeric"
+                   autocomplete="off" placeholder="8 dígitos">
+            <button type="button" id="alta-btn-reniec" class="btn-mini"
+                    title="Consultar RENIEC">Consultar</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Apellidos y nombres *</label>
+          <input type="text" id="alta-apenom" maxlength="300"
+                 style="text-transform:uppercase;"
+                 placeholder="PEREZ GARCIA, JUAN CARLOS">
+        </div>
+
+        <div class="form-row">
+          <label>WhatsApp *</label>
+          <input type="text" id="alta-whatsapp" maxlength="9"
+                 inputmode="numeric" placeholder="9XXXXXXXX">
+        </div>
+
+        <div class="form-row">
+          <label>Email *</label>
+          <input type="email" id="alta-email" maxlength="120"
+                 style="text-transform:lowercase;" placeholder="correo@dominio.com">
+        </div>
+      </div>
+
+      <div id="alta-mensaje" class="alta-mensaje"></div>
+    </div>
+
+    <footer class="modal-alta-footer">
+      <button type="button" class="btn-alta-secondary" data-action="cerrar-alta">Cancelar</button>
+      <button type="button" class="btn-alta-primary" id="btn-confirmar-alta" disabled>
+        Registrar y seleccionar
+      </button>
+    </footer>
+  </div>
+</div>
+
 <!-- Scripts -->
-<script src="/static/js/pages/caja.js?v=12"></script>
-<script src="/static/js/pages/caja_correccion.js?v=1"></script> 
+<script src="/static/js/pages/caja.js?v=14"></script>
+<script src="/static/js/pages/caja_correccion.js?v=1"></script>
 </body>
 </html>
