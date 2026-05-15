@@ -32,6 +32,8 @@ from app.services.openpay_service import (
     consultar_cargo,
     construir_redirect_url,
     construir_order_id,
+    verificar_webhook_signature,
+    verificar_webhook_ip,
     OpenPayError,
     APP_BASE_URL,
 )
@@ -277,13 +279,6 @@ def _err_html(msg: str) -> HTMLResponse:
     """)
 
 
-"""
-PATCH: app/routers/openpay.py
-==============================
-Añadir este endpoint DESPUÉS de openpay_iniciar_pago (línea ~190, antes del webhook).
-Es la variante sin login — recibe colegiado_id_externo del partial pagos.html.
-"""
-
 @router.post("/pagos/openpay/iniciar-publico", response_class=HTMLResponse)
 async def openpay_iniciar_pago_publico(
     request: Request,
@@ -444,9 +439,34 @@ async def openpay_webhook(
     DEBE ser HTTPS, puerto 443, sin autenticación de cookie.
     Configurar en panel OpenPay → Webhooks.
     URL: https://ccploreto.org.pe/pagos/openpay/webhook
+
+    Hardening (zClaude-81b):
+      1. IP whitelist (opcional, si OPENPAY_WEBHOOK_ALLOWED_IPS está seteada).
+      2. HMAC del payload (opcional, si OPENPAY_WEBHOOK_HMAC_SECRET está seteada).
+      3. Re-consulta a OpenPay (defensa en profundidad — siempre activa).
     """
+    # 1. IP real (Cloudflare → CF-Connecting-IP, fallback X-Forwarded-For, fallback request.client)
+    remote_ip = (
+        request.headers.get("CF-Connecting-IP")
+        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or (request.client.host if request.client else "0.0.0.0")
+    )
+
+    ip_ok, motivo_ip = verificar_webhook_ip(remote_ip)
+    if not ip_ok:
+        logger.warning(f"Webhook OpenPay rechazado por IP: {remote_ip} - {motivo_ip}")
+        # 200 para no dar pista al atacante; no procesar.
+        return JSONResponse({"received": True, "processed": False, "reason": "ip-rejected"})
+
+    # 2. Leer cuerpo bruto (necesario tanto para HMAC como para JSON)
     body_bytes = await request.body()
 
+    sig_ok, motivo_sig = verificar_webhook_signature(body_bytes, request.headers)
+    if not sig_ok:
+        logger.warning(f"Webhook OpenPay firma inválida: {motivo_sig}")
+        return JSONResponse({"received": True, "processed": False, "reason": "signature-invalid"})
+
+    # 3. Parsear payload
     try:
         data = json.loads(body_bytes)
     except json.JSONDecodeError:
@@ -843,14 +863,11 @@ async def consultar_openpay_directo(
     if not tx_id:
         return JSONResponse({"status": payment.status})
 
-    # Consultar directamente a OpenPay
+    # Consultar directamente a OpenPay (URL centralizada en openpay_service)
     try:
-        sk         = os.getenv("OPENPAY_SK", "")
-        merchant   = os.getenv("OPENPAY_MERCHANT_ID", "")
-        sandbox    = os.getenv("OPENPAY_SANDBOX", "true").lower() == "true"
-        base_url   = "https://sandbox-api.openpay.pe" if sandbox else "https://api.openpay.pe"
-        creds      = base64.b64encode(f"{sk}:".encode()).decode()
-        url        = f"{base_url}/v1/{merchant}/charges/{tx_id}"
+        from app.services.openpay_service import get_openpay_base_url, OPENPAY_SK
+        creds = base64.b64encode(f"{OPENPAY_SK}:".encode()).decode()
+        url   = f"{get_openpay_base_url()}/charges/{tx_id}"
 
         async with httpx.AsyncClient(timeout=10) as client:
             r    = await client.get(url, headers={"Authorization": f"Basic {creds}"})
@@ -938,3 +955,9 @@ async def webhook_verificar(
         primer_valor = list(params.values())[0]
         return PlainTextResponse(primer_valor)
     return PlainTextResponse("ok")
+
+
+@router.get("/debug/openpay-base")
+def debug_openpay_base():
+    from app.services.openpay_service import get_openpay_base_url
+    return {"base_url": get_openpay_base_url()}
