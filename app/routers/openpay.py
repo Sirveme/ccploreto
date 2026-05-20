@@ -922,13 +922,85 @@ async def consultar_comprobante_de_pago(
             "tipo_label":      tipo_label,
             "status":          comp_row.status,
             "total":           float(comp_row.total) if comp_row.total is not None else None,
-            "pdf_url":         comp_row.pdf_url,
-            "xml_url":         comp_row.xml_url,
+            # URLs públicas: usamos proxy interno porque Facturalo exige headers
+            # x-api-key / x-api-secret que no se pueden enviar desde un click público.
+            "pdf_url":         f"/comprobantes/payment/{payment}/pdf" if comp_row.pdf_url else None,
+            "xml_url":         f"/comprobantes/payment/{payment}/xml" if comp_row.xml_url else None,
             "cdr_url":         comp_row.cdr_url,
             "mensaje_sunat":   comp_row.sunat_response_description,
             "codigo_sunat":    comp_row.sunat_response_code,
         }
     })
+
+
+# ── Endpoints proxy: PDF/XML del comprobante (zClaude-87 FIX 3) ──────
+#  Facturalo exige headers x-api-key / x-api-secret. Estos endpoints
+#  resuelven la URL en BD, llaman a Facturalo con credenciales del
+#  backend, y stream-respond al cliente.
+async def _proxy_facturalo_archivo(
+    payment_id: int,
+    db: Session,
+    campo: str,           # 'pdf_url' | 'xml_url'
+    media_type: str,
+    extension: str,
+):
+    from fastapi.responses import StreamingResponse
+    import httpx
+
+    row = db.execute(text(f"""
+        SELECT serie, numero, {campo} AS url
+        FROM comprobantes
+        WHERE payment_id = :pid
+        ORDER BY id DESC
+        LIMIT 1
+    """), {"pid": payment_id}).fetchone()
+
+    if not row or not row.url:
+        raise HTTPException(status_code=404, detail="Comprobante no encontrado")
+
+    headers = {
+        "x-api-key":    os.getenv("FACTURALO_API_KEY", ""),
+        "x-api-secret": os.getenv("FACTURALO_API_SECRET", ""),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(row.url, headers=headers)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Facturalo: {e}")
+
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Facturalo: HTTP {r.status_code}")
+
+    try:
+        numero_str = str(row.numero).zfill(8) if row.numero is not None else "00000000"
+    except Exception:
+        numero_str = str(row.numero or "00000000")
+    filename = f"{row.serie or 'CPE'}-{numero_str}.{extension}"
+
+    return StreamingResponse(
+        iter([r.content]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get("/comprobantes/payment/{payment_id}/pdf")
+async def proxy_pdf_comprobante(
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Sirve el PDF del comprobante asociado a un payment vía proxy a Facturalo."""
+    return await _proxy_facturalo_archivo(payment_id, db, "pdf_url", "application/pdf", "pdf")
+
+
+@router.get("/comprobantes/payment/{payment_id}/xml")
+async def proxy_xml_comprobante(
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Sirve el XML del comprobante asociado a un payment vía proxy a Facturalo."""
+    return await _proxy_facturalo_archivo(payment_id, db, "xml_url", "application/xml", "xml")
 
 
 # ── Endpoint 2: consultar OpenPay directamente (fallback webhook) ──
