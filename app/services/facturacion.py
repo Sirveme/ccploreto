@@ -309,6 +309,18 @@ class FacturacionService:
             comprobante.xml_url = resultado.get("xml_url")
             comprobante.cdr_url = resultado.get("cdr_url")
 
+            # Sincronizar serie/numero con la respuesta real de Facturalo.
+            # Facturalo es la fuente de verdad: si asignó otro correlativo,
+            # la fila local debe reflejarlo (sino los links PDF/XML rompen).
+            numero_real = resultado.get("numero")
+            serie_real  = resultado.get("serie")
+            if numero_real is not None:
+                comprobante.numero = numero_real
+                numero = numero_real
+            if serie_real:
+                comprobante.serie = serie_real
+                serie = serie_real
+
             if tipo == "01":
                 self.config.ultimo_numero_factura = numero
             else:
@@ -1141,7 +1153,9 @@ class FacturacionService:
                         "pdf_url": archivos.get("pdf_url"),
                         "xml_url": archivos.get("xml_url"),
                         "cdr_url": archivos.get("cdr_url"),
-                        "numero_formato": comp_data.get("numero_formato")
+                        "numero_formato": comp_data.get("numero_formato"),
+                        "numero": comp_data.get("numero"),
+                        "serie": comp_data.get("serie"),
                     }
                 else:
                     error_msg = data.get("mensaje", data.get("error", "Error desconocido"))
