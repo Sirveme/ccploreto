@@ -245,3 +245,232 @@ async def consultar_cargo(transaction_id: str) -> dict:
             http_status=resp.status_code
         )
     return resp.json()
+
+
+# ══════════════════════════════════════════════════════════════════
+# Procesamiento de pago confirmado (reusable: webhook / reproceso /
+# consulta directa). Idempotente: si el payment ya está procesado,
+# retorna sin reprocesar.
+# ══════════════════════════════════════════════════════════════════
+async def procesar_pago_confirmado(
+    db,
+    payment_id: int,
+    tx_id: str,
+    payload: dict,
+    source: str = "webhook",
+) -> dict:
+    """
+    Procesa un pago OpenPay confirmado. Encapsula la lógica que estaba inline
+    en el handler del webhook. Llamable desde:
+      - Handler del webhook al recibir charge.succeeded
+      - Reproceso de openpay_webhooks_pendientes
+      - Consulta directa (fallback de polling)
+
+    Idempotente: si payment.status ya es 'approved'/'pagado'/'completado',
+    no reprocesa.
+
+    Retorna dict con {"ok": bool, "flujo": str, "payment_id": int, ...}.
+    """
+    import json as _json
+    from sqlalchemy import text
+    from app.models import Payment as _Payment, Organization as _Org
+
+    # 1. Cargar payment con bloqueo de fila
+    payment = db.execute(text("""
+        SELECT id, colegiado_id, amount, status, organization_id, notes,
+               openpay_transaction_id
+        FROM payments
+        WHERE id = :pid
+        FOR UPDATE
+    """), {"pid": payment_id}).fetchone()
+
+    if not payment:
+        return {"ok": False, "error": "payment_no_encontrado", "payment_id": payment_id}
+
+    # 2. Idempotencia
+    if payment.status in ("approved", "pagado", "completado"):
+        return {
+            "ok": True,
+            "estado": "ya_procesado",
+            "status_actual": payment.status,
+            "payment_id": payment_id,
+        }
+
+    # 3. Asegurar que la columna tx_id esté poblada
+    if not payment.openpay_transaction_id and tx_id:
+        db.execute(text("""
+            UPDATE payments
+            SET openpay_transaction_id = :tx
+            WHERE id = :pid AND openpay_transaction_id IS NULL
+        """), {"tx": tx_id, "pid": payment_id})
+
+    # 4. Detectar flujo desde notes
+    try:
+        notas = (
+            _json.loads(payment.notes)
+            if payment.notes and payment.notes.strip().startswith("{")
+            else {}
+        )
+    except Exception:
+        notas = {}
+
+    flujo = notas.get("flujo", "")
+
+    # ── RAMA TIENDA PÚBLICA OPENPAY ─────────────────────────────
+    if flujo == "tienda_publica_openpay":
+        from app.routers.api_tienda import _emitir_cpe_tienda_y_stock
+
+        pay_obj = db.query(_Payment).filter(_Payment.id == payment.id).first()
+        org_obj = db.query(_Org).filter(_Org.id == payment.organization_id).first()
+
+        if not (pay_obj and org_obj):
+            return {"ok": False, "error": "lookup_failed_tienda", "payment_id": payment_id}
+
+        await _emitir_cpe_tienda_y_stock(db, pay_obj, org_obj)
+        pay_obj.status = "approved"
+        try:
+            pay_obj.paid_at = datetime.now(timezone.utc)
+        except Exception:
+            pass
+        db.commit()
+        logger.info(
+            f"[procesar_pago_confirmado] Tienda pública procesada payment={pay_obj.id} "
+            f"tx={tx_id} source={source}"
+        )
+        return {
+            "ok": True,
+            "flujo": "tienda_publica_openpay",
+            "payment_id": pay_obj.id,
+            "source": source,
+        }
+
+    # ── RAMA DEUDAS / FRACCIONAMIENTO / DIRECTO ─────────────────
+    db.execute(text("""
+        UPDATE payments
+        SET status = 'pagado',
+            paid_at = now(),
+            notes = notes || :nota
+        WHERE id = :pid
+    """), {
+        "nota": f" | Confirmado OpenPay {tx_id} (source={source})",
+        "pid":  payment.id,
+    })
+
+    deudas_vinculadas = db.execute(text("""
+        SELECT debt_id FROM payment_debts WHERE payment_id = :pid
+    """), {"pid": payment.id}).fetchall()
+
+    if deudas_vinculadas:
+        for d in deudas_vinculadas:
+            db.execute(text("""
+                UPDATE debts
+                SET balance = 0,
+                    status  = 'pagado',
+                    updated_at = now()
+                WHERE id = :did
+                  AND status IN ('pending', 'partial', 'parcial', 'esperando_pago')
+            """), {"did": d.debt_id})
+    else:
+        from app.services.deuda_cuotas_service import imputar_pago_a_deudas
+        resultado = imputar_pago_a_deudas(
+            colegiado_id    = payment.colegiado_id,
+            organization_id = payment.organization_id,
+            monto_pagado    = float(payment.amount),
+            payment_id      = payment.id,
+            db              = db,
+        )
+        logger.info(
+            f"[procesar_pago_confirmado] Imputación payment={payment.id}: "
+            f"{resultado['deudas_cerradas']} deudas cerradas, "
+            f"S/{resultado['monto_imputado']:.2f} imputado, "
+            f"sobrante S/{resultado['monto_sobrante']:.2f}"
+        )
+        if resultado['monto_sobrante'] > 0:
+            db.execute(text("""
+                UPDATE payments SET notes = notes || :nota WHERE id = :pid
+            """), {
+                "nota": f" | Sobrante S/{resultado['monto_sobrante']:.2f} pendiente de imputar",
+                "pid":  payment.id,
+            })
+
+    # ── Recalcular habilidad ────────────────────────────────────
+    try:
+        from app.services.evaluar_habilidad import evaluar_habilidad
+        from app.services.deuda_cuotas_service import calcular_deuda_total
+        deuda_info = calcular_deuda_total(payment.colegiado_id, payment.organization_id, db)
+        col_obj = db.execute(text("SELECT * FROM colegiados WHERE id = :cid"),
+            {"cid": payment.colegiado_id}).fetchone()
+        org_obj_row = db.execute(text("SELECT * FROM organizations WHERE id = :oid"),
+            {"oid": payment.organization_id}).fetchone()
+
+        if col_obj and org_obj_row:
+            eval_hab = evaluar_habilidad(deuda_info, dict(org_obj_row._mapping), col_obj)
+            if not eval_hab.debe_inhabilitar:
+                db.execute(text("""
+                    UPDATE colegiados SET condicion = 'habil'
+                    WHERE id = :cid AND condicion = 'inhabil'
+                """), {"cid": payment.colegiado_id})
+                logger.info(
+                    f"[procesar_pago_confirmado] Colegiado {payment.colegiado_id} → HÁBIL"
+                )
+    except Exception as e:
+        logger.error(f"[procesar_pago_confirmado] Error recalc habilidad: {e}", exc_info=True)
+
+    db.commit()
+    logger.info(
+        f"[procesar_pago_confirmado] Pago procesado payment={payment.id} "
+        f"tx={tx_id} source={source}"
+    )
+
+    # ── Emitir comprobante electrónico (si aplica) ──────────────
+    try:
+        tipo_comp = notas.get("tipo_comprobante")
+        if tipo_comp in ("boleta", "factura"):
+            from app.services.facturacion import FacturacionService
+            svc = FacturacionService(db, payment.organization_id)
+
+            if svc.esta_configurado():
+                tipo_doc     = "01" if tipo_comp == "factura" else "03"
+                forzar_datos = None
+
+                if tipo_comp == "factura":
+                    ruc  = notas.get("factura_ruc")
+                    rs   = notas.get("factura_razon_social") or "CLIENTE"
+                    dire = notas.get("factura_direccion") or ""
+                    if ruc:
+                        forzar_datos = {
+                            "tipo_doc":  "6",
+                            "num_doc":   ruc,
+                            "nombre":    rs,
+                            "direccion": dire,
+                            "email":     None,
+                        }
+
+                resultado_comp = await svc.emitir_comprobante_por_pago(
+                    payment.id,
+                    tipo                 = tipo_doc,
+                    forzar_datos_cliente = forzar_datos,
+                )
+
+                if resultado_comp.get("success"):
+                    logger.info(
+                        f"[procesar_pago_confirmado] Comprobante emitido: "
+                        f"{resultado_comp.get('numero_formato')}"
+                    )
+                else:
+                    logger.warning(
+                        f"[procesar_pago_confirmado] Comprobante no emitido: "
+                        f"{resultado_comp.get('error')}"
+                    )
+    except Exception as e:
+        logger.error(
+            f"[procesar_pago_confirmado] Error emitiendo comprobante payment={payment.id}: {e}",
+            exc_info=True
+        )
+
+    return {
+        "ok": True,
+        "flujo": flujo or "directo",
+        "payment_id": payment.id,
+        "source": source,
+    }
