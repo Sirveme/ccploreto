@@ -1095,9 +1095,9 @@ class FacturacionService:
             "items": [{
                 "descripcion": item.get("descripcion", "Cuotas de colegiatura"),
                 "cantidad": item.get("cantidad", 1),
-                "unidad_medida": "ZZ",
+                "unidad_medida": item.get("unidad", "ZZ"),
                 "precio_unitario": item.get("precio_unitario", comprobante.total),
-                "tipo_afectacion_igv": self.config.tipo_afectacion_igv
+                "tipo_afectacion_igv": item.get("tipo_afectacion_igv", self.config.tipo_afectacion_igv)
             } for item in (comprobante.items or [{
                 "descripcion": "Cuotas de colegiatura",
                 "precio_unitario": comprobante.total
