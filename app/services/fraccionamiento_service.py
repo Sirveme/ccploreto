@@ -13,7 +13,7 @@ los flujos administrativos (Sandra) que requieren seleccionar deudas
 explícitamente con `deuda_ids`.
 
 Reglas CCPL:
-- Deuda mínima S/ 500
+- Deuda mínima S/ 250
 - Cuota inicial >= 20% de deuda
 - Cuota mensual >= S/ 100
 - Máximo 12 cuotas mensuales
@@ -33,7 +33,7 @@ from dateutil.relativedelta import relativedelta
 from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
 
 PERU_TZ = timezone(timedelta(hours=-5))
-DEUDA_MIN = 500.0
+DEUDA_MIN = 250.0
 CUOTA_MENSUAL_MIN = 100.0
 MAX_CUOTAS = 12
 CUOTA_INICIAL_PCT = 0.20
@@ -44,6 +44,10 @@ class ResultadoFraccionamiento:
     fraccionamiento: Fraccionamiento
     cronograma: List[dict]   # [{n_cuota, monto, fecha_vencimiento}]
     condona_detalle: Optional[dict] = None
+    # zClaude-84: filas espejo creadas en `debts` para el cronograma
+    cuotas_debts_creadas: int = 0
+    cuotas_debts_omitidas: int = 0
+    cuota_inicial_debt_id: Optional[int] = None
 
 
 def _generar_numero_solicitud(db: Session, organization_id: int, anio: int) -> str:
@@ -239,6 +243,29 @@ def crear_fraccionamiento(
         if nota_audit:
             d.notes = ((d.notes or "") + f"\n{nota_audit}").strip()
 
+    # ── zClaude-84: generar filas espejo en `debts` ──
+    # Necesario para que Sandra pueda cobrar la cuota inicial el mismo
+    # día y para que el modal del plan en /caja resuelva cada cuota a
+    # su deuda real (evita "·sin enlace").
+    db.flush()
+    from app.services.fraccionamiento_cuotas_service import (
+        generar_cuotas_fracc_en_debts,
+        obtener_debt_id_cuota_inicial,
+    )
+    resultado_gen = generar_cuotas_fracc_en_debts(
+        db=db,
+        fraccionamiento_id=fracc.id,
+        user_id=created_by_user_id,
+        marcador_origen="GEN-FRACC-ON-CREATE",
+    )
+    if resultado_gen["errores"]:
+        db.rollback()
+        raise HTTPException(
+            500,
+            f"Error generando cuotas en debts: {resultado_gen['errores']}",
+        )
+    debt_id_inicial = obtener_debt_id_cuota_inicial(db, fracc.id)
+
     db.commit()
     db.refresh(fracc)
 
@@ -275,6 +302,9 @@ def crear_fraccionamiento(
         fraccionamiento=fracc,
         cronograma=cronograma,
         condona_detalle=condona_info,
+        cuotas_debts_creadas=len(resultado_gen["creadas"]),
+        cuotas_debts_omitidas=len(resultado_gen["omitidas"]),
+        cuota_inicial_debt_id=debt_id_inicial,
     )
 
 
