@@ -581,15 +581,16 @@ async def openpay_webhook(
         org_obj_t = db.query(_Org).filter(_Org.id == payment.organization_id).first()
 
         if pay_obj and org_obj_t:
-            # 1. Descontar stock + 2. Emitir CPE sede_id=8 (B800/F800)
-            await _emitir_cpe_tienda_y_stock(db, pay_obj, org_obj_t)
-            # 3. Marcar approved
+            # 1. Marcar approved y commitear ANTES de emitir CPE
+            #    (evita race condition: _emitir_cpe_tienda_y_stock lee status desde DB)
             pay_obj.status = "approved"
             try:
                 pay_obj.paid_at = datetime.now(timezone.utc)
             except Exception:
                 pass
             db.commit()
+            # 2. Descontar stock + 3. Emitir CPE sede_id=8 (B800/F800)
+            await _emitir_cpe_tienda_y_stock(db, pay_obj, org_obj_t)
             logger.info(f"[OpenPay webhook] Tienda pública procesada payment={pay_obj.id} tx={tx_id}")
             return JSONResponse({"received": True, "processed": True, "flujo": "tienda"})
 
