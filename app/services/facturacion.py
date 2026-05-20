@@ -835,6 +835,55 @@ class FacturacionService:
                     "igv": 0 if tipo_afect == "20" else round(valor_venta * 0.18, 2),
                 })
 
+        # ── Caso B: notes contiene JSON con "items" (flujo tienda pública OpenPay) ──
+        if not items:
+            try:
+                notas_json = (
+                    json.loads(notas)
+                    if notas and notas.strip().startswith("{")
+                    else None
+                )
+            except Exception:
+                notas_json = None
+
+            items_json = (notas_json or {}).get("items") if isinstance(notas_json, dict) else None
+            if isinstance(items_json, list) and items_json:
+                tipo_afect_default = self.config.tipo_afectacion_igv
+                for it in items_json:
+                    nombre_it   = (it.get("nombre") or "Producto").upper()
+                    cantidad_it = int(it.get("cantidad") or 1) or 1
+                    precio_unit = round(float(it.get("monto_unitario") or 0), 2)
+                    valor_venta = round(
+                        float(it.get("monto_total") or (precio_unit * cantidad_it)),
+                        2,
+                    )
+
+                    afecto = it.get("afecto_igv")
+                    if afecto is True:
+                        tipo_afect = "10"   # Gravado
+                    elif afecto is False:
+                        tipo_afect = "20"   # Exonerado
+                    else:
+                        tipo_afect = tipo_afect_default
+
+                    descripcion = nombre_it
+                    if linea_nombre:
+                        descripcion += f"\n{linea_nombre}"
+                    if linea_docs:
+                        descripcion += f"\n{linea_docs}"
+                    descripcion += f"\n{linea_pago}"
+
+                    items.append({
+                        "codigo": (it.get("codigo") or "PRD001"),
+                        "descripcion": descripcion,
+                        "unidad": "NIU",
+                        "cantidad": cantidad_it,
+                        "precio_unitario": precio_unit,
+                        "valor_venta": valor_venta,
+                        "tipo_afectacion_igv": tipo_afect,
+                        "igv": round(valor_venta * 0.18, 2) if tipo_afect == "10" else 0,
+                    })
+
         # ── Fallback: sin deudas asociadas ──
         if not items:
             # Limpiar marcadores internos ([DEBT_IDS:..], [CONCEPTOS_B64:..], [CAJA]).
