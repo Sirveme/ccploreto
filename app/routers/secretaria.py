@@ -15,7 +15,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body, UploadFile, File
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, text
 from pydantic import BaseModel, Field
 
 from app.database import get_db
@@ -1024,6 +1024,11 @@ async def registrar_fraccionamiento(
         "numero_solicitud": fracc.numero_solicitud,
         "cronograma": resultado.cronograma,
         "condona_007": resultado.condona_detalle,
+        # zClaude-84: filas espejo en `debts` + cuota inicial cobrable
+        "cuotas_creadas": resultado.cuotas_debts_creadas,
+        "cuotas_omitidas": resultado.cuotas_debts_omitidas,
+        "cuota_inicial_debt_id": resultado.cuota_inicial_debt_id,
+        "cuota_inicial_monto": float(fracc.cuota_inicial or 0),
         "mensaje": (
             f"Plan {fracc.numero_solicitud} creado. "
             f"Cuota inicial S/ {float(fracc.cuota_inicial):.2f}, "
@@ -1174,6 +1179,336 @@ async def cronograma_pdf(
             "Content-Disposition": f'inline; filename="{filename}"',
         },
     )
+
+
+# ============================================================
+# zClaude-83 — FRACCIONAMIENTOS: DETALLE ESTRUCTURADO + MARCAR PERDIDO
+# ============================================================
+
+class MarcarPerdidoSchema(BaseModel):
+    motivo: str = Field(..., min_length=10, max_length=500)
+
+
+@router.get("/fraccionamientos-detalle/{colegiado_id}")
+async def fraccionamientos_detalle(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Devuelve TODOS los fraccionamientos del colegiado con:
+    - Header del fracc
+    - Deudas originales vinculadas (via fraccionamiento_id_origen)
+    - Cuotas generadas por el fracc (via fraccionamiento_id)
+    - Totales calculados
+    - Inconsistencias detectadas (4 tipos)
+    """
+    fraccs = db.execute(text("""
+        SELECT id, numero_solicitud, deuda_total_original, cuota_inicial,
+               cuota_inicial_pagada, num_cuotas, monto_cuota,
+               cuotas_pagadas, cuotas_atrasadas, saldo_pendiente,
+               estado, fecha_inicio, fecha_fin_estimada, fecha_solicitud,
+               fecha_perdida, motivo_perdida, created_at
+        FROM fraccionamientos
+        WHERE colegiado_id = :cid
+        ORDER BY created_at DESC
+    """), {"cid": colegiado_id}).fetchall()
+
+    resultado = []
+    for fr in fraccs:
+        originales = db.execute(text("""
+            SELECT id, periodo, debt_type, concept, amount, balance,
+                   status, estado_gestion
+            FROM debts
+            WHERE fraccionamiento_id_origen = :fid
+            ORDER BY periodo NULLS LAST, id
+        """), {"fid": fr.id}).fetchall()
+
+        cuotas = db.execute(text("""
+            SELECT id, periodo, concept, amount, balance, status,
+                   estado_gestion, notes
+            FROM debts
+            WHERE fraccionamiento_id = :fid
+            ORDER BY id
+        """), {"fid": fr.id}).fetchall()
+
+        suma_originales = sum(float(o.amount or 0) for o in originales)
+        suma_cuotas = sum(float(c.amount or 0) for c in cuotas)
+        header_total = float(fr.deuda_total_original or 0)
+
+        inconsistencias = []
+        if header_total > 0 and abs(suma_cuotas - header_total) > 0.01 and cuotas:
+            inconsistencias.append(
+                f"Header dice S/{header_total:.2f} pero cuotas suman "
+                f"S/{suma_cuotas:.2f}"
+            )
+        if header_total > 0 and originales and abs(
+            suma_originales - header_total
+        ) > 0.01:
+            inconsistencias.append(
+                f"Deudas originales vinculadas suman "
+                f"S/{suma_originales:.2f}, no S/{header_total:.2f}"
+            )
+        if (fr.num_cuotas or 0) == 0 and cuotas:
+            inconsistencias.append(
+                f"Header dice num_cuotas=0 pero existen {len(cuotas)} cuotas"
+            )
+        if not originales:
+            inconsistencias.append(
+                "No hay deudas originales vinculadas (revisar backfill o "
+                "vinculación manual)"
+            )
+
+        resultado.append({
+            "id": fr.id,
+            "numero_solicitud": fr.numero_solicitud,
+            "estado": fr.estado,
+            "fecha_solicitud": (
+                fr.fecha_solicitud.isoformat()
+                if fr.fecha_solicitud else None
+            ),
+            "fecha_inicio": (
+                fr.fecha_inicio.isoformat() if fr.fecha_inicio else None
+            ),
+            "fecha_fin_estimada": (
+                fr.fecha_fin_estimada.isoformat()
+                if fr.fecha_fin_estimada else None
+            ),
+            "fecha_perdida": (
+                fr.fecha_perdida.isoformat() if fr.fecha_perdida else None
+            ),
+            "motivo_perdida": fr.motivo_perdida,
+            "header": {
+                "deuda_total_original": header_total,
+                "cuota_inicial": float(fr.cuota_inicial or 0),
+                "cuota_inicial_pagada": bool(fr.cuota_inicial_pagada),
+                "num_cuotas": int(fr.num_cuotas or 0),
+                "monto_cuota": float(fr.monto_cuota or 0),
+                "cuotas_pagadas": int(fr.cuotas_pagadas or 0),
+                "cuotas_atrasadas": int(fr.cuotas_atrasadas or 0),
+                "saldo_pendiente": float(fr.saldo_pendiente or 0),
+            },
+            "deudas_originales": [
+                {
+                    "id": o.id,
+                    "periodo": o.periodo,
+                    "concepto": o.concept,
+                    "tipo": o.debt_type,
+                    "monto": float(o.amount or 0),
+                    "balance": float(o.balance or 0),
+                    "status": o.status,
+                    "estado_gestion": o.estado_gestion,
+                }
+                for o in originales
+            ],
+            "cuotas_fracc": [
+                {
+                    "id": c.id,
+                    "periodo": c.periodo,
+                    "concepto": c.concept,
+                    "monto": float(c.amount or 0),
+                    "balance": float(c.balance or 0),
+                    "status": c.status,
+                    "estado_gestion": c.estado_gestion,
+                }
+                for c in cuotas
+            ],
+            "totales_calculados": {
+                "suma_originales": round(suma_originales, 2),
+                "suma_cuotas": round(suma_cuotas, 2),
+                "cuotas_pagadas_monto": round(sum(
+                    float(c.amount or 0) - float(c.balance or 0)
+                    for c in cuotas
+                ), 2),
+            },
+            "inconsistencias": inconsistencias,
+        })
+
+    return {
+        "colegiado_id": colegiado_id,
+        "fraccionamientos": resultado,
+    }
+
+
+@router.post("/fraccionamientos/{fracc_id}/marcar-perdido")
+async def marcar_fracc_perdido(
+    fracc_id: int,
+    payload: MarcarPerdidoSchema,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """
+    Marca un fraccionamiento como perdido:
+    1. Bloquea el fracc (FOR UPDATE) y valida estado.
+    2. Restaura deudas originales vinculadas (idempotente).
+    3. Aplica pagos previos a cuotas sobre originales (orden cronológico).
+    4. Cancela cuotas del fracc (status='cancelled').
+    5. Cambia estado del fracc a 'perdido' con fecha y motivo.
+    """
+    fr = db.execute(text("""
+        SELECT id, colegiado_id, estado, deuda_total_original
+        FROM fraccionamientos
+        WHERE id = :fid
+        FOR UPDATE
+    """), {"fid": fracc_id}).fetchone()
+
+    if not fr:
+        raise HTTPException(404, "Fraccionamiento no encontrado")
+
+    if fr.estado == "perdido":
+        raise HTTPException(
+            409, "Este fraccionamiento ya está marcado como perdido"
+        )
+
+    if fr.estado == "cancelado":
+        raise HTTPException(
+            409,
+            "Este fraccionamiento está cancelado, no se puede marcar "
+            "como perdido"
+        )
+
+    originales = db.execute(text("""
+        SELECT id, amount, balance, status, estado_gestion
+        FROM debts
+        WHERE fraccionamiento_id_origen = :fid
+        ORDER BY id
+    """), {"fid": fracc_id}).fetchall()
+
+    cuotas = db.execute(text("""
+        SELECT id, amount, balance, status
+        FROM debts
+        WHERE fraccionamiento_id = :fid
+        ORDER BY id
+    """), {"fid": fracc_id}).fetchall()
+
+    pagos_a_cuotas = sum(
+        float(c.amount or 0) - float(c.balance or 0) for c in cuotas
+    )
+
+    user_id = current_member.user_id if current_member.user_id else current_member.id
+    ahora = datetime.now(PERU_TZ)
+    nota_restaurar = (
+        f"[FRACC-PERDIDO:user{user_id}] "
+        f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
+        f"restauración por marcar perdido fracc {fracc_id}. "
+        f"Motivo: {payload.motivo[:100]}"
+    )
+
+    originales_restauradas = []
+    for o in originales:
+        ya_plena = (
+            o.balance is not None
+            and o.amount is not None
+            and o.balance >= o.amount
+            and o.status != "paid"
+        )
+        if ya_plena:
+            continue
+        db.execute(text("""
+            UPDATE debts
+            SET balance = amount,
+                status = 'pending',
+                estado_gestion = 'vigente',
+                updated_at = NOW(),
+                notes = COALESCE(notes,'') || E'\n' || :nota
+            WHERE id = :did
+        """), {"did": o.id, "nota": nota_restaurar})
+        originales_restauradas.append(o.id)
+
+    aplicaciones_pago = []
+    if pagos_a_cuotas > 0:
+        saldo = pagos_a_cuotas
+        originales_orden = db.execute(text("""
+            SELECT id, amount, periodo
+            FROM debts
+            WHERE fraccionamiento_id_origen = :fid
+            ORDER BY periodo NULLS LAST, id
+        """), {"fid": fracc_id}).fetchall()
+
+        for o in originales_orden:
+            if saldo <= 0:
+                break
+            monto = float(o.amount or 0)
+            a_aplicar = min(saldo, monto)
+            nuevo_balance = monto - a_aplicar
+            if nuevo_balance <= 0.01:
+                nuevo_status = "paid"
+            elif a_aplicar > 0:
+                nuevo_status = "partial"
+            else:
+                nuevo_status = "pending"
+            nota_pago = (
+                f"[FRACC-PERDIDO-PAGO:user{user_id}] "
+                f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
+                f"aplicado S/{a_aplicar:.2f} de pagos previos al "
+                f"fracc {fracc_id}"
+            )
+            db.execute(text("""
+                UPDATE debts
+                SET balance = :nb,
+                    status = :ns,
+                    updated_at = NOW(),
+                    notes = COALESCE(notes,'') || E'\n' || :nota
+                WHERE id = :did
+            """), {
+                "nb": nuevo_balance,
+                "ns": nuevo_status,
+                "did": o.id,
+                "nota": nota_pago,
+            })
+            aplicaciones_pago.append({
+                "debt_id": o.id,
+                "aplicado": round(a_aplicar, 2),
+                "balance_final": round(nuevo_balance, 2),
+                "status_final": nuevo_status,
+            })
+            saldo -= a_aplicar
+
+    cuotas_canceladas = []
+    for c in cuotas:
+        db.execute(text("""
+            UPDATE debts
+            SET balance = 0,
+                status = 'cancelled',
+                estado_gestion = 'anulada',
+                updated_at = NOW(),
+                notes = COALESCE(notes,'') ||
+                        E'\n[FRACC-PERDIDO-CUOTA] cuota anulada por '
+                        'pérdida del fracc'
+            WHERE id = :did
+        """), {"did": c.id})
+        cuotas_canceladas.append(c.id)
+
+    db.execute(text("""
+        UPDATE fraccionamientos
+        SET estado = 'perdido',
+            fecha_perdida = NOW(),
+            motivo_perdida = :motivo,
+            updated_at = NOW()
+        WHERE id = :fid
+    """), {"motivo": payload.motivo, "fid": fracc_id})
+
+    db.commit()
+
+    logger.info(
+        "Fracc %s marcado como PERDIDO por user=%s: "
+        "originales_restauradas=%s, cuotas_canceladas=%s, "
+        "pagos_aplicados=%s",
+        fracc_id,
+        user_id,
+        originales_restauradas,
+        cuotas_canceladas,
+        len(aplicaciones_pago),
+    )
+
+    return {
+        "ok": True,
+        "fracc_id": fracc_id,
+        "originales_restauradas": originales_restauradas,
+        "cuotas_canceladas": cuotas_canceladas,
+        "aplicaciones_pago": aplicaciones_pago,
+        "pagos_a_cuotas_total": round(pagos_a_cuotas, 2),
+    }
 
 
 # ============================================================

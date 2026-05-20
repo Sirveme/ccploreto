@@ -43,6 +43,7 @@ from app.models import Member
 
 from app.services.facturacion import FacturacionService
 from app.services.colegiado_alta_service import calcular_siguiente_matricula
+from app.services.comprobante_anulacion_service import restaurar_deudas_por_anulacion
 from app.utils.comprobantes import get_numero_display, get_estado_display
 from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamiento
 
@@ -2080,9 +2081,14 @@ async def anular_cobro(
 
     # ── Revertir deudas ──
     deudas_revertidas = 0
+    deudas_restauradas_ids: list = []
+    deudas_omitidas_ids: list = []
+    mensajes_restauracion: list = []
     if payment.colegiado_id:
         if es_parcial:
             # Parcial: revertir solo las deudas que correspondan al monto
+            # (lógica histórica por substring de concept en notes; fuera de
+            # scope del bug zClaude-82 que aplica a anulación total).
             notas = payment.notes or ""
             deudas = db.query(Debt).filter(
                 Debt.colegiado_id == payment.colegiado_id,
@@ -2099,18 +2105,42 @@ async def anular_cobro(
                     monto_pendiente -= float(deuda.amount)
                     deudas_revertidas += 1
         else:
-            # Total: revertir todas las deudas del pago
-            notas = payment.notes or ""
-            deudas = db.query(Debt).filter(
-                Debt.colegiado_id == payment.colegiado_id,
-                Debt.status == "paid",
-            ).all()
+            # Total: restauración automática vía [DEBT_IDS:] en payment.notes
+            # (zClaude-82). Fix del bug donde la coincidencia por substring
+            # de concept en notes no disparaba la reversión.
+            comp_sn = (
+                f"{comp.serie}-{comp.numero}" if comp
+                else f"PAY-{payment.id}"
+            )
+            (
+                deudas_restauradas_ids,
+                deudas_omitidas_ids,
+                mensajes_restauracion,
+            ) = restaurar_deudas_por_anulacion(
+                db=db,
+                payment_id=payment.id,
+                user_id=member.id,
+                comprobante_serie_numero=comp_sn,
+            )
+            deudas_revertidas = len(deudas_restauradas_ids)
 
-            for deuda in deudas:
-                if deuda.concept and deuda.concept in notas:
-                    deuda.status = "pending"
-                    deuda.balance = deuda.amount
-                    deudas_revertidas += 1
+            if mensajes_restauracion:
+                logger.info(
+                    "Anulación pago=%s comp=%s: restauradas=%s, omitidas=%s",
+                    payment.id,
+                    comp_sn,
+                    deudas_restauradas_ids,
+                    deudas_omitidas_ids,
+                )
+
+            # Persistir resumen en observaciones del comprobante (si existe)
+            if comp is not None:
+                resumen = (
+                    f"\n[RESTAURACIÓN-AUTO] "
+                    f"{len(deudas_restauradas_ids)} deuda(s) restaurada(s), "
+                    f"{len(deudas_omitidas_ids)} omitida(s)."
+                )
+                comp.observaciones = (comp.observaciones or "") + resumen
 
     # ── Revertir stock ──
     if not es_parcial:
@@ -2154,6 +2184,8 @@ async def anular_cobro(
             "nc_pdf_url": nc_pdf_url,
             "monto_anulado": monto_anular,
             "es_parcial": es_parcial,
+            "deudas_restauradas": deudas_restauradas_ids,
+            "deudas_omitidas": deudas_omitidas_ids,
         }
     else:
         # NC falló — NO tocar el pago, devolver error

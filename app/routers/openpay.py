@@ -506,16 +506,43 @@ async def openpay_webhook(
         logger.warning("Procesando sin verificación — revisar manualmente")
 
     # ── Buscar payment por transaction_id ──────────────────────
+    # Búsqueda primaria: por columna openpay_transaction_id
     payment = db.execute(text("""
-        SELECT p.id, p.colegiado_id, p.amount, p.status, p.organization_id
+        SELECT p.id, p.colegiado_id, p.amount, p.status, p.organization_id, p.notes
         FROM payments p
         WHERE p.openpay_transaction_id = :txid
-           OR p.notes LIKE :order_pattern
         LIMIT 1
-    """), {
-        "txid":          tx_id,
-        "order_pattern": f"%{order_id}%",
-    }).fetchone()
+    """), {"txid": tx_id}).fetchone()
+
+    # Fallback A: buscar por tx_id embebido en notes (defensa en profundidad)
+    if not payment:
+        payment = db.execute(text("""
+            SELECT p.id, p.colegiado_id, p.amount, p.status, p.organization_id, p.notes
+            FROM payments p
+            WHERE p.notes LIKE '{%'
+              AND p.notes LIKE :tx_pattern
+            LIMIT 1
+        """), {"tx_pattern": f"%{tx_id}%"}).fetchone()
+
+        if payment:
+            db.execute(text("""
+                UPDATE payments
+                SET openpay_transaction_id = :tx
+                WHERE id = :pid AND openpay_transaction_id IS NULL
+            """), {"tx": tx_id, "pid": payment.id})
+            logger.info(
+                f"[OpenPay webhook] Payment {payment.id} encontrado por notes, "
+                f"columna actualizada con tx_id={tx_id}"
+            )
+
+    # Fallback B: buscar por order_id en notes (legacy)
+    if not payment:
+        payment = db.execute(text("""
+            SELECT p.id, p.colegiado_id, p.amount, p.status, p.organization_id, p.notes
+            FROM payments p
+            WHERE p.notes LIKE :order_pattern
+            LIMIT 1
+        """), {"order_pattern": f"%{order_id}%"}).fetchone()
 
     if not payment:
         logger.error(f"Webhook OpenPay: no se encontró payment para TX:{tx_id} order:{order_id}")

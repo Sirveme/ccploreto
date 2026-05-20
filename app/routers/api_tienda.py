@@ -620,8 +620,9 @@ async def iniciar_openpay_publico(
         tx_id = resultado.get("id")
         if tx_id:
             notes_data["openpay_transaction_id"] = tx_id
-            payment.notes          = _json.dumps(notes_data, ensure_ascii=False)
-            payment.operation_code = tx_id
+            payment.notes                  = _json.dumps(notes_data, ensure_ascii=False)
+            payment.operation_code         = tx_id
+            payment.openpay_transaction_id = tx_id
 
         pay_url = (resultado.get("payment_method") or {}).get("url")
         if not pay_url:
