@@ -9,7 +9,7 @@
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Source Sans 3',sans-serif;background:#0f2318;min-height:100vh;
          display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-    .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:440px;
+    .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:480px;
           width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
     .icon{font-size:56px;margin-bottom:16px;display:block}
     h2{font-size:22px;font-weight:800;margin-bottom:8px;color:#1a2e22}
@@ -17,7 +17,7 @@
     .ref-box{background:#f0f8f4;border-radius:8px;padding:14px;margin-bottom:24px;text-align:left}
     .ref-label{font-size:10px;font-weight:700;color:#5a7060;text-transform:uppercase;
                letter-spacing:.5px;margin-bottom:4px}
-    .ref-val{font-size:12px;color:#1b4d35;font-family:monospace}
+    .ref-val{font-size:12px;color:#1b4d35;font-family:monospace;word-break:break-all}
     .btn-home{display:inline-flex;align-items:center;gap:8px;background:#1b4d35;
               color:white;padding:12px 28px;border-radius:8px;text-decoration:none;
               font-size:14px;font-weight:700;transition:background .2s}
@@ -30,6 +30,29 @@
     .spinner{width:48px;height:48px;border:5px solid #d8e8dc;border-top-color:#1b4d35;
              border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
     .status-txt{font-size:12px;color:#7a9080;margin-top:8px}
+
+    /* Bloque comprobante */
+    .comp-box{background:#f0f8f4;border-radius:12px;padding:20px 16px;margin:20px 0;
+              border:2px solid #1b4d35;text-align:center}
+    .comp-titulo{font-size:11px;font-weight:700;text-transform:uppercase;
+                 letter-spacing:1px;color:#1b4d35;margin-bottom:8px}
+    .comp-numero{font-size:22px;font-weight:800;color:#1b4d35;
+                 font-family:'Courier New',monospace;margin-bottom:6px}
+    .comp-tipo{font-size:13px;color:#5a7060;margin-bottom:12px}
+    .comp-status{display:inline-block;padding:3px 10px;border-radius:12px;
+                 font-size:11px;font-weight:700;letter-spacing:.5px;
+                 background:#166534;color:white;margin-bottom:14px}
+    .comp-status.warn{background:#b45309}
+    .comp-acciones{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .comp-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;
+              border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;
+              transition:all .2s}
+    .comp-btn-pdf{background:#1b4d35;color:white}
+    .comp-btn-pdf:hover{background:#256847}
+    .comp-btn-xml{background:transparent;color:#5a7060;border:1.5px solid #d8e8dc}
+    .comp-btn-xml:hover{border-color:#1b4d35;color:#1b4d35}
+    .comp-loading{padding:12px;text-align:center;font-size:13px;color:#7a9080;
+                  font-style:italic;margin:18px 0}
   </style>
 </head>
 <body>
@@ -43,13 +66,33 @@
     <a href="/" class="btn-home">Volver al inicio</a>
   </div>
 
-{% elif pago.status == 'pagado' %}
-  <div class="card">
+{% elif pago.status in ('approved', 'pagado') %}
+  <div class="card" id="card-aprobado">
     <span class="icon">✅</span>
     <h2 style="color:#166534;">¡Pago Confirmado!</h2>
-    <p>El pago de <strong>{{ pago.apellidos_nombres }}</strong><br>
+    <p>{% if pago.apellidos_nombres %}El pago de <strong>{{ pago.apellidos_nombres }}</strong><br>{% endif %}
        por <strong style="color:#1b4d35;font-size:18px;">S/ {{ "%.2f"|format(pago.amount) }}</strong>
        fue procesado exitosamente.</p>
+
+    <div id="comp-container" class="comp-box" style="display:none;">
+      <div class="comp-titulo" id="comp-titulo-label">Comprobante</div>
+      <div class="comp-numero" id="comp-numero">—</div>
+      <div class="comp-tipo" id="comp-tipo">—</div>
+      <div class="comp-status" id="comp-status">—</div>
+      <div class="comp-acciones">
+        <a id="comp-btn-pdf" class="comp-btn comp-btn-pdf" href="#" target="_blank" rel="noopener">
+          ⬇ Descargar PDF
+        </a>
+        <a id="comp-btn-xml" class="comp-btn comp-btn-xml" href="#" target="_blank" rel="noopener">
+          ⬇ XML
+        </a>
+      </div>
+    </div>
+
+    <div id="comp-loading" class="comp-loading">
+      Verificando emisión del comprobante…
+    </div>
+
     <div class="ref-box">
       <div class="ref-label">Referencia OpenPay</div>
       <div class="ref-val">{{ pago.openpay_transaction_id or '—' }}</div>
@@ -58,21 +101,74 @@
       <div class="ref-val">{{ pago.codigo_matricula }}</div>
       {% endif %}
     </div>
-    <p style="font-size:12px;color:#7a9080;margin-bottom:20px;">
-      Si requiere constancia de habilidad, puede solicitarla ingresando a su portal.</p>
+
     <a href="/" class="btn-home">Ir al inicio</a>
-    <a href="/login" class="btn-sec">Ver Nuevo Saldo</a>
   </div>
 
-{% elif pago.status in ('esperando_pago', 'pendiente_openpay') %}
+  <script>
+  (function() {
+    const PID = {{ pago.id }};
+    const compContainer = document.getElementById('comp-container');
+    const compLoading   = document.getElementById('comp-loading');
+    const MAX_INTENTOS  = 20; // 60 segundos (cada 3s)
+    let intentos = 0;
+
+    async function verificarComprobante() {
+      intentos++;
+      try {
+        const r = await fetch('/pagos/resultado/comprobante?payment=' + PID, {cache: 'no-store'});
+        if (r.ok) {
+          const data = await r.json();
+          if (data.comprobante) {
+            mostrarComprobante(data.comprobante);
+            return;
+          }
+        }
+      } catch (e) { /* reintento */ }
+      if (intentos < MAX_INTENTOS) {
+        setTimeout(verificarComprobante, 3000);
+      } else {
+        compLoading.innerHTML = 'Su comprobante será enviado por correo electrónico en los próximos minutos.';
+      }
+    }
+
+    function mostrarComprobante(comp) {
+      compLoading.style.display = 'none';
+      document.getElementById('comp-titulo-label').textContent = comp.tipo_label || 'Comprobante';
+      document.getElementById('comp-numero').textContent = comp.numero_formato || '—';
+      const tipoTxt =
+        (comp.status === 'accepted' || comp.status === 'aceptado' ? 'Aceptado por SUNAT' : 'Emitido')
+        + (comp.total != null ? ` · Total S/ ${Number(comp.total).toFixed(2)}` : '');
+      document.getElementById('comp-tipo').textContent = tipoTxt;
+
+      const st = document.getElementById('comp-status');
+      const aceptado = (comp.status === 'accepted' || comp.status === 'aceptado');
+      st.textContent = aceptado ? '✓ ACEPTADO' : (comp.status || '').toUpperCase();
+      if (!aceptado) st.classList.add('warn');
+
+      const btnPdf = document.getElementById('comp-btn-pdf');
+      const btnXml = document.getElementById('comp-btn-xml');
+      if (comp.pdf_url) { btnPdf.href = comp.pdf_url; } else { btnPdf.style.display = 'none'; }
+      if (comp.xml_url) { btnXml.href = comp.xml_url; } else { btnXml.style.display = 'none'; }
+
+      compContainer.style.display = 'block';
+    }
+
+    verificarComprobante();
+  })();
+  </script>
+
+{% elif pago.status in ('esperando_pago', 'pendiente_openpay', 'pending') %}
   <div class="card" id="polling-card">
     <div class="spinner"></div>
     <h2>Verificando pago...</h2>
     <p>Confirmando el pago de <strong>S/ {{ "%.2f"|format(pago.amount) }}</strong>.<br>
        Esta página se actualiza automáticamente.</p>
     <div class="ref-box">
+      {% if pago.apellidos_nombres %}
       <div class="ref-label">Colegiado</div>
       <div class="ref-val">{{ pago.apellidos_nombres }}</div>
+      {% endif %}
       {% if pago.openpay_transaction_id %}
       <div class="ref-label" style="margin-top:8px">Referencia</div>
       <div class="ref-val">{{ pago.openpay_transaction_id }}</div>
@@ -88,7 +184,6 @@
     const TRID = "{{ pago.openpay_transaction_id or '' }}";
     const MAX  = 24;   // 2 minutos (24 × 5s)
     let   intentos = 0;
-
     const msg = document.getElementById('polling-msg');
 
     async function verificar() {
@@ -103,35 +198,27 @@
       }
 
       try {
-        // 1. Consultar estado en BD (normal)
-        const r = await fetch('/pagos/resultado/estado?payment=' + PID);
+        const r = await fetch('/pagos/resultado/estado?payment=' + PID, {cache: 'no-store'});
         const d = await r.json();
-
-        if (d.status === 'pagado') {
-          // Pago confirmado → recargar para mostrar pantalla de éxito
+        if (d.status === 'pagado' || d.status === 'approved') {
           window.location.reload();
           return;
         }
-
-        // 2. Si sigue pendiente y tenemos tx_id → consultar OpenPay directamente
-        if (TRID && d.status !== 'pagado') {
-          const rOp = await fetch('/pagos/openpay/consultar/' + PID);
+        if (TRID && d.status !== 'pagado' && d.status !== 'approved') {
+          const rOp = await fetch('/pagos/openpay/consultar/' + PID, {cache: 'no-store'});
           const dOp = await rOp.json();
-          if (dOp.status === 'pagado') {
+          if (dOp.status === 'pagado' || dOp.status === 'approved') {
             window.location.reload();
             return;
           }
         }
-
-      } catch(e) {
+      } catch (e) {
         console.error('[Polling]', e);
       }
 
-      // Continuar polling
       setTimeout(verificar, 5000);
     }
 
-    // Iniciar después de 3s (dar tiempo al webhook)
     setTimeout(verificar, 3000);
   })();
   </script>
