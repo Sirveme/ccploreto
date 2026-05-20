@@ -934,9 +934,9 @@ async def consultar_comprobante_de_pago(
 
 
 # ── Endpoints proxy: PDF/XML del comprobante (zClaude-87 FIX 3) ──────
-#  Facturalo exige headers x-api-key / x-api-secret. Estos endpoints
-#  resuelven la URL en BD, llaman a Facturalo con credenciales del
-#  backend, y stream-respond al cliente.
+#  Facturalo exige headers X-API-Key / X-API-Secret. Credenciales se leen
+#  desde la tabla configuracion_facturacion (no env vars) — mismo patrón
+#  que app/services/facturacion.py:506-507.
 async def _proxy_facturalo_archivo(
     payment_id: int,
     db: Session,
@@ -945,22 +945,30 @@ async def _proxy_facturalo_archivo(
     extension: str,
 ):
     from fastapi.responses import StreamingResponse
+    from app.models import ConfiguracionFacturacion
     import httpx
 
     row = db.execute(text(f"""
-        SELECT serie, numero, {campo} AS url
-        FROM comprobantes
-        WHERE payment_id = :pid
-        ORDER BY id DESC
+        SELECT c.serie, c.numero, c.{campo} AS url, c.organization_id
+        FROM comprobantes c
+        WHERE c.payment_id = :pid
+        ORDER BY c.id DESC
         LIMIT 1
     """), {"pid": payment_id}).fetchone()
 
     if not row or not row.url:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
 
+    config = db.query(ConfiguracionFacturacion).filter(
+        ConfiguracionFacturacion.organization_id == row.organization_id,
+        ConfiguracionFacturacion.activo == True,
+    ).first()
+    if not config or not config.facturalo_token:
+        raise HTTPException(status_code=500, detail="Configuración Facturalo no encontrada")
+
     headers = {
-        "x-api-key":    os.getenv("FACTURALO_API_KEY", ""),
-        "x-api-secret": os.getenv("FACTURALO_API_SECRET", ""),
+        "X-API-Key":    config.facturalo_token,
+        "X-API-Secret": config.facturalo_secret,
     }
 
     try:
