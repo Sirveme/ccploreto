@@ -684,6 +684,7 @@ async def tienda_pago_resultado(
                 mensaje="No encontramos la transacción indicada. Si ya pagaste, revisa tu correo o contáctanos.",
                 cpe_numero=None,
                 cpe_pdf_url=None,
+                payment_id=None,
             ),
             status_code=404,
         )
@@ -709,6 +710,7 @@ async def tienda_pago_resultado(
             ),
             cpe_numero=cpe_numero,
             cpe_pdf_url=cpe_pdf_url,
+            payment_id=pay.id,
         ))
 
     # Consultar estado directamente en OpenPay (fallback al webhook)
@@ -730,6 +732,7 @@ async def tienda_pago_resultado(
             ),
             cpe_numero=cpe_numero,
             cpe_pdf_url=cpe_pdf_url,
+            payment_id=pay.id,
         ))
 
     if estado_op in ("charge_pending", "in_progress"):
@@ -742,6 +745,7 @@ async def tienda_pago_resultado(
             ),
             cpe_numero=None,
             cpe_pdf_url=None,
+            payment_id=pay.id,
         ))
 
     # Rechazado, cancelado, expirado o desconocido
@@ -754,6 +758,7 @@ async def tienda_pago_resultado(
         ),
         cpe_numero=None,
         cpe_pdf_url=None,
+        payment_id=pay.id,
     ))
 
 
@@ -763,6 +768,7 @@ def _render_tienda_resultado(
     mensaje:     str,
     cpe_numero:  str | None,
     cpe_pdf_url: str | None,
+    payment_id:  int | None = None,
 ) -> str:
     """Template HTML inline para la página de resultado de tienda."""
     colores = {
@@ -771,8 +777,38 @@ def _render_tienda_resultado(
         "error":   {"c": "#ef4444", "bg": "rgba(239,68,68,.12)",  "bd": "rgba(239,68,68,.35)",  "icon": "error"},
     }.get(estado, {"c": "#94a3b8", "bg": "rgba(148,163,184,.12)", "bd": "rgba(148,163,184,.35)", "icon": "info"})
 
+    # Si el pago es OK y tenemos payment_id, render el bloque vacío que el JS llena por polling
     cpe_block = ""
-    if cpe_numero:
+    if estado == "ok" and payment_id:
+        cpe_block = (
+            '<div id="comp-loading" style="margin-top:14px;padding:12px;'
+            'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);'
+            'border-radius:10px;font-size:13px;color:#94a3b8;font-style:italic">'
+            'Verificando emisión del comprobante…</div>'
+            '<div id="comp-container" style="display:none;margin-top:14px;padding:16px;'
+            'background:rgba(16,185,129,.10);border:2px solid rgba(16,185,129,.45);'
+            'border-radius:12px;text-align:center">'
+            '<div id="comp-titulo-label" style="font-size:11px;font-weight:700;'
+            'text-transform:uppercase;letter-spacing:1px;color:#10b981;margin-bottom:6px">Comprobante</div>'
+            '<div id="comp-numero" style="font-size:22px;font-weight:800;color:#e2eaf7;'
+            'font-family:\'Courier New\',monospace;margin-bottom:4px">—</div>'
+            '<div id="comp-tipo" style="font-size:13px;color:#94a3b8;margin-bottom:10px">—</div>'
+            '<div id="comp-status" style="display:inline-block;padding:3px 10px;border-radius:12px;'
+            'font-size:11px;font-weight:700;letter-spacing:.5px;background:#059669;color:white;'
+            'margin-bottom:12px">—</div>'
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
+            '<a id="comp-btn-pdf" href="#" target="_blank" rel="noopener" '
+            'style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;'
+            'border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;'
+            'background:linear-gradient(135deg,#10b981,#059669);color:white">⬇ Descargar PDF</a>'
+            '<a id="comp-btn-xml" href="#" target="_blank" rel="noopener" '
+            'style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;'
+            'border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;'
+            'background:transparent;color:#94a3b8;border:1.5px solid rgba(255,255,255,.15)">⬇ XML</a>'
+            '</div></div>'
+        )
+    elif cpe_numero:
+        # Fallback: render estático cuando ya conocemos número y URL (desde notes)
         pdf_link = ""
         if cpe_pdf_url:
             pdf_link = (
@@ -790,6 +826,52 @@ def _render_tienda_resultado(
             f'<div style="font-size:16px;font-weight:700;color:#e2eaf7">{cpe_numero}</div>'
             f'{pdf_link}</div>'
         )
+
+    # Script de polling al endpoint /pagos/resultado/comprobante
+    polling_script = ""
+    if estado == "ok" and payment_id:
+        polling_script = f"""
+<script>
+(function() {{
+  const PID = {payment_id};
+  const compContainer = document.getElementById('comp-container');
+  const compLoading   = document.getElementById('comp-loading');
+  const MAX = 20; // 60s
+  let intentos = 0;
+
+  async function verificar() {{
+    intentos++;
+    try {{
+      const r = await fetch('/pagos/resultado/comprobante?payment=' + PID, {{cache:'no-store'}});
+      if (r.ok) {{
+        const data = await r.json();
+        if (data.comprobante) {{ pintar(data.comprobante); return; }}
+      }}
+    }} catch(e) {{}}
+    if (intentos < MAX) setTimeout(verificar, 3000);
+    else if (compLoading) compLoading.textContent = 'Su comprobante será enviado por correo en los próximos minutos.';
+  }}
+  function pintar(c) {{
+    if (compLoading) compLoading.style.display = 'none';
+    document.getElementById('comp-titulo-label').textContent = c.tipo_label || 'Comprobante';
+    document.getElementById('comp-numero').textContent = c.numero_formato || '—';
+    const aceptado = (c.status === 'accepted' || c.status === 'aceptado');
+    const txt = (aceptado ? 'Aceptado por SUNAT' : 'Emitido')
+              + (c.total != null ? ' · Total S/ ' + Number(c.total).toFixed(2) : '');
+    document.getElementById('comp-tipo').textContent = txt;
+    const st = document.getElementById('comp-status');
+    st.textContent = aceptado ? '✓ ACEPTADO' : (c.status || '').toUpperCase();
+    if (!aceptado) st.style.background = '#b45309';
+    const bp = document.getElementById('comp-btn-pdf');
+    const bx = document.getElementById('comp-btn-xml');
+    if (c.pdf_url) bp.href = c.pdf_url; else bp.style.display = 'none';
+    if (c.xml_url) bx.href = c.xml_url; else bx.style.display = 'none';
+    compContainer.style.display = 'block';
+  }}
+  verificar();
+}})();
+</script>
+"""
 
     return f"""<!DOCTYPE html>
 <html lang="es">
@@ -899,5 +981,6 @@ def _render_tienda_resultado(
       </a>
     </div>
   </div>
+  {polling_script}
 </body>
 </html>"""

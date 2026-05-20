@@ -858,6 +858,79 @@ async def consultar_estado_pago(
     return JSONResponse({"status": row.status})
 
 
+# ── Endpoint 1b: consulta info del comprobante emitido (polling JS) ──
+@router.get("/pagos/resultado/comprobante")
+async def consultar_comprobante_de_pago(
+    payment: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Consulta si existe comprobante emitido para un payment, y devuelve
+    info para la página de gracias (PDF, XML, número formato SUNAT).
+
+    Si el payment existe pero el comprobante aún no se ha emitido,
+    devuelve {"comprobante": null} — el cliente debe seguir haciendo polling.
+    """
+    from sqlalchemy import text
+    org = request.state.org
+
+    payment_row = db.execute(text("""
+        SELECT id, status
+        FROM payments
+        WHERE id = :pid AND organization_id = :oid
+    """), {"pid": payment, "oid": org["id"] if org else 0}).fetchone()
+
+    if not payment_row:
+        return JSONResponse({"error": "payment_not_found"}, status_code=404)
+
+    comp_row = db.execute(text("""
+        SELECT id, serie, numero, status, tipo, total,
+               pdf_url, xml_url, cdr_url,
+               sunat_response_description, sunat_response_code
+        FROM comprobantes
+        WHERE payment_id = :pid
+        ORDER BY id DESC
+        LIMIT 1
+    """), {"pid": payment}).fetchone()
+
+    if not comp_row:
+        return JSONResponse({
+            "payment_id":     payment,
+            "payment_status": payment_row.status,
+            "comprobante":    None,
+        })
+
+    tipo_label = ("Factura" if comp_row.tipo == "01" else
+                  "Boleta"  if comp_row.tipo == "03" else
+                  "Comprobante")
+
+    try:
+        numero_formato = f"{comp_row.serie}-{str(comp_row.numero).zfill(8)}"
+    except Exception:
+        numero_formato = f"{comp_row.serie or ''}-{comp_row.numero or ''}"
+
+    return JSONResponse({
+        "payment_id":     payment,
+        "payment_status": payment_row.status,
+        "comprobante": {
+            "id":              comp_row.id,
+            "serie":           comp_row.serie,
+            "numero":          comp_row.numero,
+            "numero_formato":  numero_formato,
+            "tipo":            comp_row.tipo,
+            "tipo_label":      tipo_label,
+            "status":          comp_row.status,
+            "total":           float(comp_row.total) if comp_row.total is not None else None,
+            "pdf_url":         comp_row.pdf_url,
+            "xml_url":         comp_row.xml_url,
+            "cdr_url":         comp_row.cdr_url,
+            "mensaje_sunat":   comp_row.sunat_response_description,
+            "codigo_sunat":    comp_row.sunat_response_code,
+        }
+    })
+
+
 # ── Endpoint 2: consultar OpenPay directamente (fallback webhook) ──
 @router.get("/pagos/openpay/consultar/{payment_id}")
 async def consultar_openpay_directo(
