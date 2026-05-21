@@ -756,6 +756,7 @@ async def registrar_cobro(
                 forzar_datos_cliente=forzar_cliente,
                 sede_id="1",
                 forma_pago=cobro.forma_pago,
+                observaciones_caja=cobro.observaciones,
             )
             logger.info(f"FACTURALO RESULTADO: {resultado}")
 
@@ -1009,6 +1010,10 @@ async def preview_cobro(
                     else:
                         obs_habilidad_prev = f"Colegiado HÁBIL hasta {fv_obs_str}"
 
+        obs_caja_prev = (cobro.observaciones or "").strip()
+        obs_partes = [p for p in (obs_habilidad_prev, obs_caja_prev) if p]
+        obs_final_prev = " | ".join(obs_partes) if obs_partes else None
+
         pdf_bytes = generar_pdf_preview(
             tipo_comprobante=tipo,
             serie=serie,
@@ -1023,7 +1028,7 @@ async def preview_cobro(
             org_ruc=org_ruc_txt,
             org_direccion=org_direccion_txt,
             matricula=matricula,
-            observaciones=obs_habilidad_prev or None,
+            observaciones=obs_final_prev,
         )
 
         return {
