@@ -855,6 +855,14 @@ function confirmarCobro() {
         <div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div>
         <div><span>Comprobante:</span><span>${tipoComp === '01' ? 'Factura' : 'Boleta'} · ${fpLabel}</span></div>`;
     document.getElementById('modalConfirm').classList.add('active');
+
+    const txtObs = document.getElementById('inputObservacion');
+    const counter = document.getElementById('obsCounter');
+    if (txtObs && counter) {
+        txtObs.value = '';
+        counter.textContent = '0';
+        txtObs.oninput = () => { counter.textContent = txtObs.value.length; };
+    }
 }
 
 function cerrarModal() {
@@ -865,6 +873,7 @@ function _construirPayloadCobro() {
     if (!carrito.length) return null;
     const total = carrito.reduce((s, i) => s + i.monto, 0);
     const ref = document.getElementById('refInput').value.trim();
+    const obs = (document.getElementById('inputObservacion')?.value || '').trim() || null;
     const payload = {
         colegiado_id: colActual?.id || null,
         items: carrito.map(i => ({
@@ -873,6 +882,7 @@ function _construirPayloadCobro() {
             monto_unitario: i.monto_unitario || i.monto, monto_total: i.monto
         })),
         total, metodo_pago: metodo, referencia_pago: ref || null,
+        observaciones: obs,
         tipo_comprobante: tipoComp, forma_pago: formaPago
     };
     if (tipoComp === '01') {
@@ -956,6 +966,7 @@ async function solicitarPreview() {
 }
 
 async function ejecutarCobro() {
+    const obs = (document.getElementById('inputObservacion')?.value || '').trim() || null;
     cerrarModal();
     const total = carrito.reduce((s, i) => s + i.monto, 0);
     const ref = document.getElementById('refInput').value.trim();
@@ -967,6 +978,7 @@ async function ejecutarCobro() {
             monto_unitario: i.monto_unitario || i.monto, monto_total: i.monto
         })),
         total, metodo_pago: metodo, referencia_pago: ref || null,
+        observaciones: obs,
         tipo_comprobante: tipoComp, forma_pago: formaPago
     };
     if (tipoComp === '01') {
@@ -1398,7 +1410,13 @@ async function ejecutarAnulacion() {
                 const d = await r.json().catch(() => ({}));
                 if (d.success) {
                     cerrarModalAnular();
-                    toast('Cobro anulado' + (d.nota_credito ? ` · NC: ${d.nota_credito} (en proceso SUNAT)` : ''), 'ok');
+                    const restauradas = (d.deudas_restauradas || []).length;
+                    const omitidas = (d.deudas_omitidas || []).length;
+                    let msg = 'Cobro anulado';
+                    if (d.nota_credito) msg += ` · NC: ${d.nota_credito} (en proceso SUNAT)`;
+                    if (restauradas > 0) msg += ` · ${restauradas} deuda(s) restaurada(s)`;
+                    if (omitidas > 0) msg += ` · ${omitidas} omitida(s)`;
+                    toast(msg, 'ok');
                     cargarHistorial(); cargarResumen();
                 } else {
                     let msg = 'Error al anular';
@@ -3794,9 +3812,36 @@ async function _fraccionarSeleccionado() {
                 if (btn) { btn.disabled = false; btn.textContent = 'FRACCIONAR LO SELECCIONADO'; }
                 return;
             }
-            toast(`✓ ${data.mensaje || 'Plan creado'}`, 'ok');
+            // zClaude-84: refrescar deudas y agregar la cuota inicial al carrito.
+            // El backend ahora crea filas en `debts` para la cuota 0 (inicial)
+            // y las cuotas 1..N. Sandra debe poder cobrar la inicial de inmediato.
+            let msgExtra = '';
+            try {
+                if (typeof cargarDeudas === 'function' && col?.id) {
+                    await cargarDeudas(col.id);
+                }
+                const debtIdInicial = data.cuota_inicial_debt_id;
+                const montoInicial  = Number(data.cuota_inicial_monto || 0);
+                if (debtIdInicial && montoInicial > 0) {
+                    const yaEnCarrito = carrito.some(
+                        x => x.tipo === 'deuda' && x.deuda_id === debtIdInicial
+                    );
+                    const enListado = (deudasDisp || []).some(d => d.id === debtIdInicial);
+                    if (!yaEnCarrito && enListado && typeof togDeuda === 'function') {
+                        togDeuda(debtIdInicial);
+                        msgExtra = ` Cuota inicial S/ ${montoInicial.toFixed(2)} agregada al carrito.`;
+                    } else if (!yaEnCarrito && !enListado) {
+                        msgExtra = ` Cuota inicial S/ ${montoInicial.toFixed(2)} pendiente de agregar manualmente (debt ${debtIdInicial}).`;
+                    }
+                } else {
+                    msgExtra = ' Sin cuota inicial cobrable.';
+                }
+            } catch (eAdd) {
+                console.warn('[zClaude-84] no se pudo agregar cuota inicial al carrito:', eAdd);
+                msgExtra = ' (cuota inicial pendiente de agregar manualmente)';
+            }
+            toast(`✓ ${data.mensaje || 'Plan creado'}.${msgExtra}`, 'ok');
             cerrarModalInhabil();
-            if (typeof cargarDeudas === 'function' && col?.id) cargarDeudas(col.id);
         } catch (e) {
             console.error('[zClaude-77] error:', e);
             toast('Error de conexión al crear el plan', 'err');
