@@ -164,6 +164,7 @@ class FacturacionService:
         forzar_datos_cliente: Dict = None,
         sede_id: str = "1",
         forma_pago: str = "contado",
+        observaciones_caja: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Emite un comprobante electrónico a partir de un pago aprobado.
@@ -287,6 +288,10 @@ class FacturacionService:
         self.db.add(comprobante)
         self.db.flush()
 
+        # Combinar obs de habilidad + obs libre de /caja (Sandra) en "Habilidad | Sandra"
+        obs_partes = [p for p in (obs_habilidad, (observaciones_caja or "").strip()) if p]
+        obs_combinada = " | ".join(obs_partes) if obs_partes else None
+
         # Enviar a facturalo.pro
         resultado = await self._enviar_a_facturalo(
             comprobante,
@@ -295,7 +300,7 @@ class FacturacionService:
             habil_hasta=habil_hasta,
             url_consulta=url_consulta,
             forma_pago=forma_pago,
-            observaciones=obs_habilidad or None,
+            observaciones=obs_combinada,
         )
 
         if resultado["success"]:
