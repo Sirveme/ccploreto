@@ -453,6 +453,17 @@
         <div class="modal-sub">¿Confirmar el siguiente cobro?</div>
         <div class="modal-total" id="mTotal">S/ 0.00</div>
         <div class="modal-detail" id="mDetail"></div>
+        <div class="modal-observacion" style="margin: 12px 0;">
+            <label for="inputObservacion" style="display:block; font-size:13px; color:#94a3b8; margin-bottom:4px;">
+                Observación (opcional, aparecerá en el comprobante):
+            </label>
+            <textarea id="inputObservacion" maxlength="200" rows="2"
+                      placeholder="Ej: Pago consolidado de 12 cuotas 2026"
+                      style="width:100%; padding:8px; border-radius:6px; background:#0f172a; color:#e2e8f0; border:1px solid #334155; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+            <div style="font-size:11px; color:#64748b; text-align:right; margin-top:2px;">
+                <span id="obsCounter">0</span>/200
+            </div>
+        </div>
         <div class="modal-btns">
             <button class="mbtn mbtn-cancel" onclick="cerrarModal()">Cancelar</button>
             <button class="mbtn mbtn-preview" id="mbtnPreview" onclick="solicitarPreview()" type="button">🔍 Vista previa</button>
