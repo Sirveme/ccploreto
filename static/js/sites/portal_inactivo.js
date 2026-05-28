@@ -1459,6 +1459,23 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
 
     _montoFijo:        null,    // != null → modo fraccionamiento (cuota inicial fija)
     _idsSeleccionados: new Set(),
+    _tipoComp:         'boleta',   // default boleta, NUNCA null
+
+    _setTipo(tipo) {
+      this._tipoComp = tipo;
+      const bBol  = document.getElementById('pl-opt-boleta');
+      const bFac  = document.getElementById('pl-opt-factura');
+      const datos = document.getElementById('pl-factura-datos');
+      if (tipo === 'boleta') {
+        if (bBol) { bBol.style.borderColor = '#10b981'; bBol.style.background = 'rgba(16,185,129,.12)'; bBol.style.color = '#e2e8f0'; }
+        if (bFac) { bFac.style.borderColor = 'transparent'; bFac.style.background = 'rgba(255,255,255,.04)'; bFac.style.color = '#94a3b8'; }
+        if (datos) datos.style.display = 'none';
+      } else {
+        if (bFac) { bFac.style.borderColor = '#10b981'; bFac.style.background = 'rgba(16,185,129,.12)'; bFac.style.color = '#e2e8f0'; }
+        if (bBol) { bBol.style.borderColor = 'transparent'; bBol.style.background = 'rgba(255,255,255,.04)'; bBol.style.color = '#94a3b8'; }
+        if (datos) datos.style.display = 'block';
+      }
+    },
 
     /* abrir(montoFijo)
        - montoFijo !== null : viene de fraccionamiento → monto fijo, sin lista
@@ -1467,11 +1484,15 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       this._montoFijo        = montoFijo;
       this._idsSeleccionados = new Set();
       this._clearError?.();
-      // Limpiar campos de comprobante pendientes (se llenan en recalcular)
-      Portal._tipoCompPendiente   = '';
-      Portal._facturaRucPendiente = '';
-      Portal._facturaRsPendiente  = '';
-      Portal._facturaDirPendiente = '';
+      // Inicializar selector propio: boleta por defecto
+      this._tipoComp = 'boleta';
+      const inpRuc = document.getElementById('pl-ruc');
+      const inpRs  = document.getElementById('pl-razon-social');
+      const inpDir = document.getElementById('pl-direccion');
+      if (inpRuc) inpRuc.value = '';
+      if (inpRs)  inpRs.value  = '';
+      if (inpDir) inpDir.value = '';
+      this._setTipo('boleta');
 
       if (montoFijo !== null) {
         this._renderModoFijo(montoFijo);
@@ -1601,16 +1622,6 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
     },
 
     recalcular() {
-      // Capturar datos de comprobante del modal de Reportar Pago si el colegiado ya los eligió
-      // Esto permite que pagoLinea (OpenPay) también los envíe al backend
-      const tipoComp = Modales.reportarPago?._tipoComp;
-      if (tipoComp) {
-        Portal._tipoCompPendiente   = tipoComp;
-        Portal._facturaRucPendiente = document.getElementById('rp-ruc')?.value || '';
-        Portal._facturaRsPendiente  = document.getElementById('rp-razon-social')?.value || '';
-        Portal._facturaDirPendiente = document.getElementById('rp-direccion')?.value || '';
-      }
-
       let montoBase    = 0;
       let condonaEnSel = 0;
 
@@ -1707,6 +1718,22 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
         return;
       }
 
+      // Validar factura (selector propio del modal)
+      let facturaRuc = '', facturaRs = '', facturaDir = '';
+      if (this._tipoComp === 'factura') {
+        facturaRuc = (document.getElementById('pl-ruc')?.value || '').trim();
+        facturaRs  = (document.getElementById('pl-razon-social')?.value || '').trim();
+        facturaDir = (document.getElementById('pl-direccion')?.value || '').trim();
+        if (facturaRuc.length !== 11 || !/^\d{11}$/.test(facturaRuc)) {
+          this._showError('Ingresa un RUC válido de 11 dígitos.');
+          return;
+        }
+        if (!facturaRs) {
+          this._showError('Ingresa la Razón Social para la factura.');
+          return;
+        }
+      }
+
       this._clearError();
 
       const addConst = $('pl-incluir-constancia')?.checked ? 10 : 0;
@@ -1719,11 +1746,11 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
             monto_directo:        monto,
             incluir_constancia:   addConst > 0 ? '1' : '0',
             deuda_ids:            deudaIds,
-            // Comprobante — datos del modal Reportar Pago reutilizados aquí
-            tipo_comprobante:     Portal._tipoCompPendiente      || '',
-            factura_ruc:          Portal._facturaRucPendiente    || '',
-            factura_razon_social: Portal._facturaRsPendiente     || '',
-            factura_direccion:    Portal._facturaDirPendiente    || '',
+            // Comprobante — selector propio del modal pagoLinea
+            tipo_comprobante:     this._tipoComp,
+            factura_ruc:          facturaRuc,
+            factura_razon_social: facturaRs,
+            factura_direccion:    facturaDir,
           }),
         });
         const hxRedir = r.headers.get('HX-Redirect');
