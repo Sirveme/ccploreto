@@ -462,6 +462,37 @@ class FacturacionService:
         self.db.add(nc)
         self.db.flush()
 
+        # ── Resolver serie/número REALES de SUNAT ────────────────────
+        # comprobantes.numero es el correlativo interno del CCPL y puede
+        # diferir del número real aceptado por SUNAT (que vive dentro de
+        # facturalo_response.comprobante.numero). La NC debe referenciar
+        # el número REAL, de lo contrario SUNAT la rechaza con
+        # REFERENCIA_REQUERIDA.
+        ref_serie  = original.serie
+        ref_numero = original.numero
+        _fr = original.facturalo_response if isinstance(original.facturalo_response, dict) else {}
+        _comp_fr = _fr.get("comprobante") if isinstance(_fr, dict) else None
+        if isinstance(_comp_fr, dict):
+            if _comp_fr.get("serie"):
+                ref_serie = _comp_fr.get("serie")
+            if _comp_fr.get("numero") is not None:
+                ref_numero = _comp_fr.get("numero")
+
+        # Validación previa: sin referencia válida, no enviar
+        if not ref_serie or ref_numero is None:
+            logger.error(
+                f"[NC] No se pudo determinar documento de referencia para "
+                f"comprobante original id={original.id}. NC abortada."
+            )
+            nc.status = "rejected"
+            nc.observaciones = "No se pudo determinar el documento de referencia (serie/número real SUNAT)."
+            self.db.flush()
+            return {
+                "success": False,
+                "error": "No se pudo determinar el documento de referencia del comprobante original.",
+                "codigo": "REFERENCIA_NO_RESUELTA",
+            }
+
         # ══════════════════════════════════════════════════════
         # PAYLOAD — Campos planos, como espera facturalo.pro
         # ══════════════════════════════════════════════════════
@@ -474,8 +505,8 @@ class FacturacionService:
             "forma_pago": "Contado",
             # ── Referencia al documento original ──
             "documento_ref_tipo": original.tipo,         # "03" o "01"
-            "documento_ref_serie": original.serie,        # "B001" o "F001"
-            "documento_ref_numero": original.numero,      # entero: 6
+            "documento_ref_serie": ref_serie,             # ← real SUNAT
+            "documento_ref_numero": ref_numero,           # ← real SUNAT
             # ── Motivo ──
             "motivo_nota": motivo_codigo,
             # ── Cliente ──
