@@ -114,7 +114,7 @@ async def openpay_iniciar_pago(
         notas_pago  = {
             "flujo":                "deudas",
             "conceptos":            conceptos[:100],
-            "tipo_comprobante":     tipo_comprobante or None,
+            "tipo_comprobante":     tipo_comprobante or "boleta",
             "factura_ruc":          factura_ruc or None,
             "factura_razon_social": factura_razon_social or None,
             "factura_direccion":    factura_direccion or None,
@@ -137,7 +137,7 @@ async def openpay_iniciar_pago(
             "flujo":                "fraccionamiento",
             "fracc_solicitud":      fracc.numero_solicitud,
             "numero_cuota":         numero_cuota,
-            "tipo_comprobante":     tipo_comprobante or None,
+            "tipo_comprobante":     tipo_comprobante or "boleta",
             "factura_ruc":          factura_ruc or None,
             "factura_razon_social": factura_razon_social or None,
             "factura_direccion":    factura_direccion or None,
@@ -155,7 +155,7 @@ async def openpay_iniciar_pago(
             "flujo":                "directo",
             "monto_base":           monto_base,
             "titular":              col.apellidos_nombres,
-            "tipo_comprobante":     tipo_comprobante or None,
+            "tipo_comprobante":     tipo_comprobante or "boleta",
             "factura_ruc":          factura_ruc or None,
             "factura_razon_social": factura_razon_social or None,
             "factura_direccion":    factura_direccion or None,
@@ -702,6 +702,10 @@ Reemplazar por el bloque completo de abajo.
             pass
 
         tipo_comp = notas.get("tipo_comprobante")  # 'boleta' | 'factura' | None
+        # Red de seguridad: pago de colegiado sin tipo → Boleta por defecto.
+        # Garantiza que ningún pago confirmado quede sin comprobante.
+        if not tipo_comp and payment.colegiado_id:
+            tipo_comp = "boleta"
 
         if tipo_comp in ("boleta", "factura"):
             from app.services.facturacion import FacturacionService
