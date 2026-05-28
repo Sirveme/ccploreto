@@ -767,8 +767,12 @@ class FacturacionService:
         # Si no hay nada, items vacío → boleta sin detalle de deudas
 
         # Conceptos sin Debt (ej. constancias con genera_deuda=False).
-        # Caja serializa estos items en notes como [CONCEPTOS_B64:<base64>].
+        # Dos formatos posibles según origen del pago:
+        #   /caja:      notes con marcador [CONCEPTOS_B64:<base64>]
+        #   OpenPay:    notes JSON con flag "con_constancia": true
         conceptos_extra = []
+
+        # Formato A: /caja con [CONCEPTOS_B64:...]
         match_conceptos = re.search(r'\[CONCEPTOS_B64:([A-Za-z0-9+/=]+)\]', notas)
         if match_conceptos:
             try:
@@ -776,6 +780,21 @@ class FacturacionService:
                 conceptos_extra = json.loads(decoded) or []
             except Exception:
                 conceptos_extra = []
+
+        # Formato B: pagos OpenPay con notes JSON y "con_constancia": true
+        if not conceptos_extra and notas.strip().startswith("{"):
+            try:
+                notas_json = json.loads(notas.split(" | ")[0])  # primer bloque JSON antes de los "|"
+                if notas_json.get("con_constancia") is True:
+                    conceptos_extra.append({
+                        "nombre":        "Constancia de Habilidad",
+                        "codigo":        "CONST-HAB",
+                        "cantidad":      1,
+                        "monto_total":   10.0,
+                        "monto_unitario": 10.0,
+                    })
+            except Exception:
+                pass
 
         if deudas_pagadas or conceptos_extra:
             # Normalizar clave de agrupación: quitar mes/año del concepto
