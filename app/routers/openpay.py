@@ -731,6 +731,7 @@ Reemplazar por el bloque completo de abajo.
                 resultado_comp = await svc.emitir_comprobante_por_pago(
                     payment.id,
                     tipo                 = tipo_doc,
+                    sede_id              = "8",          # B800/F800 (canal web)
                     forzar_datos_cliente = forzar_datos,
                 )
 
