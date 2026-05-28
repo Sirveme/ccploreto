@@ -26,7 +26,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from app.models import (
     Comprobante,
@@ -736,17 +736,29 @@ class FacturacionService:
         notas = payment.notes or ""
         deudas_pagadas = []
 
-        # Intentar extraer DEBT_IDS del notes
+        # Intentar extraer DEBT_IDS del notes (formato /caja)
         match = re.search(r'\[DEBT_IDS:([\d,]+)\]', notas)
         if match:
-            # Método preciso: usar IDs exactos
             ids = [int(x) for x in match.group(1).split(',') if x.strip()]
             if ids:
                 deudas_pagadas = self.db.query(Debt).filter(
                     Debt.id.in_(ids)
                 ).order_by(Debt.periodo.asc()).all()
-        elif payment.colegiado_id and payment.related_debt_id:
-            # Fallback: una sola deuda
+
+        # Fallback A: leer de la tabla payment_debts (formato OpenPay/portal,
+        # cuyas notes son JSON sin marcador [DEBT_IDS:]).
+        if not deudas_pagadas:
+            filas_pd = self.db.execute(text("""
+                SELECT debt_id FROM payment_debts WHERE payment_id = :pid
+            """), {"pid": payment.id}).fetchall()
+            ids_pd = [r.debt_id for r in filas_pd]
+            if ids_pd:
+                deudas_pagadas = self.db.query(Debt).filter(
+                    Debt.id.in_(ids_pd)
+                ).order_by(Debt.periodo.asc()).all()
+
+        # Fallback B: una sola deuda por related_debt_id
+        if not deudas_pagadas and payment.colegiado_id and payment.related_debt_id:
             deuda = self.db.query(Debt).filter(
                 Debt.id == payment.related_debt_id
             ).first()
