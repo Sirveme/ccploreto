@@ -188,7 +188,7 @@ class FacturacionService:
         payment = self.db.query(Payment).filter(Payment.id == payment_id).first()
         if not payment:
             return {"success": False, "error": "Pago no encontrado"}
-        if payment.status != "approved":
+        if payment.status not in ("approved", "pagado", "completado"):
             return {"success": False, "error": "El pago no está aprobado"}
 
         # Datos del cliente según tipo de comprobante
