@@ -580,7 +580,44 @@
            - Modo fijo   : _renderModoFijo()   → card con cuota inicial fija
            JS inyecta aquí en abrir() -->
       <div id="pl-cuerpo"></div>
- 
+
+      <!-- Selector propio de comprobante (FIX 92) -->
+      <div class="pl-comprobante" style="margin-top:16px;padding:14px;
+           background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);
+           border-radius:12px">
+        <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:10px">
+          ¿Qué comprobante necesitas?
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button type="button" id="pl-opt-boleta" onclick="Modales.pagoLinea._setTipo('boleta')"
+             style="flex:1;padding:10px;border-radius:8px;border:2px solid #10b981;
+                    background:rgba(16,185,129,.12);color:#e2e8f0;font-weight:700;
+                    font-size:13px;cursor:pointer">
+            📄 Boleta
+          </button>
+          <button type="button" id="pl-opt-factura" onclick="Modales.pagoLinea._setTipo('factura')"
+             style="flex:1;padding:10px;border-radius:8px;border:2px solid transparent;
+                    background:rgba(255,255,255,.04);color:#94a3b8;font-weight:700;
+                    font-size:13px;cursor:pointer">
+            🧾 Factura
+          </button>
+        </div>
+        <div id="pl-factura-datos" style="display:none">
+          <input type="text" id="pl-ruc" maxlength="11" placeholder="RUC (11 dígitos)"
+             style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;
+                    background:#1e2535;border:1px solid rgba(255,255,255,.15);
+                    color:#fff;font-size:13px">
+          <input type="text" id="pl-razon-social" placeholder="Razón Social"
+             style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;
+                    background:#1e2535;border:1px solid rgba(255,255,255,.15);
+                    color:#fff;font-size:13px">
+          <input type="text" id="pl-direccion" placeholder="Dirección (opcional)"
+             style="width:100%;padding:10px;border-radius:8px;
+                    background:#1e2535;border:1px solid rgba(255,255,255,.15);
+                    color:#fff;font-size:13px">
+        </div>
+      </div>
+
       <!-- Constancia (siempre visible) -->
       <div class="pl-incluir" style="margin-top:12px">
         <input type="checkbox" id="pl-incluir-constancia"
