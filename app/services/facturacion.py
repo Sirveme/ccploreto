@@ -1186,6 +1186,38 @@ class FacturacionService:
             "referencia_externa": f"PAGO-{comprobante.payment_id}"
         }
 
+        # ── Si es NC (07) o ND (08): agregar referencia al documento original.
+        # Toma serie/número REALES de SUNAT desde facturalo_response.comprobante
+        # del original (mismo patrón que emitir_nota_credito tras zClaude-91).
+        # Sin esto, Facturalo rechaza con REFERENCIA_REQUERIDA al reenviar NC.
+        if comprobante.tipo in ("07", "08") and getattr(comprobante, "comprobante_ref_id", None):
+            original = self.db.query(Comprobante).filter(
+                Comprobante.id == comprobante.comprobante_ref_id
+            ).first()
+            if original:
+                ref_serie = original.serie
+                ref_numero = original.numero
+                _fr = original.facturalo_response if isinstance(original.facturalo_response, dict) else {}
+                _comp_fr = _fr.get("comprobante") if isinstance(_fr, dict) else None
+                if isinstance(_comp_fr, dict):
+                    if _comp_fr.get("serie"):
+                        ref_serie = _comp_fr.get("serie")
+                    if _comp_fr.get("numero") is not None:
+                        ref_numero = _comp_fr.get("numero")
+                payload["documento_ref_tipo"]   = original.tipo
+                payload["documento_ref_serie"]  = ref_serie
+                payload["documento_ref_numero"] = ref_numero
+                payload["motivo_nota"]          = getattr(comprobante, "motivo_nota", None) or "01"
+                logger.info(
+                    f"[REENVIO NC/ND] id={comprobante.id} ref={original.tipo}-{ref_serie}-{ref_numero} "
+                    f"motivo={payload['motivo_nota']}"
+                )
+            else:
+                logger.error(
+                    f"[REENVIO NC/ND] comprobante_ref_id={comprobante.comprobante_ref_id} "
+                    f"NO encontrado en BD. Facturalo rechazará con REFERENCIA_REQUERIDA."
+                )
+
         logger.error(f"NC PAYLOAD KEYS: {list(payload.keys())}")
         import json as _json
         logger.error(f"NC PAYLOAD JSON: {_json.dumps(payload, default=str)}")
