@@ -1060,6 +1060,7 @@ class FacturacionService:
             "Izipay-Plin":    "Izipay - Plin",
             "Izipay-Banco":   "Izipay - Banco",
             "Izipay-Tarjeta": "Izipay - Tarjeta",
+            "openpay":        "Tarjeta",
         }
 
         metodo = (payment.payment_method or "Efectivo").strip()
