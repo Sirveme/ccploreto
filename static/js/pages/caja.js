@@ -606,14 +606,14 @@ function togDeuda(id) {
     if (i >= 0) carrito.splice(i, 1);
     else {
         const d = deudasDisp.find(x => x.id === id);
-        if (d) carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo });
+        if (d) carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo, saldo: d.saldo });
     }
     renderDeudas(); renderCarrito();
 }
 
 function selTodas() {
     carrito = carrito.filter(i => i.tipo !== 'deuda');
-    deudasDisp.forEach(d => carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo }));
+    deudasDisp.forEach(d => carrito.push({ tipo: 'deuda', deuda_id: d.id, descripcion: `${d.concepto} ${d.periodo || ''}`.trim(), monto: d.saldo, saldo: d.saldo }));
     renderDeudas(); renderCarrito();
 }
 
@@ -683,11 +683,11 @@ function addConc(id) {
    CARRITO
    ══════════════════════════════════════════════════ */
 function renderCarrito() {
-    const t = carrito.reduce((s, i) => s + i.monto, 0);
+    const t = carrito.reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
     document.getElementById('cartCnt').textContent = carrito.length;
     document.getElementById('cartTot').textContent = t.toFixed(2);
     document.getElementById('btnMonto').textContent = `S/ ${t.toFixed(2)}`;
-    document.getElementById('btnCobrar').disabled = !carrito.length;
+    document.getElementById('btnCobrar').disabled = !carrito.length || t <= 0;
     const fb = document.getElementById('fabBadge');
     if (carrito.length) { fb.style.display = 'block'; fb.textContent = carrito.length; }
     else fb.style.display = 'none';
@@ -695,11 +695,50 @@ function renderCarrito() {
         document.getElementById('cartBody').innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div>Selecciona deudas o conceptos<br>para agregar al cobro</div>';
         return;
     }
-    document.getElementById('cartBody').innerHTML = carrito.map((x, i) => `<div class="cart-item">
-        <div class="ci-info"><div class="ci-name">${x.descripcion}</div><div class="ci-type">${x.tipo === 'deuda' ? 'Deuda' : 'Concepto'}</div></div>
-        <div class="ci-amt">S/ ${x.monto.toFixed(2)}</div>
-        <button class="ci-rm" onclick="rmItem(${i})">✕</button>
-    </div>`).join('');
+    document.getElementById('cartBody').innerHTML = carrito.map((x, i) => {
+        if (x.tipo === 'deuda') {
+            // zClaude-96: pago parcial — input editable + saldo total como referencia.
+            const saldo = parseFloat(x.saldo || x.monto).toFixed(2);
+            const valor = parseFloat(x.monto).toFixed(2);
+            return `<div class="cart-item">
+                <div class="ci-info">
+                    <div class="ci-name">${x.descripcion}</div>
+                    <div class="ci-type" style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                        <span style="color:#94a3b8;font-size:11px">S/</span>
+                        <input type="number" step="0.01" min="0.01" max="${saldo}"
+                               value="${valor}"
+                               onchange="setMontoDeuda(${i}, this.value)"
+                               onkeyup="setMontoDeuda(${i}, this.value)"
+                               style="width:80px;padding:4px 6px;background:#1e293b;border:1px solid #334155;
+                                      border-radius:4px;color:#e2e8f0;font-size:13px;font-weight:600;text-align:right">
+                        <span style="color:#64748b;font-size:11px">de S/${saldo}</span>
+                    </div>
+                </div>
+                <button class="ci-rm" onclick="rmItem(${i})">✕</button>
+            </div>`;
+        }
+        // Conceptos / otros: monto fijo (sin pago parcial).
+        return `<div class="cart-item">
+            <div class="ci-info"><div class="ci-name">${x.descripcion}</div><div class="ci-type">Concepto</div></div>
+            <div class="ci-amt">S/ ${parseFloat(x.monto).toFixed(2)}</div>
+            <button class="ci-rm" onclick="rmItem(${i})">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function setMontoDeuda(i, valStr) {
+    const item = carrito[i];
+    if (!item || item.tipo !== 'deuda') return;
+    let val = parseFloat(valStr);
+    if (isNaN(val) || val < 0) val = 0;
+    const max = parseFloat(item.saldo || item.monto);
+    if (val > max) val = max;
+    item.monto = val;
+    // Recalcular total sin re-render del input (para no perder el foco).
+    const t = carrito.reduce((s, x) => s + (parseFloat(x.monto) || 0), 0);
+    document.getElementById('cartTot').textContent = t.toFixed(2);
+    document.getElementById('btnMonto').textContent = `S/ ${t.toFixed(2)}`;
+    document.getElementById('btnCobrar').disabled = !carrito.length || t <= 0;
 }
 
 function rmItem(i) {
@@ -2473,6 +2512,7 @@ function _fcAgregarCarrito(wrapSel = '#fracc-detalle-wrap') {
             deuda_id: did,
             descripcion: `Cuota N°${num} fraccionamiento ${sol}`,
             monto: monto,
+            saldo: monto,
         });
         agregadas++;
     });
@@ -2674,6 +2714,7 @@ function _agregarSeleccionadasAlCarrito() {
             tipo: 'deuda', deuda_id: d.id,
             descripcion: `${d.concept} ${d.period_label||d.periodo||''}`.trim(),
             monto: d.balance,
+            saldo: d.balance,
         });
         agregadas++;
     });
