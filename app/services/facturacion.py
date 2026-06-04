@@ -815,8 +815,10 @@ class FacturacionService:
                 if clave not in grupos:
                     nombre_grupo = _patron_periodo.sub('', concepto_orig)
                     nombre_grupo = re.sub(r'\s+', ' ', nombre_grupo).strip() or concepto_orig
-                    grupos[clave] = {"nombre": nombre_grupo, "periodos": [], "monto_total": 0.0}
+                    grupos[clave] = {"nombre": nombre_grupo, "periodos": [], "monto_total": 0.0, "es_bingazo": False}
                     orden.append(clave)
+                if getattr(deuda, "debt_type", None) == "bingazo":
+                    grupos[clave]["es_bingazo"] = True
                 if deuda.periodo:
                     grupos[clave]["periodos"].append(deuda.periodo)
                 grupos[clave]["monto_total"] += float(deuda.amount or deuda.balance or 0)
@@ -837,7 +839,7 @@ class FacturacionService:
                         linea_1 = datos["nombre"]
                     else:
                         linea_1 = f"{datos['nombre']} {periodos_fmt}"
-                    if cantidad > 1:
+                    if cantidad > 1 and not datos.get("es_bingazo"):
                         linea_1 += f" ({cantidad} MESES)"
                 else:
                     linea_1 = datos["nombre"]
