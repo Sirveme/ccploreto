@@ -571,14 +571,27 @@ async def registrar_cobro(
                 saldo = float(deuda.amount or 0)
             else:
                 saldo = float(deuda.balance or 0)
+
+            # zClaude-96: monto a aplicar viene del frontend como item.monto_total.
+            # Si no llega o es 0, asumimos pago total (compatibilidad hacia atrás).
+            monto_aplicar = float(item.monto_total) if item.monto_total and item.monto_total > 0 else saldo
+
+            # Validar rango: 0 < monto_aplicar <= saldo (tolerancia de céntimo).
+            if monto_aplicar <= 0:
+                raise HTTPException(400, detail=f"Monto inválido para deuda {item.deuda_id}: debe ser mayor a 0")
+            if monto_aplicar > saldo + 0.01:
+                raise HTTPException(400, detail=f"Monto S/{monto_aplicar:.2f} excede el saldo S/{saldo:.2f} de la deuda {item.deuda_id}")
+
             items_procesados.append({
                 "tipo": "deuda",
                 "deuda_id": deuda.id,
                 "descripcion": f"{deuda.concept or 'Cuota'} {deuda.periodo or ''}".strip(),
-                "monto": saldo,
+                "monto": monto_aplicar,
+                "monto_total": monto_aplicar,
+                "saldo_original": saldo,
             })
-            deudas_a_pagar.append(deuda)
-            total_calculado += saldo
+            deudas_a_pagar.append({"deuda": deuda, "aplicar": monto_aplicar, "saldo_previo": saldo})
+            total_calculado += monto_aplicar
 
         elif item.tipo == "concepto" and item.concepto_id:
             concepto = db.query(ConceptoCobro).filter(
@@ -641,8 +654,9 @@ async def registrar_cobro(
     if len(descripciones) > 5:
         descripcion_pago += f" (+{len(descripciones) - 5} más)"
 
-    # Incluir IDs de deudas en notes para reconstruir en facturación
-    ids_deudas = [str(d.id) for d in deudas_a_pagar]
+    # Incluir IDs de deudas en notes para reconstruir en facturación.
+    # zClaude-96: deudas_a_pagar ahora es lista de dicts; extraer .deuda.id
+    ids_deudas = [str(item_dp["deuda"].id) for item_dp in deudas_a_pagar]
     ids_str = ",".join(ids_deudas)
 
     # Conceptos sin Debt asociado (ej. constancias con genera_deuda=False)
@@ -708,10 +722,27 @@ async def registrar_cobro(
         except Exception as e:
             logger.warning(f"Error emitiendo certificado en cobro #{payment.id}: {e}")
 
-    # ── MARCAR DEUDAS COMO PAGADAS ──
-    for deuda in deudas_a_pagar:
-        deuda.status = "paid"
-        deuda.balance = 0
+    # ── APLICAR PAGOS A DEUDAS (zClaude-96: soporta pagos parciales) ──
+    for item_dp in deudas_a_pagar:
+        deuda = item_dp["deuda"]
+        aplicar = float(item_dp["aplicar"])
+        saldo_previo = float(item_dp["saldo_previo"])
+
+        # Nuevo balance: saldo previo menos lo aplicado.
+        nuevo_balance = max(0.0, saldo_previo - aplicar)
+        deuda.balance = nuevo_balance
+        deuda.status = "paid" if nuevo_balance <= 0.01 else "partial"
+
+        # Trazabilidad del monto aplicado por deuda.
+        db.execute(
+            text("""
+                INSERT INTO payment_debts (payment_id, debt_id, amount_applied)
+                VALUES (:pid, :did, :amt)
+            """),
+            {"pid": payment.id, "did": deuda.id, "amt": aplicar},
+        )
+
+    logger.info(f"[CAJA cobro #{payment.id}] {len(deudas_a_pagar)} deuda(s) aplicada(s); total={cobro.total:.2f}")
 
     # ── GENERAR DEUDAS para conceptos que genera_deuda ──
     for item in items_procesados:
@@ -829,14 +860,23 @@ async def preview_cobro(
                 saldo = float(deuda.amount or 0)
             else:
                 saldo = float(deuda.balance or 0)
+
+            # zClaude-96: monto a aplicar (pago parcial). Mismo criterio que /cobrar.
+            monto_aplicar = float(item.monto_total) if item.monto_total and item.monto_total > 0 else saldo
+            if monto_aplicar <= 0:
+                return {"ok": False, "error": f"Monto inválido para deuda {item.deuda_id}: debe ser mayor a 0"}
+            if monto_aplicar > saldo + 0.01:
+                return {"ok": False, "error": f"Monto S/{monto_aplicar:.2f} excede el saldo S/{saldo:.2f} de la deuda {item.deuda_id}"}
+
             deudas_mock.append(deuda)
             items_mock.append({
                 "tipo": "deuda",
                 "deuda_id": deuda.id,
                 "descripcion": f"{deuda.concept or 'Cuota'} {deuda.periodo or ''}".strip(),
-                "monto": saldo,
+                "monto": monto_aplicar,
+                "monto_total": monto_aplicar,
             })
-            total_calculado += saldo
+            total_calculado += monto_aplicar
 
         elif item.tipo == "concepto" and item.concepto_id:
             concepto = db.query(ConceptoCobro).filter(
