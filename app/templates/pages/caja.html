@@ -69,6 +69,9 @@
                     <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item" onclick="abrirCorreccion()">🔧 Corrección de datos</button>
                     <div class="hdr-menu-sep"></div>
+                    <!-- zClaude-95b: activación del Bingazo (Admin/Finanzas) -->
+                    <button class="hdr-menu-item" onclick="toggleMenu(); window.BingazoPanel && window.BingazoPanel.mostrarActivacion()">🎯 Activar Bingazo</button>
+                    <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
                 </div>
             </div>
@@ -884,5 +887,9 @@
 <!-- Scripts -->
 <script src="/static/js/pages/caja.js?v=16"></script>
 <script src="/static/js/pages/caja_correccion.js?v=1"></script>
+<!-- zClaude-95: módulo Bingazo. Expone window.BingazoPanel.
+     Wiring: BingazoPanel.montarFicha(colegiadoId, contenedor) en la ficha del
+     colegiado; BingazoPanel.mostrarActivacion() en el botón "Activar Bingazo". -->
+<script src="/static/js/sites/bingazo_panel.js?v=1"></script>
 </body>
 </html>
