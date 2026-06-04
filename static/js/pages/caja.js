@@ -2025,12 +2025,12 @@ function _renderModal(data) {
 
     <!-- TABS -->
     <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.06)">
-        ${['deuda','fracc','beneficios'].map((t,i) => `
+        ${['deuda','fracc','bingazo','beneficios'].map((t,i) => `
         <button onclick="_tabModal('${t}')" id="mtab-${t}"
             style="flex:1;padding:12px;border:none;background:none;cursor:pointer;
                    font-size:12px;font-weight:700;color:${i===0?'#e2e8f0':'#64748b'};
                    border-bottom:2px solid ${i===0?'#ef4444':'transparent'};transition:all .2s">
-            ${t==='deuda'?'📋 Deuda':''}${t==='fracc'?'🧮 Fraccionamiento':''}${t==='beneficios'?'⭐ Beneficios':''}
+            ${t==='deuda'?'📋 Deuda':''}${t==='fracc'?'🧮 Fracc.':''}${t==='bingazo'?'🎯 Bingazo':''}${t==='beneficios'?'⭐ Beneficios':''}
         </button>`).join('')}
     </div>
 
@@ -2225,6 +2225,15 @@ function _renderModal(data) {
             </div>
         </div>
 
+        <!-- TAB: BINGAZO (zClaude-95b) -->
+        <div id="mtab-body-bingazo" style="display:none;padding:8px">
+            <div id="bingazo-panel-wrap" style="min-height:120px">
+                <div style="text-align:center;padding:24px;color:#64748b;font-size:12px">
+                    Selecciona la pestaña Bingazo para cargar el estado.
+                </div>
+            </div>
+        </div>
+
         <!-- TAB: BENEFICIOS -->
         <div id="mtab-body-beneficios" style="display:none">
             <div style="text-align:center;margin-bottom:20px">
@@ -2292,7 +2301,7 @@ function _renderModal(data) {
 
 /* ── TABS ────────────────────────────────────────────────────────── */
 function _tabModal(tab) {
-    ['deuda','fracc','beneficios'].forEach(t => {
+    ['deuda','fracc','bingazo','beneficios'].forEach(t => {
         const btn  = document.getElementById(`mtab-${t}`);
         const body = document.getElementById(`mtab-body-${t}`);
         const active = t === tab;
@@ -3849,5 +3858,40 @@ async function _fraccionarSeleccionado() {
         }
     }, false);
 }
+
+/* ════════════════════════════════════════════════════════════════
+   zClaude-95b — Wiring del módulo Bingazo en la ficha del colegiado
+   Agrega la lógica de carga de la 4ta pestaña 🎯 Bingazo del modal.
+   Al activar la pestaña, llama a window.BingazoPanel.montarFicha().
+   NOTA: _modalSit es un `let` de módulo (no existe como window._modalSit),
+   por eso se referencia directamente vía closure.
+   ════════════════════════════════════════════════════════════════ */
+(function(){
+    const _tabModalPrev_z95b = window._tabModal;
+    window._tabModal = function(tab) {
+        if (typeof _tabModalPrev_z95b === 'function') _tabModalPrev_z95b(tab);
+        if (tab === 'bingazo') {
+            const wrap = document.getElementById('bingazo-panel-wrap');
+            if (!wrap) return;
+            const colId = (typeof _modalSit !== 'undefined' && _modalSit && _modalSit.colegiado)
+                ? _modalSit.colegiado.id : null;
+            if (!colId) {
+                wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;font-size:12px">⚠ No se identificó al colegiado</div>';
+                return;
+            }
+            if (!window.BingazoPanel || typeof window.BingazoPanel.montarFicha !== 'function') {
+                wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;font-size:12px">⚠ Módulo BingazoPanel no cargado</div>';
+                return;
+            }
+            wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:12px">Cargando Bingazo…</div>';
+            try {
+                window.BingazoPanel.montarFicha(colId, wrap);
+            } catch (e) {
+                console.error('[Bingazo] Error montando ficha:', e);
+                wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;font-size:12px">⚠ Error: ' + (e.message || e) + '</div>';
+            }
+        }
+    };
+})();
 
 
