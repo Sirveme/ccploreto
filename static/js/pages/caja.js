@@ -549,8 +549,9 @@ function selCol(col) {
         ls.style.display = ref ? 'inline-block' : 'none';
     }
 
-    // ← AÑADIR ESTA LÍNEA:
-    if (!col.habilitado) setTimeout(() => abrirModalInhabil(col), 200);
+    // zClaude-95c: el modal (Deuda/Fracc./Bingazo/Beneficios) se abre para TODOS
+    // los colegiados, no solo inhábiles, para permitir gestionar Bingazo a hábiles.
+    setTimeout(() => abrirModalInhabil(col), 200);
 }
 
 function limpiarCol() {
