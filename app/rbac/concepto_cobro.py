@@ -472,6 +472,9 @@ CATALOGO_CCPL = [
         "orden": 80,
     },
     {
+        # zClaude-95: el Bingazo es SOLO presencial y se gestiona vía el módulo
+        # Bingazo (pestaña en /caja), no por el catálogo de cobro. Por eso NO
+        # aplica a público (queda oculto en /, /dashboard y /portal/inactivo).
         "codigo": "EVT-BIN",
         "nombre": "Bingazo del Contador",
         "nombre_corto": "Bingazo",
@@ -480,8 +483,8 @@ CATALOGO_CCPL = [
         "monto_base": 0,
         "permite_monto_libre": True,
         "tipo_afectacion_igv": "20",
-        "requiere_colegiado": False,
-        "aplica_a_publico": True,
+        "requiere_colegiado": True,
+        "aplica_a_publico": False,
         "orden": 81,
     },
     {
