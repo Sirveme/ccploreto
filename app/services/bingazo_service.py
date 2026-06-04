@@ -68,7 +68,7 @@ class BingazoService:
             organization_id     = self.org_id,
             concepto_cobro_id   = concepto_id,
             concept             = concept,
-            debt_type           = "bingazo",
+            debt_type           = "evento",   # zClaude-95d: alinear con deudas Bingazo históricas (2017-2019)
             periodo             = periodo,
             period_label        = period_label,
             amount              = float(monto),
@@ -129,9 +129,26 @@ class BingazoService:
         self.db.add(evento)
         self.db.flush()
 
+        # 2.5 Resolver concepto Bingazo del catálogo (EVT-BIN) y actualizar su
+        # monto_base con el precio del año en curso (precio_unitario × min_cartones).
+        # NO se toca aplica_a_publico (debe seguir en false por decisión de Junta).
+        concepto = self.db.query(ConceptoCobro).filter(
+            ConceptoCobro.organization_id == self.org_id,
+            ConceptoCobro.codigo == "EVT-BIN",
+        ).first()
+        if not concepto:
+            self.db.rollback()
+            return {
+                "success": False,
+                "error": "Concepto EVT-BIN no existe en el catálogo. Cree el concepto primero.",
+                "codigo": "CONCEPTO_FALTANTE",
+            }
+
         # 3. Monto obligatorio por colegiado
         monto_oblig = float(Decimal(precio_unitario) * Decimal(min_cartones))
-        concepto_id = self._concepto_bingazo_id()
+        concepto.monto_base = float(monto_oblig)
+        concepto.activo = True
+        concepto_id = concepto.id
 
         # 4. Colegiados obligados (hábiles + inhábiles + suspendidos; NO vitalicios/fallecidos)
         colegiados = self.db.query(Colegiado).filter(

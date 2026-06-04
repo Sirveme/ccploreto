@@ -817,7 +817,9 @@ class FacturacionService:
                     nombre_grupo = re.sub(r'\s+', ' ', nombre_grupo).strip() or concepto_orig
                     grupos[clave] = {"nombre": nombre_grupo, "periodos": [], "monto_total": 0.0, "es_bingazo": False}
                     orden.append(clave)
-                if getattr(deuda, "debt_type", None) == "bingazo":
+                # zClaude-95d: el Bingazo usa debt_type='evento' (igual que las
+                # históricas), así que se detecta por el nombre del concepto.
+                if "bingazo" in (concepto_orig or "").lower():
                     grupos[clave]["es_bingazo"] = True
                 if deuda.periodo:
                     grupos[clave]["periodos"].append(deuda.periodo)
