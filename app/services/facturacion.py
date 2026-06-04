@@ -807,6 +807,23 @@ class FacturacionService:
                 limpio = _patron_periodo.sub('', txt or '')
                 return re.sub(r'\s+', ' ', limpio).strip().lower() or (txt or 'cuota').lower()
 
+            # zClaude-96: para pagos parciales, el monto del ítem debe ser el
+            # realmente aplicado (payment_debts.amount_applied), no el amount
+            # completo de la deuda. Pagos antiguos sin filas → fallback a amount.
+            applied_map = {}
+            try:
+                _rows_app = self.db.execute(text("""
+                    SELECT debt_id, amount_applied
+                    FROM payment_debts WHERE payment_id = :pid
+                """), {"pid": payment.id}).fetchall()
+                applied_map = {
+                    r.debt_id: float(r.amount_applied)
+                    for r in _rows_app
+                    if r.amount_applied is not None and float(r.amount_applied) > 0
+                }
+            except Exception:
+                applied_map = {}
+
             grupos = {}
             orden = []
             for deuda in deudas_pagadas:
@@ -823,7 +840,10 @@ class FacturacionService:
                     grupos[clave]["es_bingazo"] = True
                 if deuda.periodo:
                     grupos[clave]["periodos"].append(deuda.periodo)
-                grupos[clave]["monto_total"] += float(deuda.amount or deuda.balance or 0)
+                _monto_item = applied_map.get(deuda.id)
+                if _monto_item is None:
+                    _monto_item = float(deuda.amount or deuda.balance or 0)
+                grupos[clave]["monto_total"] += _monto_item
 
             # Construir lista unificada de descriptores de ítem.
             # Primero los grupos de deudas, luego los conceptos sin Debt
