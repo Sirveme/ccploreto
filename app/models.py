@@ -5,7 +5,8 @@ from sqlalchemy.sql import func
 from .database import Base
 import enum
 from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 
 # --- ENUMS (Para restringir valores y evitar errores) ---
 class MemberRole(str, enum.Enum):
@@ -1119,3 +1120,58 @@ class GaleriaFoto(Base):
     fecha_evento    = Column(Date, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     created_by      = Column(Integer, nullable=True)
+
+
+# ════════════════════════════════════════════════════════════════════
+# BINGAZO — Evento anual obligatorio (zClaude-95)
+# ════════════════════════════════════════════════════════════════════
+
+class BingazoEvento(Base):
+    __tablename__ = "bingazo_evento"
+    id              = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    año             = Column("año", Integer, nullable=False)
+    precio_unitario = Column(Numeric(10, 2), nullable=False, default=Decimal("12.00"))
+    min_cartones    = Column(Integer, nullable=False, default=15)
+    comision_pct    = Column(Numeric(5, 2), nullable=False, default=Decimal("12.00"))
+    fecha_limite    = Column(Date, nullable=False)
+    estado          = Column(String(20), default="activo")
+    activado_por    = Column(String(255))
+    activado_en     = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    notas           = Column(Text)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "año", name="uq_bingazo_org_año"),
+    )
+
+    asignaciones = relationship("BingazoAsignacion", back_populates="evento", cascade="all, delete-orphan")
+
+
+class BingazoAsignacion(Base):
+    __tablename__ = "bingazo_asignacion"
+    id                               = Column(Integer, primary_key=True)
+    evento_id                        = Column(Integer, ForeignKey("bingazo_evento.id", ondelete="CASCADE"), nullable=False)
+    colegiado_id                     = Column(Integer, ForeignKey("colegiados.id"), nullable=False)
+    cartones_obligatorios_rango      = Column(Text)
+    cartones_obligatorios_entregados = Column(Boolean, default=False)
+    cartones_adicionales_pedidos     = Column(Integer, default=0, nullable=False)
+    cartones_adicionales_rango       = Column(Text)
+    cartones_adicionales_devueltos   = Column(Integer, default=0, nullable=False)
+    debt_id_obligatorios             = Column(Integer, ForeignKey("debts.id"))
+    debt_id_adicionales              = Column(Integer, ForeignKey("debts.id"))
+    es_voluntario                    = Column(Boolean, default=False)
+    notas                            = Column(Text)
+    created_at                       = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at                       = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("evento_id", "colegiado_id", name="uq_bingazo_asig"),
+    )
+
+    evento    = relationship("BingazoEvento", back_populates="asignaciones")
+    colegiado = relationship("Colegiado")
+
+    @property
+    def cartones_adicionales_vendidos(self) -> int:
+        """Adicionales pedidos - devueltos."""
+        return max(0, (self.cartones_adicionales_pedidos or 0) - (self.cartones_adicionales_devueltos or 0))
