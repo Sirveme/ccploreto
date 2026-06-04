@@ -3027,3 +3027,128 @@ async def sync_sunat_estados(
         "errores": errores,
         "detalles": detalles[:50],
     }
+
+
+# ════════════════════════════════════════════════════════════════════
+# BINGAZO — zClaude-95
+# ════════════════════════════════════════════════════════════════════
+from app.services.bingazo_service import BingazoService
+from datetime import date as _date_bingazo
+
+
+class BingazoActivarRequest(BaseModel):
+    año: int
+    precio_unitario: float
+    min_cartones: int = 15
+    comision_pct: float = 12.0
+    fecha_limite: str   # ISO 'YYYY-MM-DD'
+
+
+class BingazoEntregarRequest(BaseModel):
+    rango: str = ""
+    entregados: bool = True
+
+
+class BingazoAdicionalesRequest(BaseModel):
+    cantidad: int
+    rango: str = ""
+
+
+class BingazoVoluntarioRequest(BaseModel):
+    colegiado_id: int
+    cartones: int = 0
+    rango: str = ""
+
+
+class BingazoManualRequest(BaseModel):
+    colegiado_id: int
+
+
+@router.post("/bingazo/activar")
+async def bingazo_activar(
+    body: BingazoActivarRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Activa el Bingazo del año especificado y genera deudas para no-vitalicios."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.activar_evento(
+        año=body.año,
+        precio_unitario=Decimal(str(body.precio_unitario)),
+        min_cartones=body.min_cartones,
+        comision_pct=Decimal(str(body.comision_pct)),
+        fecha_limite=_date_bingazo.fromisoformat(body.fecha_limite),
+        activado_por=getattr(member, "name", None) or getattr(member, "email", None) or "caja",
+    )
+
+
+@router.get("/bingazo/estado/{colegiado_id}")
+async def bingazo_estado(
+    colegiado_id: int,
+    año: Optional[int] = None,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Estado del Bingazo para un colegiado en el año actual o uno específico."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.obtener_estado_colegiado(colegiado_id, año=año)
+
+
+@router.post("/bingazo/asignacion/{asignacion_id}/entregar")
+async def bingazo_entregar(
+    asignacion_id: int,
+    body: BingazoEntregarRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Registrar rango de cartones obligatorios entregados al colegiado."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.entregar_obligatorios(asignacion_id, rango=body.rango, entregados=body.entregados)
+
+
+@router.post("/bingazo/asignacion/{asignacion_id}/pedir-adicionales")
+async def bingazo_pedir_adicionales(
+    asignacion_id: int,
+    body: BingazoAdicionalesRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Agregar N cartones adicionales con comisión."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.pedir_adicionales(asignacion_id, body.cantidad, rango=body.rango)
+
+
+@router.post("/bingazo/asignacion/{asignacion_id}/devolver-adicionales")
+async def bingazo_devolver(
+    asignacion_id: int,
+    body: BingazoAdicionalesRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Devolver N cartones adicionales no vendidos."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.devolver_adicionales(asignacion_id, body.cantidad)
+
+
+@router.post("/bingazo/evento/{evento_id}/voluntario")
+async def bingazo_voluntario(
+    evento_id: int,
+    body: BingazoVoluntarioRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Asignar cartones a vitalicio voluntariamente."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.asignar_voluntario(evento_id, body.colegiado_id, body.cartones, body.rango)
+
+
+@router.post("/bingazo/evento/{evento_id}/asignar-manual")
+async def bingazo_asignar_manual(
+    evento_id: int,
+    body: BingazoManualRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Generar deuda + asignación para un colegiado registrado después de activar."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.asignar_manual(evento_id, body.colegiado_id)

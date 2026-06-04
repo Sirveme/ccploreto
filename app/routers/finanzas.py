@@ -601,3 +601,49 @@ async def redirigir_portal_colegiado(
     if not colegiado:
         raise HTTPException(status_code=404, detail="No estás registrado como colegiado")
     return RedirectResponse(url="/dashboard", status_code=302)
+
+
+# ════════════════════════════════════════════════════════════════════
+# BINGAZO — zClaude-95 (activación desde Finanzas)
+# Prefijo: /api/finanzas/bingazo. La gestión fina (entregar/adicionales)
+# se realiza desde /api/caja/bingazo/*.
+# ════════════════════════════════════════════════════════════════════
+from app.services.bingazo_service import BingazoService
+
+
+class FinBingazoActivarRequest(BaseModel):
+    año: int
+    precio_unitario: float
+    min_cartones: int = 15
+    comision_pct: float = 12.0
+    fecha_limite: str   # ISO 'YYYY-MM-DD'
+
+
+@router.post("/bingazo/activar")
+async def fin_bingazo_activar(
+    body: FinBingazoActivarRequest,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Activa el Bingazo del año especificado y genera deudas para no-vitalicios."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.activar_evento(
+        año=body.año,
+        precio_unitario=Decimal(str(body.precio_unitario)),
+        min_cartones=body.min_cartones,
+        comision_pct=Decimal(str(body.comision_pct)),
+        fecha_limite=dt_date.fromisoformat(body.fecha_limite),
+        activado_por=getattr(member, "name", None) or getattr(member, "email", None) or "finanzas",
+    )
+
+
+@router.get("/bingazo/estado/{colegiado_id}")
+async def fin_bingazo_estado(
+    colegiado_id: int,
+    año: Optional[int] = None,
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Estado del Bingazo para un colegiado (año actual o específico)."""
+    svc = BingazoService(db, member.organization_id)
+    return svc.obtener_estado_colegiado(colegiado_id, año=año)
