@@ -972,6 +972,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
                     <input id="f-autor_cargo" type="text" value="${esc(v.autor_cargo || '')}" placeholder="Ej: Decano">
                 </div>
             </div>
+            ${imageUploadField({ label: 'Foto del autor (opcional)', urlFieldId: 'f-autor_foto_url', currentUrl: v.autor_foto_url || '', folder: 'cms' })}
             ${imageUploadField({ label: 'Imagen (opcional)', urlFieldId: 'f-imagen_url', currentUrl: v.imagen_url || '', folder: 'cms' })}
             <div class="field">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -982,7 +983,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
             ${slugInfo}
         `;
         abrirModal(a ? 'Editar artículo' : 'Nuevo artículo', html, async () => {
-            const data = readModalFields(['f-titulo','f-resumen','f-contenido','f-autor_nombre','f-autor_cargo','f-imagen_url','f-publicado']);
+            const data = readModalFields(['f-titulo','f-resumen','f-contenido','f-autor_nombre','f-autor_cargo','f-autor_foto_url','f-imagen_url','f-publicado']);
             if (!data.titulo)  throw new Error('Título es requerido');
             if (!data.resumen) throw new Error('Resumen es requerido');
             if (a) {
