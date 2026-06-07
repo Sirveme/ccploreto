@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Colegio de Contadores Públicos de Loreto — 60 Años</title>
+<title>Colegio de Contadores Públicos de Loreto — Portal Institucional</title>
 
 <!-- ── zClaude-73: tokens + fuentes ─────────────────────────────── -->
 <link rel="stylesheet" href="/static/css/design-tokens.css">
@@ -29,8 +29,58 @@
 <link rel="apple-touch-icon" sizes="192x192" href="/static/img/icon-192.png">
 <link rel="apple-touch-icon" sizes="512x512" href="/static/img/icon-512.png">
 <meta name="theme-color" content="#155A2C">
-<meta property="og:title" content="Colegio de Contadores Públicos de Loreto — 60 Años">
-<meta property="og:image" content="/static/img/icon-512.png">
+
+<!-- ── zzClaude-1: SEO/GEO institucional (host canónico ccploreto.org.pe) ── -->
+<meta name="description" content="Colegio de Contadores Públicos de Loreto (CCPL), Iquitos — Perú. Portal institucional: verificación de habilidad profesional, comunicados, capacitaciones, convenios y pago de cuotas en línea para colegiados.">
+<link rel="canonical" href="https://ccploreto.org.pe/">
+<meta name="robots" content="index, follow">
+{% set _seo_logo = (org.logo_url if org and org.logo_url and (org.logo_url.startswith('http://') or org.logo_url.startswith('https://')) else 'https://ccploreto.org.pe/static/img/icon-512.png') %}
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Colegio de Contadores Públicos de Loreto">
+<meta property="og:title" content="Colegio de Contadores Públicos de Loreto — Portal Institucional">
+<meta property="og:description" content="Portal institucional del Colegio de Contadores Públicos de Loreto: verificación de habilidad, comunicados, capacitaciones, convenios y pagos en línea.">
+<meta property="og:url" content="https://ccploreto.org.pe/">
+<meta property="og:locale" content="es_PE">
+<meta property="og:image" content="{{ _seo_logo }}">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Colegio de Contadores Públicos de Loreto — Portal Institucional">
+<meta name="twitter:description" content="Portal institucional del Colegio de Contadores Públicos de Loreto: verificación de habilidad, comunicados, capacitaciones, convenios y pagos en línea.">
+<meta name="twitter:image" content="{{ _seo_logo }}">
+
+<!-- JSON-LD: Organization + WebSite -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ccploreto.org.pe/#organization",
+      "name": "Colegio de Contadores Públicos de Loreto",
+      "url": "https://ccploreto.org.pe/",
+      "logo": "https://ccploreto.org.pe/static/img/icon-512.png",
+      "taxID": "20103830991",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Iquitos",
+        "addressRegion": "Loreto",
+        "addressCountry": "PE"
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://ccploreto.org.pe/#website",
+      "url": "https://ccploreto.org.pe/",
+      "name": "Colegio de Contadores Públicos de Loreto",
+      "inLanguage": "es-PE",
+      "publisher": { "@id": "https://ccploreto.org.pe/#organization" }
+    }
+  ]
+}
+</script>
 </head>
 <body class="ccpl-tokens">
 
