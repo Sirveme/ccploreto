@@ -1,0 +1,76 @@
+# Colegio de Contadores Públicos de Loreto (CCPL)
+
+> Institución profesional con sede en Iquitos, Loreto, Perú, que agremia a los
+> contadores públicos de la región. Su portal institucional (ccploreto.org.pe)
+> centraliza la comunicación con los colegiados y la atención de servicios en línea.
+
+El Colegio de Contadores Públicos de Loreto es la entidad que reúne y representa a
+los contadores públicos colegiados de la región Loreto. Su sitio web es a la vez la
+cara pública de la institución y la plataforma de autoservicio para los agremiados.
+
+A continuación se describe cada sección pública del portal.
+
+## Inicio
+URL: https://ccploreto.org.pe/
+
+Página principal del Colegio. Presenta la institución, comunicados recientes,
+capacitaciones próximas, convenios vigentes y una galería de actividades. Desde el
+inicio también se accede a la verificación pública de habilidad profesional y al
+ingreso al portal del colegiado.
+
+## Artículos institucionales
+URL: https://ccploreto.org.pe/articulos
+
+Páginas permanentes (a diferencia de los comunicados, que vencen) donde el Colegio
+publica respuestas directas a las consultas frecuentes de colegiados y público:
+orientación profesional, normativa contable y trámites. Cada artículo tiene una URL
+estable https://ccploreto.org.pe/articulos/{slug}, un título redactado como la
+pregunta que hace la gente y un resumen que responde de forma directa. Firmados por
+autoridades del Colegio (Decano, Administrador, Finanzas).
+
+## Comunicados
+URL: https://ccploreto.org.pe/comunicados
+
+Listado de comunicados y avisos institucionales del Colegio. Cada comunicado tiene
+su propia página de detalle (https://ccploreto.org.pe/comunicados/{id}). Los
+comunicados pueden tener fecha de vencimiento; los vencidos dejan de mostrarse.
+
+## Capacitaciones
+URL: https://ccploreto.org.pe/capacitaciones
+
+Eventos de formación y actualización profesional organizados por el Colegio
+(charlas, cursos, talleres), con su fecha y lugar cuando corresponde.
+
+## Convenios
+URL: https://ccploreto.org.pe/convenios
+
+Alianzas institucionales y beneficios que el Colegio gestiona para sus colegiados,
+organizados por categoría.
+
+## Galería
+URL: https://ccploreto.org.pe/galeria
+
+Archivo fotográfico de actividades institucionales, académicas, deportivas y
+sociales del Colegio.
+
+## Verificación de habilidad profesional
+Disponible desde la página de inicio.
+
+Servicio público que permite comprobar si un contador público está hábil ante el
+Colegio, buscando por documento de identidad o por apellidos/nombres. Es de libre
+acceso y no requiere autenticación.
+
+## Portal del colegiado
+Ingreso desde https://ccploreto.org.pe/login
+
+Área privada para los colegiados. Tras autenticarse, el colegiado consulta el estado
+de su habilidad, sus obligaciones y puede pagar sus cuotas en línea. Los pagos
+generan comprobantes mediante facturación electrónica integrada con SUNAT.
+
+## Páginas legales
+- Política de privacidad: https://ccploreto.org.pe/politica-privacidad
+- Términos y condiciones: https://ccploreto.org.pe/terminos
+
+## Sobre la plataforma
+El portal y sus servicios en línea funcionan sobre la plataforma tecnológica de
+Perú Sistemas Pro (perusistemas.pro).

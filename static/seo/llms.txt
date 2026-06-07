@@ -1,0 +1,37 @@
+# Colegio de Contadores Públicos de Loreto (CCPL)
+
+> Institución profesional con sede en Iquitos, Loreto, Perú, que agremia a los
+> contadores públicos de la región. Su portal institucional ofrece servicios en
+> línea a colegiados y al público en general.
+
+El CCPL (ccploreto.org.pe) es el Colegio de Contadores Públicos de Loreto. A través
+de su plataforma web ofrece:
+
+- Portal del colegiado: acceso de los agremiados a su cuenta, estado de habilidad
+  profesional y gestión de su membresía.
+- Pago de cuotas en línea: los colegiados pueden pagar sus cuotas y obligaciones
+  desde el portal.
+- Verificación pública de habilidad profesional: cualquier persona puede comprobar
+  si un contador está hábil ante el Colegio.
+- Artículos institucionales: páginas permanentes que responden de forma directa a
+  las consultas frecuentes de colegiados y público (orientación y normativa).
+- Comunicados institucionales: avisos y noticias del Colegio.
+- Capacitaciones: eventos de formación y actualización profesional.
+- Convenios: alianzas y beneficios para los colegiados.
+- Galería institucional: fotografías de actividades del Colegio.
+- Facturación electrónica integrada con SUNAT para los pagos realizados.
+
+## Enlaces públicos
+
+- Inicio: https://ccploreto.org.pe/
+- Artículos institucionales: https://ccploreto.org.pe/articulos
+- Comunicados: https://ccploreto.org.pe/comunicados
+- Capacitaciones: https://ccploreto.org.pe/capacitaciones
+- Convenios: https://ccploreto.org.pe/convenios
+- Galería: https://ccploreto.org.pe/galeria
+- Política de privacidad: https://ccploreto.org.pe/politica-privacidad
+- Términos y condiciones: https://ccploreto.org.pe/terminos
+
+La verificación pública de habilidad está disponible desde la página de inicio.
+
+La plataforma tecnológica del portal es de Perú Sistemas Pro (perusistemas.pro).
