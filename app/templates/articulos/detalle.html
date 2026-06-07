@@ -37,7 +37,8 @@
   "author": {
     "@type": "Person",
     "name": {{ (articulo.autor_nombre or 'Colegio de Contadores Públicos de Loreto')|tojson }},
-    "jobTitle": {{ (articulo.autor_cargo or '')|tojson }}
+    "jobTitle": {{ (articulo.autor_cargo or '')|tojson }}{% if articulo.autor_foto_url %},
+    "image": {{ articulo.autor_foto_url|tojson }}{% endif %}
   },
   "publisher": { "@id": "https://ccploreto.org.pe/#organization" },
   "datePublished": {{ (articulo.published_at_iso or articulo.created_at_iso or '')|tojson }},
@@ -78,8 +79,9 @@ nav.site-nav a.active { background:var(--accent); color:#fff; }
 .breadcrumb { font-size:13px; color:var(--text-sec); margin-bottom:16px; }
 
 .art-title { font-size:30px; font-weight:700; line-height:1.25; color:var(--text); margin-bottom:10px; }
-.art-meta { color:var(--text-sec); font-size:13.5px; margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.art-meta { color:var(--text-sec); font-size:13.5px; margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .art-meta .autor { font-weight:600; color:var(--text); }
+.art-autor-foto { width:34px; height:34px; border-radius:50%; object-fit:cover; background:#e5e7eb; flex:0 0 auto; }
 .art-cover { width:100%; max-height:380px; object-fit:cover; border-radius:14px; margin-bottom:22px; background:#e5e7eb; }
 
 /* Resumen destacado (lead): es la respuesta directa que citan Google/IAs */
@@ -136,6 +138,9 @@ nav.site-nav a.active { background:var(--accent); color:#fff; }
 
         <h1 class="art-title">{{ articulo.titulo }}</h1>
         <div class="art-meta">
+            {% if articulo.autor_foto_url %}
+                <img class="art-autor-foto" src="{{ articulo.autor_foto_url }}" alt="{{ articulo.autor_nombre }}">
+            {% endif %}
             {% if articulo.autor_nombre %}
                 <span class="autor">{{ articulo.autor_nombre }}</span>
                 {% if articulo.autor_cargo %}<span>· {{ articulo.autor_cargo }}</span>{% endif %}
