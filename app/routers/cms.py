@@ -7,6 +7,8 @@ Sin alertas/confirmaciones nativas — todas las acciones devuelven JSON.
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 import logging
+import re
+import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
@@ -1595,9 +1597,8 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
 # Todo aditivo: no modifica funciones/rutas previas de este archivo.
 # Admin: misma auth que comunicados (require_admin_or_editor) sobre `router`.
 # Público: sin auth, sobre `public_router`.
+# `re` y `unicodedata` se importan al inicio del módulo (no aquí).
 # ============================================================
-import unicodedata
-
 from app.models import Articulo
 
 
@@ -1663,6 +1664,7 @@ def _articulo_dict(a: "Articulo") -> dict:
         "contenido":         a.contenido or "",
         "autor_nombre":      a.autor_nombre or "",
         "autor_cargo":       a.autor_cargo or "",
+        "autor_foto_url":    a.autor_foto_url or "",
         "imagen_url":        a.imagen_url or "",
         "publicado":         bool(a.publicado),
         "published_at":      _a_lima(a.published_at),
@@ -1717,6 +1719,7 @@ async def crear_articulo(
         contenido       = body.get("contenido") or body.get("content") or "",
         autor_nombre    = (body.get("autor_nombre") or "")[:150] or None,
         autor_cargo     = (body.get("autor_cargo") or "")[:120] or None,
+        autor_foto_url  = (body.get("autor_foto_url") or "")[:500] or None,
         imagen_url      = (body.get("imagen_url") or "")[:500] or None,
         publicado       = False,
     )
@@ -1763,6 +1766,8 @@ async def editar_articulo(
         a.autor_nombre = (body.get("autor_nombre") or "")[:150] or None
     if "autor_cargo" in body:
         a.autor_cargo = (body.get("autor_cargo") or "")[:120] or None
+    if "autor_foto_url" in body:
+        a.autor_foto_url = (body.get("autor_foto_url") or "")[:500] or None
     if "imagen_url" in body:
         a.imagen_url = (body.get("imagen_url") or "")[:500] or None
     if "publicado" in body:
