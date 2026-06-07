@@ -172,6 +172,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
     <div class="tabs-bar">
         <button class="tab-btn active" data-tab="carrusel"     onclick="cambiarTab('carrusel')">🎞️ Carrusel</button>
         <button class="tab-btn"        data-tab="comunicados"  onclick="cambiarTab('comunicados')">📣 Comunicados</button>
+        <button class="tab-btn"        data-tab="articulos"    onclick="cambiarTab('articulos')">📝 Artículos</button>
         <button class="tab-btn"        data-tab="capacitaciones" onclick="cambiarTab('capacitaciones')">🎓 Capacitaciones</button>
         <button class="tab-btn"        data-tab="convenios"    onclick="cambiarTab('convenios')">🤝 Convenios</button>
         <button class="tab-btn"        data-tab="galeria"      onclick="cambiarTab('galeria')">📷 Galería</button>
@@ -226,6 +227,35 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
                 </thead>
                 <tbody id="tbComunicados">
                     <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════ ARTÍCULOS (zzClaude-2) ════════ -->
+    <div class="tab-pane" id="tab-articulos">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;">
+                <h2>Artículos institucionales</h2>
+                <button class="btn btn-primary" onclick="abrirArticulo(null)">＋ Nuevo artículo</button>
+            </div>
+            <p style="font-size:12px;color:var(--text-dim);margin-top:6px;">
+                Páginas permanentes para SEO. El <b>título</b> es la pregunta tal como la busca la gente;
+                el <b>resumen</b> es la respuesta directa que citarán Google y las IAs. La URL no cambia tras publicar.
+            </p>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">Estado</th>
+                        <th>Título / Resumen</th>
+                        <th style="width:160px;">Autor</th>
+                        <th style="width:210px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbArticulos">
+                    <tr class="empty-row"><td colspan="4">Cargando…</td></tr>
                 </tbody>
             </table>
         </div>
@@ -448,6 +478,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if      (tab === 'carrusel')       cargarSlides();
         else if (tab === 'comunicados')    cargarComunicados();
+        else if (tab === 'articulos')      cargarArticulos();
         else if (tab === 'capacitaciones') cargarCapacitaciones();
         else if (tab === 'convenios')      cargarConvenios();
         else if (tab === 'galeria')        cargarGaleria();
@@ -853,6 +884,136 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
             toast('Comunicado eliminado', 'ok');
             cargarComunicados();
         });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ARTÍCULOS (zzClaude-2)
+    // ════════════════════════════════════════════════════════
+    function badgeEstadoArticulo(pub) {
+        return pub
+            ? '<span class="badge badge-green">Publicado</span>'
+            : '<span class="badge badge-gray">Borrador</span>';
+    }
+
+    async function cargarArticulos() {
+        const tb = document.getElementById('tbArticulos');
+        tb.innerHTML = '<tr class="empty-row"><td colspan="4">Cargando…</td></tr>';
+        try {
+            const r = await api('GET', '/api/cms/articulos');
+            if (!r.items.length) {
+                tb.innerHTML = '<tr class="empty-row"><td colspan="4">Sin artículos. Crea el primero.</td></tr>';
+                return;
+            }
+            tb.innerHTML = r.items.map(a => {
+                const togglePub = a.publicado
+                    ? `<button class="btn btn-ghost btn-icon" onclick="publicarArticulo(${a.id}, false)">Despublicar</button>`
+                    : `<button class="btn btn-success btn-icon" onclick="publicarArticulo(${a.id}, true)">Publicar</button>`;
+                // Solo se puede eliminar si NUNCA fue publicado.
+                const delBtn = a.published_at_iso
+                    ? ''
+                    : `<button class="btn btn-danger btn-icon" onclick="eliminarArticulo(${a.id})">Eliminar</button>`;
+                return `
+                <tr>
+                    <td>${badgeEstadoArticulo(a.publicado)}</td>
+                    <td>
+                        <div style="font-weight:600;">${esc(a.titulo)}</div>
+                        <div style="font-size:11px;color:var(--text-dim);">${esc((a.resumen || '').slice(0, 110))}${a.resumen && a.resumen.length > 110 ? '…' : ''}</div>
+                        ${a.publicado ? `<div style="font-size:11px;margin-top:2px;"><a href="/articulos/${esc(a.slug)}" target="_blank" rel="noopener">/articulos/${esc(a.slug)} ↗</a></div>` : ''}
+                    </td>
+                    <td style="font-size:12px;">${esc(a.autor_nombre || '—')}${a.autor_cargo ? `<br><span style="color:var(--text-dim);">${esc(a.autor_cargo)}</span>` : ''}</td>
+                    <td class="cell-actions">
+                        <button class="btn btn-ghost btn-icon" onclick='editarArticulo(${JSON.stringify(a)})'>Editar</button>
+                        ${togglePub}
+                        ${delBtn}
+                    </td>
+                </tr>`;
+            }).join('');
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function contarResumen(el) {
+        const span = document.getElementById('f-resumen-count');
+        if (span) span.textContent = `${el.value.length}/300`;
+    }
+
+    function abrirArticulo(a) {
+        const v = a || {};
+        const slugInfo = (v.slug)
+            ? `<div class="field">
+                   <label>URL pública ${v.publicado ? '(permanente)' : '(provisional hasta publicar)'}</label>
+                   <input type="text" readonly value="/articulos/${esc(v.slug)}" style="width:100%;background:var(--bg);">
+               </div>`
+            : '';
+        const html = `
+            <div class="field">
+                <label>Título * — la pregunta tal como la busca la gente</label>
+                <input id="f-titulo" type="text" style="width:100%;"
+                       placeholder="Ej: ¿Cómo emite boletas un colegio profesional a sus agremiados?"
+                       value="${esc(v.titulo || '')}">
+            </div>
+            <div class="field">
+                <label>Resumen * — la respuesta directa en 2-3 líneas
+                    <span id="f-resumen-count" style="color:var(--text-dim);font-size:11px;">0/300</span>
+                </label>
+                <textarea id="f-resumen" maxlength="300" oninput="contarResumen(this)"
+                          placeholder="La respuesta directa en 2-3 líneas. Esto es lo que Google y las IAs citarán.">${esc(v.resumen || '')}</textarea>
+            </div>
+            <div class="field">
+                <label>Contenido (HTML)</label>
+                <textarea id="f-contenido">${esc(v.contenido || '')}</textarea>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Autor (nombre)</label>
+                    <input id="f-autor_nombre" type="text" value="${esc(v.autor_nombre || '')}" placeholder="Ej: CPC Juan Pérez">
+                </div>
+                <div class="field">
+                    <label>Cargo</label>
+                    <input id="f-autor_cargo" type="text" value="${esc(v.autor_cargo || '')}" placeholder="Ej: Decano">
+                </div>
+            </div>
+            ${imageUploadField({ label: 'Imagen (opcional)', urlFieldId: 'f-imagen_url', currentUrl: v.imagen_url || '', folder: 'cms' })}
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input id="f-publicado" type="checkbox" ${v.publicado ? 'checked' : ''}>
+                    Publicar al guardar (visible al público en /articulos)
+                </label>
+            </div>
+            ${slugInfo}
+        `;
+        abrirModal(a ? 'Editar artículo' : 'Nuevo artículo', html, async () => {
+            const data = readModalFields(['f-titulo','f-resumen','f-contenido','f-autor_nombre','f-autor_cargo','f-imagen_url','f-publicado']);
+            if (!data.titulo)  throw new Error('Título es requerido');
+            if (!data.resumen) throw new Error('Resumen es requerido');
+            if (a) {
+                await api('PUT', `/api/cms/articulos/${a.id}`, data);
+                toast(data.publicado ? 'Artículo guardado y publicado' : 'Artículo guardado', 'ok');
+            } else {
+                await api('POST', '/api/cms/articulos', data);
+                toast(data.publicado ? 'Artículo creado y publicado' : 'Borrador creado', 'ok');
+            }
+            cargarArticulos();
+        });
+        setTimeout(() => { const r = document.getElementById('f-resumen'); if (r) contarResumen(r); }, 0);
+    }
+    function editarArticulo(a) { abrirArticulo(a); }
+
+    async function publicarArticulo(id, publicado) {
+        try {
+            await api('POST', `/api/cms/articulos/${id}/publicar`, { publicado });
+            toast(publicado ? 'Artículo publicado' : 'Artículo despublicado', 'ok');
+            cargarArticulos();
+        } catch (e) { toast(e.message, 'err'); }
+    }
+
+    function eliminarArticulo(id) {
+        abrirConfirm('Eliminar artículo',
+            'Solo se pueden eliminar artículos que nunca fueron publicados. ¿Continuar?',
+            async () => {
+                await api('DELETE', `/api/cms/articulos/${id}`);
+                toast('Artículo eliminado', 'ok');
+                cargarArticulos();
+            });
     }
 
     // ════════════════════════════════════════════════════════
@@ -1383,6 +1544,8 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         abrirSlide, editarSlide, moverSlide, toggleSlide, eliminarSlide,
         // Comunicados
         abrirComunicado, editarComunicado, eliminarComunicado,
+        // Artículos
+        cargarArticulos, abrirArticulo, editarArticulo, publicarArticulo, eliminarArticulo, contarResumen,
         // Capacitaciones
         abrirCapacitacion, editarCapacitacion, eliminarCapacitacion,
         // Convenios
