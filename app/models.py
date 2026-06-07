@@ -1175,3 +1175,36 @@ class BingazoAsignacion(Base):
     def cartones_adicionales_vendidos(self) -> int:
         """Adicionales pedidos - devueltos."""
         return max(0, (self.cartones_adicionales_pedidos or 0) - (self.cartones_adicionales_devueltos or 0))
+
+
+# ============================================================
+# zzClaude-2 — Módulo Artículos (CMS institucional + SEO/GEO)
+# ============================================================
+class Articulo(Base):
+    """
+    Artículo institucional permanente (a diferencia del Bulletin/comunicado,
+    que vence y no tiene URL estable). Pieza central de la estrategia SEO/GEO:
+      - titulo  = la pregunta/frase tal como la busca la gente.
+      - resumen = la respuesta directa (2-3 líneas) → meta description y cita.
+      - slug    = URL permanente /articulos/{slug}; CONGELADO tras la 1ra
+                  publicación (no se regenera al editar el título).
+    """
+    __tablename__ = "articulos"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), index=True)
+
+    titulo       = Column(String(300), nullable=False)
+    slug         = Column(String(120), nullable=False, unique=True, index=True)
+    resumen      = Column(Text, nullable=False)
+    contenido    = Column(Text, nullable=False, default="")
+    autor_nombre = Column(String(150), nullable=True)
+    autor_cargo  = Column(String(120), nullable=True)   # "Decano", "Administrador", "Finanzas"...
+    imagen_url   = Column(String(500), nullable=True)
+
+    publicado    = Column(Boolean, default=False, index=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)  # fijado en la 1ra publicación; no se vuelve a tocar
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at   = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    organization = relationship("Organization")

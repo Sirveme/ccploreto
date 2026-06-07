@@ -76,6 +76,7 @@ from app.routers.catalogo import (
     router as catalogo_router,
     page_router as catalogo_page_router,
 )
+from app.routers.seo import router as seo_router
 
 
 @asynccontextmanager
@@ -248,6 +249,7 @@ app.include_router(cms_page_router)
 app.include_router(cms_public_router)
 app.include_router(catalogo_router)
 app.include_router(catalogo_page_router)
+app.include_router(seo_router)
 
 
 # Agrega esto TEMPORALMENTE en main.py, justo después de todos los include_router:
