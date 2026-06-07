@@ -1200,6 +1200,7 @@ class Articulo(Base):
     contenido    = Column(Text, nullable=False, default="")
     autor_nombre = Column(String(150), nullable=True)
     autor_cargo  = Column(String(120), nullable=True)   # "Decano", "Administrador", "Finanzas"...
+    autor_foto_url = Column(String(500), nullable=True)  # foto del autor (byline + JSON-LD author.image)
     imagen_url   = Column(String(500), nullable=True)
 
     publicado    = Column(Boolean, default=False, index=True)
