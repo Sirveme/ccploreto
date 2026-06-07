@@ -79,6 +79,17 @@ label { font-size: 12px; color: var(--text-sec); display:block; margin-bottom: 4
 .checkbox-row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; }
 .checkbox-row label { display:flex; align-items:center; gap:6px; margin:0; }
 
+/* Artículos: URL pública legible sobre el panel oscuro + botón copiar */
+.art-url-row { display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap; }
+.art-url-link { font-size:11px; color: var(--blue); text-decoration:none; word-break:break-all; }
+.art-url-link:hover { text-decoration:underline; }
+.art-url-copy {
+    font-size:10px; line-height:1; padding:3px 7px; cursor:pointer;
+    background: var(--bg-elevated); color: var(--text-sec);
+    border:1px solid var(--border); border-radius:5px;
+}
+.art-url-copy:hover { color: var(--text); border-color: var(--text-dim); }
+
 table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
 .tbl thead th {
     text-align:left; padding:10px; background: #222530;
@@ -918,7 +929,10 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
                     <td>
                         <div style="font-weight:600;">${esc(a.titulo)}</div>
                         <div style="font-size:11px;color:var(--text-dim);">${esc((a.resumen || '').slice(0, 110))}${a.resumen && a.resumen.length > 110 ? '…' : ''}</div>
-                        ${a.publicado ? `<div style="font-size:11px;margin-top:2px;"><a href="/articulos/${esc(a.slug)}" target="_blank" rel="noopener">/articulos/${esc(a.slug)} ↗</a></div>` : ''}
+                        ${a.publicado ? `<div class="art-url-row">
+                            <a class="art-url-link" href="/articulos/${esc(a.slug)}" target="_blank" rel="noopener">/articulos/${esc(a.slug)} ↗</a>
+                            <button type="button" class="art-url-copy" title="Copiar URL pública" onclick="copiarUrlArticulo('${esc(a.slug)}')">📋 Copiar</button>
+                        </div>` : ''}
                     </td>
                     <td style="font-size:12px;">${esc(a.autor_nombre || '—')}${a.autor_cargo ? `<br><span style="color:var(--text-dim);">${esc(a.autor_cargo)}</span>` : ''}</td>
                     <td class="cell-actions">
@@ -998,6 +1012,24 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         setTimeout(() => { const r = document.getElementById('f-resumen'); if (r) contarResumen(r); }, 0);
     }
     function editarArticulo(a) { abrirArticulo(a); }
+
+    function copiarUrlArticulo(slug) {
+        const url = `${location.origin}/articulos/${slug}`;
+        const ok = () => toast('URL pública copiada', 'ok');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(ok).catch(() => _copiarFallback(url, ok));
+        } else {
+            _copiarFallback(url, ok);
+        }
+    }
+    function _copiarFallback(text, cb) {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); cb(); }
+        catch (e) { toast('No se pudo copiar la URL', 'err'); }
+        document.body.removeChild(ta);
+    }
 
     async function publicarArticulo(id, publicado) {
         try {
@@ -1546,7 +1578,7 @@ table.tbl { width:100%; border-collapse: collapse; font-size: 13px; }
         // Comunicados
         abrirComunicado, editarComunicado, eliminarComunicado,
         // Artículos
-        cargarArticulos, abrirArticulo, editarArticulo, publicarArticulo, eliminarArticulo, contarResumen,
+        cargarArticulos, abrirArticulo, editarArticulo, publicarArticulo, eliminarArticulo, contarResumen, copiarUrlArticulo,
         // Capacitaciones
         abrirCapacitacion, editarCapacitacion, eliminarCapacitacion,
         // Convenios
