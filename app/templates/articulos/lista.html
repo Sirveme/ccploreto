@@ -1,0 +1,30 @@
+{% extends "public/_layout.html" %}
+{% set active = 'articulos' %}
+{% block title %}Artículos institucionales{% endblock %}
+{% block description %}Artículos del Colegio de Contadores Públicos de Loreto: orientación, normativa y respuestas a las consultas frecuentes de los colegiados y del público.{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Artículos institucionales</h1>
+<p class="page-subtitle">Respuestas y orientación del Colegio de Contadores Públicos de Loreto.</p>
+
+{% if not articulos %}
+<div class="empty">Aún no hay artículos publicados.</div>
+{% else %}
+<div class="cards-grid">
+    {% for a in articulos %}
+    <a class="card" href="/articulos/{{ a.slug }}">
+        {% if a.imagen_url %}
+        <img class="card-img" src="{{ a.imagen_url }}" alt="{{ a.titulo }}" loading="lazy">
+        {% endif %}
+        <div class="card-body">
+            <div class="card-title">{{ a.titulo }}</div>
+            <div class="card-excerpt">{{ a.resumen }}</div>
+            <div class="card-meta">
+                {% if a.autor_nombre %}{{ a.autor_nombre }}{% if a.autor_cargo %} · {{ a.autor_cargo }}{% endif %} · {% endif %}{{ a.published_at or a.created_at or '' }}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

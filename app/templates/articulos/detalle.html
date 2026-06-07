@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+{# ── zzClaude-2: head propio (pieza SEO/GEO) ───────────────────────── #}
+<title>{{ articulo.titulo }} | CCPL</title>
+<meta name="description" content="{{ articulo.resumen }}">
+<link rel="canonical" href="https://ccploreto.org.pe/articulos/{{ articulo.slug }}">
+<meta name="robots" content="index, follow">
+
+{% set _img = articulo.imagen_url or 'https://ccploreto.org.pe/static/img/icon-512.png' %}
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Colegio de Contadores Públicos de Loreto">
+<meta property="og:title" content="{{ articulo.titulo }} | CCPL">
+<meta property="og:description" content="{{ articulo.resumen }}">
+<meta property="og:url" content="https://ccploreto.org.pe/articulos/{{ articulo.slug }}">
+<meta property="og:locale" content="es_PE">
+<meta property="og:image" content="{{ _img }}">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ articulo.titulo }} | CCPL">
+<meta name="twitter:description" content="{{ articulo.resumen }}">
+<meta name="twitter:image" content="{{ _img }}">
+
+<!-- JSON-LD Article (publisher → @id de la Organization de zzClaude-1) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": {{ articulo.titulo|tojson }},
+  "description": {{ articulo.resumen|tojson }},
+  "image": {{ _img|tojson }},
+  "author": {
+    "@type": "Person",
+    "name": {{ (articulo.autor_nombre or 'Colegio de Contadores Públicos de Loreto')|tojson }},
+    "jobTitle": {{ (articulo.autor_cargo or '')|tojson }}
+  },
+  "publisher": { "@id": "https://ccploreto.org.pe/#organization" },
+  "datePublished": {{ (articulo.published_at_iso or articulo.created_at_iso or '')|tojson }},
+  "dateModified": {{ (articulo.updated_at_iso or articulo.published_at_iso or '')|tojson }},
+  "mainEntityOfPage": {{ ('https://ccploreto.org.pe/articulos/' ~ articulo.slug)|tojson }},
+  "inLanguage": "es-PE"
+}
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg:#f6f7fb; --surface:#fff; --border:#e5e7eb; --text:#1f2937;
+    --text-sec:#4b5563; --text-dim:#9ca3af; --accent:#1d4ed8; --accent-soft:#eff6ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:var(--bg); color:var(--text); }
+body { font-family:'DM Sans', sans-serif; line-height:1.55; min-height:100vh; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+img { max-width:100%; height:auto; display:block; }
+
+.site-header { background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:50; }
+.site-header-inner { max-width:1000px; margin:0 auto; padding:14px 20px; display:flex; gap:18px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.brand { display:flex; align-items:center; gap:12px; color:var(--text); }
+.brand .brand-mark { width:38px; height:38px; background:var(--accent-soft); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--accent); font-weight:700; font-size:14px; }
+.brand img { width:38px; height:38px; object-fit:contain; border-radius:8px; }
+.brand-text { display:flex; flex-direction:column; }
+.brand-text strong { font-size:14px; line-height:1.2; }
+.brand-text small { font-size:11px; color:var(--text-dim); }
+.brand:hover { text-decoration:none; }
+nav.site-nav { display:flex; gap:6px; flex-wrap:wrap; }
+nav.site-nav a { color:var(--text-sec); padding:7px 12px; border-radius:7px; font-size:13.5px; font-weight:500; }
+nav.site-nav a:hover { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav.site-nav a.active { background:var(--accent); color:#fff; }
+
+.container { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+.breadcrumb { font-size:13px; color:var(--text-sec); margin-bottom:16px; }
+
+.art-title { font-size:30px; font-weight:700; line-height:1.25; color:var(--text); margin-bottom:10px; }
+.art-meta { color:var(--text-sec); font-size:13.5px; margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.art-meta .autor { font-weight:600; color:var(--text); }
+.art-cover { width:100%; max-height:380px; object-fit:cover; border-radius:14px; margin-bottom:22px; background:#e5e7eb; }
+
+/* Resumen destacado (lead): es la respuesta directa que citan Google/IAs */
+.art-lead {
+    font-size:18px; line-height:1.6; color:var(--text); font-weight:500;
+    background:var(--accent-soft); border-left:4px solid var(--accent);
+    border-radius:0 10px 10px 0; padding:16px 20px; margin-bottom:24px;
+}
+.art-content { font-size:16px; line-height:1.75; color:var(--text); }
+.art-content p { margin:0 0 14px 0; }
+.art-content h2 { font-size:21px; margin:26px 0 10px; }
+.art-content h3 { font-size:18px; margin:22px 0 8px; }
+.art-content ul, .art-content ol { margin:0 0 14px 22px; }
+.art-content img { border-radius:10px; margin:14px 0; }
+
+.art-nav { margin-top:34px; padding-top:18px; border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; font-size:13.5px; }
+
+.site-footer { background:#fff; border-top:1px solid var(--border); padding:20px; color:var(--text-dim); font-size:12.5px; text-align:center; }
+.site-footer a { color:var(--text-sec); }
+
+@media (max-width:600px) {
+    .container { padding:18px 14px 40px; }
+    .art-title { font-size:24px; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+    <div class="site-header-inner">
+        <a class="brand" href="/">
+            {% if org and org.config and org.config.logo_url %}
+                <img src="{{ org.config.logo_url }}" alt="Logo">
+            {% else %}
+                <span class="brand-mark">CCPL</span>
+            {% endif %}
+            <span class="brand-text">
+                <strong>Colegio de Contadores Públicos de Loreto</strong>
+                <small>ccploreto.org.pe</small>
+            </span>
+        </a>
+        <nav class="site-nav">
+            <a href="/">Inicio</a>
+            <a href="/comunicados">Comunicados</a>
+            <a href="/articulos" class="active">Artículos</a>
+            <a href="/capacitaciones">Capacitaciones</a>
+            <a href="/convenios">Convenios</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container">
+    <article>
+        <div class="breadcrumb"><a href="/articulos">← Artículos</a></div>
+
+        <h1 class="art-title">{{ articulo.titulo }}</h1>
+        <div class="art-meta">
+            {% if articulo.autor_nombre %}
+                <span class="autor">{{ articulo.autor_nombre }}</span>
+                {% if articulo.autor_cargo %}<span>· {{ articulo.autor_cargo }}</span>{% endif %}
+            {% endif %}
+            {% if articulo.published_at %}<span>· {{ articulo.published_at }}</span>{% endif %}
+        </div>
+
+        {% if articulo.imagen_url %}
+        <img class="art-cover" src="{{ articulo.imagen_url }}" alt="{{ articulo.titulo }}">
+        {% endif %}
+
+        {# Resumen destacado: la respuesta directa, como primer párrafo lead #}
+        <p class="art-lead">{{ articulo.resumen }}</p>
+
+        <div class="art-content">
+            {{ (articulo.contenido or '')|safe }}
+        </div>
+
+        <nav class="art-nav">
+            <a href="/articulos">Ver todos los artículos</a>
+            <span style="color:var(--text-dim);">·</span>
+            <a href="/">Ir al inicio</a>
+        </nav>
+    </article>
+</main>
+
+<footer class="site-footer">
+    © Colegio de Contadores Públicos de Loreto · <a href="/">Volver al inicio</a>
+</footer>
+</body>
+</html>
