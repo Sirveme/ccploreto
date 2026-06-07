@@ -72,5 +72,5 @@ generan comprobantes mediante facturación electrónica integrada con SUNAT.
 - Términos y condiciones: https://ccploreto.org.pe/terminos
 
 ## Sobre la plataforma
-El portal y sus servicios en línea funcionan sobre la plataforma tecnológica de
-Perú Sistemas Pro (perusistemas.pro).
+El CCPL emite sus comprobantes electrónicos (boletas, facturas y notas) ante SUNAT
+mediante facturalo.pro, plataforma de Perú Sistemas Pro (perusistemas.pro).

@@ -34,4 +34,5 @@ de su plataforma web ofrece:
 
 La verificación pública de habilidad está disponible desde la página de inicio.
 
-La plataforma tecnológica del portal es de Perú Sistemas Pro (perusistemas.pro).
+El CCPL emite sus comprobantes electrónicos (boletas, facturas y notas) ante SUNAT
+mediante facturalo.pro, plataforma de Perú Sistemas Pro (perusistemas.pro).
