@@ -1588,3 +1588,290 @@ def get_home_context(db: Session, organization_id: int = 1) -> dict:
         logger.warning("get_home_context: galeria_preview no disponible: %s", e)
 
     return ctx
+
+
+# ============================================================
+# zzClaude-2 — MÓDULO ARTÍCULOS (CMS + público + SEO/GEO)
+# Todo aditivo: no modifica funciones/rutas previas de este archivo.
+# Admin: misma auth que comunicados (require_admin_or_editor) sobre `router`.
+# Público: sin auth, sobre `public_router`.
+# ============================================================
+import unicodedata
+
+from app.models import Articulo
+
+
+def _slugify(texto: str, max_len: int = 80) -> str:
+    """Slug SEO: minúsculas, sin tildes, separadores → guiones, recortado."""
+    if not texto:
+        return "articulo"
+    nfkd = unicodedata.normalize("NFKD", str(texto))
+    sin_tildes = "".join(c for c in nfkd if not unicodedata.combining(c))
+    s = sin_tildes.lower().replace("ñ", "n")
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    if len(s) > max_len:
+        s = s[:max_len].rstrip("-")
+    return s or "articulo"
+
+
+def _slug_unico(slug_existe, base: str, max_len: int = 80) -> str:
+    """Devuelve `base`, o base-2 / base-3… hasta que `slug_existe(slug)` sea False.
+
+    `slug_existe` es un callable(str)->bool, lo que mantiene esta función pura y
+    testeable offline (sin BD).
+    """
+    base = base or "articulo"
+    slug = base
+    n = 2
+    while slug_existe(slug):
+        sufijo = f"-{n}"
+        slug = base[: max_len - len(sufijo)].rstrip("-") + sufijo
+        n += 1
+    return slug
+
+
+def _slug_existe_db(db: Session, exclude_id: Optional[int] = None):
+    def _check(slug: str) -> bool:
+        q = db.query(Articulo.id).filter(Articulo.slug == slug)
+        if exclude_id is not None:
+            q = q.filter(Articulo.id != exclude_id)
+        return q.first() is not None
+    return _check
+
+
+def _debe_regenerar_slug(articulo: "Articulo") -> bool:
+    """El slug se regenera al editar el título SOLO si el artículo nunca fue
+    publicado. `published_at` lo congela para preservar la URL pública."""
+    return getattr(articulo, "published_at", None) is None
+
+
+def _aplicar_publicado(a: "Articulo", nuevo) -> None:
+    """Cambia el estado publicado. Fija published_at la PRIMERA vez que pasa a
+    True y nunca lo vuelve a tocar (ni al despublicar)."""
+    nuevo = bool(nuevo)
+    if nuevo and a.published_at is None:
+        a.published_at = datetime.now(timezone.utc)
+    a.publicado = nuevo
+
+
+def _articulo_dict(a: "Articulo") -> dict:
+    return {
+        "id":                a.id,
+        "titulo":            a.titulo or "",
+        "slug":              a.slug or "",
+        "resumen":           a.resumen or "",
+        "contenido":         a.contenido or "",
+        "autor_nombre":      a.autor_nombre or "",
+        "autor_cargo":       a.autor_cargo or "",
+        "imagen_url":        a.imagen_url or "",
+        "publicado":         bool(a.publicado),
+        "published_at":      _a_lima(a.published_at),
+        "published_at_iso":  a.published_at.isoformat() if a.published_at else None,
+        "created_at":        _a_lima(a.created_at),
+        "created_at_iso":    a.created_at.isoformat() if a.created_at else None,
+        "updated_at":        _a_lima(a.updated_at),
+        "updated_at_iso":    a.updated_at.isoformat() if a.updated_at else None,
+        "url":               f"/articulos/{a.slug}" if a.slug else "",
+    }
+
+
+# ── Admin: CRUD de artículos (misma auth que comunicados) ──
+@router.get("/articulos")
+async def listar_articulos(
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    items = (
+        db.query(Articulo)
+        .filter(Articulo.organization_id == org_id)
+        .order_by(desc(Articulo.created_at))
+        .all()
+    )
+    return {"ok": True, "items": [_articulo_dict(a) for a in items]}
+
+
+@router.post("/articulos")
+async def crear_articulo(
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    titulo = (body.get("titulo") or body.get("title") or "").strip()
+    if not titulo:
+        raise HTTPException(400, "titulo es requerido")
+    resumen = (body.get("resumen") or "").strip()
+    if not resumen:
+        raise HTTPException(400, "resumen es requerido")
+
+    slug = _slug_unico(_slug_existe_db(db), _slugify(titulo))
+
+    a = Articulo(
+        organization_id = org_id,
+        titulo          = titulo[:300],
+        slug            = slug,
+        resumen         = resumen[:600],
+        contenido       = body.get("contenido") or body.get("content") or "",
+        autor_nombre    = (body.get("autor_nombre") or "")[:150] or None,
+        autor_cargo     = (body.get("autor_cargo") or "")[:120] or None,
+        imagen_url      = (body.get("imagen_url") or "")[:500] or None,
+        publicado       = False,
+    )
+    if body.get("publicado"):
+        _aplicar_publicado(a, True)
+
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    return {"ok": True, "item": _articulo_dict(a)}
+
+
+@router.put("/articulos/{articulo_id}")
+async def editar_articulo(
+    articulo_id: int,
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    org_id = _org_id(request, member)
+    a = (
+        db.query(Articulo)
+        .filter(Articulo.id == articulo_id, Articulo.organization_id == org_id)
+        .first()
+    )
+    if not a:
+        raise HTTPException(404, "Artículo no encontrado")
+
+    if "titulo" in body or "title" in body:
+        v = (body.get("titulo") or body.get("title") or "").strip()
+        if v:
+            a.titulo = v[:300]
+            # Slug congelado tras la 1ra publicación (preserva la URL).
+            if _debe_regenerar_slug(a):
+                a.slug = _slug_unico(_slug_existe_db(db, exclude_id=a.id), _slugify(v))
+    if "resumen" in body:
+        v = (body.get("resumen") or "").strip()
+        if v:
+            a.resumen = v[:600]
+    if "contenido" in body or "content" in body:
+        a.contenido = body.get("contenido") or body.get("content") or ""
+    if "autor_nombre" in body:
+        a.autor_nombre = (body.get("autor_nombre") or "")[:150] or None
+    if "autor_cargo" in body:
+        a.autor_cargo = (body.get("autor_cargo") or "")[:120] or None
+    if "imagen_url" in body:
+        a.imagen_url = (body.get("imagen_url") or "")[:500] or None
+    if "publicado" in body:
+        _aplicar_publicado(a, body.get("publicado"))
+
+    db.commit()
+    db.refresh(a)
+    return {"ok": True, "item": _articulo_dict(a)}
+
+
+@router.post("/articulos/{articulo_id}/publicar")
+async def publicar_articulo(
+    articulo_id: int,
+    request: Request,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """Publica o despublica. body.publicado (default True)."""
+    org_id = _org_id(request, member)
+    a = (
+        db.query(Articulo)
+        .filter(Articulo.id == articulo_id, Articulo.organization_id == org_id)
+        .first()
+    )
+    if not a:
+        raise HTTPException(404, "Artículo no encontrado")
+    _aplicar_publicado(a, body.get("publicado", True))
+    db.commit()
+    db.refresh(a)
+    return {"ok": True, "item": _articulo_dict(a)}
+
+
+@router.delete("/articulos/{articulo_id}")
+async def eliminar_articulo(
+    articulo_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_admin_or_editor),
+):
+    """Solo se elimina si NUNCA fue publicado. Los publicados se despublican
+    (no se borran) para preservar las URLs ya indexadas."""
+    org_id = _org_id(request, member)
+    a = (
+        db.query(Articulo)
+        .filter(Articulo.id == articulo_id, Articulo.organization_id == org_id)
+        .first()
+    )
+    if not a:
+        raise HTTPException(404, "Artículo no encontrado")
+    if a.published_at is not None:
+        raise HTTPException(
+            400,
+            "Un artículo que fue publicado no se elimina; despublícalo para "
+            "ocultarlo (así se preserva su URL).",
+        )
+    db.delete(a)
+    db.commit()
+    return {"ok": True}
+
+
+# ── Público: listado y detalle por slug (sin auth) ──
+@public_router.get("/articulos", response_class=HTMLResponse)
+async def public_articulos(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    items = (
+        db.query(Articulo)
+        .filter(Articulo.organization_id == org_id, Articulo.publicado.is_(True))
+        .order_by(desc(Articulo.published_at), desc(Articulo.created_at))
+        .all()
+    )
+    return templates.TemplateResponse(
+        "articulos/lista.html",
+        {
+            "request":   request,
+            "org":       _org_publica_dict(request),
+            "theme":     getattr(request.state, "theme", None),
+            "articulos": [_articulo_dict(a) for a in items],
+        },
+    )
+
+
+@public_router.get("/articulos/{slug}", response_class=HTMLResponse)
+async def public_articulo_detalle(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    org_id = _org_publica(request)
+    a = (
+        db.query(Articulo)
+        .filter(
+            Articulo.organization_id == org_id,
+            Articulo.slug == slug,
+            Articulo.publicado.is_(True),
+        )
+        .first()
+    )
+    if not a:
+        raise HTTPException(404, "Artículo no encontrado")
+    return templates.TemplateResponse(
+        "articulos/detalle.html",
+        {
+            "request":  request,
+            "org":      _org_publica_dict(request),
+            "theme":    getattr(request.state, "theme", None),
+            "articulo": _articulo_dict(a),
+        },
+    )
