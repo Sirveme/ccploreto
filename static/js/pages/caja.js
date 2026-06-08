@@ -521,7 +521,10 @@ function renderRes(arr) {
     c.innerHTML = arr.map(r => `<div class="search-result-item" onclick='selCol(${JSON.stringify(r)})'>
         <div class="result-info"><div class="result-name">${r.apellidos_nombres}</div>
         <div class="result-meta">DNI ${r.dni} · Mat. ${r.codigo_matricula || '-'}
-        <span class="badge badge-${r.habilitado ? 'ok' : 'no'}">${r.habilitado ? 'HÁBIL' : 'INHÁBIL'}</span></div></div>
+        ${r.condicion === 'vitalicio'
+            ? '<span class="badge" style="background:#f59e0b;color:#000;font-weight:700">VITALICIO</span>'
+            : `<span class="badge badge-${r.habilitado ? 'ok' : 'no'}">${r.habilitado ? 'HÁBIL' : 'INHÁBIL'}</span>`
+        }</div></div>
         <div class="result-deuda ${r.total_deuda > 0 ? 'tiene' : 'no-tiene'}">${r.total_deuda > 0 ? `S/ ${r.total_deuda.toFixed(2)}` : 'Al día ✓'}</div>
     </div>`).join('');
     c.classList.add('active');
@@ -536,8 +539,20 @@ function selCol(col) {
     document.getElementById('colName').textContent = col.apellidos_nombres;
     document.getElementById('colDetail').textContent = `DNI ${col.dni} · Mat. ${col.codigo_matricula || '-'} · Deuda: S/ ${col.total_deuda.toFixed(2)}`;
     const b = document.getElementById('colBadge');
-    b.textContent = col.habilitado ? 'HÁBIL' : 'INHÁBIL';
-    b.className = `badge badge-${col.habilitado ? 'ok' : 'no'}`;
+    // zClaude-97b: tripartito VITALICIO / HÁBIL / INHÁBIL
+    if (col.condicion === 'vitalicio') {
+        b.textContent = 'VITALICIO';
+        b.className = 'badge';
+        b.style.background = '#f59e0b';
+        b.style.color = '#000';
+        b.style.fontWeight = '700';
+    } else {
+        b.textContent = col.habilitado ? 'HÁBIL' : 'INHÁBIL';
+        b.className = `badge badge-${col.habilitado ? 'ok' : 'no'}`;
+        b.style.background = '';
+        b.style.color = '';
+        b.style.fontWeight = '';
+    }
     cargarDeudas(col.id);
     cambiarTab('deudas');
 
@@ -2049,8 +2064,13 @@ function _renderModal(data) {
             </div>
             <div>
                 <div style="font-size:15px;font-weight:800;color:#fff">${col.nombre}</div>
-                <div style="font-size:12px;color:#94a3b8">Mat. ${col.matricula} · 
-                    <span style="background:#dc2626;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">INHÁBIL</span>
+                <div style="font-size:12px;color:#94a3b8">Mat. ${col.matricula} ·
+                    ${col.condicion === 'vitalicio'
+                        ? '<span style="background:#f59e0b;color:#000;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">VITALICIO</span>'
+                        : col.habilitado
+                            ? '<span style="background:#16a34a;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">HÁBIL</span>'
+                            : '<span style="background:#dc2626;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">INHÁBIL</span>'
+                    }
                 </div>
             </div>
         </div>
@@ -3754,6 +3774,7 @@ const AltaRapida = (() => {
         codigo_matricula: data.codigo_matricula,
         apellidos_nombres: data.apellidos_nombres,
         habilitado: !!data.habilitado,
+        condicion: (data.condicion || 'habil'),   // NUEVO zClaude-97b
         total_deuda: 0,
       };
       if (typeof selCol === 'function') selCol(colSel);
