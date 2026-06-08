@@ -111,6 +111,7 @@ class BuscarColegiadoResponse(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     habilitado: bool = False
+    condicion: str = "habil"      # NUEVO zClaude-97b
     total_deuda: float = 0
     deudas_pendientes: int = 0
 
@@ -272,6 +273,7 @@ async def buscar_colegiado(
             email=col.email,
             telefono=col.telefono,
             habilitado=(col.condicion in ('habil', 'vitalicio')),
+            condicion=(col.condicion or "habil"),   # NUEVO zClaude-97b
             total_deuda=float(deudas_info.total or 0),
             deudas_pendientes=int(deudas_info.cantidad or 0),
         ))
@@ -324,6 +326,7 @@ async def obtener_deudas(
             "codigo_matricula": colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
             "habilitado": (colegiado.condicion in ('habil', 'vitalicio')),
+            "condicion": (colegiado.condicion or "habil"),   # NUEVO zClaude-97b
         },
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
@@ -2418,7 +2421,14 @@ async def reenviar_comprobante(
     estado_colegiado = None
     habil_hasta = None
     if colegiado:
-        estado_colegiado = "HÁBIL" if getattr(colegiado, 'habilitado', False) else "INHÁBIL"
+        # zClaude-97b: tripartito VITALICIO / HÁBIL / INHÁBIL
+        _cond = (getattr(colegiado, 'condicion', '') or '').lower()
+        if _cond == 'vitalicio':
+            estado_colegiado = "VITALICIO"
+        elif getattr(colegiado, 'habilitado', False):
+            estado_colegiado = "HÁBIL"
+        else:
+            estado_colegiado = "INHÁBIL"
         habil_hasta = service._calcular_vigencia(colegiado.id)
 
     org = db.query(Organization).filter(Organization.id == comp.organization_id).first()
