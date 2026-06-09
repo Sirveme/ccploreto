@@ -427,3 +427,159 @@ def resumen_fraccionamientos(db: Session, organization_id: int) -> dict:
         "detalle_riesgo":         en_riesgo,
         "fecha":                  hoy.isoformat(),
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# zClaude-97g — Generador puntual para alta de colegiado nuevo
+# ═══════════════════════════════════════════════════════════════
+
+def generar_cuotas_para_colegiado_nuevo(
+    db:              Session,
+    colegiado,                   # instancia de Colegiado recién insertada (con id)
+    organization_id: int,
+    dia_vencimiento: int = 28,
+) -> dict:
+    """
+    Genera las Cuotas Ordinarias FALTANTES de un colegiado recién creado,
+    desde el mes siguiente a su período de 3 meses de gracia hasta diciembre
+    del AÑO de su colegiatura.
+
+    Regla:
+        primer_mes_pago = fecha_colegiatura + 3 meses calendario
+        Genera desde primer_mes_pago hasta diciembre del año de fecha_colegiatura.
+
+    Si el colegiado se inscribió en mes >= 10 (octubre, noviembre, diciembre),
+    su gracia se extiende al año siguiente. En ese caso este generador NO crea
+    cuotas para el año siguiente; las creará el generador masivo de enero del
+    año siguiente.
+
+    Idempotente: si ya existen cuotas para algún periodo, las omite (gracias
+    al UniqueConstraint del modelo Debt).
+
+    Returns:
+        dict con keys: generadas, omitidas, errores, detalle
+    """
+    from app.models_debt_management import Debt
+    from app.models import ConceptoCobro
+
+    resultado = {"generadas": 0, "omitidas": 0, "errores": 0, "detalle": []}
+
+    # 1) Validar condición del colegiado
+    if not colegiado:
+        resultado["errores"] += 1
+        resultado["detalle"].append({"motivo": "colegiado vacío"})
+        return resultado
+
+    if (colegiado.condicion or "").lower() in CONDICIONES_EXCLUIR:
+        resultado["omitidas"] += 1
+        resultado["detalle"].append({
+            "matricula": colegiado.codigo_matricula,
+            "motivo":    f"condicion={colegiado.condicion} excluida",
+        })
+        return resultado
+
+    # 2) Validar fecha_colegiatura
+    if not colegiado.fecha_colegiatura:
+        resultado["errores"] += 1
+        resultado["detalle"].append({
+            "matricula": colegiado.codigo_matricula,
+            "motivo":    "sin fecha_colegiatura",
+        })
+        return resultado
+
+    fc = colegiado.fecha_colegiatura
+    if hasattr(fc, "date"):
+        fc = fc.date()
+
+    # 3) Calcular rango de meses a generar
+    mes_inscripcion = date(fc.year, fc.month, 1)
+    primer_mes_pago = mes_inscripcion + relativedelta(months=3)
+
+    # Si primer_mes_pago es de OTRO año, no generamos para el año de colegiatura
+    if primer_mes_pago.year > fc.year:
+        resultado["omitidas"] += 1
+        resultado["detalle"].append({
+            "matricula": colegiado.codigo_matricula,
+            "motivo":    f"primer pago en {primer_mes_pago.strftime('%m/%Y')}, el generador masivo creará sus cuotas el próximo enero",
+        })
+        return resultado
+
+    # 4) Obtener concepto CUOT-ORD
+    concepto = db.query(ConceptoCobro).filter(
+        ConceptoCobro.organization_id == organization_id,
+        ConceptoCobro.codigo          == "CUOT-ORD",
+        ConceptoCobro.activo          == True,
+    ).first()
+    if not concepto:
+        resultado["errores"] += 1
+        resultado["detalle"].append({
+            "matricula": colegiado.codigo_matricula,
+            "motivo":    "concepto CUOT-ORD no encontrado",
+        })
+        return resultado
+
+    monto = float(concepto.monto_base or 0)
+
+    # 5) Iterar mes a mes desde primer_mes_pago hasta diciembre del mismo año
+    cursor = primer_mes_pago
+    fin    = date(fc.year, 12, 1)
+
+    while cursor <= fin:
+        anio = cursor.year
+        mes  = cursor.month
+        periodo = f"{anio}-{mes:02d}"
+
+        # Verificar duplicado
+        existe = db.query(Debt).filter(
+            Debt.organization_id   == organization_id,
+            Debt.colegiado_id      == colegiado.id,
+            Debt.concepto_cobro_id == concepto.id,
+            Debt.periodo           == periodo,
+        ).first()
+
+        if existe:
+            resultado["omitidas"] += 1
+            cursor += relativedelta(months=1)
+            continue
+
+        # due_date = día 28 (o último día del mes si tiene menos)
+        ultimo_dia = monthrange(anio, mes)[1]
+        due_date = datetime(anio, mes, min(dia_vencimiento, ultimo_dia),
+                            23, 59, 59, tzinfo=timezone.utc)
+
+        try:
+            debt = Debt(
+                organization_id    = organization_id,
+                colegiado_id       = colegiado.id,
+                member_id          = colegiado.member_id,
+                concepto_cobro_id  = concepto.id,
+                concept            = f"Cuota Ordinaria {MESES[mes]} {anio}",
+                periodo            = periodo,
+                period_label       = f"{MESES[mes]} {anio}",
+                debt_type          = "cuota_ordinaria",
+                amount             = monto,
+                balance            = monto,
+                status             = "pending",
+                estado_gestion     = "vigente",
+                fecha_generacion   = date.today(),
+                due_date           = due_date,
+                origen             = "alta_colegiado",   # marca distintiva
+            )
+            db.add(debt)
+            db.flush()
+            resultado["generadas"] += 1
+        except IntegrityError:
+            db.rollback()
+            resultado["omitidas"] += 1
+        except Exception as e:
+            db.rollback()
+            resultado["errores"] += 1
+            resultado["detalle"].append({
+                "matricula": colegiado.codigo_matricula,
+                "periodo":   periodo,
+                "error":     str(e),
+            })
+
+        cursor += relativedelta(months=1)
+
+    return resultado
