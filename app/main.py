@@ -62,6 +62,9 @@ from app.routers.api_comunicados import router as comunicados_router
 
 from app.utils.templates import templates
 
+from .utils.versioning import asset_v
+templates.env.globals["asset_v"] = asset_v
+
 from contextlib import asynccontextmanager
 from app.services.fomo_scheduler import iniciar_scheduler
 
