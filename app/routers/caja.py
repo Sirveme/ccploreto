@@ -7,7 +7,7 @@ Flujo: Buscar colegiado → Ver deudas → Cobrar → Emitir comprobante
 
 Requiere rol: cajero, tesorero o admin
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Optional, List
 from decimal import Decimal
 import logging
@@ -34,6 +34,7 @@ from app.models import (
     ConfiguracionFacturacion
 )
 from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
+from app.services.generador_deudas import generar_cuotas_para_colegiado_nuevo
 
 from starlette.responses import StreamingResponse
 import httpx
@@ -112,6 +113,9 @@ class BuscarColegiadoResponse(BaseModel):
     telefono: Optional[str] = None
     habilitado: bool = False
     condicion: str = "habil"      # NUEVO zClaude-97b
+    # zClaude-97f: marca opcional de transeúnte
+    es_transeunte: bool = False
+    fecha_fin_transeunte: Optional[str] = None
     total_deuda: float = 0
     deudas_pendientes: int = 0
 
@@ -200,6 +204,9 @@ class AltaRapidaSchema(BaseModel):
     apellidos_nombres: str = Field(..., min_length=4, max_length=300)
     telefono: str = Field(..., min_length=9, max_length=9)
     email: EmailStr
+    # zClaude-97f: marca opcional de transeúnte
+    es_transeunte: bool = False
+    fecha_fin_transeunte: Optional[date] = None
 
     @field_validator("dni")
     @classmethod
@@ -274,6 +281,10 @@ async def buscar_colegiado(
             telefono=col.telefono,
             habilitado=(col.condicion in ('habil', 'vitalicio')),
             condicion=(col.condicion or "habil"),   # NUEVO zClaude-97b
+            # zClaude-97f
+            es_transeunte=bool(getattr(col, 'es_transeunte', False)),
+            fecha_fin_transeunte=(col.fecha_fin_transeunte.isoformat()
+                                  if getattr(col, 'fecha_fin_transeunte', None) else None),
             total_deuda=float(deudas_info.total or 0),
             deudas_pendientes=int(deudas_info.cantidad or 0),
         ))
@@ -327,6 +338,10 @@ async def obtener_deudas(
             "apellidos_nombres": colegiado.apellidos_nombres,
             "habilitado": (colegiado.condicion in ('habil', 'vitalicio')),
             "condicion": (colegiado.condicion or "habil"),   # NUEVO zClaude-97b
+            # zClaude-97f
+            "es_transeunte": bool(getattr(colegiado, 'es_transeunte', False)),
+            "fecha_fin_transeunte": (colegiado.fecha_fin_transeunte.isoformat()
+                                     if getattr(colegiado, 'fecha_fin_transeunte', None) else None),
         },
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
@@ -381,6 +396,9 @@ async def colegiado_alta_rapida(
                 fecha_colegiatura=datetime.now(PERU_TZ),
                 tiene_dni_real=True,
                 tipo_documento="DNI",
+                # zClaude-97f: marca opcional de transeúnte
+                es_transeunte=bool(payload.es_transeunte),
+                fecha_fin_transeunte=payload.fecha_fin_transeunte,
             )
             db.add(nuevo)
             db.commit()
@@ -389,6 +407,32 @@ async def colegiado_alta_rapida(
                 "[zClaude-78] Alta rápida colegiado id=%s mat=%s dni=%s por member_id=%s",
                 nuevo.id, codigo_matricula, payload.dni, member.id,
             )
+
+            # zClaude-97g: generar cuotas ordinarias del año en curso
+            cuotas_resultado = {"generadas": 0, "omitidas": 0, "errores": 0}
+            try:
+                cuotas_resultado = generar_cuotas_para_colegiado_nuevo(
+                    db=db,
+                    colegiado=nuevo,
+                    organization_id=org.id,
+                )
+                if cuotas_resultado.get("generadas", 0) > 0:
+                    db.commit()
+                logger.info(
+                    "[zClaude-97g] Cuotas generadas para %s: %d generadas, %d omitidas, %d errores",
+                    nuevo.codigo_matricula,
+                    cuotas_resultado.get("generadas", 0),
+                    cuotas_resultado.get("omitidas", 0),
+                    cuotas_resultado.get("errores", 0),
+                )
+            except Exception as e:
+                # NO bloqueamos el alta si falla la generación de cuotas
+                db.rollback()
+                logger.error(
+                    "[zClaude-97g] Error generando cuotas para %s: %s",
+                    nuevo.codigo_matricula, e,
+                )
+
             return {
                 "id": nuevo.id,
                 "codigo_matricula": nuevo.codigo_matricula,
@@ -398,6 +442,12 @@ async def colegiado_alta_rapida(
                 "telefono": nuevo.telefono,
                 "condicion": nuevo.condicion,
                 "habilitado": True,
+                # zClaude-97g: información de cuotas generadas
+                "cuotas_generadas": cuotas_resultado.get("generadas", 0),
+                # zClaude-97f
+                "es_transeunte": bool(nuevo.es_transeunte),
+                "fecha_fin_transeunte": (nuevo.fecha_fin_transeunte.isoformat()
+                                         if nuevo.fecha_fin_transeunte else None),
                 "fecha_colegiatura": nuevo.fecha_colegiatura.isoformat() if nuevo.fecha_colegiatura else None,
                 "total_deuda": 0.0,
                 "deudas_pendientes": 0,
