@@ -3,7 +3,7 @@
 {% block title %}Comunicaciones — CCPL{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/css/pages/comunicaciones.css?v=2">
+<link rel="stylesheet" href="/static/css/pages/comunicaciones.css?v={{ asset_v('css/pages/comunicaciones.css') }}">
 <style>
 /* Fix overflow para sticky header/tabs */
 main { overflow: visible !important; }
@@ -408,6 +408,6 @@ body { overflow-y: auto !important; }
 </div>
 {% endif %}
 
-<script src="/static/js/pages/comunicaciones.js?v=3"></script>
+<script src="/static/js/pages/comunicaciones.js?v={{ asset_v('js/pages/comunicaciones.js') }}"></script>
 
 {% endblock %}
