@@ -524,7 +524,9 @@ function renderRes(arr) {
         ${r.condicion === 'vitalicio'
             ? '<span class="badge" style="background:#f59e0b;color:#000;font-weight:700">VITALICIO</span>'
             : `<span class="badge badge-${r.habilitado ? 'ok' : 'no'}">${r.habilitado ? 'HÁBIL' : 'INHÁBIL'}</span>`
-        }</div></div>
+        }
+        ${r.es_transeunte ? '<span class="badge" style="background:#8b5cf6;color:#fff;font-weight:700;margin-left:4px">TRANSEÚNTE</span>' : ''}
+        </div></div>
         <div class="result-deuda ${r.total_deuda > 0 ? 'tiene' : 'no-tiene'}">${r.total_deuda > 0 ? `S/ ${r.total_deuda.toFixed(2)}` : 'Al día ✓'}</div>
     </div>`).join('');
     c.classList.add('active');
@@ -552,6 +554,22 @@ function selCol(col) {
         b.style.background = '';
         b.style.color = '';
         b.style.fontWeight = '';
+    }
+    // zClaude-97f: badge adicional TRANSEÚNTE (violeta, al lado)
+    let bTrans = b.parentNode?.querySelector('.badge-transeunte');
+    if (col.es_transeunte) {
+        if (!bTrans) {
+            bTrans = document.createElement('span');
+            bTrans.className = 'badge badge-transeunte';
+            bTrans.style.background = '#8b5cf6';
+            bTrans.style.color = '#fff';
+            bTrans.style.fontWeight = '700';
+            bTrans.style.marginLeft = '6px';
+            b.parentNode?.insertBefore(bTrans, b.nextSibling);
+        }
+        bTrans.textContent = 'TRANSEÚNTE';
+    } else if (bTrans) {
+        bTrans.remove();
     }
     cargarDeudas(col.id);
     cambiarTab('deudas');
@@ -1100,7 +1118,11 @@ async function ejecutarCobro() {
 
             if (!d.comprobante_numero) { setTimeout(cerrarSuccess, 2500); }
         } else {
-            toast(d.detail || 'Error', 'err');
+            // zClaude-97i: detail puede ser objeto (ej. DNI_FALTA) → mostrar mensaje.
+            const msg = (d.detail && typeof d.detail === 'object')
+                ? (d.detail.mensaje || d.detail.message || JSON.stringify(d.detail))
+                : (d.detail || d.mensaje || d.message || 'Error');
+            toast(msg, 'err');
         }
     } catch (e) { toast('Error', 'err'); }
 }
@@ -2071,6 +2093,7 @@ function _renderModal(data) {
                             ? '<span style="background:#16a34a;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">HÁBIL</span>'
                             : '<span style="background:#dc2626;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">INHÁBIL</span>'
                     }
+                    ${col.es_transeunte ? '<span style="background:#8b5cf6;color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:6px">TRANSEÚNTE</span>' : ''}
                 </div>
             </div>
         </div>
@@ -3678,8 +3701,13 @@ const AltaRapida = (() => {
   }
 
   function limpiar() {
-    ['alta-dni', 'alta-apenom', 'alta-whatsapp', 'alta-email']
+    ['alta-dni', 'alta-apenom', 'alta-whatsapp', 'alta-email', 'alta-fecha-fin-transeunte']
       .forEach(id => { const el = $(id); if (el) el.value = ''; });
+    // zClaude-97f: reset checkbox + ocultar campo fecha
+    const cb = $('alta-es-transeunte');
+    if (cb) cb.checked = false;
+    const wrap = $('alta-transeunte-fecha-wrap');
+    if (wrap) wrap.style.display = 'none';
     mostrarMensaje('', '');
     validar();
   }
@@ -3722,11 +3750,16 @@ const AltaRapida = (() => {
   }
 
   async function confirmar() {
+    // zClaude-97f: leer transeúnte
+    const esTranseunte = !!($('alta-es-transeunte')?.checked);
+    const fechaFin     = ($('alta-fecha-fin-transeunte')?.value || '').trim();
     const payload = {
       dni:               $('alta-dni').value.trim(),
       apellidos_nombres: $('alta-apenom').value.trim().toUpperCase(),
       telefono:          $('alta-whatsapp').value.trim(),
       email:             $('alta-email').value.trim().toLowerCase(),
+      es_transeunte:     esTranseunte,
+      fecha_fin_transeunte: (esTranseunte && fechaFin) ? fechaFin : null,
     };
 
     const btn = $('btn-confirmar-alta');
@@ -3775,6 +3808,9 @@ const AltaRapida = (() => {
         apellidos_nombres: data.apellidos_nombres,
         habilitado: !!data.habilitado,
         condicion: (data.condicion || 'habil'),   // NUEVO zClaude-97b
+        // zClaude-97f
+        es_transeunte: !!data.es_transeunte,
+        fecha_fin_transeunte: data.fecha_fin_transeunte || null,
         total_deuda: 0,
       };
       if (typeof selCol === 'function') selCol(colSel);
@@ -3799,6 +3835,15 @@ const AltaRapida = (() => {
     btnAbrir.addEventListener('click', abrir);
     $('alta-btn-reniec')?.addEventListener('click', consultarReniec);
     $('btn-confirmar-alta')?.addEventListener('click', confirmar);
+    // zClaude-97f: toggle visibilidad del campo fecha al marcar/desmarcar transeúnte
+    $('alta-es-transeunte')?.addEventListener('change', (e) => {
+      const wrap = $('alta-transeunte-fecha-wrap');
+      if (wrap) wrap.style.display = e.target.checked ? 'block' : 'none';
+      if (!e.target.checked) {
+        const f = $('alta-fecha-fin-transeunte');
+        if (f) f.value = '';
+      }
+    });
     document.querySelectorAll('[data-action="cerrar-alta"]')
       .forEach(b => b.addEventListener('click', cerrar));
 
