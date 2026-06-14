@@ -1,0 +1,182 @@
+<div id="notif-config-panel" class="notif-config">
+  <style>
+    .notif-config { padding: 20px; max-width: 800px; }
+    .notif-cat-card {
+      background: var(--card-bg, #1e293b);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border, #334155);
+    }
+    .notif-cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .notif-cat-title { font-weight: 600; font-size: 15px; color: var(--text, #e2e8f0); }
+    .notif-cat-body { font-size: 13px; color: var(--text-muted, #94a3b8); }
+    .notif-toggle {
+      width: 40px; height: 22px; background: #475569;
+      border-radius: 11px; position: relative; cursor: pointer;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    .notif-toggle.on { background: #10b981; }
+    .notif-toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; background: white; border-radius: 50%;
+      transition: left 0.2s;
+    }
+    .notif-toggle.on::after { left: 20px; }
+    .notif-cat-config {
+      display: grid; gap: 8px; margin-top: 12px;
+      grid-template-columns: 1fr 1fr;
+    }
+    .notif-cat-config label { font-size: 12px; color: var(--text-muted, #94a3b8); }
+    .notif-cat-config select, .notif-cat-config input {
+      width: 100%; padding: 6px 8px; border-radius: 6px;
+      background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    }
+    .notif-test-btn {
+      margin-top: 16px; padding: 10px 20px;
+      background: #3b82f6; color: white;
+      border: none; border-radius: 8px; cursor: pointer;
+      font-weight: 600;
+    }
+    .notif-test-btn:hover { background: #2563eb; }
+    .notif-toast {
+      margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+      font-size: 13px; display: none;
+      background: #064e3b; color: #d1fae5; border: 1px solid #10b981;
+    }
+    .notif-toast.err { background: #4c0519; color: #fecdd3; border-color: #f43f5e; }
+  </style>
+
+  <h2 style="margin-bottom: 16px;">🔔 Mis Notificaciones</h2>
+  <div id="notif-cards-container">
+    <div style="text-align: center; padding: 40px; color: #64748b;">Cargando...</div>
+  </div>
+
+  <button class="notif-test-btn" onclick="notifTest()">📨 Enviarme push de prueba</button>
+  <div id="notif-toast" class="notif-toast"></div>
+</div>
+
+<script>
+const CAT_LABELS = {
+  pagos: { icono: "💰", titulo: "Pagos", desc: "Pagos en caja, web y rechazados" },
+  mi_cuenta: { icono: "👤", titulo: "Mi cuenta", desc: "Mis deudas, vencimientos y fraccionamientos" },
+  ccpl: { icono: "🏛️", titulo: "CCPL", desc: "Comunicados, asambleas, ofertas laborales, convenios" },
+  tributario_propio: { icono: "📅", titulo: "Tributario", desc: "Vencimientos SUNAT propios y de clientes" },
+  gestion: { icono: "📊", titulo: "Gestión", desc: "Reportes diarios, nuevos colegiados, aprobaciones" },
+};
+
+function notifToast(msg, ok = true) {
+  const t = document.getElementById('notif-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'notif-toast' + (ok ? '' : ' err');
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+async function notifInit() {
+  let data;
+  try {
+    const res = await fetch('/api/notif/config');
+    data = await res.json();
+  } catch (e) {
+    document.getElementById('notif-cards-container').innerHTML =
+      '<div style="text-align:center;padding:40px;color:#64748b;">No se pudo cargar la configuración.</div>';
+    return;
+  }
+  const container = document.getElementById('notif-cards-container');
+
+  if (!data.categorias_permitidas?.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;">No tienes categorías permitidas. Habla con el administrador.</div>';
+    return;
+  }
+
+  container.innerHTML = data.categorias_permitidas.map(cat => {
+    const info = CAT_LABELS[cat] || { icono: '🔔', titulo: cat, desc: '' };
+    const cfg = data.config[cat];
+    return `
+      <div class="notif-cat-card" data-cat="${cat}">
+        <div class="notif-cat-header">
+          <div>
+            <div class="notif-cat-title">${info.icono} ${info.titulo}</div>
+            <div class="notif-cat-body">${info.desc}</div>
+          </div>
+          <div class="notif-toggle ${cfg.activo ? 'on' : ''}" onclick="notifToggle('${cat}')"></div>
+        </div>
+        <div class="notif-cat-config" ${cfg.activo ? '' : 'style="display:none"'}>
+          <div>
+            <label>Modo</label>
+            <select onchange="notifGuardar('${cat}')" data-field="modo">
+              <option value="inmediato" ${cfg.modo === 'inmediato' ? 'selected' : ''}>Inmediato</option>
+              <option value="resumen_diario" ${cfg.modo === 'resumen_diario' ? 'selected' : ''}>Resumen diario</option>
+              <option value="resumen_semanal" ${cfg.modo === 'resumen_semanal' ? 'selected' : ''}>Resumen semanal</option>
+              <option value="silencioso" ${cfg.modo === 'silencioso' ? 'selected' : ''}>Silencioso</option>
+            </select>
+          </div>
+          <div>
+            <label>Hora resumen</label>
+            <input type="time" value="${cfg.hora_resumen}" onchange="notifGuardar('${cat}')" data-field="hora_resumen">
+          </div>
+          ${cat === 'pagos' ? `
+          <div style="grid-column: span 2">
+            <label>Monto mínimo (solo pagos ≥ este monto)</label>
+            <input type="number" min="0" step="10" value="${cfg.monto_minimo}" onchange="notifGuardar('${cat}')" data-field="monto_minimo">
+          </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function notifToggle(cat) {
+  const card = document.querySelector(`[data-cat="${cat}"]`);
+  const toggle = card.querySelector('.notif-toggle');
+  toggle.classList.toggle('on');
+  const activo = toggle.classList.contains('on');
+  card.querySelector('.notif-cat-config').style.display = activo ? 'grid' : 'none';
+  await notifGuardar(cat);
+}
+
+async function notifGuardar(cat) {
+  const card = document.querySelector(`[data-cat="${cat}"]`);
+  const activo = card.querySelector('.notif-toggle').classList.contains('on');
+  const modo = card.querySelector('[data-field="modo"]')?.value || 'inmediato';
+  const hora_resumen = card.querySelector('[data-field="hora_resumen"]')?.value || '20:00';
+  const monto_minimo = parseFloat(card.querySelector('[data-field="monto_minimo"]')?.value || 0);
+
+  try {
+    const r = await fetch(`/api/notif/config/${cat}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activo, modo, hora_resumen, monto_minimo }),
+    });
+    if (!r.ok) notifToast('No se pudo guardar la preferencia.', false);
+  } catch (e) {
+    notifToast('No se pudo guardar la preferencia.', false);
+  }
+}
+
+async function notifTest() {
+  try {
+    const r = await fetch('/api/notif/test', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      const enviados = d.stats?.enviados || 0;
+      if (window.cajaModal?.toast) {
+        window.cajaModal.toast('Push enviado. Revisa tu dispositivo.', 'success');
+      } else if (enviados > 0) {
+        notifToast('Push enviado. Revisa tu dispositivo.');
+      } else {
+        notifToast('No hay dispositivo con notificaciones activas en esta sesión.', false);
+      }
+    } else {
+      notifToast('No se pudo enviar el push de prueba.', false);
+    }
+  } catch (e) {
+    notifToast('No se pudo enviar el push de prueba.', false);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', notifInit);
+</script>
