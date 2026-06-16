@@ -142,7 +142,13 @@ def _hash_payload(evento_tipo: str, payload: dict) -> str:
 
 
 def _users_por_categoria(db: Session, organization_id: int, categoria: str) -> List[int]:
-    """user_ids de users cuyo role tiene permiso sobre la categoría."""
+    """user_ids con permiso sobre la categoría.
+
+    Dos fuentes (zClaude-97n-bis), unidas con UNION:
+      1. notif_role_categoria — asignación por ROLE (institucional).
+      2. notif_user_categoria — asignación INDIVIDUAL por user_id, sin
+         cambiar el role (p.ej. Limber recibe 'pagos' siendo 'colegiado').
+    """
     rows = db.execute(text("""
         SELECT DISTINCT m.user_id
         FROM members m
@@ -153,6 +159,13 @@ def _users_por_categoria(db: Session, organization_id: int, categoria: str) -> L
           AND nrc.activo = TRUE
           AND m.is_active = TRUE
           AND m.user_id IS NOT NULL
+        UNION
+        SELECT DISTINCT nuc.user_id
+        FROM notif_user_categoria nuc
+        WHERE nuc.organization_id = :org
+          AND nuc.categoria = :cat
+          AND nuc.activo = TRUE
+          AND nuc.user_id IS NOT NULL
     """), {"org": organization_id, "cat": categoria}).fetchall()
     return [r[0] for r in rows]
 
