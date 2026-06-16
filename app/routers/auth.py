@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timedelta, timezone
 import re
 
@@ -64,15 +65,32 @@ async def login(
     if not current_org:
         return templates.TemplateResponse("pages/errors/403.html", {"request": request})
 
-    # 2. Validar que sea DNI (8 dígitos)
-    dni = dni.strip()
-    if not (len(dni) == 8 and dni.isdigit()):
-        return JSONResponse(
-            status_code=200, 
-            content="""<div class="p-3 mb-4 text-sm text-red-200 bg-red-900/50 border border-red-500/50 rounded-lg text-center">Ingrese su DNI (8 dígitos)</div>""", 
-            media_type="text/html"
-        )
-    
+    # 2. Resolver el identificador de acceso (zClaude-97n-bis).
+    #    - Caso normal: DNI de 8 dígitos numéricos.
+    #    - Caso institucional: un alias en MAYÚSCULA (DECANO, FINANZAS, ADMIN)
+    #      guardado en login_aliases, que mapea a un DNI real.
+    #    El alias se busca case-insensitive: se normaliza el input a MAYÚSCULA
+    #    (los alias se guardan en mayúscula), así 'DECANO', 'decano' y 'Decano'
+    #    entran igual. El resto del flujo de autenticación queda intacto: se
+    #    sigue validando por DNI/clave.
+    entrada = dni.strip()
+    if len(entrada) == 8 and entrada.isdigit():
+        dni = entrada
+    else:
+        alias_row = db.execute(text("""
+            SELECT user_public_id FROM login_aliases
+            WHERE alias = :alias AND activo = TRUE
+            LIMIT 1
+        """), {"alias": entrada.upper()}).fetchone()
+        if not alias_row:
+            # Mensaje genérico: no revela si el alias existe.
+            return JSONResponse(
+                status_code=200,
+                content="""<div class="p-3 mb-4 text-sm text-red-200 bg-red-900/50 border border-red-500/50 rounded-lg text-center">Credenciales inválidas</div>""",
+                media_type="text/html"
+            )
+        dni = alias_row[0]
+
     # 3. Buscar usuario por DNI
     user = db.query(User).filter(User.public_id == dni).first()
     

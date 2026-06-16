@@ -5,6 +5,7 @@ Endpoints de configuración personal de notificaciones (zClaude-97n).
 NOTA (zClaude-97n): get_current_member vive en app.routers.dashboard
 (no en app.routers.security), igual que en api_comunicados.py.
 """
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +21,17 @@ router = APIRouter(prefix="/api/notif", tags=["notificaciones"])
 
 CATEGORIAS_DISPONIBLES = ["pagos", "mi_cuenta", "ccpl", "tributario_propio", "gestion"]
 MODOS_VALIDOS = ["inmediato", "resumen_diario", "resumen_semanal", "silencioso"]
+
+
+@router.get("/vapid-key")
+async def vapid_public_key():
+    """Devuelve la VAPID public key (zClaude-97n-bis).
+
+    Es pública por diseño (la usa el navegador para suscribirse a push), así
+    que no requiere autenticación. El partial 'activar_push.html' la consume
+    para funcionar en dashboards que no inyectan la var en el contexto Jinja.
+    """
+    return {"vapid_public_key": os.getenv("VAPID_PUBLIC_KEY")}
 
 
 class ConfigCategoria(BaseModel):
