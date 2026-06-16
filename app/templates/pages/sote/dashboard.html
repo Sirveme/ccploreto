@@ -737,6 +737,7 @@
   <div class="sote-header-info">
     <button class="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mostrar/ocultar menú">☰</button>
     <span><span class="sote-status-dot"></span> SISTEMA ACTIVO</span>
+    {% include "partials/activar_push.html" %}
     <span class="sote-user-badge">{{ user_name | upper }}</span>
     <a href="/auth/logout" class="btn-logout">⏻ SALIR</a>
   </div>
