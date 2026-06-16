@@ -758,6 +758,40 @@ Reemplazar por el bloque completo de abajo.
             exc_info=True
         )
 
+    # ── zClaude-97o Hook 6.2: notificación push de pago web (rama colegiado) ──
+    # No bloquea el webhook: cualquier fallo se traga en el except.
+    # `payment` es un Row de SQL crudo (sin relaciones ORM); se consulta el
+    # colegiado por payment.colegiado_id para nombre/matrícula/user_id.
+    try:
+        from app.services.notif_service import disparar_evento
+        col_notif = db.execute(text("""
+            SELECT c.id, c.apellidos_nombres, c.codigo_matricula, m.user_id
+            FROM colegiados c
+            LEFT JOIN members m ON m.id = c.member_id
+            WHERE c.id = :cid
+        """), {"cid": payment.colegiado_id}).fetchone()
+        _extra_ids = [col_notif.user_id] if (col_notif and col_notif.user_id) else []
+        _conceptos = notas_payment.get("conceptos") if isinstance(notas_payment, dict) else None
+        disparar_evento(
+            db=db,
+            organization_id=payment.organization_id,
+            evento_tipo="pago_web",
+            audiencia="categoria:pagos",
+            payload={
+                "colegiado_id": payment.colegiado_id,
+                "colegiado_nombre": (col_notif.apellidos_nombres if col_notif else None) or "Colegiado",
+                "matricula": (col_notif.codigo_matricula if col_notif else None) or "—",
+                "monto": float(payment.amount),
+                "conceptos": _conceptos or "Pago web",
+                "url_detalle": f"/admin/pagos/{payment.id}",
+            },
+            actor_user_id=None,
+            destinatarios_extra_ids=_extra_ids,
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[notif] Error disparando pago_web: {e}")
+
     return JSONResponse({"received": True, "processed": True})
 
 

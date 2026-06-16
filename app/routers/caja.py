@@ -604,6 +604,24 @@ async def registrar_cobro(
         ).first()
         if not colegiado:
             raise HTTPException(404, detail="Colegiado no encontrado")
+        # zClaude-97i: validacion defensa - colegiado debe tener DNI valido
+        # antes de emitir comprobante SUNAT (cliente_num_doc es NOT NULL).
+        # Solo bloqueamos si va a haber emisión de boleta (tipo 03) sin RUC forzado.
+        _tipo = (cobro.tipo_comprobante or "03").strip()
+        _ruc  = (cobro.cliente_ruc or "").strip()
+        if _tipo == "03" and not _ruc:
+            _dni = (colegiado.dni or "").strip()
+            if len(_dni) != 8 or not _dni.isdigit():
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "DNI_FALTA",
+                        "mensaje": f"El colegiado {colegiado.codigo_matricula} no tiene DNI registrado. Pasalo por Secretaria para regularizar antes de cobrar.",
+                        "colegiado_id": colegiado.id,
+                        "codigo_matricula": colegiado.codigo_matricula,
+                        "apellidos_nombres": colegiado.apellidos_nombres,
+                    },
+                )
 
     # ── Validar y procesar items ──
     total_calculado = 0
@@ -863,6 +881,37 @@ async def registrar_cobro(
             "comprobante_emitido": False,
             "comprobante_mensaje": f"Error: {str(e)[:100]}",
         }
+
+    # ── zClaude-97o Hook 6.1: notificación push de pago en caja ──
+    # No bloquea el cobro: cualquier fallo se traga en el except.
+    # Este endpoint no tiene member autenticado → actor_user_id=None
+    # (el cajero no está en seeds de notif_role_categoria.pagos, no recibe push).
+    try:
+        from app.services.notif_service import disparar_evento
+        _extra_ids = []
+        if colegiado and colegiado.member and colegiado.member.user_id:
+            _extra_ids = [colegiado.member.user_id]
+        disparar_evento(
+            db=db,
+            organization_id=org.id,
+            evento_tipo="pago_caja",
+            audiencia="categoria:pagos",
+            payload={
+                "colegiado_id": colegiado.id if colegiado else None,
+                "colegiado_nombre": (colegiado.apellidos_nombres if colegiado else None) or "Público general",
+                "matricula": (colegiado.codigo_matricula if colegiado else None) or "—",
+                "monto": float(payment.amount),
+                "conceptos": descripcion_pago,
+                "cobrador_nombre": "Caja Oficina",
+                "comprobante_numero": comprobante_info.get("comprobante_numero") or "",
+                "url_detalle": f"/caja/pago/{payment.id}",
+            },
+            actor_user_id=None,
+            destinatarios_extra_ids=_extra_ids,
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[notif] Error disparando pago_caja: {e}")
 
     return CobroResponse(
         success=True,
