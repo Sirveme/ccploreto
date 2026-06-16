@@ -1,0 +1,129 @@
+<div id="splash-push-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+     background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center;">
+  <div style="background:linear-gradient(135deg, #1e293b, #0f172a); border-radius:16px;
+       padding:32px; max-width:480px; width:90%; color:#e2e8f0; text-align:center;
+       box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+
+    <div style="font-size:64px; margin-bottom:16px;">🔔</div>
+
+    <h2 style="margin:0 0 12px; font-size:22px; color:#fbbf24;">
+      Activa las notificaciones del CCPL
+    </h2>
+
+    <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#cbd5e1;">
+      Recibirás avisos importantes en tu celular:<br>
+      <strong>asambleas, multas, vencimientos SUNAT</strong> y más.
+    </p>
+
+    <div style="background:rgba(59,130,246,0.1); border-left:3px solid #3b82f6;
+         padding:12px; border-radius:6px; margin-bottom:20px; text-align:left; font-size:13px;">
+      ⏱️ Toma <strong>15 segundos</strong>. Solo se hace una vez por dispositivo.
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <button id="splash-push-activar" style="
+        background:linear-gradient(135deg, #10b981, #059669); color:white;
+        padding:12px 24px; border:none; border-radius:8px; font-weight:600;
+        font-size:14px; cursor:pointer; flex:1; min-width:140px;">
+        🔔 Activar ahora
+      </button>
+      <button id="splash-push-descartar" style="
+        background:#475569; color:white;
+        padding:12px 24px; border:none; border-radius:8px; font-weight:600;
+        font-size:14px; cursor:pointer; flex:1; min-width:140px;">
+        Por ahora no
+      </button>
+    </div>
+
+    <p style="margin:16px 0 0; font-size:11px; color:#64748b;">
+      Puedes activarlo después en <strong>Mis Notificaciones</strong>
+    </p>
+  </div>
+</div>
+
+<script>
+(async function() {
+  // No mostrar si no hay soporte
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  // No mostrar si ya hay device activo en este navegador
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub && Notification.permission === 'granted') return;
+  } catch(e) {}
+
+  // No mostrar si el usuario descartó hace menos de 7 días
+  const descartado = localStorage.getItem('splash_push_descartado');
+  if (descartado) {
+    const dias = (Date.now() - parseInt(descartado)) / (1000 * 60 * 60 * 24);
+    if (dias < 7) return;
+  }
+
+  // Mostrar splash después de 800ms (que el dashboard se vea primero un instante)
+  setTimeout(() => {
+    const modal = document.getElementById('splash-push-modal');
+    if (modal) modal.style.display = 'flex';
+  }, 800);
+})();
+
+document.getElementById('splash-push-activar')?.addEventListener('click', async function() {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Activando...';
+
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      btn.textContent = 'Permiso denegado';
+      setTimeout(() => document.getElementById('splash-push-modal').style.display = 'none', 1500);
+      return;
+    }
+
+    const cfgResp = await fetch('/api/notif/vapid-key');
+    const cfg = await cfgResp.json();
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(cfg.vapid_public_key),
+    });
+
+    const subJson = sub.toJSON();
+    await fetch('/api/comunicados/push/registrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth,
+      }),
+    });
+
+    btn.textContent = '✓ Activado';
+    document.getElementById('splash-push-modal').style.display = 'none';
+
+    // Push de prueba
+    setTimeout(() => fetch('/api/notif/test', { method: 'POST' }), 800);
+
+  } catch(err) {
+    btn.disabled = false;
+    btn.textContent = '🔔 Activar ahora';
+    console.error('[splash-push]', err);
+  }
+});
+
+document.getElementById('splash-push-descartar')?.addEventListener('click', function() {
+  localStorage.setItem('splash_push_descartado', String(Date.now()));
+  document.getElementById('splash-push-modal').style.display = 'none';
+});
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+</script>
