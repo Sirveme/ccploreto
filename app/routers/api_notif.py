@@ -70,7 +70,7 @@ async def get_config(
     cats_permitidas = [r[0] for r in permitidas]
 
     config_actual = db.execute(text("""
-        SELECT categoria, activo, modo, hora_resumen, monto_minimo
+        SELECT categoria, activo, modo, hora_resumen, monto_minimo, subcategorias_activas
         FROM notif_config
         WHERE user_id = :uid
     """), {"uid": member.user_id}).fetchall()
@@ -80,6 +80,7 @@ async def get_config(
         "modo": r[2],
         "hora_resumen": r[3].strftime("%H:%M") if r[3] else "20:00",
         "monto_minimo": float(r[4] or 0),
+        "subcategorias": r[5] or {},   # zClaude-97o
     } for r in config_actual}
 
     # Defaults para categorías sin config
@@ -88,6 +89,7 @@ async def get_config(
             config_dict[cat] = {
                 "activo": True, "modo": "inmediato",
                 "hora_resumen": "20:00", "monto_minimo": 0,
+                "subcategorias": {},
             }
 
     return {"categorias_permitidas": cats_permitidas, "config": config_dict}
@@ -152,3 +154,59 @@ async def enviar_test(
     )
     db.commit()
     return {"ok": True, "stats": stats}
+
+
+# ── zClaude-97o: subcategorías finas dentro de una categoría gruesa ──────────
+class SubcatToggle(BaseModel):
+    subcategoria: str
+    activo: bool
+
+
+@router.put("/config/{categoria}/subcategoria")
+async def actualizar_subcategoria(
+    categoria: str,
+    payload: SubcatToggle,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Activa/desactiva una subcategoría fina. Las obligatorias no se desactivan."""
+    es_obligatoria = db.execute(text("""
+        SELECT 1 FROM notif_categorias_obligatorias
+        WHERE organization_id = :org AND categoria_fina = :sc AND activo = TRUE
+    """), {"org": member.organization_id, "sc": payload.subcategoria}).fetchone()
+
+    if es_obligatoria and not payload.activo:
+        raise HTTPException(403, "Esta categoría es obligatoria, no se puede desactivar")
+
+    db.execute(text("""
+        INSERT INTO notif_config (user_id, categoria, subcategorias_activas, updated_at)
+        VALUES (:uid, :cat, jsonb_build_object(:sc, :ac), NOW())
+        ON CONFLICT (user_id, categoria) DO UPDATE
+        SET subcategorias_activas =
+                COALESCE(notif_config.subcategorias_activas, '{}'::jsonb)
+                || jsonb_build_object(:sc, :ac),
+            updated_at = NOW()
+    """), {
+        "uid": member.user_id, "cat": categoria,
+        "sc": payload.subcategoria, "ac": payload.activo,
+    })
+    db.commit()
+    return {"ok": True}
+
+
+# ── zClaude-97o (Pieza F): catálogo de sonidos para "Probar sonidos" ─────────
+@router.get("/sonidos")
+async def listar_sonidos(member: Member = Depends(get_current_member)):
+    """Catálogo de sonidos disponibles para probar en la UI."""
+    return {
+        "sonidos": [
+            {"archivo": "ka-ching.mp3", "icono": "💰", "descripcion": "Pagos en caja/web"},
+            {"archivo": "campana.mp3", "icono": "🔔", "descripcion": "Asambleas y eventos institucionales"},
+            {"archivo": "campana_fuerte.mp3", "icono": "🔔", "descripcion": "Última hora antes de asamblea"},
+            {"archivo": "beep_notif.mp3", "icono": "🔵", "descripcion": "Encuestas y comunicados"},
+            {"archivo": "beep_neutro.mp3", "icono": "📅", "descripcion": "Tributarias y multas"},
+            {"archivo": "beep_urgente.mp3", "icono": "⚠️", "descripcion": "Vencimientos próximos"},
+            {"archivo": "alarma.mp3", "icono": "🚨", "descripcion": "Emergencias"},
+            {"archivo": "cumpleanos.mp3", "icono": "🎂", "descripcion": "Cumpleaños"},
+        ]
+    }
