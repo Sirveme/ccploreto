@@ -316,6 +316,16 @@ def _encolar_resumen(db: Session, organization_id: int, user_id: int, evento_tip
            "pl": json.dumps(payload, default=str), "mo": modo})
 
 
+def _obtener_categoria_gruesa(db: Session, organization_id: int, evento_tipo: str) -> Optional[str]:
+    """Resuelve categoría fina -> gruesa consultando notif_categoria_map (zClaude-97o).
+    Retorna None si el evento no está mapeado."""
+    row = db.execute(text("""
+        SELECT categoria_gruesa FROM notif_categoria_map
+        WHERE organization_id = :org AND categoria_fina = :fina AND activo = TRUE
+    """), {"org": organization_id, "fina": evento_tipo}).fetchone()
+    return row[0] if row else None
+
+
 def disparar_evento(
     db: Session,
     organization_id: int,
@@ -332,12 +342,15 @@ def disparar_evento(
     No hace commit: el llamador controla la transacción (los hooks lo hacen
     en un try/except aislado para que un fallo de push nunca rompa el pago).
     """
-    cfg_evento = EVENTO_CATALOGO.get(evento_tipo)
-    if not cfg_evento:
-        log.warning(f"[notif] Evento desconocido: {evento_tipo}")
-        return {"enviados": 0, "encolados": 0, "silenciados": 0, "errores": 1}
-
-    categoria = cfg_evento["categoria"]
+    # Categoría gruesa: primero el mapa en BD (notif_categoria_map, zClaude-97o);
+    # si el evento no está mapeado, fallback al catálogo en memoria.
+    categoria = _obtener_categoria_gruesa(db, organization_id, evento_tipo)
+    if not categoria:
+        cfg_evento = EVENTO_CATALOGO.get(evento_tipo)
+        if not cfg_evento:
+            log.warning(f"[notif] Evento desconocido: {evento_tipo}")
+            return {"enviados": 0, "encolados": 0, "silenciados": 0, "errores": 1}
+        categoria = cfg_evento["categoria"]
 
     # 1. Resolver audiencia
     user_ids = set(_resolver_audiencia(db, organization_id, audiencia, payload))
