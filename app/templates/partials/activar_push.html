@@ -1,0 +1,170 @@
+<!-- ============================================================ -->
+<!-- partials/activar_push.html  (zClaude-97n-bis)                -->
+<!-- Botón reutilizable para activar push en dashboards de        -->
+<!-- directivos (/decano, /admin, /finanzas, /sote).              -->
+<!-- Adaptaciones vs diseño original:                             -->
+<!--  - VAPID key se obtiene de GET /api/notif/vapid-key (JSON),  -->
+<!--    no de /centinela (que devuelve HTML).                     -->
+<!--  - Sin alert/confirm nativos (regla CCPL): mini-toast propio.-->
+<!--  - Registra el service worker de forma defensiva (finanzas   -->
+<!--    es standalone y no extiende base.html).                   -->
+<!-- ============================================================ -->
+<div id="activar-push-container" style="display:none;">
+  <button id="btn-activar-push"
+          style="background: linear-gradient(135deg, #3b82f6, #2563eb);
+                 color: white; padding: 8px 14px; border-radius: 8px;
+                 border: none; cursor: pointer; font-weight: 600;
+                 font-size: 13px; box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+                 display: flex; align-items: center; gap: 6px;">
+    🔔 <span id="btn-activar-push-label">Activar notificaciones</span>
+  </button>
+</div>
+
+<script>
+(function() {
+  // ── Feedback al usuario sin alert nativo ──────────────────────
+  function pushToast(msg, tipo) {
+    // Reutiliza el toast de caja si existe; si no, mini-toast propio.
+    if (window.cajaModal && typeof window.cajaModal.toast === 'function') {
+      window.cajaModal.toast(msg, tipo === 'error' ? 'error' : 'success');
+      return;
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText =
+      'position:fixed;bottom:20px;right:20px;z-index:99999;max-width:320px;' +
+      'padding:12px 16px;border-radius:8px;font-size:13px;font-weight:600;' +
+      'color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.3);' +
+      'background:' + (tipo === 'error' ? '#dc2626' : '#059669') + ';';
+    document.body.appendChild(t);
+    setTimeout(function() { t.remove(); }, 4000);
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  async function ensureServiceWorker() {
+    // base.html ya registra el SW; en páginas standalone (finanzas) lo
+    // registramos aquí. Registrar uno ya existente es idempotente.
+    try {
+      var reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        await navigator.serviceWorker.register('/service-worker.js');
+      }
+    } catch (e) { /* ignore */ }
+    return navigator.serviceWorker.ready;
+  }
+
+  async function activarPush() {
+    var btn = document.getElementById('btn-activar-push');
+    var label = document.getElementById('btn-activar-push-label');
+    var original = label.textContent;
+
+    try {
+      label.textContent = 'Solicitando permiso...';
+      btn.disabled = true;
+
+      // 1. Pedir permiso
+      var perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        label.textContent = original;
+        btn.disabled = false;
+        pushToast('Permiso de notificaciones denegado por el navegador', 'error');
+        return;
+      }
+
+      // 2. VAPID public key (endpoint JSON propio)
+      var resp = await fetch('/api/notif/vapid-key');
+      var cfg = await resp.json();
+      var vapidKey = cfg.vapid_public_key;
+      if (!vapidKey || vapidKey === 'None') {
+        throw new Error('VAPID key no disponible en el servidor');
+      }
+
+      // 3. Suscribir
+      var reg = await ensureServiceWorker();
+      var sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      // 4. Registrar en backend (mismo endpoint que el flujo existente)
+      var subJson = sub.toJSON();
+      var r = await fetch('/api/comunicados/push/registrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: subJson.endpoint,
+          p256dh: subJson.keys.p256dh,
+          auth: subJson.keys.auth,
+        }),
+      });
+      if (!r.ok) throw new Error('No se pudo registrar la suscripción');
+
+      // 5. UI activada
+      label.textContent = '✅ Notificaciones activas';
+      btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+      btn.style.cursor = 'default';
+      btn.disabled = true;
+      pushToast('Notificaciones activadas. Recibirás un push de prueba.', 'ok');
+
+      // 6. Push de prueba
+      setTimeout(function() {
+        fetch('/api/notif/test', { method: 'POST' }).catch(function() {});
+      }, 1500);
+
+    } catch (err) {
+      label.textContent = original;
+      btn.disabled = false;
+      console.error('[activar_push]', err);
+      pushToast('Error: ' + (err && err.message ? err.message : err), 'error');
+    }
+  }
+
+  // ── Init: decidir estado del botón ──────────────────────────────
+  (async function init() {
+    var container = document.getElementById('activar-push-container');
+    var btn = document.getElementById('btn-activar-push');
+    var label = document.getElementById('btn-activar-push-label');
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return; // navegador no soporta → botón oculto
+    }
+
+    var perm = Notification.permission;
+    if (perm === 'denied') {
+      container.style.display = 'block';
+      label.textContent = '🔇 Notificaciones bloqueadas';
+      btn.style.background = '#475569';
+      btn.style.cursor = 'help';
+      btn.title = 'Permítelas en la configuración del navegador';
+      return;
+    }
+
+    try {
+      var reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        var sub = await reg.pushManager.getSubscription();
+        if (sub && perm === 'granted') {
+          container.style.display = 'block';
+          label.textContent = '✅ Notificaciones activas';
+          btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+          btn.style.cursor = 'default';
+          return;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    container.style.display = 'block';
+    btn.addEventListener('click', activarPush);
+  })();
+})();
+</script>
