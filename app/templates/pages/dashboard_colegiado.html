@@ -357,21 +357,10 @@
                 return;
             }
 
-            // Pedir permiso
-            const permiso = await Notification.requestPermission();
-            if (permiso !== 'granted') {
-                console.log('[Push] Permiso denegado');
-                return;
-            }
-
-            // Suscribir
-            const sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-
-            await enviarSubscripcion(sub);
-            console.log('[Push] ✅ Suscripción registrada');
+            // zClaude-97o: la activación de NUEVAS suscripciones ahora la maneja
+            // el splash (botón con gesto del usuario). Ya no se auto-pide permiso
+            // al cargar — evita doble prompt con el splash y el bloqueo de los
+            // navegadores que exigen gesto para Notification.requestPermission().
 
         } catch(e) {
             console.warn('[Push] Error:', e);
@@ -403,5 +392,7 @@
 
 {% block extra_scripts %}{% endblock %}
 {% block mic_floating %}{% endblock %}
+
+{% include "partials/splash_activar_push.html" %}
 
 {% endblock %}

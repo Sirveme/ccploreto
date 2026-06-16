@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Mis Notificaciones — CCPL{% endblock %}
+{% block content %}
+<main style="padding: 20px; max-width: 900px; margin: 0 auto; color: #e2e8f0;">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+    <h1 style="margin:0; font-size:24px;">🔔 Mis Notificaciones</h1>
+    <a href="javascript:history.back()" style="color:#94a3b8; text-decoration:none;">← Volver</a>
+  </div>
+
+  {% include "partials/notif_config_panel.html" %}
+</main>
+{% endblock %}
