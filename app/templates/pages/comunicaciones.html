@@ -238,6 +238,7 @@ body { overflow-y: auto !important; }
       <div class="comp-tipo-grid">
         <button class="comp-tipo-btn active" data-tipo="comunicado" onclick="ComUI.selTipo('comunicado',this)">📢 Comunicado</button>
         <button class="comp-tipo-btn" data-tipo="evento" onclick="ComUI.selTipo('evento',this)">📅 Evento</button>
+        <button class="comp-tipo-btn" data-tipo="asamblea" onclick="ComUI.selTipo('asamblea',this)">🏛️ Asamblea</button>
         <button class="comp-tipo-btn" data-tipo="oferta_laboral" onclick="ComUI.selTipo('oferta_laboral',this)">💼 Oferta Laboral</button>
         <button class="comp-tipo-btn" data-tipo="convenio" onclick="ComUI.selTipo('convenio',this)">🤝 Convenio</button>
         <button class="comp-tipo-btn" data-tipo="fallecimiento" onclick="ComUI.selTipo('fallecimiento',this)">🕊 Fallecimiento</button>
@@ -288,6 +289,47 @@ body { overflow-y: auto !important; }
           <input type="checkbox" id="comp-genera-multa">
           <span>La inasistencia genera multa</span>
         </label>
+      </div>
+    </div>
+
+    <!-- zClaude-97p — Campos específicos de Asamblea -->
+    <div id="comp-asamblea-fields" style="display:none;margin-top:6px;padding:14px;
+         background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;
+                  letter-spacing:.5px;margin-bottom:10px">🏛️ Datos de la Asamblea</div>
+      <div class="comp-row">
+        <div class="comp-field">
+          <label>Modalidad *</label>
+          <select id="comp-asamblea-modalidad" onchange="ComUI.toggleLinkVirtual()">
+            <option value="presencial">Solo presencial</option>
+            <option value="hibrida" selected>Presencial + Virtual (Facebook)</option>
+            <option value="virtual">Solo virtual</option>
+          </select>
+        </div>
+        <div class="comp-field">
+          <label>Plantilla de respuesta *</label>
+          <select id="comp-asamblea-plantilla">
+            <option value="T1">T1: Asistiré / No podré / Recordarme</option>
+            <option value="T2">T2: Iré presencial / Iré virtual / No puedo</option>
+            <option value="T7" selected>T7: Asistiré / Asumo decisión de mayoría</option>
+          </select>
+        </div>
+      </div>
+      <div class="comp-field" id="comp-asamblea-link-wrapper">
+        <label>Link de transmisión virtual (Facebook)</label>
+        <input type="url" id="comp-asamblea-link" placeholder="https://facebook.com/ccpl/live/...">
+      </div>
+      <div class="comp-row">
+        <div class="comp-field">
+          <label>Quórum mínimo</label>
+          <input type="number" id="comp-asamblea-quorum" value="30" min="10" max="500">
+        </div>
+        <div class="comp-field" style="display:flex;align-items:flex-end">
+          <label class="comp-check-label" style="margin:0">
+            <input type="checkbox" id="comp-asamblea-obligatoria" checked>
+            <span>Asistencia obligatoria</span>
+          </label>
+        </div>
       </div>
     </div>
 
