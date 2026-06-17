@@ -1,0 +1,71 @@
+{# zClaude-97p — Splash de avisos N4 pendientes (asambleas próximas).
+   Requiere que también se incluya partials/modal_asamblea.html en la misma página. #}
+<div id="splash-n4-modal" style="display:none; position:fixed; inset:0;
+     background:rgba(0,0,0,0.88); z-index:99998; align-items:center; justify-content:center;">
+  <div style="background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:16px; padding:26px;
+       max-width:500px; width:90%; color:#e2e8f0; box-shadow:0 20px 60px rgba(0,0,0,0.5);
+       max-height:90vh; overflow-y:auto;">
+    <div style="text-align:center; font-size:44px;">🔔</div>
+    <h2 style="text-align:center; margin:6px 0 16px; font-size:19px; color:#fbbf24;">
+      Tienes avisos importantes
+    </h2>
+    <div id="splash-n4-lista" style="display:flex; flex-direction:column; gap:10px;"></div>
+    <button id="splash-n4-cerrar" style="margin-top:16px; width:100%; background:#475569; color:#fff;
+        padding:10px; border:none; border-radius:8px; cursor:pointer; font-size:13px;">
+      Cerrar
+    </button>
+  </div>
+</div>
+
+<script>
+(async function(){
+  let avisos = [];
+  try {
+    const r = await fetch('/api/notif/avisos-pendientes?nivel=N4');
+    if (!r.ok) return;
+    avisos = (await r.json()).avisos || [];
+  } catch(e) { return; }
+  if (!avisos.length) return;
+
+  const lista = document.getElementById('splash-n4-lista');
+  const modal = document.getElementById('splash-n4-modal');
+  if (!lista || !modal) return;
+
+  function marcarVisto(id){
+    fetch(`/api/notif/avisos/${id}/visto`, { method:'POST' }).catch(()=>{});
+  }
+
+  avisos.forEach(a => {
+    const card = document.createElement('div');
+    card.style.cssText = 'padding:14px; background:rgba(245,158,11,0.08); border-left:3px solid #f59e0b;'
+      + 'border-radius:8px;';
+    const esAsamblea = a.evento_origen_tipo === 'bulletins' && a.evento_origen_id;
+    card.innerHTML = `
+      <div style="font-weight:700; color:#fbbf24; font-size:15px;">${a.titulo || 'Aviso'}</div>
+      <div style="color:#cbd5e1; font-size:13px; margin-top:4px;">${a.mensaje || ''}</div>`;
+    const btn = document.createElement('button');
+    btn.style.cssText = 'margin-top:10px; background:linear-gradient(135deg,#10b981,#059669); color:#fff;'
+      + 'border:none; border-radius:8px; padding:10px 16px; font-weight:600; font-size:13px; cursor:pointer;';
+    btn.textContent = esAsamblea ? '🏛️ Ver asamblea' : 'Ver detalle';
+    btn.onclick = () => {
+      marcarVisto(a.id);
+      modal.style.display = 'none';
+      if (esAsamblea && window.mostrarModalAsamblea) {
+        window.mostrarModalAsamblea(a.evento_origen_id);
+      } else if (a.url_accion) {
+        window.location.href = a.url_accion;
+      }
+    };
+    card.appendChild(btn);
+    lista.appendChild(card);
+  });
+
+  document.getElementById('splash-n4-cerrar')?.addEventListener('click', () => {
+    avisos.forEach(a => marcarVisto(a.id));   // al cerrar, se consideran vistos
+    modal.style.display = 'none';
+  });
+
+  // Mostrar tras un instante para no competir con la carga del dashboard.
+  setTimeout(() => { modal.style.display = 'flex'; }, 600);
+})();
+</script>

@@ -1,0 +1,214 @@
+{# zClaude-97p — Modal de asamblea (cliente). Incluir en dashboard/página de asamblea.
+   Expone window.mostrarModalAsamblea(bulletinId) y window.marcarAsistenciaQRAsamblea(bid, token). #}
+<div id="modal-asamblea" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+     background:rgba(0,0,0,0.85); z-index:99999; align-items:center; justify-content:center;">
+
+  <div style="background:linear-gradient(135deg, #1e293b, #0f172a); border-radius:16px;
+       padding:28px; max-width:520px; width:90%; color:#e2e8f0; text-align:center;
+       box-shadow:0 20px 60px rgba(0,0,0,0.5); max-height:90vh; overflow-y:auto;">
+
+    <div style="font-size:48px; margin-bottom:8px;">🏛️</div>
+    <h2 id="asamblea-titulo" style="margin:0 0 10px; font-size:20px; color:#fbbf24;"></h2>
+
+    <div id="asamblea-detalles" style="margin-bottom:20px; padding:14px;
+         background:rgba(59,130,246,0.08); border-left:3px solid #3b82f6;
+         border-radius:6px; text-align:left; font-size:14px; color:#cbd5e1;"></div>
+
+    <div id="asamblea-acciones" style="display:flex; flex-direction:column; gap:8px;"></div>
+
+    <button id="asamblea-cerrar" style="margin-top:12px; background:transparent; color:#64748b;
+        padding:8px 16px; border:none; cursor:pointer; font-size:12px;">
+      Cerrar (decidiré después)
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Toast tolerante: usa cajaModal si existe, si no un toast DOM propio.
+  function toast(msg, tipo){
+    if (window.cajaModal && typeof window.cajaModal.toast === 'function') {
+      window.cajaModal.toast(msg, tipo === 'error' ? 'error' : (tipo === 'ok' ? 'ok' : 'info'));
+      return;
+    }
+    let t = document.getElementById('asamblea-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'asamblea-toast';
+      t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:1000000;'
+        + 'padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;'
+        + 'box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:90%;text-align:center;';
+      document.body.appendChild(t);
+    }
+    t.style.background = tipo === 'error' ? '#dc2626' : (tipo === 'ok' ? '#059669' : '#334155');
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(t._h);
+    t._h = setTimeout(() => { t.style.display = 'none'; }, 4000);
+  }
+
+  function cerrar(){ const m=document.getElementById('modal-asamblea'); if(m) m.style.display='none'; }
+
+  window.mostrarModalAsamblea = async function(bulletinId){
+    let a;
+    try {
+      const r = await fetch(`/api/asambleas/${bulletinId}`);
+      if (!r.ok) { toast('No se pudo cargar la asamblea', 'error'); return; }
+      a = await r.json();
+    } catch(e) { toast('Error de conexión', 'error'); return; }
+    if (a.error) { toast(a.error, 'error'); return; }
+
+    document.getElementById('asamblea-titulo').textContent = a.titulo || 'Asamblea';
+
+    const fecha = a.fecha_evento ? new Date(a.fecha_evento) : null;
+    const fechaStr = fecha ? fecha.toLocaleString('es-PE', {
+      weekday:'long', day:'numeric', month:'long', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    }) : '—';
+
+    document.getElementById('asamblea-detalles').innerHTML = `
+      <div><strong>📍 Lugar:</strong> ${a.lugar || '—'}</div>
+      <div><strong>🕐 Cuándo:</strong> ${fechaStr}</div>
+      ${a.modalidad === 'hibrida' ? '<div><strong>📺 Modalidad:</strong> Presencial + Virtual</div>' :
+        (a.modalidad === 'virtual' ? '<div><strong>📺 Modalidad:</strong> Solo virtual</div>' : '')}
+      ${a.link_virtual ? `<div style="margin-top:8px;"><a href="${a.link_virtual}" target="_blank" rel="noopener"
+         style="color:#60a5fa;">📺 Link de transmisión (Facebook Live)</a></div>` : ''}
+      ${a.mi_respuesta ? `<div style="margin-top:8px;color:#34d399;">✓ Tu respuesta: ${a.mi_respuesta}</div>` : ''}
+      ${a.mi_asistencia ? `<div style="color:#34d399;">✓ Asistencia registrada (${a.mi_asistencia})</div>` : ''}
+    `;
+
+    const acciones = document.getElementById('asamblea-acciones');
+    acciones.innerHTML = '';
+
+    const plantillas = {
+      T1: [
+        { label:'✅ Asistiré', value:'asistire', color:'#10b981' },
+        { label:'❌ No podré', value:'no_podre', color:'#ef4444' },
+        { label:'🔔 Recordarme', value:'recordarme_luego', color:'#475569' },
+      ],
+      T2: [
+        { label:'🏛️ Iré presencial', value:'presencial', color:'#10b981' },
+        { label:'💻 Iré virtual', value:'virtual', color:'#3b82f6' },
+        { label:'❌ No puedo', value:'no_podre', color:'#ef4444' },
+      ],
+      T7: [
+        { label:'✅ Asistiré', value:'asistire', color:'#10b981' },
+        { label:'🤝 Asumo decisión de mayoría', value:'asumo_mayoria', color:'#f59e0b' },
+      ],
+    };
+
+    (plantillas[a.plantilla_botones] || plantillas.T7).forEach(b => {
+      const btn = document.createElement('button');
+      btn.style.cssText = `background:${b.color}; color:white; padding:12px 20px; border:none;
+                           border-radius:8px; font-weight:600; font-size:14px; cursor:pointer;`;
+      btn.textContent = b.label;
+      btn.onclick = () => responder(bulletinId, b.value);
+      acciones.appendChild(btn);
+    });
+
+    // Botón "Marcar mi asistencia" cuando la asamblea está dentro de la ventana (1h antes → 2h después)
+    if (fecha) {
+      const diffMin = (fecha - new Date()) / 60000;
+      if (diffMin < 60 && diffMin > -120) {
+        const btnA = document.createElement('button');
+        btnA.style.cssText = `background:linear-gradient(135deg, #10b981, #059669); color:white;
+                              padding:14px 20px; border:none; border-radius:8px; font-weight:700;
+                              font-size:15px; cursor:pointer; margin-top:12px;
+                              box-shadow:0 4px 12px rgba(16,185,129,0.3);`;
+        btnA.innerHTML = '📍 Marcar mi asistencia';
+        btnA.onclick = () => marcarGPS(bulletinId, a.modalidad);
+        acciones.appendChild(btnA);
+      }
+    }
+
+    document.getElementById('modal-asamblea').style.display = 'flex';
+  };
+
+  document.getElementById('asamblea-cerrar')?.addEventListener('click', cerrar);
+
+  async function responder(bulletinId, respuesta){
+    try {
+      const r = await fetch(`/api/asambleas/${bulletinId}/responder`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ respuesta }),
+      });
+      if (r.ok) { toast('Tu respuesta fue registrada', 'ok'); cerrar(); }
+      else { const d = await r.json().catch(()=>({})); toast(d.error || 'No se pudo registrar', 'error'); }
+    } catch(e) { toast('Error de conexión', 'error'); }
+  }
+
+  async function marcarGPS(bulletinId, modalidad){
+    if (modalidad === 'virtual') {
+      const r = await fetch(`/api/asambleas/${bulletinId}/asistir`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tipo:'virtual_self' }),
+      });
+      if (r.ok) { toast('✅ Asistencia virtual registrada', 'ok'); cerrar(); }
+      else { const d = await r.json().catch(()=>({})); toast(d.error || 'No se pudo registrar', 'error'); }
+      return;
+    }
+
+    if (!navigator.geolocation) { toast('Tu navegador no soporta GPS', 'error'); return; }
+    toast('Obteniendo tu ubicación…', 'info');
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const r = await fetch(`/api/asambleas/${bulletinId}/asistir`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            tipo:'gps',
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy_m: pos.coords.accuracy,
+          }),
+        });
+        const data = await r.json();
+        if (data.estado === 'presente') { toast('✅ Asistencia presencial registrada', 'ok'); cerrar(); }
+        else if (data.estado === 'requiere_qr') { mostrarLectorQR(bulletinId, data); }
+        else if (data.estado === 'fuera_de_zona') {
+          toast(`📍 Estás a ${Math.round(data.distancia_m)} m de la sede. Acércate a 50 m o menos.`, 'error');
+        } else { toast(data.error || 'No se pudo registrar', 'error'); }
+      } catch(e) { toast('Error registrando asistencia', 'error'); }
+    }, () => {
+      toast('No pudimos obtener tu ubicación. Permite el GPS en tu navegador.', 'error');
+    }, { enableHighAccuracy:true, timeout:10000, maximumAge:0 });
+  }
+
+  function mostrarLectorQR(bulletinId, datos){
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);'
+      + 'z-index:999999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:#1e293b;border-radius:12px;padding:24px;max-width:420px;width:90%;
+                  color:#e2e8f0;text-align:center;">
+        <div style="font-size:48px;">📷</div>
+        <h3 style="color:#fbbf24;margin:8px 0 12px;">Verificación adicional</h3>
+        <p style="font-size:14px;color:#cbd5e1;line-height:1.6;">
+          Estás a <strong>${Math.round(datos.distancia_m)} m</strong> de la sede.<br>
+          Escanea el código QR que hay en la entrada del CCPL.
+        </p>
+        <p style="font-size:12px;color:#94a3b8;margin-top:14px;">
+          Abre la cámara de tu celular y enfoca el QR.<br>
+          Se abrirá una página para confirmar tu asistencia.
+        </p>
+        <button style="margin-top:16px;background:#475569;color:white;padding:10px 20px;
+                border:none;border-radius:6px;cursor:pointer;">Cerrar</button>
+      </div>`;
+    modal.querySelector('button').onclick = () => modal.remove();
+    document.body.appendChild(modal);
+  }
+
+  // Llamado desde la página de asamblea cuando llega con ?qr_token=...
+  window.marcarAsistenciaQRAsamblea = async function(bulletinId, token){
+    try {
+      const r = await fetch(`/api/asambleas/${bulletinId}/asistir`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tipo:'qr', qr_token: token }),
+      });
+      const data = await r.json();
+      if (data.estado === 'presente') { toast('✅ Asistencia confirmada por QR', 'ok'); }
+      else { toast(data.error || 'QR inválido o expirado', 'error'); }
+    } catch(e) { toast('Error validando el QR', 'error'); }
+  };
+})();
+</script>
