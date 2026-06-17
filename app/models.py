@@ -275,6 +275,12 @@ class Bulletin(Base):
     video_url              = Column(String(500), nullable=True)
     requiere_confirmacion  = Column(Boolean, default=False)
     genera_multa           = Column(Boolean, default=False)
+    # zClaude-97p — campos específicos de asamblea (ver sql/zClaude97p_asambleas.sql)
+    modalidad              = Column(String(20), nullable=True)   # 'presencial'|'virtual'|'hibrida'
+    plantilla_botones      = Column(String(5),  nullable=True)   # 'T1'|'T2'|'T7'
+    obligatoria            = Column(Boolean, default=False)
+    link_virtual           = Column(String(300), nullable=True)
+    quorum_minimo          = Column(Integer, nullable=True)
     
     # Relaciones
     organization = relationship("Organization")
@@ -461,6 +467,8 @@ class Colegiado(Base):
     
     # Estado de Habilidad
     condicion = Column(String, default="inhabil")  # habil, inhabil, suspendido, fallecido
+    es_transeunte = Column(Boolean, default=False)
+    fecha_fin_transeunte = Column(Date, nullable=True)
     fecha_actualizacion_condicion = Column(DateTime(timezone=True), server_default=func.now())
     motivo_inhabilidad = Column(String, nullable=True)
     

@@ -62,6 +62,8 @@ from app.routers.api_comunicados import router as comunicados_router
 
 from app.routers.api_notif import router as api_notif_router  # zClaude-97n
 from app.routers.notif_page import router as notif_page_router  # zClaude-97o
+from app.routers.api_asambleas import router as asambleas_router, page_router as asambleas_page_router  # zClaude-97p
+from app.routers.asambleas_admin import router as asambleas_admin_router  # zClaude-97p
 
 from app.utils.templates import templates
 
@@ -247,6 +249,9 @@ app.include_router(portal_admin_router)
 app.include_router(comunicados_router)
 app.include_router(api_notif_router)  # zClaude-97n
 app.include_router(notif_page_router)  # zClaude-97o
+app.include_router(asambleas_router)        # zClaude-97p
+app.include_router(asambleas_page_router)   # zClaude-97p
+app.include_router(asambleas_admin_router)  # zClaude-97p
 
 app.include_router(generador_router)
 
