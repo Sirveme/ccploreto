@@ -928,6 +928,7 @@ function confirmarCobro() {
         <div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div>
         <div><span>Comprobante:</span><span>${tipoComp === '01' ? 'Factura' : 'Boleta'} · ${fpLabel}</span></div>`;
     document.getElementById('modalConfirm').classList.add('active');
+    cajaConfigurarPublicoGeneral();  // zClaude-98a
 
     const txtObs = document.getElementById('inputObservacion');
     const counter = document.getElementById('obsCounter');
@@ -940,6 +941,65 @@ function confirmarCobro() {
 
 function cerrarModal() {
     document.getElementById('modalConfirm').classList.remove('active');
+}
+
+// ── zClaude-98a: datos del cliente para boleta a Público general ──────────────
+// Aplica solo cuando NO hay colegiado y el comprobante es boleta (no factura).
+function cajaEsPublicoBoleta() {
+    return !colActual && tipoComp !== '01';
+}
+
+function cajaConfigurarPublicoGeneral() {
+    const bloque = document.getElementById('caja-publico-datos');
+    if (!bloque) return;
+    if (cajaEsPublicoBoleta()) {
+        bloque.style.display = 'block';
+        const dni = document.getElementById('caja-publico-dni');
+        const nom = document.getElementById('caja-publico-nombres');
+        if (dni && !dni.value) dni.value = '99999999';
+        if (nom && !nom.value) nom.value = 'VARIOS';
+        cajaPublicoValidar();
+    } else {
+        bloque.style.display = 'none';
+    }
+}
+
+function cajaPublicoDniInput(el) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 8);
+    if (el.value === '99999999') {
+        const n = document.getElementById('caja-publico-nombres');
+        if (n && n.value.trim() === '') n.value = 'VARIOS';
+    }
+    cajaPublicoValidar();
+}
+
+function cajaPublicoNombresInput(el) {
+    el.value = el.value.toUpperCase();
+    cajaPublicoValidar();
+}
+
+function cajaPublicoValidar() {
+    const dniInput = document.getElementById('caja-publico-dni');
+    const nombresInput = document.getElementById('caja-publico-nombres');
+    const errorBox = document.getElementById('caja-publico-error');
+    if (!dniInput || !nombresInput) return true;
+
+    const dni = dniInput.value.trim();
+    const nombres = nombresInput.value.trim();
+    let error = null;
+
+    if (!/^\d{8}$/.test(dni)) {
+        error = 'DNI debe tener exactamente 8 dígitos numéricos';
+    } else if (dni !== '99999999' && nombres.length < 3) {
+        error = 'Apellidos y Nombres obligatorios cuando el DNI es real (mín. 3 caracteres)';
+    }
+
+    if (error) {
+        if (errorBox) { errorBox.textContent = '⚠️ ' + error; errorBox.style.display = 'block'; }
+        return false;
+    }
+    if (errorBox) errorBox.style.display = 'none';
+    return true;
 }
 
 function _construirPayloadCobro() {
@@ -962,6 +1022,11 @@ function _construirPayloadCobro() {
         payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
         payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
         payload.cliente_direccion = document.getElementById('ffDireccion').value.trim();
+    } else if (cajaEsPublicoBoleta()) {  // zClaude-98a
+        const dni = document.getElementById('caja-publico-dni')?.value.trim();
+        const nom = document.getElementById('caja-publico-nombres')?.value.trim();
+        if (dni) payload.cliente_dni = dni;
+        if (nom) payload.cliente_nombres = nom;
     }
     return payload;
 }
@@ -1039,6 +1104,11 @@ async function solicitarPreview() {
 }
 
 async function ejecutarCobro() {
+    // zClaude-98a: validar datos del cliente si es boleta a Público general
+    if (cajaEsPublicoBoleta() && !cajaPublicoValidar()) {
+        toast('Revisa los datos del cliente (DNI / Nombres)', 'err');
+        return;
+    }
     const obs = (document.getElementById('inputObservacion')?.value || '').trim() || null;
     cerrarModal();
     const total = carrito.reduce((s, i) => s + i.monto, 0);
@@ -1058,6 +1128,11 @@ async function ejecutarCobro() {
         payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
         payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
         payload.cliente_direccion = document.getElementById('ffDireccion').value.trim();
+    } else if (cajaEsPublicoBoleta()) {  // zClaude-98a
+        const dni = document.getElementById('caja-publico-dni')?.value.trim();
+        const nom = document.getElementById('caja-publico-nombres')?.value.trim();
+        if (dni) payload.cliente_dni = dni;
+        if (nom) payload.cliente_nombres = nom;
     }
     try {
         const r = await fetch(`${API}/cobrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
