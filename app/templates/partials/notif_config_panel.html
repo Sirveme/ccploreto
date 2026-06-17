@@ -54,6 +54,41 @@
     }
     .notif-btn-primary { background: #3b82f6; color: white; }
     .notif-btn-secondary { background: #475569; color: white; }
+
+    /* zClaude-97o-b Pieza B: feedback visual */
+    .notif-btn {
+      transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .notif-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      filter: brightness(1.1);
+    }
+    .notif-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      filter: brightness(0.95);
+    }
+    .notif-toggle { transition: background 0.2s, transform 0.1s; }
+    .notif-toggle:active { transform: scale(0.95); }
+    .notif-toggle:hover:not(.locked) { filter: brightness(1.15); }
+    .notif-sound-btn {
+      display: block; width: 100%; text-align: left;
+      padding: 10px 14px; margin-bottom: 6px;
+      background: #334155; color: white; border: none;
+      border-radius: 6px; cursor: pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+    .notif-sound-btn:hover { background: #475569; }
+    .notif-sound-btn:active { transform: scale(0.97); background: #1e293b; }
+
+    /* zClaude-97o-b Pieza C: padding inferior para no chocar con el FAB del chatbot */
+    @media (max-width: 768px) {
+      #notif-config-panel { padding-bottom: 100px !important; }
+      .notif-action-btns { flex-wrap: wrap; gap: 8px; }
+      .notif-btn { flex: 1; min-width: 140px; }
+    }
   </style>
 
   <div class="notif-global-toggles">
@@ -242,8 +277,7 @@ async function notifProbarSonidos() {
       <div style="background:#1e293b;border-radius:12px;padding:24px;max-width:400px;width:90%;">
         <h3 style="margin:0 0 16px;color:#e2e8f0;">🎵 Sonidos del sistema</h3>
         ${sonidos.sonidos.map(s => `
-          <button onclick="new Audio('/static/sounds/${s.archivo}').play()"
-                  style="display:block;width:100%;text-align:left;padding:10px;margin-bottom:6px;background:#334155;color:white;border:none;border-radius:6px;cursor:pointer;">
+          <button class="notif-sound-btn" onclick="new Audio('/static/sounds/${s.archivo}').play()">
             ${s.icono} ${s.descripcion}
           </button>
         `).join('')}
@@ -257,5 +291,45 @@ async function notifProbarSonidos() {
   } catch (e) { console.error(e); }
 }
 
-document.addEventListener('DOMContentLoaded', notifInit);
+// zClaude-97o-b Pieza A: toggles globales (sonido / modal) con persistencia.
+async function notifGlobalToggle(tipo) {
+  const id = tipo === 'sonido' ? 'toggle-sonido' : 'toggle-modal';
+  const toggle = document.getElementById(id);
+  toggle.classList.toggle('on');
+  const activo = toggle.classList.contains('on');
+
+  await fetch('/api/notif/config-global', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sonido_activado: tipo === 'sonido' ? activo : null,
+      modal_activado: tipo === 'modal' ? activo : null,
+    }),
+  });
+
+  const msg = activo ?
+    (tipo === 'sonido' ? '🔊 Sonidos activados' : '📱 Modales activados') :
+    (tipo === 'sonido' ? '🔇 Sonidos desactivados' : '📵 Modales desactivados');
+  notifPanelToast(msg, 'success');
+}
+
+async function notifGlobalLoad() {
+  try {
+    const r = await fetch('/api/notif/config-global');
+    const cfg = await r.json();
+    const tSonido = document.getElementById('toggle-sonido');
+    const tModal = document.getElementById('toggle-modal');
+    if (cfg.sonido_activado !== false) tSonido?.classList.add('on');
+    else tSonido?.classList.remove('on');
+    if (cfg.modal_activado !== false) tModal?.classList.add('on');
+    else tModal?.classList.remove('on');
+  } catch (e) { console.warn('[notif] No se pudo cargar config global:', e); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  notifInit();
+  notifGlobalLoad();
+  document.getElementById('toggle-sonido')?.addEventListener('click', () => notifGlobalToggle('sonido'));
+  document.getElementById('toggle-modal')?.addEventListener('click', () => notifGlobalToggle('modal'));
+});
 </script>
