@@ -267,3 +267,57 @@ async def update_config_global(
            "m_default": payload.modal_activado if payload.modal_activado is not None else True})
     db.commit()
     return {"ok": True}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# zClaude-97p — Avisos FOMO pendientes (para el splash N4 del dashboard)
+# ══════════════════════════════════════════════════════════════════════════
+@router.get("/avisos-pendientes")
+async def avisos_pendientes(
+    nivel: Optional[str] = None,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Avisos FOMO no vistos y no caducados del colegiado (los N4 alimentan el splash)."""
+    sql = """
+        SELECT id, tipo, evento_origen_tipo, evento_origen_id,
+               titulo, mensaje, nivel, sonido, url_accion
+        FROM fomo_avisos
+        WHERE user_id = :uid
+          AND visto = FALSE
+          AND fecha_disparar <= NOW()
+          AND (fecha_caducidad IS NULL OR fecha_caducidad > NOW())
+    """
+    params = {"uid": member.user_id}
+    if nivel:
+        sql += " AND nivel = :nivel"
+        params["nivel"] = nivel
+    sql += " ORDER BY nivel DESC, fecha_disparar ASC"
+    rows = db.execute(text(sql), params).fetchall()
+    return {"avisos": [{
+        "id": r.id,
+        "tipo": r.tipo,
+        "evento_origen_tipo": r.evento_origen_tipo,
+        "evento_origen_id": r.evento_origen_id,
+        "titulo": r.titulo,
+        "mensaje": r.mensaje,
+        "nivel": r.nivel,
+        "sonido": r.sonido,
+        "url_accion": r.url_accion,
+    } for r in rows]}
+
+
+@router.post("/avisos/{aviso_id}/visto")
+async def marcar_aviso_visto(
+    aviso_id: int,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Marca un aviso FOMO como visto (solo si pertenece al colegiado)."""
+    db.execute(text("""
+        UPDATE fomo_avisos
+        SET visto = TRUE, visto_at = NOW()
+        WHERE id = :id AND user_id = :uid
+    """), {"id": aviso_id, "uid": member.user_id})
+    db.commit()
+    return {"ok": True}

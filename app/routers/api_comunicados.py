@@ -5,7 +5,8 @@ API Comunicados — feed del colegiado + envío desde directivos
 
 import json
 import os
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
@@ -23,6 +24,28 @@ from app.models import Member, Bulletin, BulletinEvent
 from app.routers.dashboard import get_current_member
 
 router = APIRouter(prefix="/api/comunicados", tags=["Comunicados"])
+
+# Perú = UTC-5 todo el año (sin DST). Los <input type="datetime-local"> llegan en
+# hora local de Lima sin zona; los convertimos a UTC-aware para comparar con NOW().
+_LIMA_OFFSET = timedelta(hours=-5)
+
+
+def _parse_fecha_local(valor) -> Optional[datetime]:
+    """Convierte un string datetime-local (hora Lima) a datetime UTC-aware.
+    Acepta también datetime ya parseado. Devuelve None si no se puede."""
+    if valor is None or valor == "":
+        return None
+    if isinstance(valor, datetime):
+        dt = valor
+    else:
+        try:
+            dt = datetime.fromisoformat(str(valor))
+        except ValueError:
+            return None
+    if dt.tzinfo is None:
+        # Interpretar como hora de Lima y pasar a UTC
+        return (dt - _LIMA_OFFSET).replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 # ── GET /api/comunicados/recientes ───────────────────────────
@@ -106,6 +129,12 @@ class ComunicadoInput(BaseModel):
     requiere_confirmacion: bool = False
     genera_multa:    bool = False
     target_criteria: Optional[dict] = None
+    # zClaude-97p — campos específicos de asamblea
+    modalidad:         Optional[str] = None   # 'presencial' | 'virtual' | 'hibrida'
+    plantilla_botones: Optional[str] = None   # 'T1' | 'T2' | 'T7'
+    link_virtual:      Optional[str] = None
+    obligatoria:       bool = False
+    quorum_minimo:     Optional[int] = None
 
 
 @router.post("/enviar")
@@ -124,6 +153,20 @@ async def enviar_comunicado(
     if member.role not in ROLES_PERMITIDOS:
         return JSONResponse({"error": "Sin permiso"}, status_code=403)
 
+    # zClaude-97p — la fecha del evento/asamblea llega como hora local de Lima
+    fecha_evento_utc = _parse_fecha_local(data.fecha_evento)
+
+    # Validación específica de asambleas
+    if data.tipo == "asamblea":
+        if not fecha_evento_utc:
+            return JSONResponse({"error": "La asamblea requiere fecha y hora del evento"}, status_code=400)
+        if not (data.lugar_evento and data.lugar_evento.strip()):
+            return JSONResponse({"error": "La asamblea requiere indicar el lugar"}, status_code=400)
+        if data.plantilla_botones not in ("T1", "T2", "T7"):
+            return JSONResponse({"error": "La asamblea requiere una plantilla válida (T1, T2 o T7)"}, status_code=400)
+        if fecha_evento_utc <= datetime.now(timezone.utc):
+            return JSONResponse({"error": "La fecha del evento debe ser futura"}, status_code=400)
+
     # Guardar en BD
     bulletin = Bulletin(
         organization_id = member.organization_id,
@@ -134,9 +177,60 @@ async def enviar_comunicado(
         image_url       = data.image_url or None,
         video_url       = data.video_url or None,
         target_criteria = data.target_criteria or {"segmento": data.segmento},
+        tipo            = data.tipo or "comunicado",
+        fecha_evento    = fecha_evento_utc,
+        lugar_evento    = data.lugar_evento or None,
+        requiere_confirmacion = bool(data.requiere_confirmacion),
+        genera_multa    = bool(data.genera_multa),
+        # campos asamblea (None/False para otros tipos)
+        modalidad         = data.modalidad if data.tipo == "asamblea" else None,
+        plantilla_botones = data.plantilla_botones if data.tipo == "asamblea" else None,
+        link_virtual      = data.link_virtual if data.tipo == "asamblea" else None,
+        obligatoria       = bool(data.obligatoria) if data.tipo == "asamblea" else False,
+        quorum_minimo     = data.quorum_minimo if data.tipo == "asamblea" else None,
     )
     db.add(bulletin)
     db.commit()
+    db.refresh(bulletin)
+
+    # zClaude-97p — Si es asamblea: token QR (zona 20-50 m) + recordatorio push
+    if data.tipo == "asamblea":
+        token_qr = secrets.token_urlsafe(32)
+        db.execute(text("""
+            INSERT INTO asamblea_qr_tokens
+              (bulletin_id, token, organization_id, vigente_desde, vigente_hasta)
+            VALUES (:bid, :tk, :org, :vd, :vh)
+        """), {
+            "bid": bulletin.id, "tk": token_qr,
+            "org": member.organization_id,
+            "vd": fecha_evento_utc - timedelta(hours=1),
+            "vh": fecha_evento_utc + timedelta(hours=2),
+        })
+        db.commit()
+
+        # Push inmediato solo si la asamblea es dentro de 7 días
+        if (fecha_evento_utc - datetime.now(timezone.utc)) <= timedelta(days=7):
+            try:
+                from app.services.notif_service import disparar_evento
+                cuando = fecha_evento_utc.astimezone(timezone.utc) + _LIMA_OFFSET
+                disparar_evento(
+                    db,
+                    organization_id=member.organization_id,
+                    evento_tipo="asambleas",
+                    audiencia="todos_habilitados",
+                    payload={
+                        "titulo": data.title,
+                        "mensaje": f"{data.lugar_evento} — {cuando.strftime('%d/%m/%Y %H:%M')}",
+                        "url": f"/asambleas/{bulletin.id}",
+                    },
+                    actor_user_id=member.user_id,
+                    nivel="N3",
+                    sonido="campana.mp3",
+                )
+                db.commit()
+            except Exception as _e:
+                db.rollback()
+                print(f"[Asamblea] push inicial no enviado: {_e}")
 
     # FOMO — broadcast a todos los conectados
     await manager.broadcast({
@@ -183,7 +277,9 @@ async def enviar_comunicado(
     private_key = os.getenv("VAPID_PRIVATE_KEY")
     email       = os.getenv("VAPID_CLAIMS_EMAIL")
 
-    if private_key and devices:
+    # zClaude-97p: las asambleas usan el push dedicado (disparar_evento, con
+    # nivel/sonido y URL al modal); evitamos el push genérico para no duplicar.
+    if private_key and devices and data.tipo != "asamblea":
         from pywebpush import webpush, WebPushException
         sent = 0
         for dev in devices:
