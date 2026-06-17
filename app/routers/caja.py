@@ -167,6 +167,9 @@ class RegistrarCobroRequest(BaseModel):
     cliente_razon_social: Optional[str] = None
     cliente_direccion: Optional[str] = None
     forma_pago: str = "contado"
+    # zClaude-98a: datos del cliente cuando es Público general y pide boleta a su DNI
+    cliente_dni: Optional[str] = None
+    cliente_nombres: Optional[str] = None
 
 
 class CobroResponse(BaseModel):
@@ -765,6 +768,21 @@ async def registrar_cobro(
         payment.pagador_tipo = "empresa"
         payment.pagador_documento = cobro.cliente_ruc
         payment.pagador_nombre = cobro.cliente_razon_social
+    # zClaude-98a: boleta a Público general con DNI real → se persiste como
+    # 'tercero' y FacturacionService._obtener_datos_cliente lo emite con tipo_doc=1.
+    # Si el DNI queda en el default 99999999 (o vacío), NO se fuerza: la boleta
+    # genérica conserva el comportamiento actual (tipo_doc 0 / CLIENTE VARIOS).
+    elif (cobro.tipo_comprobante == "03" and colegiado is None
+          and (cobro.cliente_dni or "").strip() not in ("", "99999999")):
+        _dni_cli = (cobro.cliente_dni or "").strip()
+        _nom_cli = (cobro.cliente_nombres or "").strip().upper()
+        if not (_dni_cli.isdigit() and len(_dni_cli) == 8):
+            raise HTTPException(400, detail="DNI del cliente debe tener 8 dígitos numéricos")
+        if len(_nom_cli) < 3:
+            raise HTTPException(400, detail="Apellidos y Nombres del cliente son obligatorios (mín. 3 caracteres)")
+        payment.pagador_tipo = "tercero"
+        payment.pagador_documento = _dni_cli
+        payment.pagador_nombre = _nom_cli
 
     db.add(payment)
     db.flush()
@@ -1066,6 +1084,14 @@ async def preview_cobro(
         payment_mock.pagador_tipo = "empresa"
         payment_mock.pagador_documento = cobro.cliente_ruc
         payment_mock.pagador_nombre = cobro.cliente_razon_social
+    # zClaude-98a: vista previa de boleta a Público general con DNI real (defensivo, sin raise)
+    elif (cobro.tipo_comprobante == "03" and not cobro.colegiado_id
+          and (cobro.cliente_dni or "").strip() not in ("", "99999999")):
+        _dni_prev = (cobro.cliente_dni or "").strip()
+        if _dni_prev.isdigit() and len(_dni_prev) == 8:
+            payment_mock.pagador_tipo = "tercero"
+            payment_mock.pagador_documento = _dni_prev
+            payment_mock.pagador_nombre = (cobro.cliente_nombres or "").strip().upper()
 
     # ── Simular vigencia si el preview incluye CONST-HAB (no emite certificado real) ──
     incluye_const_hab_prev = any(
