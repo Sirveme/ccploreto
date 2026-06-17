@@ -456,6 +456,34 @@
         <div class="modal-sub">¿Confirmar el siguiente cobro?</div>
         <div class="modal-total" id="mTotal">S/ 0.00</div>
         <div class="modal-detail" id="mDetail"></div>
+
+        <!-- zClaude-98a: datos del cliente para boleta a Público general (solo boleta sin colegiado) -->
+        <div id="caja-publico-datos"
+             style="margin-top: 12px; padding: 14px; background: rgba(59,130,246,0.08);
+                    border-left: 3px solid #3b82f6; border-radius: 6px; display: none;">
+          <div style="font-size: 11px; font-weight: 600; color: #3b82f6;
+                      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+            📋 Datos del cliente (para boleta)
+          </div>
+          <div style="display: grid; gap: 8px; grid-template-columns: 1fr 2fr;">
+            <div>
+              <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">DNI</label>
+              <input type="text" id="caja-publico-dni" value="99999999" maxlength="8" inputmode="numeric"
+                     oninput="cajaPublicoDniInput(this)"
+                     style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
+                            border: 1px solid #334155; color: #e2e8f0; font-family: monospace; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Apellidos y Nombres</label>
+              <input type="text" id="caja-publico-nombres" value="VARIOS" maxlength="100"
+                     oninput="cajaPublicoNombresInput(this)"
+                     style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
+                            border: 1px solid #334155; color: #e2e8f0; font-size: 14px;">
+            </div>
+          </div>
+          <div id="caja-publico-error" style="font-size: 11px; color: #ef4444; margin-top: 6px; display: none;"></div>
+        </div>
+
         <div class="modal-observacion" style="margin: 12px 0;">
             <label for="inputObservacion" style="display:block; font-size:13px; color:#94a3b8; margin-bottom:4px;">
                 Observación (opcional, aparecerá en el comprobante):
@@ -870,6 +898,27 @@
           <input type="email" id="alta-email" maxlength="120"
                  style="text-transform:lowercase;" placeholder="correo@dominio.com">
         </div>
+
+        <!-- zClaude-97f: marca opcional de transeúnte -->
+        <div class="form-row" style="grid-column:1/-1;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:8px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600">
+            <input type="checkbox" id="alta-es-transeunte"
+                   style="width:18px;height:18px;cursor:pointer">
+            <span>Es transeúnte</span>
+            <span style="font-size:11px;color:#94a3b8;font-weight:400">
+              (contador que permanecerá en la ciudad por tiempo determinado)
+            </span>
+          </label>
+        </div>
+        <div class="form-row" id="alta-transeunte-fecha-wrap" style="display:none">
+          <label>Fecha estimada de partida <span style="color:#94a3b8;font-weight:400">(opcional)</span></label>
+          <input type="date" id="alta-fecha-fin-transeunte"
+                 style="padding:8px 12px;background:#1f2937;border:1px solid #374151;color:#fff;border-radius:6px">
+          <small style="color:#94a3b8;font-size:11px;margin-top:4px;display:block">
+            Si no sabes cuándo se irá, déjalo en blanco. Puede actualizarse después desde /secretaria.
+          </small>
+        </div>
+
       </div>
 
       <div id="alta-mensaje" class="alta-mensaje"></div>
