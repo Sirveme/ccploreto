@@ -30,8 +30,16 @@ def iniciar_scheduler():
             replace_existing=True,
             max_instances=1,
         )
+        # zClaude-97p: detector de avisos FOMO de asambleas — cada 30 min.
+        scheduler.add_job(
+            detectar_fomo_avisos_asambleas,
+            trigger=IntervalTrigger(minutes=30),
+            id="fomo_asambleas",
+            replace_existing=True,
+            max_instances=1,
+        )
         scheduler.start()
-        logger.info("[FOMO] Scheduler iniciado — fomo cada 1h + resúmenes notif cada hora en punto")
+        logger.info("[FOMO] Scheduler iniciado — fomo 1h + resúmenes 1h + asambleas 30min")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -100,6 +108,125 @@ def procesar_resumenes_diarios():
             logger.info(f"[notif] Resúmenes procesados: {len(pendientes)} (hora Lima={hora_lima})")
     except Exception as e:
         logger.error(f"[notif] Error en procesar_resumenes_diarios: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+# ══════════════════════════════════════════════════════════════
+# zClaude-97p — DETECTOR DE AVISOS FOMO DE ASAMBLEAS (7d / 1d / 1h)
+# ══════════════════════════════════════════════════════════════
+def detectar_fomo_avisos_asambleas():
+    """Corre cada 30 min. Para cada asamblea próxima crea fomo_avisos idempotentes
+    (uq_fomo_aviso_idempotente) según la regla activa y dispara UN push por regla.
+
+    Reglas:
+      - 7 días → 1 día antes : 'asamblea_7d'  N3  campana.mp3
+      - 1 día  → 1 hora antes: 'asamblea_1d'  N4  campana.mp3
+      - 1 hora → inicio       : 'asamblea_1h'  N4  campana_fuerte.mp3
+
+    Síncrona: el AsyncIOScheduler la ejecuta en su thread-pool executor.
+    """
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import text
+    from app.database import SessionLocal
+    from app.services.notif_service import disparar_evento
+
+    ahora = datetime.now(timezone.utc)
+    lima = timedelta(hours=-5)  # Perú UTC-5 sin DST
+    creados_total = 0
+    db = SessionLocal()
+    try:
+        asambleas = db.execute(text("""
+            SELECT id, organization_id, title, lugar_evento, fecha_evento
+            FROM bulletins
+            WHERE tipo = 'asamblea'
+              AND fecha_evento > :ahora
+              AND fecha_evento < :limite
+            ORDER BY fecha_evento
+        """), {"ahora": ahora, "limite": ahora + timedelta(days=8)}).fetchall()
+
+        for a in asambleas:
+            if not a.fecha_evento:
+                continue
+            restante = a.fecha_evento - ahora
+
+            # Determinar regla activa (una sola)
+            if timedelta(days=1) < restante <= timedelta(days=7):
+                regla, nivel, sonido = 'asamblea_7d', 'N3', 'campana.mp3'
+            elif timedelta(hours=1) < restante <= timedelta(days=1):
+                regla, nivel, sonido = 'asamblea_1d', 'N4', 'campana.mp3'
+            elif timedelta(0) < restante <= timedelta(hours=1):
+                regla, nivel, sonido = 'asamblea_1h', 'N4', 'campana_fuerte.mp3'
+            else:
+                continue
+
+            cuando = a.fecha_evento + lima  # hora Lima para mostrar
+            lugar = a.lugar_evento or 'CCPL'
+            if regla == 'asamblea_7d':
+                mensaje = f"En 1 semana: {lugar} — {cuando.strftime('%d/%m %H:%M')}"
+            elif regla == 'asamblea_1d':
+                mensaje = f"MAÑANA: {lugar} — {cuando.strftime('%H:%M')}"
+            else:
+                mensaje = f"En 1 hora: {lugar} — {cuando.strftime('%H:%M')}"
+            titulo = f"📅 {a.title}"
+
+            # ¿Primera vez que se activa esta regla? (decide si se dispara el push)
+            ya = db.execute(text("""
+                SELECT 1 FROM fomo_avisos
+                WHERE evento_origen_tipo = 'bulletins' AND evento_origen_id = :bid AND tipo = :regla
+                LIMIT 1
+            """), {"bid": a.id, "regla": regla}).fetchone()
+
+            # Crear avisos idempotentes para todos los colegiados hábiles/vitalicios
+            res = db.execute(text("""
+                INSERT INTO fomo_avisos (
+                    organization_id, user_id, tipo, evento_origen_tipo, evento_origen_id,
+                    titulo, mensaje, nivel, sonido, url_accion,
+                    fecha_disparar, fecha_caducidad, created_at
+                )
+                SELECT :org, m.user_id, :regla, 'bulletins', :bid,
+                       :titulo, :mensaje, :nivel, :sonido, :url,
+                       :ahora, :caducidad, :ahora
+                FROM members m
+                JOIN colegiados c ON c.member_id = m.id
+                WHERE m.organization_id = :org
+                  AND m.is_active = TRUE
+                  AND m.user_id IS NOT NULL
+                  AND c.condicion IN ('habil', 'vitalicio')
+                ON CONFLICT ON CONSTRAINT uq_fomo_aviso_idempotente DO NOTHING
+                RETURNING id
+            """), {
+                "org": a.organization_id, "regla": regla, "bid": a.id,
+                "titulo": titulo, "mensaje": mensaje, "nivel": nivel, "sonido": sonido,
+                "url": f"/asambleas/{a.id}",
+                "ahora": ahora, "caducidad": a.fecha_evento + timedelta(hours=2),
+            })
+            creados = len(res.fetchall())
+            creados_total += creados
+            db.commit()
+
+            # Push real (una sola vez por regla/asamblea)
+            if not ya:
+                try:
+                    disparar_evento(
+                        db,
+                        organization_id=a.organization_id,
+                        evento_tipo='asambleas',
+                        audiencia='todos_habilitados',
+                        payload={"titulo": a.title, "mensaje": mensaje, "url": f"/asambleas/{a.id}"},
+                        nivel=nivel,
+                        sonido=sonido,
+                    )
+                    db.commit()
+                except Exception as e:
+                    db.rollback()
+                    logger.warning(f"[FOMO-asamblea] push no enviado bid={a.id} {regla}: {e}")
+
+        if creados_total:
+            logger.info(f"[FOMO-asamblea] avisos creados: {creados_total} ({len(asambleas)} asambleas)")
+    except Exception as e:
+        logger.error(f"[FOMO-asamblea] error: {e}")
         db.rollback()
     finally:
         db.close()

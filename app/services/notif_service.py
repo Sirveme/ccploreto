@@ -89,6 +89,15 @@ EVENTO_CATALOGO = {
         "body_template": "{titulo}",
         "url_template": "/comunicaciones",
     },
+    # zClaude-97p — recordatorios de asamblea (nivel/sonido se pasan por override)
+    "asambleas": {
+        "categoria": "ccpl",
+        "titulo_template": "📅 {titulo}",
+        "body_template": "{mensaje}",
+        "url_template": "{url}",
+        "nivel": "N3",
+        "sonido": "campana.mp3",
+    },
     "fomo_motivacional": {
         "categoria": "ccpl",
         "titulo_template": "{titulo}",
@@ -251,16 +260,19 @@ def _config_usuario(db: Session, user_id: int, categoria: str) -> dict:
 def _construir_mensaje(evento_tipo: str, payload: dict) -> Dict[str, str]:
     cfg = EVENTO_CATALOGO.get(evento_tipo)
     if not cfg:
-        return {"titulo": evento_tipo, "body": "", "url": "/"}
+        return {"titulo": evento_tipo, "body": "", "url": "/", "nivel": "N3", "sonido": None}
+    # zClaude-97p: nivel/sonido por defecto del catálogo (overridables en disparar_evento)
+    base = {"nivel": cfg.get("nivel", "N3"), "sonido": cfg.get("sonido")}
     try:
         return {
             "titulo": cfg["titulo_template"].format(**payload),
             "body": cfg["body_template"].format(**payload),
             "url": cfg["url_template"].format(**payload),
+            **base,
         }
     except (KeyError, ValueError, IndexError) as e:
         log.warning(f"[notif] Error formateando {evento_tipo}: {e}. Payload: {payload}")
-        return {"titulo": evento_tipo, "body": json.dumps(payload, default=str)[:140], "url": "/"}
+        return {"titulo": evento_tipo, "body": json.dumps(payload, default=str)[:140], "url": "/", **base}
 
 
 def _log(db: Session, organization_id: int, user_id: int, evento_tipo: str, categoria: str,
@@ -288,13 +300,15 @@ def _enviar_inmediato(db: Session, user_id: int, mensaje: dict, organization_id:
         return False
 
     try:
-        # push_service.enviar_push_member(db, member_id, mensaje, titulo, url) -> int (nº enviados)
+        # push_service.enviar_push_member(db, member_id, mensaje, titulo, url, nivel, sonido) -> int
         enviados = enviar_push_member(
             db=db,
             member_id=member[0],
             mensaje=mensaje["body"],
             titulo=mensaje["titulo"],
             url=mensaje.get("url", "/"),
+            nivel=mensaje.get("nivel", "N3"),
+            sonido=mensaje.get("sonido"),
         )
         if enviados and enviados > 0:
             _log(db, organization_id, user_id, evento_tipo, categoria, payload_hash, "push", "enviado")
@@ -334,6 +348,8 @@ def disparar_evento(
     payload: Dict[str, Any],
     actor_user_id: Optional[int] = None,
     destinatarios_extra_ids: Optional[List[int]] = None,
+    nivel: Optional[str] = None,       # zClaude-97p: override de nivel (N3/N4)
+    sonido: Optional[str] = None,      # zClaude-97p: override de sonido (mp3)
 ) -> Dict[str, int]:
     """
     Despacha un evento. Retorna estadísticas:
@@ -368,6 +384,10 @@ def disparar_evento(
 
     # 4. Construir mensaje
     mensaje = _construir_mensaje(evento_tipo, payload)
+    if nivel:
+        mensaje["nivel"] = nivel
+    if sonido:
+        mensaje["sonido"] = sonido
     payload_hash = _hash_payload(evento_tipo, payload)
 
     # 5. Para cada destinatario aplicar su config

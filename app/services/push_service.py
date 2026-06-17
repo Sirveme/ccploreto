@@ -166,9 +166,15 @@ def enviar_push_member(
     mensaje:   str,
     titulo:    str = "CCPL",
     url:       Optional[str] = None,
+    nivel:     str = "N3",          # zClaude-97p: el SW puede usarlo para requireInteraction
+    sonido:    Optional[str] = None,  # zClaude-97p: nombre del mp3 en /static/sounds/
 ) -> int:
     """
     Envía Push directamente por member_id (para directivos, cajeros, etc.)
+
+    zClaude-97p: `nivel` y `sonido` viajan en el payload de forma ADITIVA. Los
+    Service Workers antiguos los ignoran (retrocompatible); los nuevos pueden
+    usar nivel para requireInteraction y sonido para reproducir el mp3 al abrir.
     """
     from app.models import Device
 
@@ -192,6 +198,8 @@ def enviar_push_member(
                     "title": titulo,
                     "body":  mensaje,
                     "icon":  "/static/img/icon-192.png",
+                    "nivel": nivel,
+                    **({"sonido": sonido} if sonido else {}),
                     **({"url": url} if url else {}),
                 }),
                 vapid_private_key=VAPID_PRIVATE,
