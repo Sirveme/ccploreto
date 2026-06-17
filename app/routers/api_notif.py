@@ -210,3 +210,60 @@ async def listar_sonidos(member: Member = Depends(get_current_member)):
             {"archivo": "cumpleanos.mp3", "icono": "🎂", "descripcion": "Cumpleaños"},
         ]
     }
+
+
+# ── zClaude-97o-b Pieza A: toggles globales (sonido / modal) ─────────────────
+# Se persisten en una fila especial de notif_config con categoria = '__global__'.
+class ConfigGlobal(BaseModel):
+    sonido_activado: Optional[bool] = None
+    modal_activado: Optional[bool] = None
+
+
+@router.get("/config-global")
+async def get_config_global(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    row = db.execute(text("""
+        SELECT sonido_activado, modal_activado
+        FROM notif_config
+        WHERE user_id = :uid AND categoria = '__global__'
+    """), {"uid": member.user_id}).fetchone()
+    if row:
+        return {
+            "sonido_activado": row[0] if row[0] is not None else True,
+            "modal_activado": row[1] if row[1] is not None else True,
+        }
+    return {"sonido_activado": True, "modal_activado": True}
+
+
+@router.put("/config-global")
+async def update_config_global(
+    payload: ConfigGlobal,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    sets = []
+    params = {"uid": member.user_id}
+
+    if payload.sonido_activado is not None:
+        sets.append("sonido_activado = :s")
+        params["s"] = payload.sonido_activado
+    if payload.modal_activado is not None:
+        sets.append("modal_activado = :m")
+        params["m"] = payload.modal_activado
+
+    if not sets:
+        return {"ok": True}
+
+    db.execute(text(f"""
+        INSERT INTO notif_config (user_id, categoria, activo, modo, sonido_activado, modal_activado, created_at, updated_at)
+        VALUES (:uid, '__global__', TRUE, 'inmediato', :s_default, :m_default, NOW(), NOW())
+        ON CONFLICT (user_id, categoria) DO UPDATE SET
+            {', '.join(sets)},
+            updated_at = NOW()
+    """), {**params,
+           "s_default": payload.sonido_activado if payload.sonido_activado is not None else True,
+           "m_default": payload.modal_activado if payload.modal_activado is not None else True})
+    db.commit()
+    return {"ok": True}
