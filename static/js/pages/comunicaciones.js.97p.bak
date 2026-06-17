@@ -386,19 +386,8 @@ const ComUI = (() => {
         document.querySelectorAll('.comp-tipo-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('comp-tipo-val').value=t;
-        // zClaude-97p: evento y asamblea comparten fecha+lugar; asamblea suma sus campos.
         const ef=document.getElementById('comp-evento-fields');
-        if(ef) ef.style.display=(t==='evento'||t==='asamblea')?'block':'none';
-        const af=document.getElementById('comp-asamblea-fields');
-        if(af) af.style.display=(t==='asamblea')?'block':'none';
-        if(t==='asamblea') toggleLinkVirtual();
-    }
-
-    // zClaude-97p: el link de Facebook solo aplica a modalidad híbrida o virtual.
-    function toggleLinkVirtual() {
-        const mod=document.getElementById('comp-asamblea-modalidad')?.value;
-        const wrap=document.getElementById('comp-asamblea-link-wrapper');
-        if(wrap) wrap.style.display=(mod==='hibrida'||mod==='virtual')?'block':'none';
+        if(ef) ef.style.display=t==='evento'?'block':'none';
     }
 
     function selPrior(p,btn) {
@@ -543,20 +532,6 @@ const ComUI = (() => {
         if(!titulo)   { feedback('El título es obligatorio','error'); return; }
         if(!contenido){ feedback('El mensaje es obligatorio','error'); return; }
 
-        // zClaude-97p — datos de asamblea
-        let asamblea = {};
-        if(tipo==='asamblea'){
-            const modalidad =document.getElementById('comp-asamblea-modalidad')?.value||'hibrida';
-            const plantilla =document.getElementById('comp-asamblea-plantilla')?.value||'T7';
-            const linkV     =document.getElementById('comp-asamblea-link')?.value.trim()||null;
-            const quorum    =parseInt(document.getElementById('comp-asamblea-quorum')?.value||'30',10);
-            const obligat   =document.getElementById('comp-asamblea-obligatoria')?.checked;
-            if(!fechaEv){ feedback('La asamblea requiere fecha y hora','error'); return; }
-            if(!lugar)  { feedback('La asamblea requiere indicar el lugar','error'); return; }
-            asamblea={ modalidad, plantilla_botones:plantilla, link_virtual:linkV,
-                       quorum_minimo:isNaN(quorum)?30:quorum, obligatoria:!!obligat };
-        }
-
         const btn=document.getElementById('comp-btn-enviar');
         btn.disabled=true;
         btn.innerHTML='<i class="ph ph-spinner"></i> Publicando...';
@@ -574,7 +549,6 @@ const ComUI = (() => {
                     requiere_confirmacion:reqConf||false,
                     genera_multa:multa||false,
                     target_criteria:{segmento},
-                    ...asamblea,
                 }),
             });
             const d=await r.json();
@@ -675,7 +649,7 @@ const ComUI = (() => {
         filtrar, cargar,
         abrirDetalle, cerrarDetalle,
         abrirCompositor, cerrarCompositor,
-        selTipo, selPrior, selSeg, selMedia, toggleLinkVirtual,
+        selTipo, selPrior, selSeg, selMedia,
         convertirYoutube, previewImgUrl, limpiarMedia,
         cargarImagen, soltarImagen,
         enviar, likeCard, compartir, iniciarChat,
