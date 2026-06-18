@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Asistencia — {{ titulo }}</title>
+  <style>
+    :root{--bg:#0b1220;--card:#1e293b;--mut:#94a3b8;--gold:#fbbf24;--gr:#10b981;--bl:#3b82f6;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:#e2e8f0;}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px;}
+    h1{color:var(--gold);font-size:20px;margin:0 0 2px;}
+    .sub{color:var(--mut);font-size:13px;margin-bottom:18px;}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+    .card{background:var(--card);border-radius:12px;padding:14px;border-left:3px solid var(--bl);}
+    .card .n{font-size:26px;font-weight:800;}
+    .card .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+    .card.ok{border-color:var(--gr);}.card.go{border-color:var(--gold);}
+    .quorum{padding:12px 16px;border-radius:10px;margin-bottom:18px;font-weight:700;}
+    .quorum.si{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+    .quorum.no{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+    input,select,button{font-size:14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;padding:9px 12px;}
+    button{cursor:pointer;border:none;}
+    .btn-exp{background:var(--gr);color:#fff;font-weight:600;}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #1e293b;}
+    th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+    .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;}
+    .tag.pres{background:rgba(16,185,129,.15);color:#34d399;}
+    .tag.virt{background:rgba(59,130,246,.15);color:#60a5fa;}
+    .tag.dud{background:rgba(245,158,11,.15);color:var(--gold);}
+    .tag.no{background:rgba(148,163,184,.15);color:var(--mut);}
+    .mark{background:var(--bl);color:#fff;padding:6px 10px;font-size:12px;font-weight:600;}
+    .empty{color:var(--mut);text-align:center;padding:30px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏛️ {{ titulo }}</h1>
+    <div class="sub">{{ lugar or '' }} · Quórum mínimo: {{ quorum_minimo }}</div>
+
+    {% if qr_token %}
+    <div style="background:#1e293b;border-radius:12px;padding:18px;margin-bottom:18px;
+                display:flex;gap:18px;flex-wrap:wrap;align-items:center;border-left:3px solid #fbbf24;">
+      <canvas id="qr-canvas" style="background:#fff;border-radius:8px;padding:8px;width:160px;height:160px;"></canvas>
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:.5px;">
+          🎫 Código QR de asistencia
+        </div>
+        <div style="font-size:12px;color:#94a3b8;margin:8px 0;word-break:break-all;">
+          <code id="qr-url">{{ qr_url }}</code>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <button onclick="copiarUrl()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;
+                  padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer;">📋 Copiar URL</button>
+          <button onclick="descargarQR()" style="background:#10b981;color:#fff;border:none;border-radius:8px;
+                  padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer;">⬇ Descargar PNG</button>
+        </div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">
+          Imprime y pega en la entrada del CCPL.<br>
+          Vigente desde <strong>1 h antes</strong> hasta <strong>2 h después</strong> de la asamblea.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="cards" id="cards"></div>
+    <div id="quorum-box"></div>
+
+    <div class="toolbar">
+      <input id="q" placeholder="Buscar por nombre, DNI o matrícula…" style="flex:1;min-width:220px;">
+      <select id="estado">
+        <option value="">Interactuaron</option>
+        <option value="asistieron">Solo asistieron</option>
+        <option value="respondieron">Solo respondieron</option>
+        <option value="sin_responder">Sin responder</option>
+      </select>
+      <button class="btn-exp" onclick="exportar()">⬇ Exportar CSV</button>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>Colegiado</th><th>DNI</th><th>Matrícula</th>
+        <th>Respuesta</th><th>Asistencia</th><th>Método</th><th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none">Sin registros.</div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+const BID = {{ bulletin_id|int }};
+const QUORUM = {{ quorum_minimo|int }};
+const QR_URL = {{ qr_url|tojson }};
+
+// zClaude-97p (resto): generar el QR en el canvas a partir de la URL pública.
+function generarQR(){
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas || !QR_URL || typeof QRCode === 'undefined') return;
+  QRCode.toCanvas(canvas, QR_URL, { width: 160, margin: 1 }, (err) => {
+    if (err) console.error('[QR]', err);
+  });
+}
+function copiarUrl(){
+  if (!QR_URL) return;
+  navigator.clipboard?.writeText(QR_URL)
+    .then(() => toast('📋 URL copiada'))
+    .catch(() => toast('No se pudo copiar', true));
+}
+function descargarQR(){
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `qr_asamblea_${BID}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, 'image/png');
+}
+
+function card(n,l,cls){ return `<div class="card ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div></div>`; }
+
+function toast(msg,err){
+  let t=document.getElementById('adm-toast');
+  if(!t){ t=document.createElement('div'); t.id='adm-toast';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;'
+      +'padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.4);';
+    document.body.appendChild(t); }
+  t.style.background=err?'#dc2626':'#059669'; t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',3500);
+}
+
+async function cargar(){
+  const q = document.getElementById('q').value.trim();
+  const estado = document.getElementById('estado').value;
+  const url = `/admin/asambleas/${BID}/asistencia/data?q=${encodeURIComponent(q)}&estado=${estado}`;
+  let d;
+  try { const r = await fetch(url); d = await r.json(); } catch(e){ return; }
+  if (d.error){ document.getElementById('tbody').innerHTML=''; return; }
+
+  const s = d.resumen;
+  document.getElementById('cards').innerHTML =
+    card(s.asistieron,'Asistieron','ok') +
+    card(s.presenciales,'Presenciales') +
+    card(s.virtuales,'Virtuales') +
+    card(s.confirmados,'Confirmaron') +
+    card(s.asumen_mayoria,'Asumen mayoría','go') +
+    card(s.no_respondieron,'No respondieron') +
+    card(s.dudosos,'GPS dudosos','go');
+
+  const qb = document.getElementById('quorum-box');
+  if (QUORUM > 0){
+    const ok = s.asistieron >= QUORUM;
+    qb.innerHTML = `<div class="quorum ${ok?'si':'no'}">${ok?'✅':'⚠️'} Asistencia real: ${s.asistieron} / quórum ${QUORUM}${ok?' — quórum alcanzado':` — faltan ${QUORUM - s.asistieron}`}</div>`;
+  } else qb.innerHTML='';
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  document.getElementById('empty').style.display = d.filas.length ? 'none' : 'block';
+  d.filas.forEach(f => {
+    const resp = f.respuesta ? `<span class="tag no">${f.respuesta}</span>` : '<span class="tag no">—</span>';
+    let asis = '<span class="tag no">—</span>';
+    if (f.asistio_real){
+      const cls = f.tipo_asistencia==='virtual' ? 'virt' : 'pres';
+      asis = `<span class="tag ${cls}">${f.tipo_asistencia||'presente'}</span>`;
+      if (f.dudoso) asis += ' <span class="tag dud">dudoso</span>';
+    }
+    const met = f.metodo ? f.metodo + (f.distancia_m!=null?` (${Math.round(f.distancia_m)}m)`:'') : '';
+    const mark = f.asistio_real ? '' :
+      `<button class="mark" onclick="marcar(${f.colegiado_id},'${(f.nombre||'').replace(/'/g,'')}')">Marcar presente</button>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${f.nombre||''}${f.condicion==='vitalicio'?' <span class="tag go">vitalicio</span>':''}</td>
+      <td>${f.dni||''}</td><td>${f.matricula||''}</td>
+      <td>${resp}</td><td>${asis}</td><td>${met}</td><td>${mark}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function marcar(colegiadoId, nombre){
+  try {
+    const r = await fetch(`/admin/asambleas/${BID}/asistencia/manual`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ colegiado_id: colegiadoId, tipo_asistencia:'presencial',
+                             notas:'Marcado manual desde panel' }),
+    });
+    const d = await r.json();
+    if (d.ok){ toast('✅ Asistencia registrada'); cargar(); } else toast(d.error||'No se pudo marcar', true);
+  } catch(e){ toast('Error de conexión', true); }
+}
+
+function exportar(){ window.location.href = `/admin/asambleas/${BID}/asistencia/export`; }
+
+let _t;
+document.getElementById('q').addEventListener('input', ()=>{ clearTimeout(_t); _t=setTimeout(cargar,350); });
+document.getElementById('estado').addEventListener('change', cargar);
+cargar();
+generarQR();
+</script>
+</body>
+</html>

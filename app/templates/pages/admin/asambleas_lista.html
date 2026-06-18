@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Asambleas — Admin CCPL</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1220;color:#e2e8f0;}
+    .wrap{max-width:960px;margin:0 auto;padding:20px;}
+    .top a{color:#60a5fa;text-decoration:none;font-size:14px;}
+    h1{color:#fbbf24;font-size:21px;margin:6px 0 18px;}
+    table{width:100%;border-collapse:collapse;font-size:14px;}
+    th,td{text-align:left;padding:11px 12px;border-bottom:1px solid #1e293b;}
+    th{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+    tr.row{cursor:pointer;transition:background .12s;}
+    tr.row:hover{background:#16213a;}
+    .mod{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;
+         background:rgba(59,130,246,.15);color:#60a5fa;}
+    .num{font-weight:700;}
+    .empty{color:#64748b;text-align:center;padding:36px;}
+    .badge-prox{color:#34d399;font-size:11px;font-weight:700;}
+    .badge-pas{color:#94a3b8;font-size:11px;font-weight:700;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="/admin">← Admin</a></div>
+    <h1>📅 Asambleas</h1>
+
+    {% if asambleas %}
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Título</th><th>Modalidad</th>
+        <th>Confirmados</th><th>Presentes</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for a in asambleas %}
+        <tr class="row" onclick="location.href='/admin/asambleas/{{ a.id }}/asistencia'">
+          <td>
+            <span id="f{{ a.id }}">—</span>
+            <script>(function(){var d="{{ a.fecha_evento or '' }}";if(d){var x=new Date(d);
+              document.getElementById("f{{ a.id }}").textContent=x.toLocaleString('es-PE',
+              {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+              document.getElementById("b{{ a.id }}").textContent = x>new Date()?'Próxima':'Pasada';
+              document.getElementById("b{{ a.id }}").className = x>new Date()?'badge-prox':'badge-pas';}})();</script>
+          </td>
+          <td>{{ a.titulo }} <span id="b{{ a.id }}"></span></td>
+          <td><span class="mod">{{ a.modalidad or '—' }}</span></td>
+          <td class="num">{{ a.confirmados }}</td>
+          <td class="num">{{ a.presentes }}</td>
+          <td style="color:#60a5fa;">Ver asistencia →</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No hay asambleas registradas todavía.</div>
+    {% endif %}
+  </div>
+</body>
+</html>
