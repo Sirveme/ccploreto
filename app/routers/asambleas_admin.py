@@ -73,6 +73,42 @@ def _resumen(db: Session, bid: int, org: int) -> dict:
     }
 
 
+@router.get("")
+async def lista_asambleas(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Lista todas las asambleas (próximas + pasadas) con conteos rápidos."""
+    if not _check_rol(member):
+        return JSONResponse({"error": "Sin permiso"}, status_code=403)
+    rows = db.execute(text("""
+        SELECT b.id, b.title, b.fecha_evento, b.modalidad,
+               COUNT(aa.id) FILTER (WHERE aa.respuesta IN ('asistire','presencial','virtual')) AS confirmados,
+               COUNT(aa.id) FILTER (WHERE aa.asistio_real) AS presentes
+        FROM bulletins b
+        LEFT JOIN asistencia_asamblea aa ON aa.bulletin_id = b.id
+        WHERE b.tipo = 'asamblea' AND b.organization_id = :org
+        GROUP BY b.id, b.title, b.fecha_evento, b.modalidad
+        ORDER BY b.fecha_evento DESC NULLS LAST
+    """), {"org": member.organization_id}).fetchall()
+    asambleas = [{
+        "id": r.id,
+        "titulo": r.title,
+        "fecha_evento": r.fecha_evento.isoformat() if r.fecha_evento else None,
+        "modalidad": r.modalidad,
+        "confirmados": r.confirmados or 0,
+        "presentes": r.presentes or 0,
+    } for r in rows]
+    return templates.TemplateResponse("pages/admin/asambleas_lista.html", {
+        "request": request,
+        "member": member,
+        "asambleas": asambleas,
+        "org": getattr(request.state, "org", {}),
+        "theme": getattr(request.state, "theme", None),
+    })
+
+
 @router.get("/{bulletin_id}/asistencia")
 async def pagina_asistencia(
     bulletin_id: int,
@@ -85,6 +121,14 @@ async def pagina_asistencia(
     a = _asamblea(db, bulletin_id, member.organization_id)
     if not a:
         return JSONResponse({"error": "Asamblea no encontrada"}, status_code=404)
+    # zClaude-97p (resto): token QR (1 por asamblea) para imprimir en la entrada.
+    tk = db.execute(text("""
+        SELECT token FROM asamblea_qr_tokens
+        WHERE bulletin_id = :bid AND organization_id = :org
+        ORDER BY created_at DESC LIMIT 1
+    """), {"bid": bulletin_id, "org": member.organization_id}).fetchone()
+    qr_token = tk.token if tk else ""
+    qr_url = f"https://ccploreto.org.pe/asistir/{qr_token}" if qr_token else ""
     return templates.TemplateResponse("pages/admin/asamblea_asistencia.html", {
         "request": request,
         "member": member,
@@ -93,6 +137,8 @@ async def pagina_asistencia(
         "lugar": a.lugar_evento,
         "quorum_minimo": a.quorum_minimo or 0,
         "fecha_evento": a.fecha_evento.isoformat() if a.fecha_evento else "",
+        "qr_token": qr_token,
+        "qr_url": qr_url,
         "org": getattr(request.state, "org", {}),
         "theme": getattr(request.state, "theme", None),
     })
