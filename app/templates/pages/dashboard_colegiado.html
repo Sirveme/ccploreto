@@ -157,6 +157,11 @@
                 <span class="option-label">Votar</span>
             </div>
             {% endif %}
+            {# zClaude-97p — acceso a Mis Asambleas #}
+            <div class="option-card" onclick="location.href='/mis-asambleas'">
+                <div class="option-icon gold"><i class="ph ph-calendar-check"></i></div>
+                <span class="option-label">Asambleas</span>
+            </div>
             {% if config.modules.convenios %}
             <div class="option-card" onclick="abrirModalLazy('modal-convenios')">
                 <div class="option-icon teal"><i class="ph ph-handshake"></i></div>

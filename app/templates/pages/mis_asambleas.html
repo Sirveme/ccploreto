@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Mis Asambleas — CCPL</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1220;color:#e2e8f0;}
+    .wrap{max-width:620px;margin:0 auto;padding:20px;}
+    .top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+    .top a{color:#60a5fa;text-decoration:none;font-size:14px;}
+    h1{color:#fbbf24;font-size:21px;margin:0 0 18px;}
+    .sec-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;
+               letter-spacing:.6px;margin:22px 0 10px;border-bottom:1px solid #1e293b;padding-bottom:6px;}
+    .card{background:#1e293b;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;
+          border-left:3px solid #3b82f6;transition:filter .15s;}
+    .card:hover{filter:brightness(1.12);}
+    .card .t{font-weight:700;font-size:15px;color:#fbbf24;}
+    .card .m{font-size:13px;color:#cbd5e1;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-top:8px;}
+    .b-yellow{background:rgba(245,158,11,.16);color:#fbbf24;}
+    .b-green{background:rgba(16,185,129,.16);color:#34d399;}
+    .b-blue{background:rgba(59,130,246,.16);color:#60a5fa;}
+    .b-cyan{background:rgba(34,211,238,.16);color:#22d3ee;}
+    .b-orange{background:rgba(249,115,22,.16);color:#fb923c;}
+    .b-red{background:rgba(239,68,68,.16);color:#f87171;}
+    .b-gray{background:rgba(148,163,184,.16);color:#94a3b8;}
+    .empty{color:#64748b;font-size:13px;padding:14px 4px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="/dashboard">← Inicio</a></div>
+    <h1>📅 Mis Asambleas</h1>
+
+    <div class="sec-title">Próximas</div>
+    <div id="proximas"><div class="empty">Cargando…</div></div>
+
+    <div class="sec-title">Últimas 5 pasadas</div>
+    <div id="pasadas"><div class="empty">Cargando…</div></div>
+  </div>
+
+<script>
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmtFecha(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleString('es-PE',{weekday:'short',day:'numeric',month:'short',
+    year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function badgeProxima(a){
+  switch(a.respuesta){
+    case 'asistire':      return '<span class="badge b-green">Asistiré</span>';
+    case 'presencial':    return '<span class="badge b-green">Iré presencial</span>';
+    case 'virtual':       return '<span class="badge b-cyan">Iré virtual</span>';
+    case 'asumo_mayoria': return '<span class="badge b-blue">Asumo decisión de mayoría</span>';
+    case 'no_podre':      return '<span class="badge b-red">No podré</span>';
+    case 'recordarme_luego': return '<span class="badge b-yellow">Recordarme luego</span>';
+    default:              return '<span class="badge b-yellow">Sin responder</span>';
+  }
+}
+
+function badgePasada(a){
+  if(a.asistio_real){
+    if(a.tipo_asistencia==='virtual') return '<span class="badge b-blue">Virtual</span>';
+    return '<span class="badge b-green">Presente</span>';
+  }
+  if(a.respuesta==='asumo_mayoria') return '<span class="badge b-orange">Asumió mayoría</span>';
+  return '<span class="badge b-gray">Ausente</span>';
+}
+
+function modalidadTxt(m){
+  if(m==='hibrida') return 'Presencial + Virtual';
+  if(m==='virtual') return 'Virtual';
+  if(m==='presencial') return 'Presencial';
+  return '';
+}
+
+function card(a, badge){
+  const mod = modalidadTxt(a.modalidad);
+  return `<div class="card" onclick="location.href='/asambleas/${a.id}'">
+      <div class="t">${esc(a.titulo)}</div>
+      <div class="m">🕐 ${fmtFecha(a.fecha_evento)}</div>
+      <div class="m">📍 ${esc(a.lugar)||'—'}${mod?` · 📺 ${mod}`:''}</div>
+      ${badge}
+    </div>`;
+}
+
+(async function(){
+  let d;
+  try { const r = await fetch('/api/mis-asambleas'); d = await r.json(); }
+  catch(e){ document.getElementById('proximas').innerHTML='<div class="empty">Error de conexión.</div>'; return; }
+
+  const prox = document.getElementById('proximas');
+  prox.innerHTML = d.proximas.length
+    ? d.proximas.map(a => card(a, badgeProxima(a))).join('')
+    : '<div class="empty">No tienes asambleas próximas.</div>';
+
+  const pas = document.getElementById('pasadas');
+  pas.innerHTML = d.pasadas.length
+    ? d.pasadas.map(a => card(a, badgePasada(a))).join('')
+    : '<div class="empty">Aún no hay asambleas pasadas.</div>';
+})();
+</script>
+</body>
+</html>
