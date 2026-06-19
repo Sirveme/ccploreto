@@ -389,15 +389,6 @@
                 endpoint: sub.endpoint,
                 p256dh:   p256dh,
                 auth:     authB64,
-                // zZClaud-fix-VAPID (aditivo): backfill de huella en el re-sync de
-                // suscripciones YA existentes. No pide permiso (no cambia el gating);
-                // solo rellena metadata que antes quedaba vacía en celular.
-                platform:          navigator.platform || null,
-                timezone:          (Intl.DateTimeFormat().resolvedOptions().timeZone) || null,
-                is_pwa:            window.matchMedia('(display-mode: standalone)').matches
-                                   || window.navigator.standalone === true,
-                user_agent:        navigator.userAgent || null,
-                permission_status: (typeof Notification !== 'undefined') ? Notification.permission : null,
             })
         });
     }
