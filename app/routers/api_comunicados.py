@@ -377,15 +377,31 @@ class PushSubscripcion(BaseModel):
     endpoint: str
     p256dh:   str
     auth:     str
+    # zZClaud-fix-VAPID (aditivo): huella opcional del dispositivo. Devices viejos
+    # y payloads que no envíen estos campos siguen funcionando: quedan NULL.
+    platform:          Optional[str]  = None
+    timezone:          Optional[str]  = None
+    is_pwa:            Optional[bool] = None
+    user_agent:        Optional[str]  = None
+    permission_status: Optional[str]  = None
 
 @router.post("/push/registrar")
 async def registrar_push(
     data: PushSubscripcion,
+    request: Request,
     member: Member = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    """Guarda o actualiza la suscripción push del dispositivo."""
+    """Guarda o actualiza la suscripción push del dispositivo.
+
+    zZClaud-fix-VAPID: persiste metadata (platform/timezone/is_pwa/user_agent/
+    permission_status) de forma ADITIVA. La firma sigue siendo compatible: si el
+    payload no trae esos campos, no se sobreescribe metadata previa (no se borra).
+    """
     from app.models import Device
+
+    # user_agent: preferir el del payload; si no viene, usar el del header.
+    ua = data.user_agent or request.headers.get("user-agent")
 
     device = db.query(Device).filter(
         Device.push_endpoint == data.endpoint,
@@ -396,6 +412,13 @@ async def registrar_push(
         device.push_auth   = data.auth
         device.member_id   = member.id
         device.is_active   = True
+        # Aditivo: solo sobreescribir cuando el valor viene (no borrar lo previo).
+        if data.platform is not None:          device.platform          = data.platform
+        if data.timezone is not None:          device.timezone          = data.timezone
+        if data.is_pwa is not None:            device.is_pwa            = data.is_pwa
+        if data.permission_status is not None: device.permission_status = data.permission_status
+        if ua:                                 device.user_agent        = ua
+        device.last_seen = datetime.now(timezone.utc)
     else:
         device = Device(
             member_id     = member.id,
@@ -403,6 +426,11 @@ async def registrar_push(
             push_p256dh   = data.p256dh,
             push_auth     = data.auth,
             is_active     = True,
+            platform          = data.platform,
+            timezone          = data.timezone,
+            is_pwa            = data.is_pwa if data.is_pwa is not None else False,
+            user_agent        = ua,
+            permission_status = data.permission_status,
         )
         db.add(device)
 
