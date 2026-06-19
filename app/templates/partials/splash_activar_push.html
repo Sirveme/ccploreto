@@ -210,6 +210,17 @@ document.getElementById('splash-push-activar')?.addEventListener('click', async 
     });
 
     const subJson = sub.toJSON();
+    // zZClaud-fix-VAPID (aditivo): huella del dispositivo. No cambia el gating
+    // —seguimos dentro del gesto del botón "Activar ahora"—, solo enriquece el
+    // registro para que platform/permission_status no queden vacíos en celular.
+    const fp = {
+      platform: navigator.platform || null,
+      timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || null,
+      is_pwa: window.matchMedia('(display-mode: standalone)').matches
+              || window.navigator.standalone === true,
+      user_agent: navigator.userAgent || null,
+      permission_status: Notification.permission,
+    };
     await fetch('/api/comunicados/push/registrar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -217,6 +228,11 @@ document.getElementById('splash-push-activar')?.addEventListener('click', async 
         endpoint: subJson.endpoint,
         p256dh: subJson.keys.p256dh,
         auth: subJson.keys.auth,
+        platform: fp.platform,
+        timezone: fp.timezone,
+        is_pwa: fp.is_pwa,
+        user_agent: fp.user_agent,
+        permission_status: fp.permission_status,
       }),
     });
 
