@@ -1,0 +1,121 @@
+{% extends "base_admin.html" %}
+{% block title %}{{ periodo_label }} — Aporte JDCCPP{% endblock %}
+
+{% block extra_css %}
+<style>
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+  .back { color:#60a5fa; text-decoration:none; font-size:13px; display:inline-flex; align-items:center; gap:6px; margin-bottom:16px; }
+  .head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+  .head h1 { font-size:20px; font-weight:700; color:#f8fafc; }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+  .pill-abierto { background:rgba(234,179,8,.15); color:#fbbf24; }
+  .pill-cerrado { background:rgba(34,197,94,.15); color:#4ade80; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:8px; font-size:13px; font-weight:600; border:none; cursor:pointer; }
+  .btn-primary { background:#2563eb; color:#fff; } .btn-primary:hover { background:#1d4ed8; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .resumen { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:20px; margin-bottom:16px; }
+  .resumen .line { display:flex; justify-content:space-between; padding:7px 0; font-size:14px; }
+  .resumen .line .k { color:#94a3b8; } .resumen .line .sub { color:#64748b; font-size:12px; }
+  .resumen .total { border-top:2px solid #334155; margin-top:8px; padding-top:12px; font-size:18px; font-weight:700; color:#f8fafc; }
+  .alerta { background:rgba(239,68,68,.1); border-left:3px solid #ef4444; padding:12px 14px; border-radius:6px; margin-bottom:16px; font-size:13px; color:#fca5a5; }
+  table { width:100%; border-collapse:collapse; background:#0f172a; border:1px solid #1e293b; border-radius:12px; overflow:hidden; }
+  th, td { padding:10px 12px; text-align:left; font-size:13px; border-bottom:1px solid #1e293b; }
+  th { background:#111827; color:#94a3b8; font-size:11px; text-transform:uppercase; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .origen { font-size:11px; padding:2px 7px; border-radius:999px; }
+  .o-auto { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .o-manual { background:rgba(168,85,247,.15); color:#c084fc; }
+  .o-hist { background:rgba(148,163,184,.15); color:#cbd5e1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <a href="/admin/aportes" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
+  <div class="head">
+    <h1>Aporte mensual a JDCCPP — {{ periodo_label }}</h1>
+    {% if periodo.estado == 'cerrado' %}<span class="pill pill-cerrado"><i class="ph ph-check-circle"></i> Cerrado{% if periodo.cerrado_en %} {{ periodo.cerrado_en.strftime('%d/%m/%Y') }}{% endif %}</span>
+    {% else %}
+      <span class="pill pill-abierto"><i class="ph ph-clock"></i> Abierto</span>
+      <button class="btn btn-primary" id="btn-recalcular" onclick="recalcular({{ periodo.id }})"><i class="ph ph-arrows-clockwise"></i> Recalcular</button>
+    {% endif %}
+  </div>
+
+  <div class="resumen">
+    <div class="line"><span class="k">Total cuotas ordinarias miembros hábiles<br><span class="sub">{{ periodo.cantidad_habiles }} hábiles × S/ {{ '%.2f'|format(periodo.monto_habiles / periodo.cantidad_habiles if periodo.cantidad_habiles else 0) }}</span></span><span>S/ {{ '%.2f'|format(periodo.monto_habiles or 0) }}</span></div>
+    <div class="line"><span class="k">Total nuevos colegiados<br><span class="sub">{{ periodo.cantidad_nuevos }} nuevos registrados</span></span><span>S/ {{ '%.2f'|format(periodo.monto_nuevos or 0) }}</span></div>
+    <div class="line total"><span>TOTAL A DEPOSITAR A JDCCPP</span><span>S/ {{ '%.2f'|format(periodo.monto_total or 0) }}</span></div>
+  </div>
+
+  {% if alertas %}
+  <div class="alerta">
+    <strong>⚠ {{ alertas|length }} colegiado(s) nuevo(s) con alta en este periodo pero sin pago de DER-COL registrado.</strong>
+    Si pagaron, regístralos antes del cierre para que entren en este reporte (pantalla "Registrar Aporte por Nuevo Colegiado", próximamente).
+    <ul style="margin:8px 0 0 18px;">
+      {% for a in alertas %}<li>{{ a.mensaje }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if periodo.deposito_id %}
+  <div class="resumen" style="border-color:#166534;">
+    <div class="line"><span class="k">Depósito registrado</span><span style="color:#4ade80;">✓ S/ {{ '%.2f'|format(periodo.deposito_monto or 0) }}</span></div>
+    <div class="line"><span class="k">Voucher</span><span>{{ periodo.numero_voucher or '—' }} · {{ periodo.banco_emisor or '' }}</span></div>
+    {% if periodo.fecha_deposito %}<div class="line"><span class="k">Fecha</span><span>{{ periodo.fecha_deposito.strftime('%d/%m/%Y') }}</span></div>{% endif %}
+  </div>
+  {% endif %}
+
+  <h2 style="font-size:13px;text-transform:uppercase;color:#94a3b8;margin:18px 0 10px;">Detalle nominal de nuevos</h2>
+  {% if nuevos %}
+  <table>
+    <thead><tr>
+      <th>#</th><th>Matrícula</th><th>Apellidos y Nombres</th><th>DNI</th>
+      <th>F. Pago DER-COL</th><th>F. Alta</th><th>Origen</th><th class="num">Monto</th>
+    </tr></thead>
+    <tbody>
+      {% for n in nuevos %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ n.codigo_matricula or '—' }}</td>
+        <td>{{ n.apellidos_nombres }}</td>
+        <td>{{ n.dni or '—' }}</td>
+        <td>{{ n.fecha_pago_der_col.strftime('%d/%m/%Y') if n.fecha_pago_der_col else '—' }}</td>
+        <td>{{ n.fecha_colegiatura.strftime('%d/%m/%Y') if n.fecha_colegiatura else '—' }}</td>
+        <td>
+          {% if n.fuente_registro == 'pago_automatico' %}<span class="origen o-auto">🤖 Automático</span>
+          {% elif n.fuente_registro == 'manual_caja' %}<span class="origen o-manual">✋ Manual</span>
+          {% else %}<span class="origen o-hist">📜 Histórico</span>{% endif %}
+        </td>
+        <td class="num">S/ {{ '%.2f'|format(n.monto_aporte or 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#64748b;padding:20px 0;">Sin nuevos colegiados registrados en este periodo.</p>
+  {% endif %}
+
+  {% include "partials/aportes_footer.html" %}
+</div>
+
+<script>
+async function recalcular(pid) {
+  const btn = document.getElementById('btn-recalcular');
+  btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> Recalculando...';
+  try {
+    const r = await fetch(`/admin/aportes/periodo/${pid}/recalcular`, { method: 'POST' });
+    const data = await r.json();
+    if (data.ok) {
+      if (window.Toast) Toast.show('Periodo recalculado', 'success');
+      setTimeout(() => location.reload(), 600);
+    } else {
+      if (window.Toast) Toast.show(data.error || 'No se pudo recalcular', 'error');
+      btn.disabled = false; btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Recalcular';
+    }
+  } catch (e) {
+    if (window.Toast) Toast.show('Error de red', 'error');
+    btn.disabled = false; btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Recalcular';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base_admin.html" %}
+{% block title %}Aportes a la JDCCPP — CCPL{% endblock %}
+
+{% block extra_css %}
+<style>
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+  .head h1 { font-size:22px; font-weight:700; color:#f8fafc; display:flex; align-items:center; gap:10px; }
+  .head .sub { color:#94a3b8; font-size:13px; margin-top:4px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:8px;
+         font-size:13px; font-weight:600; text-decoration:none; border:none; cursor:pointer; }
+  .btn-ghost { background:#1e293b; color:#cbd5e1; }
+  .btn-ghost:hover { background:#334155; }
+  table { width:100%; border-collapse:collapse; background:#0f172a; border:1px solid #1e293b; border-radius:12px; overflow:hidden; }
+  th, td { padding:12px 14px; text-align:left; font-size:13px; border-bottom:1px solid #1e293b; }
+  th { background:#111827; color:#94a3b8; font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.04em; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tr:hover td { background:#111827; }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+  .pill-abierto { background:rgba(234,179,8,.15); color:#fbbf24; }
+  .pill-cerrado { background:rgba(34,197,94,.15); color:#4ade80; }
+  .alert-chip { background:rgba(239,68,68,.15); color:#f87171; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .total { font-weight:700; color:#f8fafc; }
+  .link { color:#60a5fa; text-decoration:none; font-weight:600; }
+  .empty { text-align:center; color:#64748b; padding:40px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1><i class="ph ph-bank"></i> Aportes a la JDCCPP</h1>
+      <div class="sub">Reporte mensual de aportes del CCPL a la Junta de Decanos</div>
+    </div>
+    <a href="/admin/aportes/config" class="btn btn-ghost"><i class="ph ph-gear"></i> Configuración</a>
+  </div>
+
+  {% if periodos %}
+  <table>
+    <thead>
+      <tr>
+        <th>Mes</th><th>Estado</th>
+        <th class="num">Nuevos</th><th class="num">Aporte Nuevos</th>
+        <th class="num">Hábiles</th><th class="num">Aporte Hábiles</th>
+        <th class="num">TOTAL</th><th>Depósito</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in periodos %}
+      <tr>
+        <td><a class="link" href="/admin/aportes/periodo/{{ p.id }}">{{ p.periodo_label }}</a>
+          {% if p.alertas %}<br><span class="alert-chip" title="Nuevos sin pago registrado">⚠ {{ p.alertas }} sin pago</span>{% endif %}
+        </td>
+        <td>
+          {% if p.estado == 'cerrado' %}<span class="pill pill-cerrado"><i class="ph ph-check-circle"></i> Cerrado</span>
+          {% else %}<span class="pill pill-abierto"><i class="ph ph-clock"></i> Abierto</span>{% endif %}
+        </td>
+        <td class="num">{{ p.cantidad_nuevos }}</td>
+        <td class="num">S/ {{ '%.2f'|format(p.monto_nuevos) }}</td>
+        <td class="num">{{ p.cantidad_habiles }}</td>
+        <td class="num">S/ {{ '%.2f'|format(p.monto_habiles) }}</td>
+        <td class="num total">S/ {{ '%.2f'|format(p.monto_total) }}</td>
+        <td>
+          {% if p.tiene_deposito %}<span style="color:#4ade80;">✓ {{ p.numero_voucher or 'Registrado' }}</span>
+          {% else %}<span style="color:#64748b;">Pendiente</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <i class="ph ph-tray" style="font-size:42px;"></i>
+    <p style="margin-top:10px;">Aún no hay periodos. El cálculo automático crea el periodo del mes en curso cada noche.</p>
+  </div>
+  {% endif %}
+
+  {% include "partials/aportes_footer.html" %}
+</div>
+{% endblock %}
