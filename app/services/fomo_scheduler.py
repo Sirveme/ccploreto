@@ -38,8 +38,62 @@ def iniciar_scheduler():
             replace_existing=True,
             max_instances=1,
         )
+        # zClaude-aportes-junta: cierre por calendario (01:30) + recálculo (02:00).
+        # El cierre va antes del recálculo para que un periodo recién vencido no se
+        # recalcule el mismo día tras cerrarse.
+        scheduler.add_job(
+            cerrar_aportes_diario,
+            trigger=CronTrigger(hour=1, minute=30),
+            id="aportes_cierre_diario",
+            replace_existing=True,
+            max_instances=1,
+        )
+        scheduler.add_job(
+            recalcular_aportes_diario,
+            trigger=CronTrigger(hour=2, minute=0),
+            id="aportes_recalculo_diario",
+            replace_existing=True,
+            max_instances=1,
+        )
         scheduler.start()
-        logger.info("[FOMO] Scheduler iniciado — fomo 1h + resúmenes 1h + asambleas 30min")
+        logger.info("[FOMO] Scheduler iniciado — fomo 1h + resúmenes 1h + asambleas 30min "
+                    "+ aportes (cierre 01:30, recálculo 02:00)")
+
+
+# ══════════════════════════════════════════════════════════════
+# zClaude-aportes-junta — JOBS DE APORTES A LA JUNTA (JDCCPP)
+# Síncronos: el AsyncIOScheduler los corre en su thread-pool executor.
+# ══════════════════════════════════════════════════════════════
+def recalcular_aportes_diario():
+    """Cron diario 02:00: recalcula el periodo del mes en curso (org 1 = CCPL)."""
+    from app.database import SessionLocal
+    from app.services.aportes_junta_service import calcular_periodo_actual
+    db = SessionLocal()
+    try:
+        result = calcular_periodo_actual(db, organizacion_id=1)
+        if result:
+            logger.info(
+                f"[aportes] Periodo {result['anio']}-{result['mes']:02d}: "
+                f"{result['cantidad_nuevos']} nuevos, {result['cantidad_habiles']} hábiles, "
+                f"S/{result['monto_total']:.2f}, {result['pendientes_registro']} alertas"
+            )
+    except Exception as e:
+        logger.error(f"[aportes] Error recalculando: {e}")
+    finally:
+        db.close()
+
+
+def cerrar_aportes_diario():
+    """Cron diario 01:30: cierra periodos vencidos por calendario (inmutables)."""
+    from app.database import SessionLocal
+    from app.services.aportes_junta_service import cerrar_periodos_vencidos
+    db = SessionLocal()
+    try:
+        cerrar_periodos_vencidos(db)
+    except Exception as e:
+        logger.error(f"[aportes] Error cerrando periodos: {e}")
+    finally:
+        db.close()
 
 
 # ══════════════════════════════════════════════════════════════
