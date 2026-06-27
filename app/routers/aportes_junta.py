@@ -2,11 +2,12 @@
 app/routers/aportes_junta.py
 Módulo Aportes a la Junta de Decanos (JDCCPP) — Piezas D, E, J (incremento 1).
 
-Pantallas admin (read/report):
-  GET  /admin/aportes                      → lista de periodos (E)
-  GET  /admin/aportes/config               → configuración read-only (D)
-  GET  /admin/aportes/periodo/{periodo_id} → detalle del periodo (E)
-  POST /admin/aportes/periodo/{periodo_id}/recalcular → recálculo manual
+Pantallas admin (read/report). Prefix /admin/aportes-junta para evitar colisión
+con el módulo de reportes/SUNAT y cualquier ruta /admin/aportes* existente:
+  GET  /admin/aportes-junta                      → lista de periodos (E)
+  GET  /admin/aportes-junta/config               → configuración read-only (D)
+  GET  /admin/aportes-junta/periodo/{periodo_id} → detalle del periodo (E)
+  POST /admin/aportes-junta/periodo/{periodo_id}/recalcular → recálculo manual
 
 Acceso: roles admin/decano/tesorero/sote. Org fija = CCPL (1).
 Pendiente (incremento 2): F (registro manual), G (carga histórica), H (PDF),
@@ -23,7 +24,7 @@ from app.models import Member, User
 from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
 
-router = APIRouter(prefix="/admin/aportes", tags=["aportes-junta"])
+router = APIRouter(prefix="/admin/aportes-junta", tags=["aportes-junta"])
 
 ORG_CCPL = 1
 _ROLES_APORTES = ("admin", "decano", "tesorero", "sote")
