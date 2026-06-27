@@ -31,7 +31,7 @@
 
 {% block content %}
 <div class="wrap">
-  <a href="/admin/aportes" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
+  <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
   <div class="head">
     <h1>Aporte mensual a JDCCPP — {{ periodo_label }}</h1>
     {% if periodo.estado == 'cerrado' %}<span class="pill pill-cerrado"><i class="ph ph-check-circle"></i> Cerrado{% if periodo.cerrado_en %} {{ periodo.cerrado_en.strftime('%d/%m/%Y') }}{% endif %}</span>
@@ -103,7 +103,7 @@ async function recalcular(pid) {
   const btn = document.getElementById('btn-recalcular');
   btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> Recalculando...';
   try {
-    const r = await fetch(`/admin/aportes/periodo/${pid}/recalcular`, { method: 'POST' });
+    const r = await fetch(`/admin/aportes-junta/periodo/${pid}/recalcular`, { method: 'POST' });
     const data = await r.json();
     if (data.ok) {
       if (window.Toast) Toast.show('Periodo recalculado', 'success');

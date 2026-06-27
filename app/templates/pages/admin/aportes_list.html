@@ -33,7 +33,7 @@
       <h1><i class="ph ph-bank"></i> Aportes a la JDCCPP</h1>
       <div class="sub">Reporte mensual de aportes del CCPL a la Junta de Decanos</div>
     </div>
-    <a href="/admin/aportes/config" class="btn btn-ghost"><i class="ph ph-gear"></i> Configuración</a>
+    <a href="/admin/aportes-junta/config" class="btn btn-ghost"><i class="ph ph-gear"></i> Configuración</a>
   </div>
 
   {% if periodos %}
@@ -49,7 +49,7 @@
     <tbody>
       {% for p in periodos %}
       <tr>
-        <td><a class="link" href="/admin/aportes/periodo/{{ p.id }}">{{ p.periodo_label }}</a>
+        <td><a class="link" href="/admin/aportes-junta/periodo/{{ p.id }}">{{ p.periodo_label }}</a>
           {% if p.alertas %}<br><span class="alert-chip" title="Nuevos sin pago registrado">⚠ {{ p.alertas }} sin pago</span>{% endif %}
         </td>
         <td>
