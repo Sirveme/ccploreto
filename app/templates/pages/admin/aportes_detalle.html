@@ -41,6 +41,15 @@
     {% endif %}
   </div>
 
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+    <a href="/admin/aportes-junta/periodo/{{ periodo.id }}/pdf" target="_blank"
+       style="padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-file-pdf"></i> PDF</a>
+    <a href="/admin/aportes-junta/periodo/{{ periodo.id }}/excel"
+       style="padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-file-xls"></i> Excel</a>
+    <button type="button" onclick="document.getElementById('modal-deposito').style.display='flex'"
+       style="padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#166534;color:#dcfce7;"><i class="ph ph-receipt"></i> {{ 'Editar depósito' if periodo.deposito_id else 'Registrar depósito' }}</button>
+  </div>
+
   <div class="resumen">
     <div class="line"><span class="k">Total cuotas ordinarias miembros hábiles<br><span class="sub">{{ periodo.cantidad_habiles }} hábiles × S/ {{ '%.2f'|format(periodo.monto_habiles / periodo.cantidad_habiles if periodo.cantidad_habiles else 0) }}</span></span><span>S/ {{ '%.2f'|format(periodo.monto_habiles or 0) }}</span></div>
     <div class="line"><span class="k">Total nuevos colegiados<br><span class="sub">{{ periodo.cantidad_nuevos }} nuevos registrados</span></span><span>S/ {{ '%.2f'|format(periodo.monto_nuevos or 0) }}</span></div>
@@ -96,6 +105,36 @@
   {% endif %}
 
   {% include "partials/aportes_footer.html" %}
+</div>
+
+<!-- Modal Registrar/Editar depósito (custom, sin dialogs nativos) -->
+<div id="modal-deposito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
+     z-index:9999; align-items:center; justify-content:center; padding:16px;">
+  <form method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/deposito"
+        enctype="multipart/form-data"
+        style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:22px; width:100%; max-width:460px;">
+    <h3 style="font-size:16px; color:#f8fafc; margin-bottom:14px;">Depósito a JDCCPP</h3>
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">Monto (S/)</label>
+    <input type="number" step="0.01" name="monto" required value="{{ '%.2f'|format(periodo.deposito_monto) if periodo.deposito_id else periodo.monto_total }}"
+           style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;">
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">Fecha del depósito</label>
+    <input type="date" name="fecha_deposito" required {% if periodo.fecha_deposito %}value="{{ periodo.fecha_deposito.isoformat() }}"{% endif %}
+           style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;">
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">N° voucher</label>
+    <input type="text" name="numero_voucher" value="{{ periodo.numero_voucher or '' }}"
+           style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;">
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">Banco</label>
+    <input type="text" name="banco_emisor" value="{{ periodo.banco_emisor or 'BBVA' }}"
+           style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;">
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">Comprobante (PDF o imagen)</label>
+    <input type="file" name="evidencia" accept=".pdf,.jpg,.jpeg,.png,.webp"
+           style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" onclick="document.getElementById('modal-deposito').style.display='none'"
+        style="padding:9px 14px;border-radius:8px;border:none;cursor:pointer;background:#1e293b;color:#cbd5e1;font-weight:600;">Cancelar</button>
+      <button type="submit" style="padding:9px 14px;border-radius:8px;border:none;cursor:pointer;background:#2563eb;color:#fff;font-weight:600;">Guardar depósito</button>
+    </div>
+  </form>
 </div>
 
 <script>

@@ -1,0 +1,177 @@
+{% extends "base_admin.html" %}
+{% block title %}Carga histórica de aporte{% endblock %}
+
+{% block extra_css %}
+<style>
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px; }
+  .back { color:#60a5fa; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:16px; }
+  h1 { font-size:20px; font-weight:700; color:#f8fafc; margin-bottom:6px; }
+  .sub { color:#94a3b8; font-size:13px; margin-bottom:18px; }
+  .card { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:18px; margin-bottom:16px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#94a3b8; margin-bottom:12px; }
+  label { display:block; font-size:12px; color:#94a3b8; margin:8px 0 4px; }
+  input, select { background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:7px; padding:8px 10px; font-size:13px; font-family:inherit; }
+  input:focus, select:focus { outline:none; border-color:#3b82f6; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th, td { padding:6px; font-size:12px; text-align:left; }
+  th { color:#94a3b8; text-transform:uppercase; font-size:10px; }
+  td input { width:100%; }
+  .nom-cell { position:relative; }
+  .res { position:absolute; z-index:10; left:0; right:0; background:#0b1220; border:1px solid #334155; border-radius:7px; max-height:180px; overflow:auto; display:none; }
+  .res.show { display:block; }
+  .res .it { padding:7px 9px; cursor:pointer; font-size:12px; border-bottom:1px solid #1e293b; }
+  .res .it:hover { background:#1e293b; }
+  .btn { padding:9px 14px; border-radius:8px; font-size:13px; font-weight:600; border:none; cursor:pointer; text-decoration:none; }
+  .btn-primary { background:#2563eb; color:#fff; } .btn-ghost { background:#1e293b; color:#cbd5e1; }
+  .btn-add { background:#166534; color:#dcfce7; }
+  .rm { background:none; border:none; color:#f87171; cursor:pointer; font-size:16px; }
+  .totales { background:rgba(59,130,246,.08); border-left:3px solid #3b82f6; padding:12px; border-radius:6px; font-size:14px; color:#cbd5e1; margin-top:8px; }
+  .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+  .warn { background:rgba(234,179,8,.1); border-left:3px solid #eab308; padding:10px 12px; border-radius:6px; font-size:12px; color:#fde68a; margin-bottom:14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
+  <h1>Carga histórica de aporte</h1>
+  <div class="sub">Para periodos anteriores (ej. mayo 2026). Al guardar, el periodo queda <strong>cerrado</strong>.</div>
+
+  <div class="warn">⚠ Esta acción cierra el periodo (inmutable). Verifica los datos contra el reporte papel antes de guardar.</div>
+
+  <form method="post" action="/admin/aportes-junta/carga-historica" enctype="multipart/form-data" id="form-carga">
+    <div class="card">
+      <h2>Periodo y hábiles</h2>
+      <div class="grid3">
+        <div><label>Mes</label>
+          <select name="mes" required style="width:100%">
+            {% for i, nombre in meses %}<option value="{{ i }}">{{ nombre }}</option>{% endfor %}
+          </select></div>
+        <div><label>Año</label><input type="number" name="anio" value="2026" required style="width:100%"></div>
+        <div><label>Total hábiles al cierre</label><input type="number" name="cantidad_habiles" id="cant_hab" value="0" required style="width:100%"></div>
+      </div>
+      <div class="totales" id="totales">Calculando…</div>
+    </div>
+
+    <div class="card">
+      <h2>Lista nominal de nuevos</h2>
+      <table>
+        <thead><tr><th style="width:34%">Nombre / Buscar</th><th>DNI</th><th>Fecha pago</th><th>Monto pagado</th><th></th></tr></thead>
+        <tbody id="filas"></tbody>
+      </table>
+      <button type="button" class="btn btn-add" id="btn-add" style="margin-top:10px;"><i class="ph ph-plus"></i> Agregar colegiado</button>
+      <p style="color:#64748b;font-size:12px;margin-top:8px;">Si el colegiado no existe en el sistema, escribe el nombre y no selecciones de la lista (se guardará sin vínculo).</p>
+    </div>
+
+    <div class="card">
+      <h2>Depósito a JDCCPP (opcional)</h2>
+      <div class="grid3">
+        <div><label>Monto (S/)</label><input type="number" step="0.01" name="dep_monto" style="width:100%"></div>
+        <div><label>Fecha depósito</label><input type="date" name="dep_fecha" style="width:100%"></div>
+        <div><label>N° voucher</label><input type="text" name="dep_voucher" style="width:100%"></div>
+      </div>
+      <label>Banco</label><input type="text" name="dep_banco" value="BBVA" style="width:100%">
+      <label>Comprobante del voucher (PDF o imagen)</label>
+      <input type="file" name="voucher" accept=".pdf,.jpg,.jpeg,.png,.webp" style="width:100%">
+    </div>
+
+    <input type="hidden" name="nominal_json" id="nominal_json">
+    <div class="actions">
+      <a href="/admin/aportes-junta" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Cargar y cerrar periodo</button>
+    </div>
+  </form>
+
+  {% include "partials/aportes_footer.html" %}
+</div>
+
+<script>
+const MONTO_APORTE = {{ monto_aporte }};
+const MONTO_HABIL = {{ monto_habil }};
+const filas = document.getElementById('filas');
+
+function nuevaFila() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="nom-cell">
+      <input type="text" class="f-nombre" autocomplete="off" placeholder="Buscar o escribir nombre">
+      <input type="hidden" class="f-cid"><input type="hidden" class="f-mat">
+      <div class="res"></div>
+    </td>
+    <td><input type="text" class="f-dni"></td>
+    <td><input type="date" class="f-fecha"></td>
+    <td><input type="number" step="0.01" class="f-monto" placeholder="1800.00"></td>
+    <td><button type="button" class="rm" title="Quitar">&times;</button></td>`;
+  filas.appendChild(tr);
+  actualizarTotales();
+}
+
+filas.addEventListener('click', (e) => {
+  if (e.target.classList.contains('rm')) { e.target.closest('tr').remove(); actualizarTotales(); }
+});
+
+let _t = null;
+filas.addEventListener('input', (e) => {
+  if (e.target.classList.contains('f-nombre')) {
+    const inp = e.target, res = inp.closest('.nom-cell').querySelector('.res');
+    inp.closest('tr').querySelector('.f-cid').value = '';  // si edita, se vuelve libre
+    clearTimeout(_t);
+    const q = inp.value.trim();
+    if (q.length < 2) { res.classList.remove('show'); return; }
+    _t = setTimeout(async () => {
+      try {
+        const r = await fetch('/admin/aportes-junta/buscar-colegiado?q=' + encodeURIComponent(q));
+        const data = await r.json();
+        res.innerHTML = (data.resultados||[]).map(c =>
+          `<div class="it" data-id="${c.id}" data-nom="${c.apellidos_nombres}" data-dni="${c.dni||''}" data-mat="${c.codigo_matricula||''}">
+             <strong>${c.codigo_matricula||'—'}</strong> · ${c.apellidos_nombres}</div>`).join('');
+        res.classList.toggle('show', (data.resultados||[]).length > 0);
+      } catch(e) {}
+    }, 280);
+  }
+});
+filas.addEventListener('click', (e) => {
+  const it = e.target.closest('.it');
+  if (!it) return;
+  const tr = it.closest('tr');
+  tr.querySelector('.f-nombre').value = it.dataset.nom;
+  tr.querySelector('.f-cid').value = it.dataset.id;
+  tr.querySelector('.f-mat').value = it.dataset.mat;
+  if (it.dataset.dni) tr.querySelector('.f-dni').value = it.dataset.dni;
+  it.closest('.res').classList.remove('show');
+});
+
+function actualizarTotales() {
+  const n = filas.querySelectorAll('tr').length;
+  const hab = parseInt(document.getElementById('cant_hab').value || '0');
+  const mn = n * MONTO_APORTE, mh = hab * MONTO_HABIL;
+  document.getElementById('totales').innerHTML =
+    `Nuevos: ${n} × S/ ${MONTO_APORTE.toFixed(2)} = <strong>S/ ${mn.toFixed(2)}</strong> · ` +
+    `Hábiles: ${hab} × S/ ${MONTO_HABIL.toFixed(2)} = <strong>S/ ${mh.toFixed(2)}</strong> · ` +
+    `TOTAL: <strong>S/ ${(mn+mh).toFixed(2)}</strong>`;
+}
+document.getElementById('cant_hab').addEventListener('input', actualizarTotales);
+document.getElementById('btn-add').addEventListener('click', nuevaFila);
+
+document.getElementById('form-carga').addEventListener('submit', (e) => {
+  const rows = [];
+  filas.querySelectorAll('tr').forEach(tr => {
+    const nom = tr.querySelector('.f-nombre').value.trim();
+    if (!nom) return;
+    rows.push({
+      colegiado_id: tr.querySelector('.f-cid').value || null,
+      codigo_matricula: tr.querySelector('.f-mat').value || null,
+      apellidos_nombres: nom,
+      dni: tr.querySelector('.f-dni').value.trim() || null,
+      fecha_pago: tr.querySelector('.f-fecha').value || null,
+      monto_pagado: tr.querySelector('.f-monto').value || null,
+    });
+  });
+  if (rows.length === 0) { e.preventDefault(); if (window.Toast) Toast.show('Agrega al menos un colegiado', 'error'); return; }
+  document.getElementById('nominal_json').value = JSON.stringify(rows);
+});
+
+nuevaFila();
+</script>
+{% endblock %}
