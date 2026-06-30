@@ -115,7 +115,6 @@ def calcular_periodo_actual(db: Session, organizacion_id: int = 1):
             p.notes ILIKE '%DER-COL%'
             OR p.notes ILIKE '%Derecho de Colegiatura%'
           )
-          AND COALESCE(c.aporta_jdccpp, TRUE) = TRUE   -- excluir exonerados (Past Decano)
         ORDER BY c.id, p.created_at ASC
     """), {
         "org": organizacion_id,
@@ -208,7 +207,6 @@ def calcular_periodo_actual(db: Session, organizacion_id: int = 1):
         WHERE organization_id = :org
           AND condicion = 'habil'
           AND habilidad_vence >= :fecha_corte
-          AND COALESCE(aporta_jdccpp, TRUE) = TRUE   -- excluir Past Decanos
     """), {"org": organizacion_id, "fecha_corte": fecha_corte}).fetchone()
 
     cantidad_habiles = habiles_row.cnt if habiles_row else 0
