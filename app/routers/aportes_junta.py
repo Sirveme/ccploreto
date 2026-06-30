@@ -280,6 +280,7 @@ def _recalcular_totales(db: Session, periodo_id: int, monto_por_habil: float):
     hab = db.execute(text("""
         SELECT COUNT(*) AS c FROM colegiados
         WHERE organization_id = :o AND condicion = 'habil' AND habilidad_vence >= :corte
+          AND COALESCE(aporta_jdccpp, TRUE) = TRUE
     """), {"o": ORG_CCPL, "corte": corte}).fetchone()
     cn, mn = tot.c, float(tot.s)
     ch = hab.c or 0
@@ -818,3 +819,135 @@ async def aportes_excel(
         content=out.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+# ════════════════════════════════════════════════════════════════
+# PIEZA C — DASHBOARD DEL ADMINISTRADOR
+# ════════════════════════════════════════════════════════════════
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_admin(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    _, cfg = _junta_y_config(db)
+    monto_habil = float(cfg.monto_por_habil) if cfg else 0.0
+    monto_nuevo = float(cfg.monto_por_nuevo) if cfg else 0.0
+
+    # Resumen del padrón por condición (dinámico) + split aportantes/Past Decano.
+    filas = db.execute(text("""
+        SELECT condicion,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE COALESCE(aporta_jdccpp, TRUE) = TRUE) AS aportan
+        FROM colegiados WHERE organization_id = :org
+        GROUP BY condicion ORDER BY total DESC
+    """), {"org": ORG_CCPL}).fetchall()
+
+    habiles_aportantes = 0
+    past_decanos = 0
+    total_padron = 0
+    breakdown = []
+    for f in filas:
+        cond = f.condicion or "(sin condición)"
+        total_padron += f.total
+        if cond == "habil":
+            habiles_aportantes = f.aportan
+            past_decanos = f.total - f.aportan
+            breakdown.append({"label": "Hábiles aportantes", "total": f.aportan, "aporta": True})
+            if past_decanos:
+                breakdown.append({"label": "Past Decanos (hábil, no aporta)", "total": past_decanos, "aporta": False})
+        else:
+            breakdown.append({"label": cond.capitalize(), "total": f.total, "aporta": False})
+
+    # Periodo en curso: crear/recalcular si no existe.
+    ahora = datetime.now(TZ_PERU)
+    periodo = db.execute(text("""
+        SELECT * FROM aporte_periodos WHERE organizacion_id = :org AND anio = :a AND mes = :m
+    """), {"org": ORG_CCPL, "a": ahora.year, "m": ahora.month}).fetchone()
+    if not periodo:
+        try:
+            from app.services.aportes_junta_service import calcular_periodo_actual
+            calcular_periodo_actual(db, ORG_CCPL)
+            periodo = db.execute(text("""
+                SELECT * FROM aporte_periodos WHERE organizacion_id = :org AND anio = :a AND mes = :m
+            """), {"org": ORG_CCPL, "a": ahora.year, "m": ahora.month}).fetchone()
+        except Exception:
+            periodo = None
+
+    est_habiles = habiles_aportantes * monto_habil
+    est_nuevos = float(periodo.monto_nuevos) if periodo and periodo.monto_nuevos else 0.0
+
+    return templates.TemplateResponse("pages/admin/aportes_dashboard.html", {
+        "request": request,
+        "breakdown": breakdown,
+        "total_padron": total_padron,
+        "habiles_aportantes": habiles_aportantes,
+        "past_decanos": past_decanos,
+        "monto_habil": monto_habil,
+        "monto_nuevo": monto_nuevo,
+        "periodo": periodo,
+        "periodo_label": f"{MESES_ES[ahora.month]} {ahora.year}",
+        "est_habiles": est_habiles,
+        "est_nuevos": est_nuevos,
+        "est_total": est_habiles + est_nuevos,
+        "cantidad_nuevos": (periodo.cantidad_nuevos if periodo else 0) or 0,
+        "show_psp_footer": _show_psp_footer(db, current_member),
+    })
+
+
+# ════════════════════════════════════════════════════════════════
+# PIEZA E — APROBACIÓN / REVOCACIÓN DE PERIODO
+# ════════════════════════════════════════════════════════════════
+@router.post("/periodo/{periodo_id}/aprobar")
+async def aportes_aprobar(
+    periodo_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    periodo = db.execute(text("""
+        SELECT id FROM aporte_periodos WHERE id = :pid AND organizacion_id = :org
+    """), {"pid": periodo_id, "org": ORG_CCPL}).fetchone()
+    if not periodo:
+        raise HTTPException(404, "Periodo no encontrado")
+
+    user = db.query(User).filter(User.id == current_member.user_id).first()
+    dni = user.public_id if user else None
+    nombre = user.name if user else None
+    matricula = None
+    if dni:
+        col = db.execute(text("""
+            SELECT codigo_matricula FROM colegiados
+            WHERE dni = :dni AND organization_id = :org LIMIT 1
+        """), {"dni": dni, "org": ORG_CCPL}).fetchone()
+        matricula = col.codigo_matricula if col else None
+
+    db.execute(text("""
+        UPDATE aporte_periodos SET
+            aprobado = TRUE, aprobado_por_user_id = :uid, aprobado_at = NOW(),
+            revocado_por_user_id = NULL, revocado_at = NULL,
+            aprobado_admin_dni = :dni, aprobado_admin_nombre = :nom, aprobado_admin_matricula = :mat,
+            updated_at = NOW()
+        WHERE id = :pid
+    """), {"uid": current_member.user_id, "dni": dni, "nom": nombre, "mat": matricula, "pid": periodo_id})
+    db.commit()
+    return RedirectResponse(url=f"/admin/aportes-junta/periodo/{periodo_id}", status_code=303)
+
+
+@router.post("/periodo/{periodo_id}/revocar")
+async def aportes_revocar(
+    periodo_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    periodo = db.execute(text("""
+        SELECT id FROM aporte_periodos WHERE id = :pid AND organizacion_id = :org
+    """), {"pid": periodo_id, "org": ORG_CCPL}).fetchone()
+    if not periodo:
+        raise HTTPException(404, "Periodo no encontrado")
+    db.execute(text("""
+        UPDATE aporte_periodos SET
+            aprobado = FALSE, revocado_por_user_id = :uid, revocado_at = NOW(), updated_at = NOW()
+        WHERE id = :pid
+    """), {"uid": current_member.user_id, "pid": periodo_id})
+    db.commit()
+    return RedirectResponse(url=f"/admin/aportes-junta/periodo/{periodo_id}", status_code=303)
