@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 
@@ -51,6 +51,7 @@ from app.routers.partials import router_partials
 from app.routers.sote import router as router_sote
 from app.routers.decano import router as router_decano
 from app.routers.aportes_junta import router as router_aportes_junta
+from app.routers.junta import router as router_junta
 from app.routers.mesa_partes import router as router_mesa_partes
 from app.routers.secretaria import router as secretaria_router, page_router as secretaria_page_router
 from app.routers.openpay import router as openpay_router
@@ -238,6 +239,37 @@ app.include_router(router_partials)
 app.include_router(router_sote)
 app.include_router(router_decano)
 app.include_router(router_aportes_junta)
+app.include_router(router_junta)
+
+
+# ════════════════════════════════════════════════════════════════
+# PIEZA J — Blindaje de rutas para el rol junta_jdccpp.
+# El representante de la JDCCPP solo puede acceder a /junta/*, al flujo de sesión
+# (/auth/*: login, logout, cambiar-clave), a /static y a la raíz. Cualquier otra
+# ruta se rechaza (403); /dashboard redirige a /junta/reporte.
+# ════════════════════════════════════════════════════════════════
+@app.middleware("http")
+async def junta_jdccpp_guard(request: Request, call_next):
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            tv = token.split()[1] if " " in token else token
+            payload = jwt.decode(tv, SECRET_KEY, algorithms=[ALGORITHM])
+            if payload.get("role") == "junta_jdccpp":
+                path = request.url.path
+                permitido = (
+                    path.startswith("/junta")
+                    or path.startswith("/static")
+                    or path.startswith("/auth/")
+                    or path in ("/", "/favicon.ico", "/service-worker.js",
+                                "/sw.js", "/manifest.json")
+                )
+                if not permitido:
+                    # Todo lo demás (incl. /dashboard, /admin/*, /caja/*) → su reporte.
+                    return RedirectResponse(url="/junta/reporte", status_code=302)
+        except Exception:
+            pass  # token inválido/expirado → que lo maneje la auth normal
+    return await call_next(request)
 app.include_router(router_mesa_partes)
 app.include_router(secretaria_router)
 app.include_router(secretaria_page_router)
