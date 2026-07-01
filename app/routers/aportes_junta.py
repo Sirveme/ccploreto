@@ -119,19 +119,113 @@ async def aportes_config(
     """), {"org": ORG_CCPL}).fetchone()
 
     config = None
+    acceso = None
+    representante = None
     if junta:
         config = db.execute(text("""
             SELECT * FROM junta_config_aporte
             WHERE junta_id = :jid AND vigencia_hasta IS NULL
             ORDER BY vigencia_desde DESC LIMIT 1
         """), {"jid": junta.id}).fetchone()
+        acceso = db.execute(text("""
+            SELECT * FROM junta_acceso_config
+            WHERE organizacion_id = :o AND junta_id = :j
+        """), {"o": ORG_CCPL, "j": junta.id}).fetchone()
+        representante = db.execute(text("""
+            SELECT u.id, u.public_id, u.name, u.debe_cambiar_clave
+            FROM users u JOIN members m ON m.user_id = u.id
+            WHERE m.organization_id = :o AND m.role = 'junta_jdccpp'
+            ORDER BY u.id LIMIT 1
+        """), {"o": ORG_CCPL}).fetchone()
 
     return templates.TemplateResponse("pages/admin/aportes_config.html", {
         "request": request,
         "junta": junta,
         "config": config,
+        "acceso": acceso,
+        "representante": representante,
         "show_psp_footer": _show_psp_footer(db, current_member),
     })
+
+
+@router.put("/config/acceso-junta")
+async def config_acceso_junta(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    """Actualiza junta_acceso_config (límite descargas, históricos, ventana)."""
+    junta_id, _ = _junta_y_config(db)
+    if not junta_id:
+        raise HTTPException(400, "Sin Junta asignada")
+    max_desc = int(payload.get("max_descargas_por_periodo") or 0)
+    ver_hist = bool(payload.get("permite_ver_historicos"))
+    sin_restr = bool(payload.get("consulta_sin_restriccion"))
+    dias = payload.get("consulta_dias_disponible")
+    dias = int(dias) if dias not in (None, "", False) else None
+    db.execute(text("""
+        INSERT INTO junta_acceso_config (
+            organizacion_id, junta_id, consulta_sin_restriccion, consulta_dias_disponible,
+            max_descargas_por_periodo, permite_ver_historicos, updated_at, updated_by_user_id
+        ) VALUES (:o, :j, :sr, :dias, :md, :vh, NOW(), :uid)
+        ON CONFLICT (organizacion_id, junta_id) DO UPDATE SET
+            consulta_sin_restriccion = EXCLUDED.consulta_sin_restriccion,
+            consulta_dias_disponible = EXCLUDED.consulta_dias_disponible,
+            max_descargas_por_periodo = EXCLUDED.max_descargas_por_periodo,
+            permite_ver_historicos = EXCLUDED.permite_ver_historicos,
+            updated_at = NOW(), updated_by_user_id = EXCLUDED.updated_by_user_id
+    """), {"o": ORG_CCPL, "j": junta_id, "sr": sin_restr, "dias": dias,
+           "md": max_desc, "vh": ver_hist, "uid": current_member.user_id})
+    db.commit()
+    return JSONResponse({"ok": True})
+
+
+@router.put("/config/representante-junta")
+async def config_representante(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    """Actualiza DNI/nombre del representante JDCCPP. Al cambiar el DNI se recalcula
+    el access_code (Argon2 del nuevo DNI = clave inicial) y se fuerza cambio de clave."""
+    rep = db.execute(text("""
+        SELECT u.id, u.public_id FROM users u JOIN members m ON m.user_id = u.id
+        WHERE m.organization_id = :o AND m.role = 'junta_jdccpp' ORDER BY u.id LIMIT 1
+    """), {"o": ORG_CCPL}).fetchone()
+    if not rep:
+        raise HTTPException(404, "Representante JDCCPP no encontrado")
+
+    nuevo_dni = (payload.get("public_id") or "").strip()
+    nuevo_nombre = (payload.get("name") or "").strip()
+    forzar = bool(payload.get("forzar_reset"))
+
+    from app.utils.security import get_password_hash
+
+    fields = {}
+    if nuevo_nombre:
+        fields["name"] = nuevo_nombre
+    dni_cambia = nuevo_dni and nuevo_dni != rep.public_id
+    if dni_cambia:
+        # unicidad
+        dup = db.execute(text("SELECT 1 FROM users WHERE public_id = :d AND id <> :id"),
+                         {"d": nuevo_dni, "id": rep.id}).fetchone()
+        if dup:
+            raise HTTPException(409, "Ya existe un usuario con ese DNI")
+        fields["public_id"] = nuevo_dni
+        fields["access_code"] = get_password_hash(nuevo_dni)
+        fields["debe_cambiar_clave"] = True
+    elif forzar:
+        fields["access_code"] = get_password_hash(rep.public_id)
+        fields["debe_cambiar_clave"] = True
+
+    if not fields:
+        return JSONResponse({"ok": True, "sin_cambios": True})
+
+    set_clause = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["id"] = rep.id
+    db.execute(text(f"UPDATE users SET {set_clause} WHERE id = :id"), fields)
+    db.commit()
+    return JSONResponse({"ok": True, "dni_cambiado": dni_cambia})
 
 
 # ════════════════════════════════════════════════════════════════
@@ -941,7 +1035,8 @@ async def padron_data(
     total = db.execute(text(f"SELECT COUNT(*) AS c FROM colegiados WHERE {w}"), params).fetchone().c
     filas = db.execute(text(f"""
         SELECT id, codigo_matricula, apellidos_nombres, dni, condicion,
-               COALESCE(aporta_jdccpp, TRUE) AS aporta_jdccpp
+               COALESCE(aporta_jdccpp, TRUE) AS aporta_jdccpp,
+               aporta_jdccpp_motivo AS motivo
         FROM colegiados WHERE {w}
         ORDER BY apellidos_nombres LIMIT :lim OFFSET :off
     """), params).fetchall()
@@ -951,6 +1046,7 @@ async def padron_data(
             "id": r.id, "codigo_matricula": r.codigo_matricula,
             "apellidos_nombres": r.apellidos_nombres, "dni": r.dni,
             "condicion": r.condicion, "aporta_jdccpp": bool(r.aporta_jdccpp),
+            "motivo": r.motivo,
         } for r in filas],
     })
 
@@ -962,18 +1058,58 @@ async def padron_set_condicion(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    nueva = (payload.get("condicion") or "").strip()
-    if nueva not in _CONDICIONES_VALIDAS:
+    """Cambia la condición del colegiado y AUTO-GESTIONA aporta_jdccpp.
+
+    ── Regla de negocio CCPL (auto-gestión del flag aporta_jdccpp) ──
+    'Past Decano' es un estado VIRTUAL (no es una condición real en BD): se guarda
+    como condicion='habil' + aporta_jdccpp=FALSE + motivo='Past Decano'.
+    aporta_jdccpp se deriva de la condición, EXCEPTO cuando el motivo es 'Past Decano'
+    (que se preserva mientras la condición efectiva sea hábil):
+      - 'past_decano'      → habil,            aporta=FALSE, motivo='Past Decano'
+      - 'habil'            → habil,            aporta=TRUE,  motivo=NULL
+                             (si el motivo previo era 'Past Decano', se PRESERVA:
+                              queda habil, aporta=FALSE, motivo='Past Decano')
+      - 'inhabil'          → inhabil,          aporta=FALSE, motivo='Inhábil'
+      - 'vitalicio'        → vitalicio,        aporta=FALSE, motivo='Vitalicio'
+      - 'candidato_retiro' → candidato_retiro, aporta=FALSE, motivo='Candidato a retiro'
+    """
+    t = (payload.get("condicion") or "").strip()
+    if t not in _CONDICIONES_VALIDAS and t != "past_decano":
         raise HTTPException(400, "Condición no válida")
-    r = db.execute(text("""
-        UPDATE colegiados SET condicion = :c, fecha_actualizacion_condicion = NOW()
+
+    actual = db.execute(text("""
+        SELECT aporta_jdccpp_motivo AS motivo FROM colegiados
         WHERE id = :cid AND organization_id = :org
-        RETURNING id
-    """), {"c": nueva, "cid": colegiado_id, "org": ORG_CCPL}).fetchone()
-    if not r:
+    """), {"cid": colegiado_id, "org": ORG_CCPL}).fetchone()
+    if not actual:
         raise HTTPException(404, "Colegiado no encontrado")
+    cur_motivo = actual.motivo
+
+    if t == "past_decano":
+        condicion, aporta, motivo = "habil", False, "Past Decano"
+    elif t == "habil":
+        if cur_motivo == "Past Decano":     # preservar Past Decano
+            condicion, aporta, motivo = "habil", False, "Past Decano"
+        else:
+            condicion, aporta, motivo = "habil", True, None
+    elif t == "inhabil":
+        condicion, aporta, motivo = "inhabil", False, "Inhábil"
+    elif t == "vitalicio":
+        condicion, aporta, motivo = "vitalicio", False, "Vitalicio"
+    else:  # candidato_retiro
+        condicion, aporta, motivo = "candidato_retiro", False, "Candidato a retiro"
+
+    db.execute(text("""
+        UPDATE colegiados SET
+            condicion = :c, fecha_actualizacion_condicion = NOW(),
+            aporta_jdccpp = :a, aporta_jdccpp_motivo = :m,
+            aporta_jdccpp_actualizado_por = :uid, aporta_jdccpp_actualizado_at = NOW()
+        WHERE id = :cid AND organization_id = :org
+    """), {"c": condicion, "a": aporta, "m": motivo, "uid": current_member.user_id,
+           "cid": colegiado_id, "org": ORG_CCPL})
     db.commit()
-    return JSONResponse({"ok": True})
+    efectiva = "past_decano" if (condicion == "habil" and not aporta and motivo == "Past Decano") else condicion
+    return JSONResponse({"ok": True, "condicion_efectiva": efectiva, "aporta_jdccpp": aporta})
 
 
 @router.put("/padron/{colegiado_id}/aporta-jdccpp")
