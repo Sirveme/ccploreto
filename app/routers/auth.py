@@ -380,6 +380,8 @@ def create_session_response(user, member, db=None):
 
     if member.role == "sote":
         target_url = "/sote"
+    elif member.role == "junta_jdccpp":
+        target_url = "/junta/reporte"
     elif member.role == "decano":
         target_url = "/decano"
     elif member.role == "admin":

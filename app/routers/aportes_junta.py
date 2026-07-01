@@ -138,12 +138,27 @@ async def aportes_config(
             ORDER BY u.id LIMIT 1
         """), {"o": ORG_CCPL}).fetchone()
 
+    descargas = db.execute(text("""
+        SELECT l.descargado_at, l.tipo_descarga, l.ip_origen, ap.anio, ap.mes
+        FROM junta_descarga_log l
+        JOIN aporte_periodos ap ON ap.id = l.aporte_periodo_id
+        WHERE ap.organizacion_id = :org
+        ORDER BY l.descargado_at DESC LIMIT 20
+    """), {"org": ORG_CCPL}).fetchall()
+    descargas_recientes = [{
+        "fecha": d.descargado_at,
+        "periodo": f"{MESES_ES[d.mes]} {d.anio}",
+        "tipo": (d.tipo_descarga or "").upper(),
+        "ip": d.ip_origen or "—",
+    } for d in descargas]
+
     return templates.TemplateResponse("pages/admin/aportes_config.html", {
         "request": request,
         "junta": junta,
         "config": config,
         "acceso": acceso,
         "representante": representante,
+        "descargas_recientes": descargas_recientes,
         "show_psp_footer": _show_psp_footer(db, current_member),
     })
 
@@ -737,7 +752,7 @@ async def aportes_carga_submit(
 
 
 # ════════════════════════════════════════════════════════════════
-# PIEZA H — EXPORT PDF PLANILLA OFICIAL
+# PIEZA H — EXPORT PDF (usa el generador compartido: firma + watermark)
 # ════════════════════════════════════════════════════════════════
 @router.get("/periodo/{periodo_id}/pdf")
 async def aportes_pdf(
@@ -745,93 +760,18 @@ async def aportes_pdf(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    periodo, nuevos = _fetch_reporte(db, periodo_id)
-    if not periodo:
+    from app.services.aportes_pdf import generar_pdf
+    pdf = generar_pdf(db, periodo_id, show_footer=_show_psp_footer(db, current_member), org_id=ORG_CCPL)
+    if pdf is None:
         raise HTTPException(404, "Periodo no encontrado")
-
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle)
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=16 * mm,
-                            leftMargin=16 * mm, rightMargin=16 * mm)
-    styles = getSampleStyleSheet()
-    h = ParagraphStyle("h", parent=styles["Title"], fontSize=14)
-    sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=11, alignment=1)
-    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8, textColor=colors.grey, alignment=1)
-    periodo_label = f"{MESES_ES[periodo.mes]} {periodo.anio}"
-
-    el = []
-    el.append(Paragraph("COLEGIO DE CONTADORES PÚBLICOS DE LORETO", h))
-    el.append(Paragraph(f"Resumen de depósito mensual a JDCCPP — {periodo_label.upper()}", sub))
-    el.append(Spacer(1, 10 * mm))
-
-    resumen = [
-        ["TOTAL CUOTAS ORDINARIAS MIEMBROS HÁBILES", f"S/ {float(periodo.monto_habiles or 0):,.2f}"],
-        ["TOTAL NUEVOS COLEGIADOS", f"S/ {float(periodo.monto_nuevos or 0):,.2f}"],
-        [f"TOTAL A DEPOSITAR A JDCCPP — {periodo_label.upper()}", f"S/ {float(periodo.monto_total or 0):,.2f}"],
-    ]
-    t = Table(resumen, colWidths=[120 * mm, 50 * mm])
-    t.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("LINEBELOW", (0, -1), (-1, -1), 1, colors.black),
-        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    el.append(t)
-    el.append(Spacer(1, 8 * mm))
-
-    el.append(Paragraph("DETALLE DE NUEVOS COLEGIADOS", styles["Heading4"]))
-    data = [["N°", "Matrícula", "Apellidos y Nombres", "DNI", "F. Pago", "Monto"]]
-    for i, n in enumerate(nuevos, 1):
-        data.append([
-            str(i), n.codigo_matricula or "—", n.apellidos_nombres, n.dni or "—",
-            n.fecha_pago_der_col.strftime("%d/%m/%Y") if n.fecha_pago_der_col else "—",
-            f"S/ {float(n.monto_aporte or 0):,.2f}",
-        ])
-    td = Table(data, colWidths=[10 * mm, 22 * mm, 78 * mm, 24 * mm, 20 * mm, 24 * mm], repeatRows=1)
-    td.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
-        ("ALIGN", (0, 0), (0, -1), "CENTER"), ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
-        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]))
-    el.append(td)
-    el.append(Spacer(1, 16 * mm))
-
-    if periodo.numero_voucher:
-        el.append(Paragraph(
-            f"Depósito: S/ {float(periodo.deposito_monto or 0):,.2f} · Voucher {periodo.numero_voucher}"
-            f" · {periodo.banco_emisor or ''}"
-            + (f" · {periodo.fecha_deposito.strftime('%d/%m/%Y')}" if periodo.fecha_deposito else ""),
-            styles["Normal"]))
-        el.append(Spacer(1, 10 * mm))
-
-    el.append(Paragraph("____________________________<br/>Administrador CCPL", styles["Normal"]))
-
-    if _show_psp_footer(db, current_member):
-        el.append(Spacer(1, 12 * mm))
-        el.append(Paragraph(
-            "Sistema desarrollado por Perú Sistemas Pro · perusistemas.pro · WhatsApp +51 967 317 946",
-            small))
-
-    doc.build(el)
-    buf.seek(0)
-    fname = f"aporte_jdccpp_{periodo.anio}_{periodo.mes:02d}.pdf"
-    return Response(content=buf.getvalue(), media_type="application/pdf",
+    per = db.execute(text("SELECT anio, mes FROM aporte_periodos WHERE id=:p"), {"p": periodo_id}).fetchone()
+    fname = f"aporte_jdccpp_{per.anio}_{per.mes:02d}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{fname}"'})
 
 
 # ════════════════════════════════════════════════════════════════
-# PIEZA I — EXPORT EXCEL (3 hojas)
+# PIEZA I (export) — EXCEL (generador compartido)
 # ════════════════════════════════════════════════════════════════
 @router.get("/periodo/{periodo_id}/excel")
 async def aportes_excel(
@@ -839,304 +779,66 @@ async def aportes_excel(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    periodo, nuevos = _fetch_reporte(db, periodo_id)
-    if not periodo:
+    from app.services.aportes_pdf import generar_excel
+    xls = generar_excel(db, periodo_id, show_footer=_show_psp_footer(db, current_member), org_id=ORG_CCPL)
+    if xls is None:
         raise HTTPException(404, "Periodo no encontrado")
-
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-
-    periodo_label = f"{MESES_ES[periodo.mes]} {periodo.anio}"
-    azul = PatternFill("solid", fgColor="1E3A5F")
-    blanco_bold = Font(color="FFFFFF", bold=True)
-    bold = Font(bold=True)
-
-    wb = Workbook()
-
-    ws1 = wb.active
-    ws1.title = "Resumen"
-    ws1["A1"] = f"Aporte a JDCCPP — {periodo_label}"; ws1["A1"].font = Font(bold=True, size=14)
-    rows = [
-        ("", ""),
-        ("Cuotas ordinarias hábiles", float(periodo.monto_habiles or 0)),
-        (f"   ({periodo.cantidad_habiles or 0} hábiles)", ""),
-        ("Nuevos colegiados", float(periodo.monto_nuevos or 0)),
-        (f"   ({periodo.cantidad_nuevos or 0} nuevos)", ""),
-        ("TOTAL A DEPOSITAR", float(periodo.monto_total or 0)),
-        ("", ""),
-        ("Estado", periodo.estado),
-        ("Voucher", periodo.numero_voucher or "—"),
-        ("Depósito S/", float(periodo.deposito_monto or 0)),
-    ]
-    for i, (k, v) in enumerate(rows, start=3):
-        ws1[f"A{i}"] = k; ws1[f"B{i}"] = v
-    ws1["A8"].font = bold; ws1["B8"].font = bold
-    ws1.column_dimensions["A"].width = 34; ws1.column_dimensions["B"].width = 18
-
-    ws2 = wb.create_sheet("Detalle Nuevos")
-    headers = ["N°", "Matrícula", "Apellidos y Nombres", "DNI", "Fecha Pago", "Monto Aporte"]
-    ws2.append(headers)
-    for c in range(1, len(headers) + 1):
-        cell = ws2.cell(row=1, column=c); cell.fill = azul; cell.font = blanco_bold
-        cell.alignment = Alignment(horizontal="center")
-    for i, n in enumerate(nuevos, 1):
-        ws2.append([
-            i, n.codigo_matricula or "—", n.apellidos_nombres, n.dni or "—",
-            n.fecha_pago_der_col.strftime("%d/%m/%Y") if n.fecha_pago_der_col else "—",
-            float(n.monto_aporte or 0),
-        ])
-    for col, w in zip("ABCDEF", [6, 14, 44, 14, 14, 14]):
-        ws2.column_dimensions[col].width = w
-    ws2.freeze_panes = "A2"
-
-    ws3 = wb.create_sheet("Metadata")
-    meta = [
-        ("Periodo", periodo_label),
-        ("Generado", datetime.now(TZ_PERU).strftime("%d/%m/%Y %H:%M")),
-        ("Total nuevos", periodo.cantidad_nuevos or 0),
-        ("Total hábiles", periodo.cantidad_habiles or 0),
-        ("UIT aplicada", float(periodo.uit_aplicada or 0)),
-        ("Total a depositar", float(periodo.monto_total or 0)),
-        ("Voucher", periodo.numero_voucher or "—"),
-        ("Marco normativo", "Acuerdo institucional JDCCPP"),
-    ]
-    for k, v in meta:
-        ws3.append([k, v])
-    if _show_psp_footer(db, current_member):
-        ws3.append(["", ""])
-        ws3.append(["Sistema", "Perú Sistemas Pro · perusistemas.pro · WhatsApp +51 967 317 946"])
-    ws3.column_dimensions["A"].width = 22; ws3.column_dimensions["B"].width = 48
-
-    out = io.BytesIO(); wb.save(out); out.seek(0)
-    fname = f"aporte_jdccpp_{periodo.anio}_{periodo.mes:02d}.xlsx"
+    per = db.execute(text("SELECT anio, mes FROM aporte_periodos WHERE id=:p"), {"p": periodo_id}).fetchone()
+    fname = f"aporte_jdccpp_{per.anio}_{per.mes:02d}.xlsx"
     return Response(
-        content=out.getvalue(),
+        content=xls,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 # ════════════════════════════════════════════════════════════════
-# PIEZA C — DASHBOARD DEL ADMINISTRADOR
+# PIEZA I — RESET DE CLAVES DESDE EL DASHBOARD (admin-scoped)
+# El endpoint de sote está gateado por require_sote (Limber es admin, no sote),
+# por eso se expone aquí bajo require_aportes con la MISMA lógica: clave inicial = DNI.
 # ════════════════════════════════════════════════════════════════
-@router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_admin(
-    request: Request,
+@router.get("/usuarios/buscar")
+async def usuarios_buscar(
+    q: str,
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    _, cfg = _junta_y_config(db)
-    monto_habil = float(cfg.monto_por_habil) if cfg else 0.0
-    monto_nuevo = float(cfg.monto_por_nuevo) if cfg else 0.0
-
-    # Resumen del padrón por condición (dinámico) + split aportantes/Past Decano.
+    q = (q or "").strip()
+    if len(q) < 2:
+        return JSONResponse({"resultados": []})
     filas = db.execute(text("""
-        SELECT condicion,
-               COUNT(*) AS total,
-               COUNT(*) FILTER (WHERE COALESCE(aporta_jdccpp, TRUE) = TRUE) AS aportan
-        FROM colegiados WHERE organization_id = :org
-        GROUP BY condicion ORDER BY total DESC
-    """), {"org": ORG_CCPL}).fetchall()
-
-    cond = {}
-    total_padron = 0
-    for f in filas:
-        c = f.condicion or "(sin)"
-        cond[c] = {"total": f.total, "aportan": f.aportan}
-        total_padron += f.total
-    habiles_aportantes = cond.get("habil", {}).get("aportan", 0)
-    past_decanos = cond.get("habil", {}).get("total", 0) - habiles_aportantes
-
-    # Periodo en curso: crear/recalcular si no existe.
-    ahora = datetime.now(TZ_PERU)
-    periodo = db.execute(text("""
-        SELECT * FROM aporte_periodos WHERE organizacion_id = :org AND anio = :a AND mes = :m
-    """), {"org": ORG_CCPL, "a": ahora.year, "m": ahora.month}).fetchone()
-    if not periodo:
-        try:
-            from app.services.aportes_junta_service import calcular_periodo_actual
-            calcular_periodo_actual(db, ORG_CCPL)
-            periodo = db.execute(text("""
-                SELECT * FROM aporte_periodos WHERE organizacion_id = :org AND anio = :a AND mes = :m
-            """), {"org": ORG_CCPL, "a": ahora.year, "m": ahora.month}).fetchone()
-        except Exception:
-            periodo = None
-
-    nuevos = []
-    if periodo:
-        nuevos = db.execute(text("""
-            SELECT dni, apellidos_nombres, codigo_matricula, fecha_colegiatura,
-                   fecha_pago_der_col, monto_aporte
-            FROM aporte_detalle_nuevos WHERE aporte_periodo_id = :p
-            ORDER BY codigo_matricula NULLS LAST, apellidos_nombres
-        """), {"p": periodo.id}).fetchall()
-
-    cantidad_nuevos = (periodo.cantidad_nuevos if periodo else 0) or 0
-    est_habiles = habiles_aportantes * monto_habil
-    est_nuevos = float(periodo.monto_nuevos) if periodo and periodo.monto_nuevos else 0.0
-
-    cards = [
-        {"label": "Hábiles aportantes", "icon": "ph-check-circle", "color": "#10b981",
-         "total": habiles_aportantes, "monto": est_habiles},
-        {"label": "Vitalicios", "icon": "ph-medal", "color": "#3b82f6",
-         "total": cond.get("vitalicio", {}).get("total", 0), "monto": None},
-        {"label": "Inhábiles", "icon": "ph-x-circle", "color": "#f59e0b",
-         "total": cond.get("inhabil", {}).get("total", 0), "monto": None},
-        {"label": "Nuevos del mes", "icon": "ph-user-plus", "color": "#8b5cf6",
-         "total": cantidad_nuevos, "monto": est_nuevos},
-        {"label": "Past Decanos", "icon": "ph-crown", "color": "#ef4444",
-         "total": past_decanos, "monto": None},
-        {"label": "Candidatos a retiro", "icon": "ph-warning", "color": "#fbbf24",
-         "total": cond.get("candidato_retiro", {}).get("total", 0), "monto": None},
-    ]
-
-    return templates.TemplateResponse("pages/admin/aportes_dashboard.html", {
-        "request": request,
-        "cards": cards,
-        "total_padron": total_padron,
-        "monto_habil": monto_habil,
-        "monto_nuevo": monto_nuevo,
-        "periodo": periodo,
-        "periodo_label": f"{MESES_ES[ahora.month]} {ahora.year}",
-        "est_total": est_habiles + est_nuevos,
-        "nuevos": nuevos,
-        "show_psp_footer": _show_psp_footer(db, current_member),
-    })
+        SELECT u.id, u.public_id, u.name, m.role
+        FROM users u
+        JOIN members m ON m.user_id = u.id AND m.organization_id = :org
+        WHERE u.public_id ILIKE :q OR u.name ILIKE :q
+        ORDER BY u.name LIMIT 15
+    """), {"org": ORG_CCPL, "q": f"%{q}%"}).fetchall()
+    return JSONResponse({"resultados": [
+        {"id": r.id, "public_id": r.public_id, "name": r.name, "role": r.role} for r in filas
+    ]})
 
 
-# ════════════════════════════════════════════════════════════════
-# PADRÓN — datos paginados (AJAX) + edición inline (condición / aporta)
-# ════════════════════════════════════════════════════════════════
-_CONDICIONES_VALIDAS = ("habil", "inhabil", "vitalicio", "candidato_retiro")
-
-
-@router.get("/padron-data")
-async def padron_data(
-    condicion: str = None,
-    aporta: str = None,
-    q: str = None,
-    page: int = 1,
+@router.post("/usuarios/{user_id}/reset-clave")
+async def usuarios_reset_clave(
+    user_id: int,
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    per_page = 50
-    page = max(1, page)
-    where = ["organization_id = :org"]
-    params = {"org": ORG_CCPL, "lim": per_page, "off": (page - 1) * per_page}
-    if condicion and condicion in _CONDICIONES_VALIDAS:
-        where.append("condicion = :cond"); params["cond"] = condicion
-    if aporta == "si":
-        where.append("COALESCE(aporta_jdccpp, TRUE) = TRUE")
-    elif aporta == "no":
-        where.append("COALESCE(aporta_jdccpp, TRUE) = FALSE")
-    if q and q.strip():
-        where.append("(codigo_matricula ILIKE :q OR dni ILIKE :q OR apellidos_nombres ILIKE :q)")
-        params["q"] = f"%{q.strip()}%"
-    w = " AND ".join(where)
-    total = db.execute(text(f"SELECT COUNT(*) AS c FROM colegiados WHERE {w}"), params).fetchone().c
-    filas = db.execute(text(f"""
-        SELECT id, codigo_matricula, apellidos_nombres, dni, condicion,
-               COALESCE(aporta_jdccpp, TRUE) AS aporta_jdccpp,
-               aporta_jdccpp_motivo AS motivo
-        FROM colegiados WHERE {w}
-        ORDER BY apellidos_nombres LIMIT :lim OFFSET :off
-    """), params).fetchall()
-    return JSONResponse({
-        "total": total, "page": page, "pages": (total + per_page - 1) // per_page,
-        "rows": [{
-            "id": r.id, "codigo_matricula": r.codigo_matricula,
-            "apellidos_nombres": r.apellidos_nombres, "dni": r.dni,
-            "condicion": r.condicion, "aporta_jdccpp": bool(r.aporta_jdccpp),
-            "motivo": r.motivo,
-        } for r in filas],
-    })
-
-
-@router.put("/padron/{colegiado_id}/condicion")
-async def padron_set_condicion(
-    colegiado_id: int,
-    payload: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_member: Member = Depends(require_aportes),
-):
-    """Cambia la condición del colegiado y AUTO-GESTIONA aporta_jdccpp.
-
-    ── Regla de negocio CCPL (auto-gestión del flag aporta_jdccpp) ──
-    'Past Decano' es un estado VIRTUAL (no es una condición real en BD): se guarda
-    como condicion='habil' + aporta_jdccpp=FALSE + motivo='Past Decano'.
-    aporta_jdccpp se deriva de la condición, EXCEPTO cuando el motivo es 'Past Decano'
-    (que se preserva mientras la condición efectiva sea hábil):
-      - 'past_decano'      → habil,            aporta=FALSE, motivo='Past Decano'
-      - 'habil'            → habil,            aporta=TRUE,  motivo=NULL
-                             (si el motivo previo era 'Past Decano', se PRESERVA:
-                              queda habil, aporta=FALSE, motivo='Past Decano')
-      - 'inhabil'          → inhabil,          aporta=FALSE, motivo='Inhábil'
-      - 'vitalicio'        → vitalicio,        aporta=FALSE, motivo='Vitalicio'
-      - 'candidato_retiro' → candidato_retiro, aporta=FALSE, motivo='Candidato a retiro'
-    """
-    t = (payload.get("condicion") or "").strip()
-    if t not in _CONDICIONES_VALIDAS and t != "past_decano":
-        raise HTTPException(400, "Condición no válida")
-
-    actual = db.execute(text("""
-        SELECT aporta_jdccpp_motivo AS motivo FROM colegiados
-        WHERE id = :cid AND organization_id = :org
-    """), {"cid": colegiado_id, "org": ORG_CCPL}).fetchone()
-    if not actual:
-        raise HTTPException(404, "Colegiado no encontrado")
-    cur_motivo = actual.motivo
-
-    if t == "past_decano":
-        condicion, aporta, motivo = "habil", False, "Past Decano"
-    elif t == "habil":
-        if cur_motivo == "Past Decano":     # preservar Past Decano
-            condicion, aporta, motivo = "habil", False, "Past Decano"
-        else:
-            condicion, aporta, motivo = "habil", True, None
-    elif t == "inhabil":
-        condicion, aporta, motivo = "inhabil", False, "Inhábil"
-    elif t == "vitalicio":
-        condicion, aporta, motivo = "vitalicio", False, "Vitalicio"
-    else:  # candidato_retiro
-        condicion, aporta, motivo = "candidato_retiro", False, "Candidato a retiro"
-
+    from app.utils.security import get_password_hash
+    u = db.execute(text("SELECT id, public_id FROM users WHERE id = :id"), {"id": user_id}).fetchone()
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
     db.execute(text("""
-        UPDATE colegiados SET
-            condicion = :c, fecha_actualizacion_condicion = NOW(),
-            aporta_jdccpp = :a, aporta_jdccpp_motivo = :m,
-            aporta_jdccpp_actualizado_por = :uid, aporta_jdccpp_actualizado_at = NOW()
-        WHERE id = :cid AND organization_id = :org
-    """), {"c": condicion, "a": aporta, "m": motivo, "uid": current_member.user_id,
-           "cid": colegiado_id, "org": ORG_CCPL})
+        UPDATE users SET access_code = :h, debe_cambiar_clave = TRUE WHERE id = :id
+    """), {"h": get_password_hash(u.public_id), "id": user_id})
     db.commit()
-    efectiva = "past_decano" if (condicion == "habil" and not aporta and motivo == "Past Decano") else condicion
-    return JSONResponse({"ok": True, "condicion_efectiva": efectiva, "aporta_jdccpp": aporta})
-
-
-@router.put("/padron/{colegiado_id}/aporta-jdccpp")
-async def padron_set_aporta(
-    colegiado_id: int,
-    payload: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_member: Member = Depends(require_aportes),
-):
-    aporta = bool(payload.get("aporta"))
-    motivo = (payload.get("motivo") or None)
-    r = db.execute(text("""
-        UPDATE colegiados SET
-            aporta_jdccpp = :a, aporta_jdccpp_motivo = :m,
-            aporta_jdccpp_actualizado_por = :uid, aporta_jdccpp_actualizado_at = NOW()
-        WHERE id = :cid AND organization_id = :org
-        RETURNING id
-    """), {"a": aporta, "m": motivo, "uid": current_member.user_id,
-           "cid": colegiado_id, "org": ORG_CCPL}).fetchone()
-    if not r:
-        raise HTTPException(404, "Colegiado no encontrado")
-    db.commit()
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, "public_id": u.public_id})
 
 
 # ════════════════════════════════════════════════════════════════
-# PIEZA E — APROBACIÓN / REVOCACIÓN DE PERIODO
+# PIEZA E — APROBAR / REVOCAR PUBLICACIÓN DEL PERIODO A LA JDCCPP
+# Al aprobar se congela la firma del Administrador (DNI/nombre/matrícula) en el
+# periodo; la vista /junta/reporte solo muestra periodos con aprobado=TRUE.
+# Revocar no pide confirmación (decisión del Admin).
 # ════════════════════════════════════════════════════════════════
 @router.post("/periodo/{periodo_id}/aprobar")
 async def aportes_aprobar(
@@ -1144,15 +846,16 @@ async def aportes_aprobar(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    periodo = db.execute(text("""
-        SELECT id FROM aporte_periodos WHERE id = :pid AND organizacion_id = :org
-    """), {"pid": periodo_id, "org": ORG_CCPL}).fetchone()
-    if not periodo:
+    per = db.execute(text("""
+        SELECT id FROM aporte_periodos WHERE id = :p AND organizacion_id = :org
+    """), {"p": periodo_id, "org": ORG_CCPL}).fetchone()
+    if not per:
         raise HTTPException(404, "Periodo no encontrado")
 
-    user = db.query(User).filter(User.id == current_member.user_id).first()
-    dni = user.public_id if user else None
-    nombre = user.name if user else None
+    u = db.execute(text("SELECT public_id, name FROM users WHERE id = :id"),
+                   {"id": current_member.user_id}).fetchone()
+    dni = u.public_id if u else None
+    nombre = u.name if u else None
     matricula = None
     if dni:
         col = db.execute(text("""
@@ -1164,13 +867,13 @@ async def aportes_aprobar(
     db.execute(text("""
         UPDATE aporte_periodos SET
             aprobado = TRUE, aprobado_por_user_id = :uid, aprobado_at = NOW(),
-            revocado_por_user_id = NULL, revocado_at = NULL,
-            aprobado_admin_dni = :dni, aprobado_admin_nombre = :nom, aprobado_admin_matricula = :mat,
-            updated_at = NOW()
-        WHERE id = :pid
-    """), {"uid": current_member.user_id, "dni": dni, "nom": nombre, "mat": matricula, "pid": periodo_id})
+            aprobado_admin_dni = :dni, aprobado_admin_nombre = :nom,
+            aprobado_admin_matricula = :mat, updated_at = NOW()
+        WHERE id = :p
+    """), {"uid": current_member.user_id, "dni": dni, "nom": nombre,
+           "mat": matricula, "p": periodo_id})
     db.commit()
-    return RedirectResponse(url=f"/admin/aportes-junta/periodo/{periodo_id}", status_code=303)
+    return RedirectResponse(url="/admin/aportes-junta/dashboard", status_code=303)
 
 
 @router.post("/periodo/{periodo_id}/revocar")
@@ -1179,15 +882,15 @@ async def aportes_revocar(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_aportes),
 ):
-    periodo = db.execute(text("""
-        SELECT id FROM aporte_periodos WHERE id = :pid AND organizacion_id = :org
-    """), {"pid": periodo_id, "org": ORG_CCPL}).fetchone()
-    if not periodo:
+    per = db.execute(text("""
+        SELECT id FROM aporte_periodos WHERE id = :p AND organizacion_id = :org
+    """), {"p": periodo_id, "org": ORG_CCPL}).fetchone()
+    if not per:
         raise HTTPException(404, "Periodo no encontrado")
     db.execute(text("""
         UPDATE aporte_periodos SET
             aprobado = FALSE, revocado_por_user_id = :uid, revocado_at = NOW(), updated_at = NOW()
-        WHERE id = :pid
-    """), {"uid": current_member.user_id, "pid": periodo_id})
+        WHERE id = :p
+    """), {"uid": current_member.user_id, "p": periodo_id})
     db.commit()
-    return RedirectResponse(url=f"/admin/aportes-junta/periodo/{periodo_id}", status_code=303)
+    return RedirectResponse(url="/admin/aportes-junta/dashboard", status_code=303)
