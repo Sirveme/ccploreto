@@ -3,32 +3,43 @@
 
 {% block extra_css %}
 <style>
-  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
-  .head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
-  .head h1 { font-size:22px; font-weight:700; color:#f8fafc; }
-  .sub { color:#94a3b8; font-size:13px; margin-bottom:20px; }
-  .card { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:20px; margin-bottom:16px; }
-  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; margin-bottom:14px; }
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 14px 40px; }
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px; padding:22px 18px; margin:0 -14px 20px; color:#fff; }
+  .hero h1 { font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .hero .sub { color:#bfdbfe; font-size:13px; margin-top:4px; }
+  .back { color:#bfdbfe; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:8px; }
+  .sect { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:18px; margin-bottom:16px; }
+  .sect h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#cbd5e1; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
   .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #1e293b; font-size:14px; }
   .row:last-child { border-bottom:none; }
-  .row .k { color:#94a3b8; }
-  .row .v { color:#e2e8f0; font-weight:600; text-align:right; }
-  .formula { background:rgba(59,130,246,.08); border-left:3px solid #3b82f6; padding:12px 14px; border-radius:6px;
-             font-size:13px; color:#cbd5e1; margin-top:10px; }
-  .back { color:#60a5fa; text-decoration:none; font-size:13px; display:inline-flex; align-items:center; gap:6px; margin-bottom:16px; }
-  .ro { font-size:11px; color:#64748b; margin-top:14px; }
+  .row .k { color:#94a3b8; } .row .v { color:#e2e8f0; font-weight:600; text-align:right; }
+  .formula-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .fcard { background:#0b1220; border:1px solid #1e293b; border-left:4px solid var(--c); border-radius:12px; padding:14px; }
+  .fcard .lbl { font-size:12px; color:#94a3b8; } .fcard .val { font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px; }
+  .fcard .det { font-size:11px; color:#64748b; margin-top:4px; }
+  label { display:block; font-size:12px; color:#94a3b8; margin:10px 0 5px; }
+  input[type=number], input[type=text] { width:100%; background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:8px; padding:9px 11px; font-size:14px; }
+  .chk { display:flex; align-items:center; gap:9px; margin:10px 0; font-size:14px; color:#e2e8f0; }
+  .btn { padding:10px 16px; border-radius:9px; font-size:14px; font-weight:700; border:none; cursor:pointer; }
+  .btn-primary { background:var(--ccpl); color:#fff; } .btn-primary:hover { background:#1d4ed8; }
+  .btn-ghost { background:#1e293b; color:#cbd5e1; }
+  .ro { font-size:11px; color:#64748b; margin-top:10px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="wrap">
-  <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
-  <div class="head"><i class="ph ph-gear" style="font-size:24px;color:#fbbf24;"></i><h1>Configuración de Aportes</h1></div>
-  <div class="sub">Parámetros vigentes del aporte del CCPL a la Junta de Decanos. Solo lectura.</div>
+  <div class="hero">
+    <a href="/admin/aportes-junta/dashboard" class="back"><i class="ph ph-arrow-left"></i> Volver al dashboard</a>
+    <h1><i class="ph ph-gear"></i> Configuración de Aportes</h1>
+    <div class="sub">Parámetros de la JDCCPP y del acceso del representante.</div>
+  </div>
 
   {% if junta %}
-  <div class="card">
-    <h2>Junta de Decanos</h2>
+  <!-- 1. Datos de la Junta (read-only) -->
+  <div class="sect">
+    <h2><i class="ph ph-bank"></i> Junta de Decanos</h2>
     <div class="row"><span class="k">Nombre</span><span class="v">{{ junta.nombre }}</span></div>
     <div class="row"><span class="k">Profesión</span><span class="v">{{ junta.profesion }}</span></div>
     <div class="row"><span class="k">Banco destino</span><span class="v">{{ junta.banco_destino or '—' }}</span></div>
@@ -37,25 +48,104 @@
     <div class="row"><span class="k">Código del CCPL ante la Junta</span><span class="v">{{ junta.codigo_ante_junta or '—' }}</span></div>
   </div>
 
+  <!-- 2. Fórmula (read-only) -->
   {% if config %}
-  <div class="card">
-    <h2>Fórmula de aporte vigente</h2>
-    <div class="row"><span class="k">Por colegiado hábil</span>
-      <span class="v">{{ '%.3f'|format(config.pct_sobre_cuota_habil) }}% × Cuota Ord. S/ {{ '%.2f'|format(config.base_cuota_ordinaria) }} = S/ {{ '%.2f'|format(config.monto_por_habil) }}</span></div>
-    <div class="row"><span class="k">Por nuevo colegiado</span>
-      <span class="v">{{ '%.3f'|format(config.pct_sobre_uit_nuevo) }}% × UIT S/ {{ '%.2f'|format(config.base_uit) }} = S/ {{ '%.2f'|format(config.monto_por_nuevo) }}</span></div>
-    <div class="row"><span class="k">Cierre con gracia</span><span class="v">{{ config.dia_cierre_gracia }} días tras fin de mes</span></div>
-    {% if config.formula_descripcion %}<div class="formula">{{ config.formula_descripcion }}</div>{% endif %}
-    {% if config.fuente_normativa %}<div class="ro">Fuente: {{ config.fuente_normativa }}</div>{% endif %}
+  <div class="sect">
+    <h2><i class="ph ph-function"></i> Fórmula de aporte {{ config.vigencia_desde.year if config.vigencia_desde else '' }}</h2>
+    <div class="formula-cards">
+      <div class="fcard" style="--c:#10b981;">
+        <div class="lbl">Por colegiado hábil</div>
+        <div class="val">S/ {{ '%.2f'|format(config.monto_por_habil) }}</div>
+        <div class="det">{{ '%.1f'|format(config.pct_sobre_cuota_habil) }}% × Cuota Ord. S/ {{ '%.2f'|format(config.base_cuota_ordinaria) }}</div>
+      </div>
+      <div class="fcard" style="--c:#8b5cf6;">
+        <div class="lbl">Por nuevo colegiado</div>
+        <div class="val">S/ {{ '%.2f'|format(config.monto_por_nuevo) }}</div>
+        <div class="det">{{ '%.1f'|format(config.pct_sobre_uit_nuevo) }}% × UIT S/ {{ '%.2f'|format(config.base_uit) }}</div>
+      </div>
+      <div class="fcard" style="--c:#3b82f6;">
+        <div class="lbl">Cierre con gracia</div>
+        <div class="val">{{ config.dia_cierre_gracia }} días</div>
+        <div class="det">tras fin de mes</div>
+      </div>
+    </div>
+    <div class="ro">Solo lectura. Cambios de parámetros vía SQL (versionado por vigencia).</div>
+  </div>
+  {% endif %}
+
+  <!-- 3. Configuración de acceso JDCCPP (editable) -->
+  <div class="sect">
+    <h2><i class="ph ph-lock-key"></i> Acceso de la JDCCPP</h2>
+    <label>Máximo de descargas por periodo (0 = ilimitado)</label>
+    <input type="number" id="ac-max" min="0" value="{{ acceso.max_descargas_por_periodo if acceso else 10 }}">
+    <div class="chk"><input type="checkbox" id="ac-hist" {% if acceso and acceso.permite_ver_historicos %}checked{% endif %}> Permite ver periodos históricos</div>
+    <div class="chk"><input type="checkbox" id="ac-sinrestr" {% if not acceso or acceso.consulta_sin_restriccion %}checked{% endif %} onchange="document.getElementById('ac-dias').disabled=this.checked"> Sin restricción de ventana de consulta</div>
+    <label>Ventana de días disponible (si desactivas "sin restricción")</label>
+    <input type="number" id="ac-dias" min="1" value="{{ acceso.consulta_dias_disponible if acceso and acceso.consulta_dias_disponible else '' }}" {% if not acceso or acceso.consulta_sin_restriccion %}disabled{% endif %}>
+    <div style="margin-top:14px;"><button class="btn btn-primary" onclick="guardarAcceso()"><i class="ph ph-floppy-disk"></i> Guardar acceso</button></div>
+  </div>
+
+  <!-- 4. Usuario representante JDCCPP (editable) -->
+  <div class="sect">
+    <h2><i class="ph ph-user-circle"></i> Representante de la JDCCPP</h2>
+    {% if representante %}
+    <div class="row"><span class="k">DNI (usuario)</span><span class="v">{{ representante.public_id }}</span></div>
+    <div class="row"><span class="k">Nombre</span><span class="v">{{ representante.name }}</span></div>
+    <div class="row"><span class="k">Debe cambiar clave</span><span class="v">{{ 'Sí' if representante.debe_cambiar_clave else 'No' }}</span></div>
+    <div style="margin-top:14px;"><button class="btn btn-ghost" onclick="document.getElementById('modal-rep').style.display='flex'"><i class="ph ph-pencil"></i> Actualizar datos del representante</button></div>
+    {% else %}
+    <p style="color:#f87171;">No hay usuario representante (rol junta_jdccpp). Ejecuta la Pieza A del SQL.</p>
+    {% endif %}
   </div>
   {% else %}
-  <div class="card"><p style="color:#f87171;">No hay configuración vigente cargada para esta Junta.</p></div>
-  {% endif %}
-  <p class="ro">Sin edición desde la interfaz en esta versión. Cambios de parámetros vía SQL (versionado por vigencia).</p>
-  {% else %}
-  <div class="card"><p style="color:#f87171;">Esta organización no tiene una Junta asignada. Ejecutar el SQL de la Pieza A.</p></div>
+  <div class="sect"><p style="color:#f87171;">Esta organización no tiene una Junta asignada. Ejecuta el SQL de la Pieza A.</p></div>
   {% endif %}
 
   {% include "partials/aportes_footer.html" %}
 </div>
+
+<!-- Modal actualizar representante -->
+<div id="modal-rep" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:22px; width:100%; max-width:440px;">
+    <h3 style="font-size:16px; color:#f8fafc; margin-bottom:6px;">Actualizar representante JDCCPP</h3>
+    <p style="font-size:12px; color:#94a3b8; margin-bottom:8px;">Al cambiar el DNI, la clave inicial se resetea al nuevo DNI y se exige cambio de clave.</p>
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">DNI (8 dígitos)</label>
+    <input type="text" id="rep-dni" value="{{ representante.public_id if representante else '' }}" style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 11px;">
+    <label style="display:block;font-size:12px;color:#94a3b8;margin:8px 0 4px;">Nombre</label>
+    <input type="text" id="rep-name" value="{{ representante.name if representante else '' }}" style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 11px;">
+    <div style="display:flex;align-items:center;gap:9px;margin:12px 0;font-size:14px;color:#e2e8f0;"><input type="checkbox" id="rep-reset"> Forzar reset de clave (aunque no cambie el DNI)</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-rep').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarRep()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function guardarAcceso() {
+  const body = {
+    max_descargas_por_periodo: parseInt(document.getElementById('ac-max').value || '0'),
+    permite_ver_historicos: document.getElementById('ac-hist').checked,
+    consulta_sin_restriccion: document.getElementById('ac-sinrestr').checked,
+    consulta_dias_disponible: document.getElementById('ac-dias').value || null,
+  };
+  try {
+    const r = await fetch('/admin/aportes-junta/config/acceso-junta', {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    if (window.Toast) Toast.show(r.ok ? 'Configuración de acceso guardada' : 'No se pudo guardar', r.ok ? 'success':'error');
+  } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
+}
+async function guardarRep() {
+  const dni = document.getElementById('rep-dni').value.trim();
+  if (dni && !/^\d{8}$/.test(dni)) { if(window.Toast) Toast.show('El DNI debe tener 8 dígitos', 'error'); return; }
+  const body = { public_id: dni, name: document.getElementById('rep-name').value.trim(),
+                 forzar_reset: document.getElementById('rep-reset').checked };
+  try {
+    const r = await fetch('/admin/aportes-junta/config/representante-junta', {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    if (r.ok) { if(window.Toast) Toast.show('Representante actualizado', 'success'); setTimeout(()=>location.reload(), 700); }
+    else { const d = await r.json().catch(()=>({})); if(window.Toast) Toast.show(d.detail || 'No se pudo actualizar', 'error'); }
+  } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
+}
+</script>
 {% endblock %}

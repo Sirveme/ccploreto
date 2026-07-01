@@ -166,8 +166,9 @@
 </div>
 
 <script>
-const CONDS = ['habil','inhabil','vitalicio','candidato_retiro'];
-const CONDS_LBL = {habil:'Hábil', inhabil:'Inhábil', vitalicio:'Vitalicio', candidato_retiro:'Cand. retiro'};
+// 'past_decano' es un valor VIRTUAL del dropdown (en BD = habil + aporta=FALSE + motivo='Past Decano').
+const COND_OPTS = [['habil','Hábil'],['inhabil','Inhábil'],['vitalicio','Vitalicio'],['candidato_retiro','Candidato Retiro'],['past_decano','Past Decano']];
+function efectiva(c){ return (!c.aporta_jdccpp && c.motivo === 'Past Decano') ? 'past_decano' : c.condicion; }
 let _state = { cond:'habil', aporta:'', q:'', page:1, pages:1 };
 let _searchT = null;
 
@@ -196,15 +197,15 @@ async function loadPadron() {
     else {
       let h = '<table><thead><tr><th>Matrícula</th><th>Apellidos y Nombres</th><th>DNI</th><th>Condición</th><th>Aporta</th></tr></thead><tbody>';
       for (const c of data.rows) {
-        const opts = CONDS.map(k => `<option value="${k}" ${k===c.condicion?'selected':''}>${CONDS_LBL[k]}</option>`).join('');
+        const eff = efectiva(c);
+        const opts = COND_OPTS.map(([k,l]) => `<option value="${k}" ${k===eff?'selected':''}>${l}</option>`).join('');
+        const badge = c.aporta_jdccpp ? '<span style="color:#34d399;font-weight:700;">Sí</span>' : '<span style="color:#94a3b8;">No</span>';
         h += `<tr>
           <td>${c.codigo_matricula||'—'}</td>
           <td>${c.apellidos_nombres}</td>
           <td>${c.dni||'—'}</td>
           <td><select class="inline" onchange="setCond(${c.id}, this.value)">${opts}</select></td>
-          <td><select class="inline" onchange="setAporta(${c.id}, this.value)">
-                <option value="si" ${c.aporta_jdccpp?'selected':''}>Sí</option>
-                <option value="no" ${!c.aporta_jdccpp?'selected':''}>No</option></select></td>
+          <td>${badge}</td>
         </tr>`;
       }
       h += '</tbody></table>';
@@ -220,17 +221,8 @@ async function setCond(id, val) {
   try {
     const r = await fetch(`/admin/aportes-junta/padron/${id}/condicion`, {
       method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({condicion:val})});
-    if (r.ok && window.Toast) Toast.show('Condición actualizada', 'success');
-    else if (!r.ok && window.Toast) Toast.show('No se pudo actualizar', 'error');
-  } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
-}
-async function setAporta(id, val) {
-  try {
-    const r = await fetch(`/admin/aportes-junta/padron/${id}/aporta-jdccpp`, {
-      method:'PUT', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({aporta: val==='si', motivo: val==='no' ? 'Marcado desde padrón' : null})});
-    if (r.ok && window.Toast) Toast.show('Aporte JDCCPP actualizado', 'success');
-    else if (!r.ok && window.Toast) Toast.show('No se pudo actualizar', 'error');
+    if (r.ok) { if(window.Toast) Toast.show('Condición actualizada', 'success'); loadPadron(); }
+    else if (window.Toast) Toast.show('No se pudo actualizar', 'error');
   } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
 }
 

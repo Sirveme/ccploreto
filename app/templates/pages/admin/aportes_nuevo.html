@@ -3,24 +3,26 @@
 
 {% block extra_css %}
 <style>
-  .wrap { max-width: 680px; margin: 0 auto; padding: 24px 16px; }
-  .back { color:#60a5fa; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:16px; }
-  h1 { font-size:20px; font-weight:700; color:#f8fafc; margin-bottom:18px; }
-  .card { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:20px; }
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 0 14px 40px; }
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px; padding:22px 18px; margin:0 -14px 20px; color:#fff; }
+  .hero h1 { font-size:19px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .back { color:#bfdbfe; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:8px; }
+  .card { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:18px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#cbd5e1; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
   label { display:block; font-size:12px; color:#94a3b8; margin:12px 0 5px; }
-  input, select, textarea { width:100%; background:#0b1220; border:1px solid #334155; color:#e2e8f0;
-    border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit; }
+  input, select, textarea { width:100%; background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit; }
   input:focus, select:focus, textarea:focus { outline:none; border-color:#3b82f6; }
   .search-results { border:1px solid #334155; border-radius:8px; margin-top:6px; max-height:220px; overflow:auto; display:none; }
   .search-results.show { display:block; }
   .res-item { padding:9px 11px; cursor:pointer; font-size:13px; border-bottom:1px solid #1e293b; }
   .res-item:hover { background:#1e293b; }
-  .picked { background:rgba(34,197,94,.1); border:1px solid #166534; border-radius:8px; padding:12px; margin-top:8px; font-size:13px; display:none; }
+  .picked { background:rgba(16,185,129,.1); border:1px solid #166534; border-radius:8px; padding:12px; margin-top:8px; font-size:13px; display:none; }
   .picked.show { display:block; }
-  .aporte-box { background:rgba(59,130,246,.08); border-left:3px solid #3b82f6; padding:12px; border-radius:6px; margin:16px 0; font-size:14px; color:#cbd5e1; }
+  .aporte-box { background:rgba(30,64,175,.12); border-left:4px solid var(--ccpl); padding:12px; border-radius:6px; margin:16px 0; font-size:14px; color:#cbd5e1; }
   .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
-  .btn { padding:10px 16px; border-radius:8px; font-size:14px; font-weight:600; border:none; cursor:pointer; text-decoration:none; }
-  .btn-primary { background:#2563eb; color:#fff; } .btn-primary:hover { background:#1d4ed8; }
+  .btn { padding:11px 18px; border-radius:9px; font-size:14px; font-weight:700; border:none; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:7px; }
+  .btn-primary { background:var(--ccpl); color:#fff; } .btn-primary:hover { background:#1d4ed8; }
   .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
   .btn-ghost { background:#1e293b; color:#cbd5e1; }
 </style>
@@ -28,10 +30,13 @@
 
 {% block content %}
 <div class="wrap">
-  <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
-  <h1>Registrar aporte por nuevo colegiado</h1>
+  <div class="hero">
+    <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
+    <h1><i class="ph ph-user-plus"></i> Registrar aporte por nuevo colegiado</h1>
+  </div>
 
   <form class="card" method="post" action="/admin/aportes-junta/nuevo" enctype="multipart/form-data" id="form-nuevo">
+    <h2><i class="ph ph-identification-card"></i> Colegiado</h2>
     <label>Buscar colegiado (matrícula, DNI o nombre)</label>
     <input type="text" id="buscar" autocomplete="off" placeholder="Ej: 10-2430 o 42545697">
     <div class="search-results" id="resultados"></div>
@@ -72,7 +77,7 @@
 
     <div class="actions">
       <a href="/admin/aportes-junta" class="btn btn-ghost">Cancelar</a>
-      <button type="submit" class="btn btn-primary" id="btn-submit" disabled>Registrar aporte</button>
+      <button type="submit" class="btn btn-primary" id="btn-submit" disabled><i class="ph ph-check"></i> Registrar aporte</button>
     </div>
   </form>
 
