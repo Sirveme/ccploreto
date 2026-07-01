@@ -31,19 +31,34 @@ def get_current_member(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=302, headers={"Location": "/"}) # Sin token, solo ir al home
 
     try:
-        scheme, token_value = token.split()
-        if scheme.lower() != 'bearer': logout()
-            
+        # Tolerante: acepta "Bearer XYZ" o solo "XYZ".
+        # Algunos service workers / PWA reenvían la cookie sin el prefijo "Bearer",
+        # y token.split() en 1 solo elemento reventaba el desempaquetado → logout()
+        # → 302 intermitente (p. ej. al descargar el PDF).
+        parts = token.split()
+        if len(parts) == 2:
+            scheme, token_value = parts
+            if scheme.lower() != 'bearer':
+                logout()
+        elif len(parts) == 1:
+            token_value = parts[0]
+        else:
+            logout()
+
         payload = jwt.decode(token_value, SECRET_KEY, algorithms=[ALGORITHM])
         member_id = payload.get("sub")
-        
-        if member_id is None: logout()
-        
+
+        if member_id is None:
+            logout()
+
         member = db.query(Member).filter(Member.id == member_id).first()
-        if member is None: logout()
-        
+        if member is None:
+            logout()
+
         return member
 
+    except HTTPException:
+        raise  # re-lanzar la redirección de logout() sin tratarla como "error de sesión"
     except Exception as e:
         print(f"⚠️ Error de sesión: {e}")
         logout()
