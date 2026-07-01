@@ -19,7 +19,7 @@ import json
 import uuid
 from datetime import datetime, date, timezone, timedelta
 
-from fastapi import APIRouter, Depends, Request, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Request, HTTPException, UploadFile, File, Form, Body
 from fastapi.responses import HTMLResponse, JSONResponse, Response, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -843,21 +843,14 @@ async def dashboard_admin(
         GROUP BY condicion ORDER BY total DESC
     """), {"org": ORG_CCPL}).fetchall()
 
-    habiles_aportantes = 0
-    past_decanos = 0
+    cond = {}
     total_padron = 0
-    breakdown = []
     for f in filas:
-        cond = f.condicion or "(sin condición)"
+        c = f.condicion or "(sin)"
+        cond[c] = {"total": f.total, "aportan": f.aportan}
         total_padron += f.total
-        if cond == "habil":
-            habiles_aportantes = f.aportan
-            past_decanos = f.total - f.aportan
-            breakdown.append({"label": "Hábiles aportantes", "total": f.aportan, "aporta": True})
-            if past_decanos:
-                breakdown.append({"label": "Past Decanos (hábil, no aporta)", "total": past_decanos, "aporta": False})
-        else:
-            breakdown.append({"label": cond.capitalize(), "total": f.total, "aporta": False})
+    habiles_aportantes = cond.get("habil", {}).get("aportan", 0)
+    past_decanos = cond.get("habil", {}).get("total", 0) - habiles_aportantes
 
     # Periodo en curso: crear/recalcular si no existe.
     ahora = datetime.now(TZ_PERU)
@@ -874,25 +867,136 @@ async def dashboard_admin(
         except Exception:
             periodo = None
 
+    nuevos = []
+    if periodo:
+        nuevos = db.execute(text("""
+            SELECT dni, apellidos_nombres, codigo_matricula, fecha_colegiatura,
+                   fecha_pago_der_col, monto_aporte
+            FROM aporte_detalle_nuevos WHERE aporte_periodo_id = :p
+            ORDER BY codigo_matricula NULLS LAST, apellidos_nombres
+        """), {"p": periodo.id}).fetchall()
+
+    cantidad_nuevos = (periodo.cantidad_nuevos if periodo else 0) or 0
     est_habiles = habiles_aportantes * monto_habil
     est_nuevos = float(periodo.monto_nuevos) if periodo and periodo.monto_nuevos else 0.0
 
+    cards = [
+        {"label": "Hábiles aportantes", "icon": "ph-check-circle", "color": "#10b981",
+         "total": habiles_aportantes, "monto": est_habiles},
+        {"label": "Vitalicios", "icon": "ph-medal", "color": "#3b82f6",
+         "total": cond.get("vitalicio", {}).get("total", 0), "monto": None},
+        {"label": "Inhábiles", "icon": "ph-x-circle", "color": "#f59e0b",
+         "total": cond.get("inhabil", {}).get("total", 0), "monto": None},
+        {"label": "Nuevos del mes", "icon": "ph-user-plus", "color": "#8b5cf6",
+         "total": cantidad_nuevos, "monto": est_nuevos},
+        {"label": "Past Decanos", "icon": "ph-crown", "color": "#ef4444",
+         "total": past_decanos, "monto": None},
+        {"label": "Candidatos a retiro", "icon": "ph-warning", "color": "#fbbf24",
+         "total": cond.get("candidato_retiro", {}).get("total", 0), "monto": None},
+    ]
+
     return templates.TemplateResponse("pages/admin/aportes_dashboard.html", {
         "request": request,
-        "breakdown": breakdown,
+        "cards": cards,
         "total_padron": total_padron,
-        "habiles_aportantes": habiles_aportantes,
-        "past_decanos": past_decanos,
         "monto_habil": monto_habil,
         "monto_nuevo": monto_nuevo,
         "periodo": periodo,
         "periodo_label": f"{MESES_ES[ahora.month]} {ahora.year}",
-        "est_habiles": est_habiles,
-        "est_nuevos": est_nuevos,
         "est_total": est_habiles + est_nuevos,
-        "cantidad_nuevos": (periodo.cantidad_nuevos if periodo else 0) or 0,
+        "nuevos": nuevos,
         "show_psp_footer": _show_psp_footer(db, current_member),
     })
+
+
+# ════════════════════════════════════════════════════════════════
+# PADRÓN — datos paginados (AJAX) + edición inline (condición / aporta)
+# ════════════════════════════════════════════════════════════════
+_CONDICIONES_VALIDAS = ("habil", "inhabil", "vitalicio", "candidato_retiro")
+
+
+@router.get("/padron-data")
+async def padron_data(
+    condicion: str = None,
+    aporta: str = None,
+    q: str = None,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    per_page = 50
+    page = max(1, page)
+    where = ["organization_id = :org"]
+    params = {"org": ORG_CCPL, "lim": per_page, "off": (page - 1) * per_page}
+    if condicion and condicion in _CONDICIONES_VALIDAS:
+        where.append("condicion = :cond"); params["cond"] = condicion
+    if aporta == "si":
+        where.append("COALESCE(aporta_jdccpp, TRUE) = TRUE")
+    elif aporta == "no":
+        where.append("COALESCE(aporta_jdccpp, TRUE) = FALSE")
+    if q and q.strip():
+        where.append("(codigo_matricula ILIKE :q OR dni ILIKE :q OR apellidos_nombres ILIKE :q)")
+        params["q"] = f"%{q.strip()}%"
+    w = " AND ".join(where)
+    total = db.execute(text(f"SELECT COUNT(*) AS c FROM colegiados WHERE {w}"), params).fetchone().c
+    filas = db.execute(text(f"""
+        SELECT id, codigo_matricula, apellidos_nombres, dni, condicion,
+               COALESCE(aporta_jdccpp, TRUE) AS aporta_jdccpp
+        FROM colegiados WHERE {w}
+        ORDER BY apellidos_nombres LIMIT :lim OFFSET :off
+    """), params).fetchall()
+    return JSONResponse({
+        "total": total, "page": page, "pages": (total + per_page - 1) // per_page,
+        "rows": [{
+            "id": r.id, "codigo_matricula": r.codigo_matricula,
+            "apellidos_nombres": r.apellidos_nombres, "dni": r.dni,
+            "condicion": r.condicion, "aporta_jdccpp": bool(r.aporta_jdccpp),
+        } for r in filas],
+    })
+
+
+@router.put("/padron/{colegiado_id}/condicion")
+async def padron_set_condicion(
+    colegiado_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    nueva = (payload.get("condicion") or "").strip()
+    if nueva not in _CONDICIONES_VALIDAS:
+        raise HTTPException(400, "Condición no válida")
+    r = db.execute(text("""
+        UPDATE colegiados SET condicion = :c, fecha_actualizacion_condicion = NOW()
+        WHERE id = :cid AND organization_id = :org
+        RETURNING id
+    """), {"c": nueva, "cid": colegiado_id, "org": ORG_CCPL}).fetchone()
+    if not r:
+        raise HTTPException(404, "Colegiado no encontrado")
+    db.commit()
+    return JSONResponse({"ok": True})
+
+
+@router.put("/padron/{colegiado_id}/aporta-jdccpp")
+async def padron_set_aporta(
+    colegiado_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    aporta = bool(payload.get("aporta"))
+    motivo = (payload.get("motivo") or None)
+    r = db.execute(text("""
+        UPDATE colegiados SET
+            aporta_jdccpp = :a, aporta_jdccpp_motivo = :m,
+            aporta_jdccpp_actualizado_por = :uid, aporta_jdccpp_actualizado_at = NOW()
+        WHERE id = :cid AND organization_id = :org
+        RETURNING id
+    """), {"a": aporta, "m": motivo, "uid": current_member.user_id,
+           "cid": colegiado_id, "org": ORG_CCPL}).fetchone()
+    if not r:
+        raise HTTPException(404, "Colegiado no encontrado")
+    db.commit()
+    return JSONResponse({"ok": True})
 
 
 # ════════════════════════════════════════════════════════════════
