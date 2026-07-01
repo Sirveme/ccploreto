@@ -125,30 +125,38 @@ def generar_pdf(db: Session, periodo_id: int, show_footer: bool = False, org_id:
         el.append(Spacer(1, 8 * mm))
 
     # ── Pieza H: bloque de firma (solo si aprobado) ──
-    hoy = datetime.now(TZ_PERU).strftime("%d de %B de %Y")
+    # FIX 3: fecha en español sin depender del locale del servidor (%B daría "July").
+    _now = datetime.now(TZ_PERU)
+    hoy = f"{_now.day:02d} de {MESES_ES[_now.month]} de {_now.year}"
     if aprobado:
         aprob_at = getattr(periodo, "aprobado_at", None)
         aprob_str = aprob_at.astimezone(TZ_PERU).strftime("%d/%m/%Y %H:%M") if aprob_at else "—"
         nombre_admin = getattr(periodo, "aprobado_admin_nombre", None)
+        dni_admin = getattr(periodo, "aprobado_admin_dni", None)
         firma = ParagraphStyle("firma", parent=styles["Normal"], fontSize=10, leading=15)
         el.append(Spacer(1, 6 * mm))
         el.append(Paragraph(f"Iquitos, {hoy}", styles["Normal"]))
         el.append(Spacer(1, 8 * mm))
-        el.append(Paragraph("Aprobado y publicado por:", styles["Normal"]))
-        el.append(Spacer(1, 3 * mm))
-        if nombre_admin:
+        if nombre_admin and dni_admin:
+            # Caso normal: aprobado por un Administrador con datos completos.
+            el.append(Paragraph("Aprobado y publicado por:", styles["Normal"]))
+            el.append(Spacer(1, 3 * mm))
             el.append(Paragraph(
                 f"<b>{nombre_admin}</b><br/>"
                 f"Administrador del CCPL<br/>"
-                f"DNI: {getattr(periodo,'aprobado_admin_dni',None) or '—'}<br/>"
-                f"Matrícula: {getattr(periodo,'aprobado_admin_matricula',None) or '—'}<br/>"
+                f"DNI: {dni_admin}<br/>"
+                f"Matrícula: {getattr(periodo,'aprobado_admin_matricula',None) or '-'}<br/>"
                 f"Fecha de aprobación: {aprob_str}", firma))
         else:
-            # Aprobación retroactiva por el sistema (ej. Mayo 2026 aprobado vía SQL,
-            # sin firmante). No hay DNI/matrícula que mostrar.
+            # FIX 4: aprobación retroactiva por el sistema (ej. Mayo 2026 vía SQL, sin
+            # firmante). Bloque distinto, sin líneas huérfanas de DNI/Matrícula.
+            el.append(Paragraph("Aprobado y publicado:", styles["Normal"]))
+            el.append(Spacer(1, 3 * mm))
             el.append(Paragraph(
                 f"<b>Regularización retroactiva del sistema</b><br/>"
-                f"Fecha de aprobación: {aprob_str}", firma))
+                f"Fecha de aprobación: {aprob_str}<br/><br/>"
+                f"<i>Este periodo fue cargado retroactivamente desde el reporte oficial "
+                f"en papel del CCPL correspondiente al periodo declarado.</i>", firma))
     else:
         el.append(Paragraph(
             "<b>DOCUMENTO PREVIEW — PENDIENTE DE APROBACIÓN</b>",
