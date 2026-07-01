@@ -116,11 +116,20 @@ def calcular_periodo_actual(db: Session, organizacion_id: int = 1):
             OR p.notes ILIKE '%Derecho de Colegiatura%'
           )
           AND COALESCE(c.aporta_jdccpp, TRUE) = TRUE   -- excluir exonerados (Past Decano)
+          -- NOTA INSTITUCIONAL: un colegiado nuevo aporta a la JDCCPP una sola vez.
+          -- Se excluye si ya está en OTRO periodo (<> :pid). Se usa "<> :pid" y no un
+          -- NOT EXISTS global para no auto-excluirse en el re-cálculo del propio periodo
+          -- (que borra e reinserta sus filas 'pago_automatico' más abajo).
+          AND NOT EXISTS (
+            SELECT 1 FROM aporte_detalle_nuevos adn
+            WHERE adn.colegiado_id = c.id AND adn.aporte_periodo_id <> :pid
+          )
         ORDER BY c.id, p.created_at ASC
     """), {
         "org": organizacion_id,
         "inicio": inicio_mes,
         "fin": inicio_mes_siguiente,
+        "pid": periodo_id,
     }).fetchall()
 
     # Limpiar SOLO los automáticos del periodo (preservar manual_caja y carga_historica).
@@ -159,10 +168,12 @@ def calcular_periodo_actual(db: Session, organizacion_id: int = 1):
         WHERE c.organization_id = :org
           AND c.fecha_colegiatura >= :inicio
           AND c.fecha_colegiatura < :fin
+          -- NOT EXISTS GLOBAL (cualquier periodo): si el colegiado ya fue reportado
+          -- en otro mes (ej. cargado en Mayo), no vuelve a alertar en Junio aunque su
+          -- fecha_colegiatura caiga aquí. Aporte único por colegiado a la JDCCPP.
           AND NOT EXISTS (
             SELECT 1 FROM aporte_detalle_nuevos adn
             WHERE adn.colegiado_id = c.id
-              AND adn.aporte_periodo_id = :pid
           )
         ORDER BY c.codigo_matricula
     """), {
