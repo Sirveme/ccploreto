@@ -101,6 +101,33 @@
   <div class="sect"><p style="color:#f87171;">Esta organización no tiene una Junta asignada. Ejecuta el SQL de la Pieza A.</p></div>
   {% endif %}
 
+  <!-- Log de descargas de la JDCCPP -->
+  <div class="sect">
+    <h2><i class="ph ph-download-simple"></i> Descargas recientes de la JDCCPP</h2>
+    {% if descargas_recientes %}
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr>
+        <th style="text-align:left;padding:8px;color:#94a3b8;text-transform:uppercase;font-size:10px;">Fecha</th>
+        <th style="text-align:left;padding:8px;color:#94a3b8;text-transform:uppercase;font-size:10px;">Periodo</th>
+        <th style="text-align:left;padding:8px;color:#94a3b8;text-transform:uppercase;font-size:10px;">Tipo</th>
+        <th style="text-align:left;padding:8px;color:#94a3b8;text-transform:uppercase;font-size:10px;">IP origen</th>
+      </tr></thead>
+      <tbody>
+        {% for d in descargas_recientes %}
+        <tr>
+          <td style="padding:8px;border-top:1px solid #1e293b;">{{ d.fecha.strftime('%d/%m/%Y %H:%M') if d.fecha else '—' }}</td>
+          <td style="padding:8px;border-top:1px solid #1e293b;">{{ d.periodo }}</td>
+          <td style="padding:8px;border-top:1px solid #1e293b;">{{ d.tipo }}</td>
+          <td style="padding:8px;border-top:1px solid #1e293b;color:#94a3b8;">{{ d.ip }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#64748b;font-size:13px;">Sin descargas registradas aún.</p>
+    {% endif %}
+  </div>
+
   {% include "partials/aportes_footer.html" %}
 </div>
 

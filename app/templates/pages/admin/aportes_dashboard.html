@@ -150,20 +150,68 @@
       <a class="act act-pdf" href="/admin/aportes-junta/periodo/{{ periodo.id }}/pdf" target="_blank"><i class="ph ph-file-pdf"></i> PDF Borrador</a>
       <a class="act act-xls" href="/admin/aportes-junta/periodo/{{ periodo.id }}/excel"><i class="ph ph-file-xls"></i> Excel</a>
       {% if periodo.aprobado %}
-        <a class="act act-apr done" href="/admin/aportes-junta/periodo/{{ periodo.id }}"><i class="ph ph-check-circle"></i> Aprobado ✓</a>
+        <span class="act act-apr done"><i class="ph ph-check-circle"></i> Aprobado ✓</span>
+        <form class="inline-act" method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/revocar">
+          <button type="submit" class="act" style="width:100%;background:#7f1d1d;color:#fff;"><i class="ph ph-x-circle"></i> Revocar publicación</button>
+        </form>
       {% else %}
         <form class="inline-act" method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/aprobar">
           <button type="submit" class="act act-apr" style="width:100%;"><i class="ph ph-check-circle"></i> Aprobar y Publicar</button>
         </form>
       {% endif %}
       {% endif %}
-      <span class="act act-soon"><i class="ph ph-gear"></i> Config Acceso JDCCPP (próximo)</span>
-      <span class="act act-soon"><i class="ph ph-key"></i> Reset Claves (próximo)</span>
+      <a class="act act-xls" href="/admin/aportes-junta/config"><i class="ph ph-gear"></i> Config Acceso JDCCPP</a>
+      <button type="button" class="act act-xls" onclick="document.getElementById('modal-reset').style.display='flex'"><i class="ph ph-key"></i> Reset Claves</button>
     </div>
   </div>
 
   {% include "partials/aportes_footer.html" %}
 </div>
+
+<!-- Modal Reset de claves (Pieza I) -->
+<div id="modal-reset" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:22px; width:100%; max-width:460px;">
+    <h3 style="font-size:16px; color:#f8fafc; margin-bottom:6px;">Reset de clave de usuario</h3>
+    <p style="font-size:12px; color:#94a3b8; margin-bottom:10px;">La clave se restablece al DNI del usuario y se le exige cambiarla al ingresar.</p>
+    <input type="text" id="rs-buscar" autocomplete="off" placeholder="Buscar por DNI o nombre…"
+      style="width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:9px 11px;">
+    <div id="rs-res" style="border:1px solid #334155;border-radius:8px;margin-top:8px;max-height:240px;overflow:auto;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button type="button" onclick="document.getElementById('modal-reset').style.display='none'"
+        style="padding:9px 14px;border-radius:8px;border:none;cursor:pointer;background:#1e293b;color:#cbd5e1;font-weight:600;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _rsT = null;
+document.getElementById('rs-buscar').addEventListener('input', (e) => {
+  clearTimeout(_rsT);
+  const q = e.target.value.trim();
+  const box = document.getElementById('rs-res');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  _rsT = setTimeout(async () => {
+    try {
+      const r = await fetch('/admin/aportes-junta/usuarios/buscar?q=' + encodeURIComponent(q));
+      const data = await r.json();
+      box.innerHTML = (data.resultados||[]).map(u =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #1e293b;font-size:13px;">
+           <span><strong>${u.public_id}</strong> · ${u.name} <em style="color:#64748b;">(${u.role})</em></span>
+           <button onclick="resetClave(${u.id}, this)" style="background:#b45309;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600;">Resetear</button>
+         </div>`).join('') || '<div style="padding:11px;color:#64748b;font-size:13px;">Sin resultados.</div>';
+    } catch(e) {}
+  }, 280);
+});
+async function resetClave(id, btn) {
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await fetch(`/admin/aportes-junta/usuarios/${id}/reset-clave`, { method:'POST' });
+    const d = await r.json().catch(()=>({}));
+    if (r.ok) { if(window.Toast) Toast.show('Clave reseteada al DNI ' + (d.public_id||''), 'success'); btn.textContent = '✓ Listo'; }
+    else { if(window.Toast) Toast.show(d.detail || 'No se pudo resetear', 'error'); btn.disabled = false; btn.textContent = 'Resetear'; }
+  } catch(e) { if(window.Toast) Toast.show('Error de red','error'); btn.disabled = false; btn.textContent = 'Resetear'; }
+}
+</script>
 
 <script>
 // 'past_decano' es un valor VIRTUAL del dropdown (en BD = habil + aporta=FALSE + motivo='Past Decano').
