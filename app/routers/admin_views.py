@@ -14,7 +14,41 @@ from app.models import Organization, Colegiado, Payment, Member
 from app.routers.dashboard import get_current_member  # <-- Importar de dashboard
 
 router = APIRouter(tags=["admin-views"])
+
+
 @router.get("/admin", response_class=HTMLResponse)
+async def admin_home_page(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Panel principal del Administrador: home_admin.html con las 3 tarjetas.
+    (Antes /admin caía en admin_config_page → admin-config.html; se separó.)"""
+    org = getattr(request.state, 'org', None)
+    if not org:
+        org_obj = db.query(Organization).filter(
+            Organization.id == member.organization_id
+        ).first()
+        org = {
+            "id": org_obj.id,
+            "name": org_obj.name,
+            "slug": org_obj.slug,
+            "config": org_obj.config or {},
+        } if org_obj else None
+
+    # Contexto compatible con home_admin.html (user.user.name, user.organization.name).
+    # profiles=[] → el selector de perfiles no se renderiza (no requiere user.id).
+    user_ctx = {
+        "user": {"name": member.user.name if member.user else "Admin"},
+        "organization": {"name": org["name"] if org else ""},
+    }
+    return templates.TemplateResponse("pages/admin/home_admin.html", {
+        "request": request,
+        "user": user_ctx,
+        "profiles": [],
+    })
+
+
 @router.get("/admin/config", response_class=HTMLResponse)
 async def admin_config_page(
     request: Request,
