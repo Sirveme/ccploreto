@@ -4,22 +4,20 @@
 {% block container_width %}max-w-full lg:max-w-[95%]{% endblock %}
 
 {% block content %}
-<!-- Usamos justify-start para obligar a que todo empiece arriba -->
 <div class="fade-me-in flex flex-col h-full justify-start">
 
-    <!-- CABECERA PRINCIPAL -->
+    <!-- CABECERA PRINCIPAL (preservada del original: nombre + selector de perfiles + push + logout) -->
     <header class="flex justify-between items-start mb-6 shrink-0 pt-2">
         <div class="relative group cursor-pointer">
             <div class="flex items-center gap-2">
                 <h2 class="text-2xl font-bold text-white flex items-center gap-2">
-                    <!-- Fix Nombre -->
                     Panel de {{ user.user.name }}
                     {% if profiles|length > 1 %}
                         <i class="ph ph-caret-down text-sm text-slate-400"></i>
                     {% endif %}
                 </h2>
             </div>
-            
+
             <div class="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-xs">
                 <i class="ph ph-buildings"></i>
                 {{ user.organization.name }}
@@ -31,7 +29,7 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
                     <div class="p-2 text-[10px] uppercase text-slate-500 font-bold bg-black/20">Mis Administraciones</div>
                     {% for p in profiles %}
-                        <a href="/auth/switch/{{ p.id }}" 
+                        <a href="/auth/switch/{{ p.id }}"
                            class="block px-4 py-3 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0 flex justify-between items-center {{ 'bg-indigo-900/20 text-indigo-300' if p.id == user.id else 'text-slate-300' }}">
                             <div>
                                 <div class="font-bold">{{ p.organization.name }}</div>
@@ -44,263 +42,190 @@
             </div>
             {% endif %}
         </div>
-        
+
         {% include "partials/activar_push.html" %}
-        <button class="text-red-400 hover:text-white transition-colors" title="Cerrar Sesión">
+        <button class="text-red-400 hover:text-white transition-colors" title="Cerrar Sesión"
+                onclick="window.location.href='/auth/logout'">
             <i class="ph ph-sign-out text-2xl"></i>
         </button>
     </header>
 
-    <!-- GRID DE CONTENIDO -->
-    <!-- Quitamos h-screen fijo para evitar scroll raro, usamos min-h-0 y flex-1 -->
-    <div class="flex flex-col lg:grid lg:grid-cols-3 gap-6 pb-10">
-        
-        <!-- COLUMNA IZQUIERDA: ACCIONES -->
-        <div class="lg:col-span-1 flex flex-col gap-6">
-            
-            <!-- 1. NUEVO COMUNICADO -->
-            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="ph ph-megaphone text-indigo-400"></i> Nuevo Comunicado
-                </h2>
-                
-                <form hx-post="/admin/bulletin/create" 
-                      hx-target="#bulletin-list" 
-                      hx-swap="afterbegin"
-                      id="form-boletin">
-                    
-                    <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1 uppercase">Título</label>
-                        <input type="text" name="title" required placeholder="Ej: Corte de Agua"
-                               class="w-full bg-black border border-slate-700 text-white rounded-lg p-3 focus:border-indigo-500 outline-none">
-                    </div>
+    <!-- 3 TARJETAS PRINCIPALES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 max-w-6xl mx-auto w-full">
 
-                    <div class="mb-4">
-                        <label class="block text-xs text-slate-400 mb-1 uppercase">Prioridad</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <label class="cursor-pointer">
-                                <input type="radio" name="priority" value="info" class="peer hidden" checked>
-                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-blue-600 peer-checked:text-white text-sm border border-slate-700 transition-all">ℹ️ Info</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="radio" name="priority" value="warning" class="peer hidden">
-                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-yellow-600 peer-checked:text-white text-sm border border-slate-700 transition-all">⚠️ Aviso</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="radio" name="priority" value="alert" class="peer hidden">
-                                <div class="text-center py-2 rounded-lg bg-slate-800 text-slate-400 peer-checked:bg-red-600 peer-checked:text-white text-sm border border-slate-700 transition-all">🚨 Urgente</div>
-                            </label>
-                        </div>
-                    </div>
+        <!-- Tarjeta 1: Aportes JDCCPP -->
+        <a href="/admin/aportes-junta/dashboard"
+           class="bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900
+                  rounded-2xl p-8 text-white transition-all duration-200
+                  transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                  flex flex-col items-center text-center gap-4">
+            <div class="text-6xl"><i class="ph ph-chart-bar"></i></div>
+            <h3 class="text-xl font-bold">Aportes JDCCPP</h3>
+            <p class="text-sm opacity-90">
+                Gestión de reporte mensual, padrón editable, aprobación de periodos
+            </p>
+        </a>
 
-                    <div class="mb-6">
-                        <label class="block text-xs text-slate-400 mb-1 uppercase">Mensaje</label>
-                        <textarea name="content" required rows="4" placeholder="Escriba los detalles..."
-                                  class="w-full bg-black border border-slate-700 text-white rounded-lg p-3 focus:border-indigo-500 outline-none resize-none"></textarea>
-                    </div>
+        <!-- Tarjeta 2: Reset Claves -->
+        <button onclick="abrirModalResetClaves()"
+                class="bg-gradient-to-br from-amber-600 to-amber-800 hover:from-amber-700 hover:to-amber-900
+                       rounded-2xl p-8 text-white transition-all duration-200
+                       transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                       flex flex-col items-center text-center gap-4 border-0">
+            <div class="text-6xl"><i class="ph ph-key"></i></div>
+            <h3 class="text-xl font-bold">Reset de Claves</h3>
+            <p class="text-sm opacity-90">
+                Resetear contraseña de cualquier usuario del sistema
+            </p>
+        </button>
 
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
-                        <i class="ph ph-paper-plane-right"></i> ENVIAR A TODOS
-                    </button>
-                </form>
-            </div>
+        <!-- Tarjeta 3: Ver Portal Colegiado -->
+        <a href="/dashboard"
+           class="bg-gradient-to-br from-emerald-600 to-emerald-800 hover:from-emerald-700 hover:to-emerald-900
+                  rounded-2xl p-8 text-white transition-all duration-200
+                  transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                  flex flex-col items-center text-center gap-4">
+            <div class="text-6xl"><i class="ph ph-user-circle"></i></div>
+            <h3 class="text-xl font-bold">Portal del Colegiado</h3>
+            <p class="text-sm opacity-90">
+                Acceder al portal como colegiado (mismos datos que ve cualquier miembro)
+            </p>
+        </a>
 
-            <!-- zClaude-97p — ASAMBLEAS -->
-            <a href="/admin/asambleas"
-               class="block bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg hover:border-amber-500 transition-colors">
-                <h2 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                    <i class="ph ph-calendar-check text-amber-400"></i> Asambleas
-                </h2>
-                <p class="text-sm text-slate-400">Ver asistencia, código QR y avances de cada asamblea.</p>
-            </a>
+    </div>
 
-            <!-- 2. FINANZAS RÁPIDAS -->
-            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="ph ph-currency-dollar text-green-400"></i> Generar Cobros
-                </h2>
-                
-                <form hx-post="/finance/generate-fees" hx-swap="afterbegin" hx-target="#finance-feedback">
-                    <div id="finance-feedback"></div>
-
-                    <div class="mb-3">
-                        <label class="block text-xs text-slate-400 mb-1">Concepto</label>
-                        <div class="relative">
-                            <select name="concept" class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm appearance-none cursor-pointer">
-                                <option value="Mantenimiento General">Mantenimiento General</option>
-                                <option value="Cuota Extraordinaria">Cuota Extraordinaria</option>
-                                <option value="Consumo de Agua">Consumo de Agua</option>
-                                <option value="Multa por Ruidos">Multa</option>
-                                <option value="Alquiler Zona Parrilla">Alquiler Zona Parrilla</option>
-                            </select>
-                            <i class="ph ph-caret-down absolute right-3 top-3 text-slate-500 pointer-events-none"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="flex gap-3 mb-4">
-                        <div class="flex-1">
-                            <label class="block text-xs text-slate-400 mb-1">Monto (S/)</label>
-                            <input type="number" name="amount" value="150.00" step="0.01"
-                                   class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm font-bold text-green-400">
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-xs text-slate-400 mb-1">Vencimiento</label>
-                            <input type="date" name="due_date" 
-                                   class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
-                        </div>
-                    </div>
-
-                    <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg transition-colors">
-                        GENERAR DEUDA MASIVA
-                    </button>
-                </form>
-            </div>
-
-            <!-- 3. GESTIÓN DE PROVEEDORES -->
-            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-lg mt-6">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="ph ph-storefront text-indigo-400"></i> Registrar Proveedor
-                </h2>
-                
-                <form hx-post="/partners/create" hx-swap="innerHTML" hx-target="#partner-feedback" enctype="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div id="partner-feedback"></div>
-
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Nombre Negocio</label>
-                            <input type="text" name="name" required placeholder="Ej: Gasfitería Lopez" 
-                                class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Categoría</label>
-                            <select name="category" class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
-                                <option value="Hogar">🛠️ Hogar / Técnico</option>
-                                <option value="Bodega">🛒 Bodega / Tienda</option>
-                                <option value="Salud">🩺 Salud / Vet</option>
-                                <option value="Comida">🍕 Comida / Delivery</option>
-                                <option value="Educación">🎓 Clases</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="block text-xs text-slate-400 mb-1">Descripción corta</label>
-                        <input type="text" name="description" placeholder="Servicio 24h, especialistas en..." 
-                            class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">WhatsApp (51...)</label>
-                            <input type="text" name="whatsapp" placeholder="51999..." 
-                                class="w-full bg-black border border-slate-700 text-white rounded p-2 text-sm font-mono">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Logo / Foto</label>
-                            <input type="file" name="logo" accept="image/*" 
-                                class="w-full text-xs text-slate-400">
-                    </div>
-                    </div>
-
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
-                        <i class="ph ph-plus-circle"></i> AGREGAR AL DIRECTORIO
-                    </button>
-                </form>
-            </div>
-
-        </div>
-
-        <!-- En la columna derecha o central -->
-        <div class="lg:col-span-1 bg-slate-900 rounded-xl p-6 border border-slate-800 flex flex-col h-[500px]">
-            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <i class="ph ph-receipt text-yellow-400"></i> Pagos por Validar
-            </h2>
-            
-            <!-- Carga diferida de la lista de pagos -->
-            <div id="payment-list-container" hx-get="/finance/admin/pending" hx-trigger="load" hx-swap="innerHTML" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <div class="animate-pulse space-y-4">
-                    <div class="h-24 bg-slate-800 rounded-xl"></div>
-                    <div class="h-24 bg-slate-800 rounded-xl"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- COLUMNA DERECHA: HISTORIAL -->
-        <div class="lg:col-span-2 bg-slate-900 rounded-xl p-6 border border-slate-800 flex flex-col h-[600px] shadow-lg">
-            <div class="flex justify-between items-center mb-4 shrink-0">
-                <h2 class="text-xl font-bold text-white">Historial de Enviados</h2>
-                <div class="flex gap-4 text-sm text-slate-400">
-                    <span>👥 {{ stats.vecinos }} Vecinos</span>
-                </div>
-            </div>
-
-            <div id="bulletin-list" class="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                {% for b in bulletins %}
-                <div class="p-4 bg-slate-800 rounded-lg border-l-4 
-                    {% if b.priority == 'alert' %}border-red-500{% elif b.priority == 'warning' %}border-yellow-500{% else %}border-blue-500{% endif %}">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-bold text-white text-lg">{{ b.title }}</h3>
-                            <span class="text-xs text-slate-500 local-time opacity-0 transition-opacity" 
-                                data-date="{{ b.created_at.isoformat() }}">
-                                {{ b.created_at.strftime('%d/%m/%Y %H:%M') }}
-                            </span>
-                        </div>
-                        {% if b.priority == 'alert' %}
-                            <span class="bg-red-900/50 text-red-300 text-xs px-2 py-1 rounded">Urgente</span>
-                        {% endif %}
-                    </div>
-                    <p class="text-sm text-slate-300 mt-2 whitespace-pre-wrap">{{ b.content }}</p>
-                </div>
-                {% else %}
-                <div class="text-center text-slate-600 py-10">
-                    <i class="ph ph-envelope-open text-4xl mb-2"></i>
-                    <p>No hay comunicados recientes.</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
+    <!-- Info footer -->
+    <div class="mt-12 text-center text-sm text-slate-400 max-w-3xl mx-auto">
+        <p>Panel del Administrador — Colegio de Contadores Públicos de Loreto</p>
+        <p class="mt-2 text-xs opacity-75">
+            Este panel se irá poblando con nuevas funcionalidades en próximas actualizaciones.
+        </p>
     </div>
 </div>
 
-<script>
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if(evt.detail.elt.id === 'form-boletin' && evt.detail.successful) {
-            evt.detail.elt.reset();
-        }
-    });
-</script>
+<!-- MODAL RESET CLAVES -->
+<div id="modalResetClaves" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; padding:20px;">
+    <div style="background:white; max-width:600px; margin:60px auto; padding:24px; border-radius:16px;">
+
+        <h3 style="margin-top:0; color:#1e40af; display:flex; align-items:center; gap:8px;">
+            <i class="ph ph-key" style="font-size:24px;"></i>
+            Resetear Clave de Usuario
+        </h3>
+
+        <p style="color:#6b7280; font-size:14px; margin-bottom:16px;">
+            Busca el usuario por DNI o parte del nombre. La nueva clave será su propio DNI.
+            El usuario deberá cambiarla en su próximo ingreso.
+        </p>
+
+        <div style="margin-bottom:12px;">
+            <input type="text" id="resetBusqueda"
+                   placeholder="DNI o nombre..."
+                   autocomplete="off"
+                   style="width:100%; padding:12px; border:2px solid #d1d5db; border-radius:8px; font-size:14px;">
+        </div>
+
+        <div id="resetResultados" style="max-height:300px; overflow-y:auto; margin-bottom:16px;"></div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button onclick="cerrarModalResetClaves()"
+                    style="background:#e5e7eb; color:#374151; padding:10px 20px; border-radius:8px; border:0; cursor:pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" style="display:none; position:fixed; bottom:20px; right:20px; background:#10b981; color:white; padding:16px 24px; border-radius:8px; z-index:10000; box-shadow:0 4px 12px rgba(0,0,0,0.2);"></div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Conexión WS
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/alerta`;
-        let socket = new WebSocket(wsUrl);
-        const cashSound = new Audio('/static/sounds/ding-dong.mp3'); 
+function abrirModalResetClaves() {
+    document.getElementById('modalResetClaves').style.display = 'block';
+    document.getElementById('resetBusqueda').focus();
+}
 
-        socket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            
-            // CASO: NUEVO PAGO RECIBIDO
-            if (data.type === "NEW_PAYMENT_REPORT") {
-                // 1. Sonido
-                cashSound.play().catch(e=>{});
-                
-                // 2. Notificación Visual (Toast)
-                if(window.Toast) window.Toast.show(`💰 Nuevo pago: ${data.amount} de ${data.user}`, 'success');
+function cerrarModalResetClaves() {
+    document.getElementById('modalResetClaves').style.display = 'none';
+    document.getElementById('resetBusqueda').value = '';
+    document.getElementById('resetResultados').innerHTML = '';
+}
 
-                // 3. Recargar la lista (HTMX)
-                const container = document.getElementById('payment-list-container');
-                if (container) {
-                    htmx.ajax('GET', '/finance/admin/pending', {target: '#payment-list-container', swap: 'innerHTML'});
-                }
+function mostrarToast(mensaje, color) {
+    const t = document.getElementById('toast');
+    t.textContent = mensaje;
+    t.style.background = color || '#10b981';
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+let resetTimeout;
+document.getElementById('resetBusqueda').addEventListener('input', function(e) {
+    clearTimeout(resetTimeout);
+    const q = e.target.value.trim();
+    if (q.length < 2) {
+        document.getElementById('resetResultados').innerHTML = '';
+        return;
+    }
+    resetTimeout = setTimeout(async () => {
+        try {
+            const r = await fetch(`/admin/aportes-junta/usuarios/buscar?q=${encodeURIComponent(q)}`);
+            if (!r.ok) {
+                document.getElementById('resetResultados').innerHTML =
+                    '<div style="padding:12px; color:#6b7280; text-align:center;">Error al buscar</div>';
+                return;
             }
-        };
-        
-        socket.onclose = () => setTimeout(() => { socket = new WebSocket(wsUrl) }, 3000);
-    });
+            // El endpoint devuelve { resultados: [...] }
+            const data = await r.json();
+            const usuarios = data.resultados || [];
+            if (usuarios.length === 0) {
+                document.getElementById('resetResultados').innerHTML =
+                    '<div style="padding:12px; color:#6b7280; text-align:center;">No se encontraron usuarios</div>';
+                return;
+            }
+            const html = usuarios.slice(0, 10).map(u => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #e5e7eb;">
+                    <div>
+                        <div style="font-weight:600; color:#111827;">${u.name || 'Sin nombre'}</div>
+                        <div style="font-size:12px; color:#6b7280;">DNI: ${u.public_id || '-'}${u.role ? ' · ' + u.role : ''}</div>
+                    </div>
+                    <button onclick="confirmarReset('${u.id}', '${(u.name || '').replace(/'/g, "\\'")}', '${u.public_id || ''}')"
+                            style="background:#dc2626; color:white; padding:8px 16px; border:0; border-radius:6px; cursor:pointer; font-size:13px;">
+                        Resetear
+                    </button>
+                </div>
+            `).join('');
+            document.getElementById('resetResultados').innerHTML = html;
+        } catch (err) {
+            document.getElementById('resetResultados').innerHTML =
+                '<div style="padding:12px; color:#dc2626; text-align:center;">Error de conexión</div>';
+        }
+    }, 300);
+});
+
+async function confirmarReset(userId, nombre, dni) {
+    // TODO: reemplazar confirm() nativo por modal custom (decisión de Duilio: usar
+    // confirm() hoy por velocidad; rediseñar con modal propio después).
+    const msg = `¿Confirmar reset de clave?\n\nUsuario: ${nombre}\nDNI: ${dni}\n\nLa nueva clave será: ${dni}\nEl usuario deberá cambiarla en su próximo ingreso.`;
+    if (!confirm(msg)) return;
+
+    try {
+        // Endpoint admin-scoped (require_aportes): sirve al Administrador (rol admin).
+        const r = await fetch(`/admin/aportes-junta/usuarios/${userId}/reset-clave`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        if (r.ok) {
+            mostrarToast(`✓ Clave reseteada para ${nombre}. Nueva clave: ${dni}`, '#10b981');
+            cerrarModalResetClaves();
+        } else {
+            const err = await r.text();
+            mostrarToast(`Error: ${err.substring(0, 100)}`, '#dc2626');
+        }
+    } catch (err) {
+        mostrarToast(`Error de conexión: ${err.message}`, '#dc2626');
+    }
+}
 </script>
 
 {% endblock %}
