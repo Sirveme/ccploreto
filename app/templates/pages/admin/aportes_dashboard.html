@@ -67,6 +67,14 @@
 
 {% block content %}
 <div class="wrap">
+  <nav style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 4px;">
+    <a href="/admin" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#0b1220;color:#60a5fa;border:1px solid #1e293b;"><i class="ph ph-arrow-left"></i> Volver a Admin</a>
+    <span style="width:1px;height:22px;background:#1e293b;margin:0 2px;"></span>
+    <a href="/admin/aportes-junta" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-calendar"></i> Periodos</a>
+    <a href="/admin/aportes-junta/dashboard#padron" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e40af;color:#fff;"><i class="ph ph-users-three"></i> Padrón</a>
+    <a href="/admin/aportes-junta/nuevo" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-user-plus"></i> Nuevo</a>
+    <a href="/admin/aportes-junta/carga-historica" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-archive"></i> Carga histórica</a>
+  </nav>
   <div class="hero">
     <h1><i class="ph ph-bank"></i> Aportes a la JDCCPP</h1>
     <div class="sub">Dashboard del Administrador · {{ periodo_label }} (periodo en curso)</div>
@@ -98,7 +106,7 @@
   </div>
 
   <!-- 3. Padrón con tabs + edición inline -->
-  <div class="sect">
+  <div class="sect" id="padron">
     <h2><i class="ph ph-users-three"></i> Padrón — {{ '{:,}'.format(total_padron) }} colegiados</h2>
     <div class="tabs" id="tabs">
       <span class="tab active" data-cond="habil" data-aporta="">Hábiles</span>
