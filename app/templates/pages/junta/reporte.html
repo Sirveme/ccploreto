@@ -1,0 +1,87 @@
+{% extends "base_admin.html" %}
+{% block title %}Reporte de Aportes — JDCCPP{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 14px 40px; }
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px; padding:24px 18px; margin:0 -14px 22px; color:#fff; }
+  .hero h1 { font-size:18px; font-weight:800; line-height:1.3; }
+  .hero .sub { color:#bfdbfe; font-size:13px; margin-top:6px; }
+  .hero .org { margin-top:12px; font-size:13px; background:rgba(255,255,255,.1); border-radius:8px; padding:9px 12px; display:inline-block; }
+  .logout { float:right; color:#bfdbfe; text-decoration:none; font-size:12px; }
+  .card { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:18px; margin-bottom:14px; }
+  .card .mes { font-size:16px; font-weight:800; color:#f8fafc; }
+  .card .monto { font-size:26px; font-weight:900; color:#34d399; margin:6px 0; }
+  .card .meta { font-size:12px; color:#94a3b8; line-height:1.7; }
+  .card .rest { display:inline-block; margin-top:8px; font-size:12px; background:rgba(59,130,246,.15); color:#93c5fd; padding:3px 10px; border-radius:999px; font-weight:600; }
+  .btns { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:7px; padding:11px 16px; border-radius:9px; font-size:14px; font-weight:700; border:none; cursor:pointer; }
+  .btn-pdf { background:#334155; color:#e2e8f0; } .btn-xls { background:#334155; color:#e2e8f0; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .pend { background:rgba(245,158,11,.1); border:1px solid #b45309; border-radius:14px; padding:16px; }
+  .pend .mes { font-size:16px; font-weight:800; color:#fbbf24; }
+  .pend .st { font-size:13px; color:#fcd34d; margin-top:6px; }
+  .empty { text-align:center; color:#64748b; padding:30px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="hero">
+    <a href="/auth/logout" class="logout"><i class="ph ph-sign-out"></i> Salir</a>
+    <h1>Junta de Decanos de Colegios de Contadores Públicos del Perú</h1>
+    <div class="sub">Acceso del Representante Designado · Solo lectura</div>
+    <div class="org">Colegio de Contadores Públicos de Loreto (CCPL) · Código ante JDCCPP: 10</div>
+  </div>
+
+  <h2 style="font-size:13px;text-transform:uppercase;color:#94a3b8;margin:6px 0 12px;">Periodos disponibles</h2>
+
+  {% if periodos %}
+    {% for p in periodos %}
+    <div class="card">
+      <div class="mes">{{ p.label }}</div>
+      <div class="monto">S/ {{ '%.2f'|format(p.monto_total) }}</div>
+      <div class="meta">
+        Aporte declarado a la JDCCPP.<br>
+        Aprobado por: <strong>{{ p.firmante or '—' }}</strong>{% if p.aprobado_at %} · {{ p.aprobado_at.strftime('%d/%m/%Y') }}{% endif %}
+        {% if p.voucher %}<br>Voucher de depósito: {{ p.voucher }}{% endif %}
+      </div>
+      {% if p.restantes is not none %}<span class="rest">Descargas restantes: {{ p.restantes }} de {{ max_descargas }}</span>{% endif %}
+      <div class="btns">
+        <button class="btn btn-pdf" onclick="descargar({{ p.id }},'pdf')" {% if p.restantes is not none and p.restantes <= 0 %}disabled{% endif %}><i class="ph ph-file-pdf"></i> Descargar PDF</button>
+        <button class="btn btn-xls" onclick="descargar({{ p.id }},'excel')" {% if p.restantes is not none and p.restantes <= 0 %}disabled{% endif %}><i class="ph ph-file-xls"></i> Descargar Excel</button>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty"><i class="ph ph-tray" style="font-size:40px;"></i><p style="margin-top:10px;">Aún no hay periodos aprobados disponibles.</p></div>
+  {% endif %}
+
+  {% if pendiente_label %}
+  <div class="pend">
+    <div class="mes">{{ pendiente_label }}</div>
+    <div class="st">⏳ Mes pendiente de aprobación por el CCPL.</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+async function descargar(id, tipo) {
+  try {
+    const r = await fetch(`/junta/reporte/${id}/${tipo}`);
+    if (r.status === 429) { const d = await r.json().catch(()=>({})); if(window.Toast) Toast.show(d.detail || 'Límite de descargas alcanzado', 'error'); return; }
+    if (!r.ok) { if(window.Toast) Toast.show('No se pudo descargar el reporte', 'error'); return; }
+    const blob = await r.blob();
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^"]+)"?/);
+    const fname = m ? m[1] : ('reporte.' + (tipo === 'pdf' ? 'pdf' : 'xlsx'));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+    if (window.Toast) Toast.show('Descarga iniciada', 'success');
+    setTimeout(() => location.reload(), 900);
+  } catch(e) { if(window.Toast) Toast.show('Error de red', 'error'); }
+}
+</script>
+{% endblock %}
