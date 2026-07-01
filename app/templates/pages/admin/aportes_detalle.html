@@ -56,6 +56,26 @@
     <div class="line total"><span>TOTAL A DEPOSITAR A JDCCPP</span><span>S/ {{ '%.2f'|format(periodo.monto_total or 0) }}</span></div>
   </div>
 
+  <!-- Pieza E: aprobación para visibilidad JDCCPP -->
+  {% if periodo.aprobado %}
+  <div class="resumen" style="border-color:#166534;">
+    <div class="line"><span class="k">Estado JDCCPP</span><span style="color:#4ade80;font-weight:700;">✅ APROBADO Y PUBLICADO</span></div>
+    {% if periodo.aprobado_admin_nombre %}<div class="line"><span class="k">Aprobado por</span><span>{{ periodo.aprobado_admin_nombre }}{% if periodo.aprobado_admin_matricula %} ({{ periodo.aprobado_admin_matricula }}){% endif %}{% if periodo.aprobado_admin_dni %} · DNI {{ periodo.aprobado_admin_dni }}{% endif %}</span></div>{% endif %}
+    {% if periodo.aprobado_at %}<div class="line"><span class="k">Fecha</span><span>{{ periodo.aprobado_at.strftime('%d/%m/%Y %H:%M') }}</span></div>{% endif %}
+    <form method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/revocar" style="margin-top:12px;">
+      <button type="submit" style="padding:9px 14px;border-radius:8px;border:none;cursor:pointer;background:#7f1d1d;color:#fecaca;font-weight:600;">🔴 Revocar aprobación</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="resumen" style="border-color:#a16207;">
+    <div class="line"><span class="k">Estado JDCCPP</span><span style="color:#fbbf24;font-weight:700;">No aprobado (la Junta NO lo ve)</span></div>
+    <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px;">Al aprobar, el periodo queda visible para la JDCCPP y se firma con tus datos (nombre, matrícula, DNI).</p>
+    <form method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/aprobar">
+      <button type="submit" style="padding:10px 16px;border-radius:8px;border:none;cursor:pointer;background:#15803d;color:#fff;font-weight:700;">🟢 Aprobar y publicar</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if alertas %}
   <div class="alerta">
     <strong>⚠ {{ alertas|length }} colegiado(s) nuevo(s) con alta en este periodo pero sin pago de DER-COL registrado.</strong>

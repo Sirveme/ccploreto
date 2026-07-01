@@ -1,0 +1,239 @@
+{% extends "base_admin.html" %}
+{% block title %}Dashboard Aportes JDCCPP — CCPL{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 14px 40px; }
+
+  /* Header institucional */
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px;
+          padding:22px 18px; margin:0 -14px 20px; color:#fff; }
+  .hero h1 { font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .hero .sub { color:#bfdbfe; font-size:13px; margin-top:4px; }
+
+  /* Tarjetas resumen */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:12px; margin-bottom:18px; }
+  .kpi { background:#0f172a; border:1px solid #1e293b; border-left:4px solid var(--c); border-radius:12px; padding:14px; }
+  .kpi .ic { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+             background:color-mix(in srgb, var(--c) 18%, transparent); color:var(--c); font-size:19px; margin-bottom:8px; }
+  .kpi .num { font-size:28px; font-weight:800; color:#f8fafc; line-height:1; font-variant-numeric:tabular-nums; }
+  .kpi .lbl { font-size:12px; color:#94a3b8; margin-top:4px; }
+  .kpi .mto { font-size:12px; color:var(--c); font-weight:700; margin-top:6px; }
+
+  /* Total destacado */
+  .total-card { background:linear-gradient(135deg,#0b1220,#0f172a); border:1px solid #1e293b; border-radius:14px;
+                padding:22px; margin-bottom:18px; text-align:center; }
+  .total-card .cap { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+  .total-card .big { font-size:40px; font-weight:900; color:#f8fafc; margin:6px 0; letter-spacing:-1px; }
+  .total-card .st { display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+  .pill { display:inline-flex; gap:5px; padding:4px 11px; border-radius:999px; font-size:12px; font-weight:700; }
+  .p-abierto { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .p-cerrado { background:rgba(16,185,129,.15); color:#34d399; }
+  .p-aprob   { background:rgba(16,185,129,.2); color:#34d399; }
+  .p-noaprob { background:rgba(148,163,184,.15); color:#cbd5e1; }
+  .warn { color:#fbbf24; font-size:12px; margin-top:8px; }
+
+  .sect { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:16px; margin-bottom:18px; }
+  .sect h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#cbd5e1; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+
+  /* Tabs padrón */
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .tab { padding:7px 13px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer;
+         background:#1e293b; color:#cbd5e1; border:1px solid transparent; }
+  .tab.active { background:var(--ccpl); color:#fff; }
+  .search { width:100%; background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:8px; padding:9px 11px; margin-bottom:10px; font-size:14px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:8px 8px; font-size:12.5px; text-align:left; border-bottom:1px solid #1e293b; }
+  th { color:#94a3b8; text-transform:uppercase; font-size:10px; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  select.inline { background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:6px; padding:5px 7px; font-size:12px; }
+  .pager { display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:12px; color:#94a3b8; }
+  .pg-btn { background:#1e293b; color:#cbd5e1; border:none; border-radius:7px; padding:6px 11px; cursor:pointer; font-weight:600; }
+  .pg-btn:disabled { opacity:.4; cursor:default; }
+  .empty { text-align:center; color:#64748b; padding:26px; }
+
+  /* Acciones */
+  .acts { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+  .act { display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:11px;
+         font-size:14px; font-weight:700; text-decoration:none; cursor:pointer; border:none; text-align:center; }
+  .act-pdf { background:#334155; color:#e2e8f0; } .act-xls { background:#334155; color:#e2e8f0; }
+  .act-apr { background:#15803d; color:#fff; } .act-apr.done { background:rgba(16,185,129,.15); color:#34d399; }
+  .act-soon { background:#1e293b; color:#64748b; cursor:default; }
+  form.inline-act { margin:0; }
+  @media (max-width:600px){ .total-card .big{ font-size:32px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="hero">
+    <h1><i class="ph ph-bank"></i> Aportes a la JDCCPP</h1>
+    <div class="sub">Dashboard del Administrador · {{ periodo_label }} (periodo en curso)</div>
+  </div>
+
+  <!-- 1. Tarjetas resumen -->
+  <div class="cards">
+    {% for c in cards %}
+    <div class="kpi" style="--c:{{ c.color }};">
+      <div class="ic"><i class="ph {{ c.icon }}"></i></div>
+      <div class="num">{{ '{:,}'.format(c.total) }}</div>
+      <div class="lbl">{{ c.label }}</div>
+      {% if c.monto is not none %}<div class="mto">S/ {{ '%.2f'|format(c.monto) }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 2. Total destacado -->
+  <div class="total-card">
+    <div class="cap">Aporte estimado {{ periodo_label }}</div>
+    <div class="big">S/ {{ '%.2f'|format(est_total) }}</div>
+    <div class="st">
+      {% if periodo %}
+        {% if periodo.estado == 'cerrado' %}<span class="pill p-cerrado">Cerrado</span>{% else %}<span class="pill p-abierto">Abierto</span>{% endif %}
+        {% if periodo.aprobado %}<span class="pill p-aprob">✅ Publicado a JDCCPP</span>{% else %}<span class="pill p-noaprob">No publicado</span>{% endif %}
+      {% endif %}
+    </div>
+    {% if periodo and periodo.estado != 'cerrado' %}<div class="warn">⚠ Cifras estimadas; cambian hasta el cierre del mes.</div>{% endif %}
+  </div>
+
+  <!-- 3. Padrón con tabs + edición inline -->
+  <div class="sect">
+    <h2><i class="ph ph-users-three"></i> Padrón — {{ '{:,}'.format(total_padron) }} colegiados</h2>
+    <div class="tabs" id="tabs">
+      <span class="tab active" data-cond="habil" data-aporta="">Hábiles</span>
+      <span class="tab" data-cond="vitalicio" data-aporta="">Vitalicios</span>
+      <span class="tab" data-cond="inhabil" data-aporta="">Inhábiles</span>
+      <span class="tab" data-cond="habil" data-aporta="no">Past Dec.</span>
+      <span class="tab" data-cond="" data-aporta="">Todos</span>
+    </div>
+    <input type="text" class="search" id="padron-search" placeholder="Buscar por matrícula, DNI o nombre…">
+    <div id="padron-box"><div class="empty">Cargando…</div></div>
+    <div class="pager">
+      <span id="pager-info"></span>
+      <span>
+        <button class="pg-btn" id="pg-prev" onclick="padronPage(-1)">‹ Anterior</button>
+        <button class="pg-btn" id="pg-next" onclick="padronPage(1)">Siguiente ›</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- 4. Nuevos colegiados del mes -->
+  <div class="sect">
+    <h2><i class="ph ph-user-plus"></i> Nuevos colegiados de {{ periodo_label }}</h2>
+    {% if nuevos %}
+    <table>
+      <thead><tr><th>N°</th><th>DNI</th><th>Apellidos y Nombres</th><th>F. Colegiatura</th><th>F. Pago DER-COL</th><th class="num">Aporte</th></tr></thead>
+      <tbody>
+        {% for n in nuevos %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ n.dni or '—' }}</td>
+          <td>{{ n.apellidos_nombres }}</td>
+          <td>{{ n.fecha_colegiatura.strftime('%d/%m/%Y') if n.fecha_colegiatura else '—' }}</td>
+          <td>{{ n.fecha_pago_der_col.strftime('%d/%m/%Y') if n.fecha_pago_der_col else '—' }}</td>
+          <td class="num">S/ {{ '%.2f'|format(n.monto_aporte or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Aún no hay nuevos colegiados en {{ periodo_label }}.</div>
+    {% endif %}
+  </div>
+
+  <!-- 5. Barra de acciones -->
+  <div class="sect">
+    <h2><i class="ph ph-lightning"></i> Acciones</h2>
+    <div class="acts">
+      {% if periodo %}
+      <a class="act act-pdf" href="/admin/aportes-junta/periodo/{{ periodo.id }}/pdf" target="_blank"><i class="ph ph-file-pdf"></i> PDF Borrador</a>
+      <a class="act act-xls" href="/admin/aportes-junta/periodo/{{ periodo.id }}/excel"><i class="ph ph-file-xls"></i> Excel</a>
+      {% if periodo.aprobado %}
+        <a class="act act-apr done" href="/admin/aportes-junta/periodo/{{ periodo.id }}"><i class="ph ph-check-circle"></i> Aprobado ✓</a>
+      {% else %}
+        <form class="inline-act" method="post" action="/admin/aportes-junta/periodo/{{ periodo.id }}/aprobar">
+          <button type="submit" class="act act-apr" style="width:100%;"><i class="ph ph-check-circle"></i> Aprobar y Publicar</button>
+        </form>
+      {% endif %}
+      {% endif %}
+      <span class="act act-soon"><i class="ph ph-gear"></i> Config Acceso JDCCPP (próximo)</span>
+      <span class="act act-soon"><i class="ph ph-key"></i> Reset Claves (próximo)</span>
+    </div>
+  </div>
+
+  {% include "partials/aportes_footer.html" %}
+</div>
+
+<script>
+const CONDS = ['habil','inhabil','vitalicio','candidato_retiro'];
+const CONDS_LBL = {habil:'Hábil', inhabil:'Inhábil', vitalicio:'Vitalicio', candidato_retiro:'Cand. retiro'};
+let _state = { cond:'habil', aporta:'', q:'', page:1, pages:1 };
+let _searchT = null;
+
+function tabClick(el) {
+  document.querySelectorAll('#tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _state.cond = el.dataset.cond; _state.aporta = el.dataset.aporta; _state.page = 1;
+  loadPadron();
+}
+document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => tabClick(t)));
+document.getElementById('padron-search').addEventListener('input', (e) => {
+  clearTimeout(_searchT);
+  _searchT = setTimeout(() => { _state.q = e.target.value.trim(); _state.page = 1; loadPadron(); }, 300);
+});
+function padronPage(d) { _state.page = Math.min(_state.pages, Math.max(1, _state.page + d)); loadPadron(); }
+
+async function loadPadron() {
+  const box = document.getElementById('padron-box');
+  box.innerHTML = '<div class="empty">Cargando…</div>';
+  const p = new URLSearchParams({ condicion:_state.cond, aporta:_state.aporta, q:_state.q, page:_state.page });
+  try {
+    const r = await fetch('/admin/aportes-junta/padron-data?' + p.toString());
+    const data = await r.json();
+    _state.pages = data.pages || 1;
+    if (!data.rows.length) { box.innerHTML = '<div class="empty">Sin resultados.</div>'; }
+    else {
+      let h = '<table><thead><tr><th>Matrícula</th><th>Apellidos y Nombres</th><th>DNI</th><th>Condición</th><th>Aporta</th></tr></thead><tbody>';
+      for (const c of data.rows) {
+        const opts = CONDS.map(k => `<option value="${k}" ${k===c.condicion?'selected':''}>${CONDS_LBL[k]}</option>`).join('');
+        h += `<tr>
+          <td>${c.codigo_matricula||'—'}</td>
+          <td>${c.apellidos_nombres}</td>
+          <td>${c.dni||'—'}</td>
+          <td><select class="inline" onchange="setCond(${c.id}, this.value)">${opts}</select></td>
+          <td><select class="inline" onchange="setAporta(${c.id}, this.value)">
+                <option value="si" ${c.aporta_jdccpp?'selected':''}>Sí</option>
+                <option value="no" ${!c.aporta_jdccpp?'selected':''}>No</option></select></td>
+        </tr>`;
+      }
+      h += '</tbody></table>';
+      box.innerHTML = h;
+    }
+    document.getElementById('pager-info').textContent = `Página ${data.page} de ${data.pages} · ${data.total.toLocaleString()} registros`;
+    document.getElementById('pg-prev').disabled = _state.page <= 1;
+    document.getElementById('pg-next').disabled = _state.page >= _state.pages;
+  } catch(e) { box.innerHTML = '<div class="empty">Error cargando padrón.</div>'; }
+}
+
+async function setCond(id, val) {
+  try {
+    const r = await fetch(`/admin/aportes-junta/padron/${id}/condicion`, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({condicion:val})});
+    if (r.ok && window.Toast) Toast.show('Condición actualizada', 'success');
+    else if (!r.ok && window.Toast) Toast.show('No se pudo actualizar', 'error');
+  } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
+}
+async function setAporta(id, val) {
+  try {
+    const r = await fetch(`/admin/aportes-junta/padron/${id}/aporta-jdccpp`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({aporta: val==='si', motivo: val==='no' ? 'Marcado desde padrón' : null})});
+    if (r.ok && window.Toast) Toast.show('Aporte JDCCPP actualizado', 'success');
+    else if (!r.ok && window.Toast) Toast.show('No se pudo actualizar', 'error');
+  } catch(e){ if(window.Toast) Toast.show('Error de red','error'); }
+}
+
+loadPadron();
+</script>
+{% endblock %}
