@@ -58,6 +58,41 @@ def _limpiar_notes_publicas(texto):
     return limpio
 
 
+def _validar_invariante_monetaria(items, total, payment_id=None):
+    """Bloquea la emisión de comprobantes descuadrados (exigencia SUNAT).
+
+    Reutilizable como red antes de enviar a SUNAT. Verifica:
+      - por ítem: valor_venta / precio_unitario / igv con EXACTAMENTE 2 decimales
+        y round(precio_unitario * cantidad, 2) == round(valor_venta, 2)
+      - global: round(sum(valor_venta), 2) == round(total, 2)
+    Lanza ValueError con detalle (payment_id, sumas, items) si algo no cuadra.
+    """
+    def _es_2dec(x):
+        return round(float(x), 2) == float(x)
+
+    errores = []
+    suma = 0.0
+    for it in items:
+        pu = float(it.get("precio_unitario", 0) or 0)
+        cant = int(it.get("cantidad", 0) or 0)
+        vv = float(it.get("valor_venta", 0) or 0)
+        igv = float(it.get("igv", 0) or 0)
+        desc = str(it.get("descripcion", "?")).split("\n")[0][:40]
+        suma += round(vv, 2)
+        if not (_es_2dec(pu) and _es_2dec(vv) and _es_2dec(igv)):
+            errores.append(f"decimales!=2 [{desc}]: pu={pu} vv={vv} igv={igv}")
+        if round(pu * cant, 2) != round(vv, 2):
+            errores.append(f"pu*cant!=vv [{desc}]: {pu}*{cant}={round(pu * cant, 2)} != {round(vv, 2)}")
+    if round(suma, 2) != round(float(total), 2):
+        errores.append(f"suma valor_venta {round(suma, 2)} != total {round(float(total), 2)}")
+
+    if errores:
+        raise ValueError(
+            f"[facturacion] Comprobante descuadrado (payment_id={payment_id}) — NO se emite. "
+            f"{' | '.join(errores)} | items={items}"
+        )
+
+
 # ═══════════════════════════════════════════════════════════════
 # RESOLUCIÓN DE SERIES POR SEDE
 # ═══════════════════════════════════════════════════════════════
@@ -844,6 +879,9 @@ class FacturacionService:
                 if _monto_item is None:
                     _monto_item = float(deuda.amount or deuda.balance or 0)
                 grupos[clave]["monto_total"] += _monto_item
+                # Guardar (periodo, monto) por deuda: permite sub-agrupar por monto
+                # unitario real conservando los meses de cada sub-grupo.
+                grupos[clave].setdefault("pares", []).append((deuda.periodo, _monto_item))
 
             # Construir lista unificada de descriptores de ítem.
             # Primero los grupos de deudas, luego los conceptos sin Debt
@@ -851,26 +889,46 @@ class FacturacionService:
             descriptores = []
             for clave in orden:
                 datos = grupos[clave]
-                periodos = datos["periodos"]
-                cantidad = len(periodos) if periodos else 1
-                if periodos:
-                    periodos_fmt = self._formatear_periodos(periodos)
-                    nombre_upper = datos["nombre"].upper()
-                    periodos_upper = periodos_fmt.upper()
-                    if periodos_upper in nombre_upper:
-                        linea_1 = datos["nombre"]
-                    else:
-                        linea_1 = f"{datos['nombre']} {periodos_fmt}"
-                    if cantidad > 1 and not datos.get("es_bingazo"):
-                        linea_1 += f" ({cantidad} MESES)"
+                es_bingazo = datos.get("es_bingazo")
+                nombre_grupo = datos["nombre"]
+                # Sub-agrupar el grupo por MONTO UNITARIO real, conservando los meses
+                # (periodos) de las cuotas de cada monto. Un descriptor por monto distinto:
+                # precio_unitario = ese monto real (nunca total/cantidad → sin promedios
+                # como 18.15), y valor_venta = monto × cantidad exacto.
+                pares = datos.get("pares") or []
+                sub = {}   # monto_unit(2dec) -> {"periodos": [...], "cant": int}
+                if pares:
+                    for periodo, m in pares:
+                        entry = sub.setdefault(round(float(m), 2), {"periodos": [], "cant": 0})
+                        entry["cant"] += 1
+                        if periodo:
+                            entry["periodos"].append(periodo)
                 else:
-                    linea_1 = datos["nombre"]
-                descriptores.append({
-                    "linea_1": linea_1.upper(),
-                    "cantidad": cantidad,
-                    "monto_total": float(datos["monto_total"] or 0),
-                    "es_const_hab": False,
-                })
+                    # Defensivo: sin pares → un único sub-grupo con el total del grupo.
+                    sub = {round(float(datos["monto_total"] or 0), 2): {
+                        "periodos": list(datos.get("periodos") or []),
+                        "cant": (len(datos.get("periodos") or []) or 1)}}
+                # Orden estable: el de más meses (mayor cantidad) primero.
+                for monto_unit, entry in sorted(sub.items(), key=lambda kv: kv[1]["cant"], reverse=True):
+                    cant = entry["cant"]
+                    periodos_sub = entry["periodos"]
+                    if periodos_sub:
+                        periodos_fmt = self._formatear_periodos(periodos_sub)
+                        if periodos_fmt.upper() in nombre_grupo.upper():
+                            linea_1 = nombre_grupo
+                        else:
+                            linea_1 = f"{nombre_grupo} {periodos_fmt}"
+                        if cant > 1 and not es_bingazo:
+                            linea_1 += f" ({cant} MESES)"
+                    else:
+                        linea_1 = nombre_grupo
+                    descriptores.append({
+                        "linea_1": linea_1.upper(),
+                        "cantidad": cant,
+                        "monto_total": round(monto_unit * cant, 2),
+                        "precio_unit": monto_unit,   # monto real por cuota (nunca inventado)
+                        "es_const_hab": False,
+                    })
 
             for c in conceptos_extra:
                 nombre_c = (c.get("nombre") or "Concepto").upper()
@@ -910,7 +968,16 @@ class FacturacionService:
                     valor_venta = round(desc["monto_total"], 2)
                     asignado += valor_venta
 
-                precio_unitario = round(valor_venta / cantidad, 2) if cantidad else valor_venta
+                # El precio_unitario SIEMPRE es el monto real pagado por cuota
+                # (desc["precio_unit"]), nunca total/cantidad → no inventa decimales.
+                # Los conceptos_extra (sin precio_unit) usan el cálculo simple + guard.
+                if desc.get("precio_unit") is not None:
+                    precio_unitario = round(float(desc["precio_unit"]), 2)
+                else:
+                    precio_unitario = round(valor_venta / cantidad, 2) if cantidad else valor_venta
+                    if cantidad and round(precio_unitario * cantidad, 2) != valor_venta:
+                        cantidad = 1
+                        precio_unitario = valor_venta
 
                 descripcion = desc["linea_1"]
                 if linea_nombre:
@@ -937,6 +1004,11 @@ class FacturacionService:
                     "tipo_afectacion_igv": tipo_afect,
                     "igv": 0 if tipo_afect == "20" else round(valor_venta * 0.18, 2),
                 })
+
+            # Guard de invariante monetaria: si el comprobante descuadra, LANZA y
+            # bloquea la emisión (un comprobante mal cuadrado no debe llegar a SUNAT).
+            # Solo Caso A: Caso B y Fallback quedan intactos.
+            _validar_invariante_monetaria(items, float(payment.amount), getattr(payment, "id", None))
 
         # ── Caso B: notes contiene JSON con "items" (flujo tienda pública OpenPay) ──
         if not items:
