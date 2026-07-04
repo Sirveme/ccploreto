@@ -850,6 +850,44 @@ async def registrar_cobro(
                 )
                 db.add(nueva_deuda)
 
+    # ── RECALCULAR CONDICIÓN tras aplicar pagos (patrón de secretaria.py) ──
+    # Antes el cobro por caja aplicaba pagos pero NO recalculaba la condición
+    # (salvo si incluía Constancia), dejando inhábil a quien pagaba sus cuotas.
+    # Si NO fue constancia, el motor oficial la sincroniza (umbrales 3/1/1) y se
+    # aplica la regla +3 meses por pago completo de diciembre sin multas.
+    if colegiado and not incluye_const_hab and colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
+        from app.services.evaluar_habilidad import sincronizar_condicion
+        # registrar_cobro no recibe `request`; `org` ya está cargado en scope.
+        org_data = {"id": org.id, "config": {}}
+        _cond_previa = colegiado.condicion
+        sincronizar_condicion(db, colegiado, org_data)
+        # Opción B (solo rehabilitar): un pago solo puede mejorar la condición.
+        # Si el motor la pasó de habil→inhabil, revertir — así un pago no deshace
+        # overrides manuales (dispensas del Decano / correcciones).
+        if _cond_previa == "habil" and colegiado.condicion == "inhabil":
+            colegiado.condicion = "habil"
+            # no tocar habilidad_vence ni motivo_inhabilidad en este caso
+
+        # Regla +3 meses: cuota de diciembre pagada COMPLETA y sin multas pendientes
+        # → hábil hasta 31/03 del año siguiente (idéntico a secretaria.py; PERU_TZ).
+        deudas_dic = [
+            d for d in deudas_a_pagar
+            if d["deuda"].periodo and str(d["deuda"].periodo).endswith("-12")
+            and float(d["aplicar"]) >= float(d["saldo_previo"])
+        ]
+        if deudas_dic:
+            multas_pend = db.query(Debt).filter(
+                Debt.colegiado_id == cobro.colegiado_id,
+                Debt.debt_type == "multa",
+                Debt.status.in_(["pending", "partial"]),
+                ~Debt.estado_gestion.in_(["condonada", "justificada", "compensada", "exonerada"]),
+            ).count()
+            if multas_pend == 0:
+                anio_dic = int(str(deudas_dic[0]["deuda"].periodo)[:4])
+                colegiado.habilidad_vence = datetime(anio_dic + 1, 3, 31, tzinfo=PERU_TZ)
+                colegiado.condicion = "habil"
+                colegiado.fecha_actualizacion_condicion = ahora
+
     db.commit()
 
     # ═══ EMITIR COMPROBANTE ELECTRÓNICO ═══
