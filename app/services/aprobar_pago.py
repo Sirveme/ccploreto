@@ -82,41 +82,47 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
     colegiado = db.query(Colegiado).filter(Colegiado.id == pago.colegiado_id).first()
 
     # ── Determinar habilidad ──────────────────────────────────────────────────
-    cambio_habilidad  = False
+    # Habilidad: los SIN fraccionamiento los decide el MOTOR OFICIAL
+    # (sincronizar_condicion → umbrales 3/1/1: permite hasta 2 cuotas ordinarias
+    # impagas, inhabilita a la 3ª). Los CON fraccionamiento siguen manejándose con
+    # _procesar_fraccionamiento (setea habilidad_vence a +1 mes); el motor NO los toca.
+    from app.services.evaluar_habilidad import sincronizar_condicion
+    from app.models import Organization
+
+    cambio_habilidad = False
     habilidad_temporal = False
-    habilidad_vence   = None
+    habilidad_vence = None
 
-    deudas_pendientes = (
-        db.query(Debt)
-        .filter(
-            Debt.colegiado_id == pago.colegiado_id,
-            Debt.status.in_(["pending", "partial"]),
-        )
-        .count()
-    )
+    if colegiado and colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
+        tiene_fracc = bool(getattr(colegiado, "tiene_fraccionamiento", False))
 
-    if deudas_pendientes == 0:
-        # Sin deudas → hábil permanente
-        if colegiado and colegiado.condicion != "habil":
-            colegiado.condicion                      = "habil"
-            colegiado.fecha_actualizacion_condicion  = datetime.now(timezone.utc)
-            colegiado.tiene_fraccionamiento          = False
-            colegiado.habilidad_vence                = None
-            cambio_habilidad = True
-            logger.info(f"Colegiado {pago.colegiado_id} → HÁBIL permanente (pago #{payment_id})")
-
-    else:
-        # Puede tener fraccionamiento activo → procesar cuota específica
-        # El portal envía en Payment.notes: {"fraccionamiento_id": N, "numero_cuota": N}
-        # Los pagos manuales desde caja no traen meta_fracc → rama genérica
-        _procesar_fraccionamiento(db, pago, colegiado, payment_id)
-
-        # Si el bloque anterior cambió la condición ya lo logueó.
-        # Leemos si cambió para construir la respuesta.
-        if colegiado and colegiado.condicion == "habil":
-            cambio_habilidad  = True
-            habilidad_temporal = True
-            if colegiado.habilidad_vence:
+        if tiene_fracc:
+            # Flujo de fraccionamiento: lógica existente intacta.
+            _procesar_fraccionamiento(db, pago, colegiado, payment_id)
+            if colegiado.condicion == "habil":
+                cambio_habilidad = True
+                habilidad_temporal = True
+                if colegiado.habilidad_vence:
+                    habilidad_vence = colegiado.habilidad_vence.strftime("%d/%m/%Y")
+        else:
+            # Sin fraccionamiento: el motor oficial decide habil/inhabil por umbrales.
+            org_id = getattr(pago, "organization_id", None) or getattr(colegiado, "organization_id", None)
+            org = db.query(Organization).filter(Organization.id == org_id).first() if org_id else None
+            org_dict = {"id": org.id, "config": {}} if org else {}
+            _cond_previa = colegiado.condicion
+            cambio = sincronizar_condicion(db, colegiado, org_dict)
+            # Opción B (solo rehabilitar): un pago solo puede mejorar la condición.
+            # Si el motor la pasó de habil→inhabil, revertir (no deshacer overrides
+            # manuales). Como no hubo mejora real, cambio=False (no anunciar nada).
+            if _cond_previa == "habil" and colegiado.condicion == "inhabil":
+                colegiado.condicion = "habil"
+                cambio = False
+            if cambio:
+                colegiado.fecha_actualizacion_condicion = datetime.now(timezone.utc)
+                # Blindaje: solo anunciar "ya eres HÁBIL" si el resultado quedó hábil.
+                # Si el motor lo dejó inhabil/retirado, cambio_habilidad = False.
+                cambio_habilidad = (colegiado.condicion == "habil")
+            if colegiado.condicion == "habil" and colegiado.habilidad_vence:
                 habilidad_vence = colegiado.habilidad_vence.strftime("%d/%m/%Y")
 
     # ── Flush antes de emitir certificado ────────────────────────────────────
