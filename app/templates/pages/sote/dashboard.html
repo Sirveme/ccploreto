@@ -770,6 +770,9 @@
     <a class="sote-nav-item" onclick="showSection('reset', this)" href="#">
       <span class="nav-icon">⟳</span> Reset Password
     </a>
+    <a class="sote-nav-item" onclick="showSection('config', this)" href="#">
+      <span class="nav-icon">⚙</span> Configuración
+    </a>
 
     <div class="sote-nav-section" style="margin-top:12px;">Sistema</div>
     <a class="sote-nav-item" href="/admin" target="_blank">
@@ -1001,6 +1004,38 @@
       </div>
     </section>
 
+    <!-- ═══ CONFIGURACIÓN DEL SISTEMA (extensible) ═══ -->
+    <section id="section-config" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">Configuración del Sistema</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Parámetros del CCPL</span>
+          <span style="color:var(--sote-muted);font-size:10px;">Base para futuros valores (%, UIT, cuota)</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:6px 0;">
+            <div>
+              <div style="font-weight:600;">Cajera puede emitir Notas de Crédito</div>
+              <div style="color:var(--sote-muted);font-size:11px;line-height:1.6;margin-top:2px;">
+                Si está en <strong>NO</strong>, solo el Administrador (y SOTE) puede anular / emitir NC.
+                El cambio surte efecto inmediato.
+              </div>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;">
+              <input type="checkbox" id="tgl-nc-cajera" {% if cajera_puede_emitir_nc %}checked{% endif %}
+                     onchange="guardarNcCajera(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+              <span id="tgl-nc-estado" style="font-size:12px;color:var(--sote-muted);">
+                {{ 'SÍ puede' if cajera_puede_emitir_nc else 'NO puede' }}
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1075,6 +1110,23 @@ function showSection(name, el) {
   document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
   if (name === 'estado') cargarEstadoSistema();
+}
+
+// ── Configuración: toggle "cajera puede emitir NC" ──
+async function guardarNcCajera(valor) {
+  const estado = document.getElementById('tgl-nc-estado');
+  const chk = document.getElementById('tgl-nc-cajera');
+  try {
+    const r = await fetch('/sote/api/config/nc-cajera', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor: valor })
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    if (estado) estado.textContent = valor ? 'SÍ puede' : 'NO puede';
+  } catch (e) {
+    if (chk) chk.checked = !valor;            // revertir visualmente si falló
+    if (estado) estado.textContent = 'Error al guardar';
+  }
 }
 
 // ── Reloj ───────────────────────────────────────────────────
