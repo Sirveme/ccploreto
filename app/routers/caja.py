@@ -2269,6 +2269,10 @@ async def anular_cobro(
             "aprobador": limite.aprobador,
         })
 
+    # ⚠️ ESPEJO: la orquestación que sigue (emitir NC → marcar anulado → restaurar
+    #    deudas → revertir stock) está DUPLICADA en anulacion_service.ejecutar_anulacion
+    #    (camino admin-approve del flujo de dos pasos). Si cambias algo aquí, replícalo
+    #    allá y viceversa. Se decidió NO refactorizar (código fiscal probado, cero riesgo).
     # ── Emitir Nota de Crédito si hay comprobante ──
     nota_credito_info = None
     nc_pdf_url = None
@@ -2424,6 +2428,56 @@ async def anular_cobro(
             "success": False,
             "detail": f"No se pudo emitir la Nota de Crédito: {nota_credito_info}",
         }
+
+
+@router.post("/solicitar-anulacion")
+async def solicitar_anulacion(
+    request: Request,
+    db: Session = Depends(get_db),
+    member = Depends(get_current_member),
+):
+    """Paso 1 del flujo de dos pasos: la Cajera SOLICITA (no emite NC).
+    Crea una solicitud en estado 'pendiente' para que el Administrador la resuelva.
+    (La emisión directa sigue en /anular-cobro, según el toggle cajera_puede_emitir_nc.)"""
+    from app.models import SolicitudAnulacion
+    from app.services.anulacion_service import crear_solicitud
+
+    data = await request.json()
+    payment_id = data.get("payment_id")
+    motivo_codigo = data.get("motivo_codigo", "01")
+    motivo_interno = (data.get("motivo_interno") or "").strip()
+    monto = data.get("monto")
+
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(404, detail="Pago no encontrado")
+    if payment.status == "anulado":
+        raise HTTPException(400, detail="Este cobro ya fue anulado")
+
+    dup = db.query(SolicitudAnulacion).filter(
+        SolicitudAnulacion.payment_id == payment_id,
+        SolicitudAnulacion.estado == "pendiente",
+    ).first()
+    if dup:
+        raise HTTPException(400, detail="Ya existe una solicitud pendiente para este cobro")
+
+    comp = db.query(Comprobante).filter(
+        Comprobante.payment_id == payment_id,
+        Comprobante.status == "accepted",
+        Comprobante.tipo.in_(["01", "03"]),
+    ).first()
+    monto_val = float(monto) if monto is not None else None
+    es_parcial = monto_val is not None and abs(monto_val - float(payment.amount)) > 0.01
+
+    sol = await crear_solicitud(
+        db, org_id=payment.organization_id,
+        comprobante_id=(comp.id if comp else None), payment_id=payment_id,
+        colegiado_id=payment.colegiado_id, monto=monto_val, es_parcial=es_parcial,
+        motivo_sunat=motivo_codigo, motivo_interno=motivo_interno,
+        solicitante=member, request=request,
+    )
+    return {"success": True, "solicitud_id": sol.id,
+            "mensaje": "Solicitud de anulación enviada al Administrador."}
 
 
 @router.get("/comprobante/{payment_id}")

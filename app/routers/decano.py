@@ -33,6 +33,27 @@ async def decano_dashboard(
     })
 
 
+# ── Consultas / Reportes (solo lectura). Primera: Historial de NC. ──
+@router.get("/consultas/nc", response_class=HTMLResponse)
+async def decano_consultas_nc(
+    request: Request,
+    fecha_desde: str = None, fecha_hasta: str = None,
+    motivo: str = None, q_comprobante: str = None, q_colegiado: str = None,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_decano),
+):
+    from app.services.anulacion_service import listar_historial_nc
+    historial = listar_historial_nc(
+        db, current_member.organization_id,
+        fecha_desde=fecha_desde or None, fecha_hasta=fecha_hasta or None,
+        motivo=motivo or None, q_comprobante=q_comprobante or None,
+        q_colegiado=q_colegiado or None,
+    )
+    return templates.TemplateResponse("pages/decano/partials/historial_nc.html", {
+        "request": request, "historial": historial,
+    })
+
+
 @router.get("/kpis", response_class=HTMLResponse)
 async def decano_kpis(
     request: Request,
