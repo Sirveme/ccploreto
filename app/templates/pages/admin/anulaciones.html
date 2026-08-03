@@ -94,7 +94,7 @@
           <td class="mono">{{ h.nc }}</td>
           <td>{{ h.original }}</td>
           <td>{{ h.colegiado }}<br><span style="color:#64748b;">{{ h.dni }}</span></td>
-          <td>{{ h.motivo_sunat or '—' }}{% if h.solicitante %}<br><span style="color:#64748b;font-size:11px;">por {{ h.solicitante }}</span>{% endif %}</td>
+          <td>{{ h.motivo }}{% if h.solicitante %}<br><span style="color:#64748b;font-size:11px;">por {{ h.solicitante }}</span>{% endif %}</td>
           <td class="num">S/ {{ '%.2f'|format(h.total) }}</td>
           <td>{{ h.status }}</td>
           <td>{{ h.fecha.strftime('%d/%m/%Y') if h.fecha else '—' }}</td>
