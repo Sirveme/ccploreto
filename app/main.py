@@ -52,6 +52,7 @@ from app.routers.sote import router as router_sote
 from app.routers.decano import router as router_decano
 from app.routers.aportes_junta import router as router_aportes_junta
 from app.routers.junta import router as router_junta
+from app.routers.anulaciones import router as router_anulaciones
 from app.routers.mesa_partes import router as router_mesa_partes
 from app.routers.secretaria import router as secretaria_router, page_router as secretaria_page_router
 from app.routers.openpay import router as openpay_router
@@ -240,6 +241,7 @@ app.include_router(router_sote)
 app.include_router(router_decano)
 app.include_router(router_aportes_junta)
 app.include_router(router_junta)
+app.include_router(router_anulaciones)
 
 
 # ════════════════════════════════════════════════════════════════

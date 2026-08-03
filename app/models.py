@@ -1217,3 +1217,31 @@ class Articulo(Base):
     updated_at   = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     organization = relationship("Organization")
+
+
+# ════════════════════════════════════════════════════════════════
+# zClaude-solicitud-anulacion — Workflow "cajera solicita / admin emite"
+# (tabla creada por sql/zClaude-solicitud-anulacion.sql; sin create_all)
+# ════════════════════════════════════════════════════════════════
+class SolicitudAnulacion(Base):
+    __tablename__ = "solicitud_anulacion"
+
+    id                     = Column(Integer, primary_key=True)
+    organization_id        = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    comprobante_id         = Column(Integer, ForeignKey("comprobantes.id"), nullable=True)
+    payment_id             = Column(Integer, ForeignKey("payments.id"), nullable=True)
+    colegiado_id           = Column(Integer, ForeignKey("colegiados.id"), nullable=True)
+    monto                  = Column(Numeric(12, 2), nullable=True)   # NULL = total
+    es_parcial             = Column(Boolean, default=False)
+    motivo_sunat           = Column(String(2), nullable=False)       # catálogo 09
+    motivo_interno         = Column(Text, nullable=True)             # argumento de la cajera
+    solicitante_member_id  = Column(Integer, nullable=True)
+    solicitante_nombre     = Column(String(200), nullable=True)
+    estado                 = Column(String(20), default="pendiente")  # pendiente|aprobada|rechazada
+    resuelto_por_member_id = Column(Integer, nullable=True)
+    resuelto_por_nombre    = Column(String(200), nullable=True)
+    resuelto_at            = Column(DateTime(timezone=True), nullable=True)
+    nota_resolucion        = Column(Text, nullable=True)
+    nc_comprobante_id      = Column(Integer, ForeignKey("comprobantes.id"), nullable=True)
+    created_at             = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at             = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
