@@ -441,5 +441,15 @@ async function decSubirImagen(file) {
 
 </script>
 
+<!-- ═══ CONSULTAS / REPORTES (solo lectura; extensible) ═══ -->
+<div class="dec-panel" style="margin-top:20px">
+    <div class="dec-panel-header">📄 Consultas / Reportes — Historial de Notas de Crédito</div>
+    <div class="dec-panel-body">
+        <div id="dec-nc-box" hx-get="/decano/consultas/nc" hx-trigger="load" hx-swap="innerHTML">
+            <div style="color:#94a3b8;font-size:13px;padding:10px;">Cargando historial…</div>
+        </div>
+    </div>
+</div>
+
 </main>
 {% endblock %}

@@ -1,0 +1,37 @@
+{# Partial (solo lectura) — Historial de NC para el Decano. Cargado por HTMX. #}
+<form hx-get="/decano/consultas/nc" hx-target="#dec-nc-box" hx-swap="innerHTML"
+      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;">
+  <input type="date" name="fecha_desde" title="Desde" style="padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+  <input type="date" name="fecha_hasta" title="Hasta" style="padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+  <input type="text" name="q_comprobante" placeholder="N° comprobante" style="padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+  <input type="text" name="q_colegiado" placeholder="DNI o nombre" style="padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+  <button type="submit" style="padding:7px 12px;border:none;border-radius:6px;background:#1e40af;color:#fff;font-weight:600;cursor:pointer;">Filtrar</button>
+</form>
+
+{% if historial %}
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+  <thead>
+    <tr style="text-align:left;color:#64748b;">
+      <th style="padding:6px;">NC</th><th style="padding:6px;">Original</th>
+      <th style="padding:6px;">Colegiado</th><th style="padding:6px;">Motivo</th>
+      <th style="padding:6px;text-align:right;">Monto</th><th style="padding:6px;">Fecha</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for h in historial %}
+    <tr style="border-top:1px solid #e5e7eb;">
+      <td style="padding:6px;font-weight:600;">{{ h.nc }}</td>
+      <td style="padding:6px;">{{ h.original }}</td>
+      <td style="padding:6px;">{{ h.colegiado }} <span style="color:#94a3b8;">{{ h.dni }}</span></td>
+      <td style="padding:6px;">{{ h.motivo_sunat or '—' }}</td>
+      <td style="padding:6px;text-align:right;">S/ {{ '%.2f'|format(h.total) }}</td>
+      <td style="padding:6px;">{{ h.fecha.strftime('%d/%m/%Y') if h.fecha else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div style="text-align:center;color:#94a3b8;padding:18px;">Sin Notas de Crédito para los filtros.</div>
+{% endif %}
