@@ -1522,17 +1522,50 @@ function mostrarAnular(payId, desc, monto) {
     document.getElementById('anularObs').value = '';
     document.getElementById('anularMonto').value = '';
     document.getElementById('anularMontoCont').style.display = 'none';
+    const _mi = document.getElementById('anularMotivoInterno'); if (_mi) _mi.value = '';
     document.getElementById('modalAnular').classList.add('active');
-    // Barrera NC (UX; la barrera real es el 403 del backend). Si la cajera no puede,
-    // se muestra el mensaje y se oculta el botón "Anular" (no se oculta el modal).
-    const _btnAnular = document.querySelector('#modalAnular .mbtn-ok');
+    // Flujo de dos pasos según el toggle (la barrera REAL es el 403 del backend).
+    const _btnEmitir = document.getElementById('btnEmitirAnul');
+    const _btnSolic = document.getElementById('btnSolicitarAnul');
     const _warn = document.getElementById('anularWarn');
     if (window.CAJA_PUEDE_NC === false) {
-        if (_warn) _warn.innerHTML = 'ℹ Para emitir una Nota de Crédito, comuníquese con el Administrador.';
-        if (_btnAnular) _btnAnular.style.display = 'none';
-    } else if (_btnAnular) {
-        _btnAnular.style.display = '';
+        // Cajera sin permiso: SOLO puede solicitar; el Administrador emite.
+        if (_btnEmitir) _btnEmitir.style.display = 'none';
+        if (_btnSolic) _btnSolic.style.display = '';
+        if (_warn) _warn.innerHTML = 'ℹ No emites NC. Enviarás una <b>solicitud de anulación</b> al Administrador con tu sustento.';
+    } else {
+        // admin/sote o cajera con toggle en True: puede solicitar o emitir directo.
+        if (_btnEmitir) _btnEmitir.style.display = '';
+        if (_btnSolic) _btnSolic.style.display = '';
+        if (_warn) _warn.innerHTML = '⚠ "Emitir directo" emite la NC ante SUNAT y revierte las deudas. "Solicitar" la deja pendiente de aprobación.';
     }
+}
+
+async function solicitarAnulacion() {
+    const payId = document.getElementById('anularPayId').value;
+    let motivo = document.getElementById('anularMotivo').value;
+    const motivoInterno = document.getElementById('anularMotivoInterno').value.trim();
+    const totalOriginal = parseFloat(document.getElementById('anularTotal').value) || 0;
+    const motivosParciales = ['04', '05', '07'];
+    let montoAnular = totalOriginal;
+    if (motivosParciales.includes(motivo)) {
+        montoAnular = parseFloat(document.getElementById('anularMonto').value) || 0;
+        if (montoAnular <= 0) { toast('Ingresa el monto', 'err'); return; }
+        if (montoAnular > totalOriginal) { toast(`El monto no puede superar S/ ${totalOriginal.toFixed(2)}`, 'err'); return; }
+    }
+    if (!motivoInterno) { toast('Escribe el argumento para el Administrador', 'err'); return; }
+    try {
+        const r = await fetch(`${API}/solicitar-anulacion`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                payment_id: parseInt(payId), motivo_codigo: motivo, motivo_interno: motivoInterno,
+                monto: motivosParciales.includes(motivo) ? montoAnular : null
+            })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (d.success) { cerrarModalAnular(); toast(d.mensaje || 'Solicitud enviada al Administrador', 'ok'); if (typeof cargarHistorial === 'function') cargarHistorial(); }
+        else { toast(d.detail || 'No se pudo enviar la solicitud', 'err'); }
+    } catch (e) { toast('Error de red', 'err'); }
 }
 
 function cerrarModalAnular() { document.getElementById('modalAnular').classList.remove('active'); }
