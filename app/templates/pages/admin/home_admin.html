@@ -51,7 +51,7 @@
     </header>
 
     <!-- 3 TARJETAS PRINCIPALES -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 max-w-6xl mx-auto w-full">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 max-w-6xl mx-auto w-full">
 
         <!-- Tarjeta 1: Aportes JDCCPP -->
         <a href="/admin/aportes-junta/dashboard"
@@ -89,6 +89,19 @@
             <h3 class="text-xl font-bold">Portal del Colegiado</h3>
             <p class="text-sm opacity-90">
                 Acceder al portal como colegiado (mismos datos que ve cualquier miembro)
+            </p>
+        </a>
+
+        <!-- Tarjeta 4: Anulaciones / Notas de Crédito -->
+        <a href="/admin/anulaciones"
+           class="bg-gradient-to-br from-rose-600 to-rose-800 hover:from-rose-700 hover:to-rose-900
+                  rounded-2xl p-8 text-white transition-all duration-200
+                  transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                  flex flex-col items-center text-center gap-4">
+            <div class="text-6xl"><i class="ph ph-receipt-x"></i></div>
+            <h3 class="text-xl font-bold">Anulaciones / NC</h3>
+            <p class="text-sm opacity-90">
+                Solicitudes de anulación pendientes e historial de Notas de Crédito
             </p>
         </a>
 

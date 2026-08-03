@@ -1,0 +1,142 @@
+{% extends "base_admin.html" %}
+{% block title %}Anulaciones / Notas de Crédito — CCPL{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 14px 40px; }
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px; padding:22px 18px; margin:0 -14px 20px; color:#fff; }
+  .hero h1 { font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .back { color:#bfdbfe; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:8px; }
+  .sect { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:16px; margin-bottom:18px; }
+  .sect h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#cbd5e1; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .card { background:#0b1220; border:1px solid #1e293b; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .card .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .card .mono { font-weight:700; color:#f8fafc; }
+  .card .meta { font-size:12px; color:#94a3b8; margin-top:2px; line-height:1.6; }
+  .card .arg { background:rgba(180,83,9,.1); border-left:3px solid #b45309; padding:8px 10px; border-radius:6px; margin-top:10px; font-size:13px; color:#fcd34d; }
+  .acts { display:flex; gap:8px; margin-top:12px; }
+  .btn { padding:8px 14px; border-radius:8px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
+  .btn-ok { background:#15803d; color:#fff; } .btn-no { background:#7f1d1d; color:#fff; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:8px 8px; font-size:12.5px; text-align:left; border-bottom:1px solid #1e293b; }
+  th { color:#94a3b8; text-transform:uppercase; font-size:10px; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .filtros { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px; }
+  .filtros input, .filtros select { background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:7px; padding:8px 10px; font-size:13px; }
+  .empty { text-align:center; color:#64748b; padding:22px; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:rgba(59,130,246,.15); color:#93c5fd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="hero">
+    <a href="/admin" class="back"><i class="ph ph-arrow-left"></i> Volver a Admin</a>
+    <h1><i class="ph ph-receipt-x"></i> Anulaciones / Notas de Crédito</h1>
+  </div>
+
+  <!-- Solicitudes pendientes -->
+  <div class="sect">
+    <h2><i class="ph ph-hourglass-medium"></i> Solicitudes pendientes ({{ pendientes|length }})</h2>
+    {% if pendientes %}
+      {% for p in pendientes %}
+      <div class="card" id="sol-{{ p.id }}">
+        <div class="top">
+          <div>
+            <span class="mono">{{ p.comprobante }}</span>
+            {% if p.es_parcial %}<span class="pill">Parcial</span>{% endif %}
+            <div class="meta">
+              {{ p.colegiado }} · DNI {{ p.dni }}<br>
+              Monto: <strong>S/ {{ '%.2f'|format(p.monto) }}</strong> · Motivo SUNAT: {{ p.motivo_sunat }} — {{ p.motivo_label }}<br>
+              Solicitó: {{ p.solicitante }}{% if p.fecha %} · {{ p.fecha.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+            </div>
+          </div>
+        </div>
+        {% if p.motivo_interno %}<div class="arg"><strong>Argumento:</strong> {{ p.motivo_interno }}</div>{% endif %}
+        <input id="nota-{{ p.id }}" placeholder="Nota de rechazo (opcional)"
+               style="width:100%;margin-top:10px;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:8px 10px;font-size:12px;">
+        <div class="acts">
+          <button class="btn btn-ok" onclick="resolver({{ p.id }}, 'aprobar', this)"><i class="ph ph-check"></i> Aprobar y emitir NC</button>
+          <button class="btn btn-no" onclick="resolver({{ p.id }}, 'rechazar', this)"><i class="ph ph-x"></i> Rechazar</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Sin solicitudes pendientes.</div>
+    {% endif %}
+  </div>
+
+  <!-- Historial de NC -->
+  <div class="sect">
+    <h2><i class="ph ph-clock-counter-clockwise"></i> Historial de Notas de Crédito</h2>
+    <form method="get" class="filtros">
+      <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde }}" title="Desde">
+      <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta }}" title="Hasta">
+      <select name="motivo">
+        <option value="">Motivo (todos)</option>
+        {% for cod, lbl in motivos.items() %}<option value="{{ cod }}" {{ 'selected' if filtros.motivo==cod else '' }}>{{ cod }} — {{ lbl }}</option>{% endfor %}
+      </select>
+      <input type="text" name="q_comprobante" value="{{ filtros.q_comprobante }}" placeholder="N° comprobante">
+      <input type="text" name="q_colegiado" value="{{ filtros.q_colegiado }}" placeholder="DNI o nombre">
+      <button class="btn" style="background:var(--ccpl);color:#fff;">Filtrar</button>
+    </form>
+    {% if historial %}
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th>NC</th><th>Original</th><th>Colegiado</th><th>Motivo</th><th class="num">Monto</th><th>Estado</th><th>Fecha</th>
+      </tr></thead>
+      <tbody>
+        {% for h in historial %}
+        <tr>
+          <td class="mono">{{ h.nc }}</td>
+          <td>{{ h.original }}</td>
+          <td>{{ h.colegiado }}<br><span style="color:#64748b;">{{ h.dni }}</span></td>
+          <td>{{ h.motivo_sunat or '—' }}{% if h.solicitante %}<br><span style="color:#64748b;font-size:11px;">por {{ h.solicitante }}</span>{% endif %}</td>
+          <td class="num">S/ {{ '%.2f'|format(h.total) }}</td>
+          <td>{{ h.status }}</td>
+          <td>{{ h.fecha.strftime('%d/%m/%Y') if h.fecha else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty">Sin Notas de Crédito para los filtros.</div>
+    {% endif %}
+  </div>
+
+  {% include "partials/aportes_footer.html" ignore missing %}
+</div>
+
+<script>
+async function resolver(id, accion, btn) {
+  let nota = '';
+  if (accion === 'rechazar') {
+    const inp = document.getElementById('nota-' + id);
+    nota = inp ? inp.value.trim() : '';
+  }
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await fetch(`/admin/anulaciones/${id}/${accion}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nota: nota })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (d.success) {
+      if (window.Toast) Toast.show(accion === 'aprobar' ? ('NC emitida ' + (d.nota_credito || '')) : 'Solicitud rechazada', 'success');
+      const card = document.getElementById('sol-' + id); if (card) card.remove();
+      setTimeout(() => location.reload(), 700);
+    } else {
+      if (window.Toast) Toast.show(d.detail || 'No se pudo procesar', 'error');
+      btn.disabled = false; btn.textContent = accion === 'aprobar' ? 'Aprobar y emitir NC' : 'Rechazar';
+    }
+  } catch (e) {
+    if (window.Toast) Toast.show('Error de red', 'error');
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}
