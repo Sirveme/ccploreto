@@ -24,7 +24,7 @@
       <td style="padding:6px;font-weight:600;">{{ h.nc }}</td>
       <td style="padding:6px;">{{ h.original }}</td>
       <td style="padding:6px;">{{ h.colegiado }} <span style="color:#94a3b8;">{{ h.dni }}</span></td>
-      <td style="padding:6px;">{{ h.motivo_sunat or '—' }}</td>
+      <td style="padding:6px;">{{ h.motivo }}</td>
       <td style="padding:6px;text-align:right;">S/ {{ '%.2f'|format(h.total) }}</td>
       <td style="padding:6px;">{{ h.fecha.strftime('%d/%m/%Y') if h.fecha else '—' }}</td>
     </tr>
