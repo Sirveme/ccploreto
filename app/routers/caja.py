@@ -93,8 +93,16 @@ def _fin_dia_peru_utc(fecha=None):
 
 
 @page_router.get("/caja")
-async def pagina_caja(request: Request, member: Member = Depends(get_current_member)):
-    return templates.TemplateResponse("pages/caja.html", {"request": request})
+async def pagina_caja(request: Request, member: Member = Depends(get_current_member),
+                      db: Session = Depends(get_db)):
+    _org = db.query(Organization).first()
+    _cfg = (_org.config or {}) if _org else {}
+    puede_nc = member.role in ("admin", "sote") or _cfg.get("cajera_puede_emitir_nc", False)
+    return templates.TemplateResponse("pages/caja.html", {
+        "request": request,
+        "puede_emitir_nc": puede_nc,
+        "member_role": member.role,
+    })
 
 
 PERU_TZ = timezone(timedelta(hours=-5))
@@ -2213,6 +2221,17 @@ async def anular_cobro(
     monto_anular = float(monto) if monto is not None else float(payment.amount)
     es_parcial = abs(monto_anular - float(payment.amount)) > 0.01
 
+    # ── Barrera NC configurable: admin/sote SIEMPRE pueden; la cajera solo si el
+    #    flag organizations.config.cajera_puede_emitir_nc == True (leído FRESCO de BD,
+    #    para que el toggle del SOTE surta efecto inmediato). Default: no puede. ──
+    if member.role not in ("admin", "sote"):
+        _org = db.query(Organization).filter(Organization.id == payment.organization_id).first()
+        if not ((_org.config or {}) if _org else {}).get("cajera_puede_emitir_nc", False):
+            raise HTTPException(
+                403,
+                detail="Solo el Administrador puede emitir Notas de Crédito. Comuníquese con el Administrador.",
+            )
+
     # ── Control de límites ──
     from app.services.limites_operacion import verificar_limite
     limite = verificar_limite(
@@ -2554,6 +2573,7 @@ async def estado_comprobante(
 async def reenviar_comprobante(
     comprobante_id: int,
     db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
 ):
     """Reenvía a SUNAT (vía facturalo.pro) un comprobante en estado pending o rejected."""
     comp = db.query(Comprobante).filter(
@@ -2562,6 +2582,9 @@ async def reenviar_comprobante(
     ).first()
     if not comp:
         raise HTTPException(404, detail="Comprobante no encontrado")
+    # Reenviar una NC (tipo 07) es emitir NC → solo admin/sote. Boletas/facturas (03/01) sin bloqueo.
+    if comp.tipo == "07" and member.role not in ("admin", "sote"):
+        raise HTTPException(403, detail="Solo el Administrador puede reenviar Notas de Crédito.")
     if comp.status not in ("pending", "rejected"):
         raise HTTPException(
             400,

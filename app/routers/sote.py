@@ -64,13 +64,46 @@ async def sote_dashboard(
     current_member: Member = Depends(require_sote),
 ):
     user = db.query(User).filter(User.id == current_member.user_id).first()
+    from app.models import Organization
+    _org = db.query(Organization).first()
+    _cajera_nc = bool(((_org.config or {}) if _org else {}).get("cajera_puede_emitir_nc", False))
     return templates.TemplateResponse("pages/sote/dashboard.html", {
         "request": request,
         "user": current_member,   # base.html espera user.organization (Member lo tiene)
         "user_name": user.name,   # nombre real para mostrar en el header SOTE
         "org": getattr(request.state, "org", {}),
         "theme": getattr(request.state, "theme", None),
+        "cajera_puede_emitir_nc": _cajera_nc,
     })
+
+
+# ── Configuración del Sistema: toggle "cajera puede emitir NC" ──
+@router.post("/api/config/nc-cajera")
+async def set_nc_cajera(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_sote),
+):
+    """Alterna organizations.config.cajera_puede_emitir_nc e invalida la cache tenant."""
+    from app.models import Organization
+    from sqlalchemy.orm.attributes import flag_modified
+    valor = bool(payload.get("valor"))
+    org = db.query(Organization).first()
+    if not org:
+        raise HTTPException(404, detail="Organización no encontrada")
+    cfg = dict(org.config or {})
+    cfg["cajera_puede_emitir_nc"] = valor
+    org.config = cfg
+    flag_modified(org, "config")  # JSONB mutado → forzar UPDATE
+    db.commit()
+    # Invalidar cache de tenant (CCPL mapea a varios hosts) — best-effort.
+    try:
+        from app.config import redis_client
+        for k in redis_client.scan_iter("tenant:*"):
+            redis_client.delete(k)
+    except Exception:
+        pass
+    return JSONResponse({"ok": True, "cajera_puede_emitir_nc": valor})
 
 
 # ── Stats del sistema ──────────────────────────────────────
