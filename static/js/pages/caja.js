@@ -1523,6 +1523,16 @@ function mostrarAnular(payId, desc, monto) {
     document.getElementById('anularMonto').value = '';
     document.getElementById('anularMontoCont').style.display = 'none';
     document.getElementById('modalAnular').classList.add('active');
+    // Barrera NC (UX; la barrera real es el 403 del backend). Si la cajera no puede,
+    // se muestra el mensaje y se oculta el botón "Anular" (no se oculta el modal).
+    const _btnAnular = document.querySelector('#modalAnular .mbtn-ok');
+    const _warn = document.getElementById('anularWarn');
+    if (window.CAJA_PUEDE_NC === false) {
+        if (_warn) _warn.innerHTML = 'ℹ Para emitir una Nota de Crédito, comuníquese con el Administrador.';
+        if (_btnAnular) _btnAnular.style.display = 'none';
+    } else if (_btnAnular) {
+        _btnAnular.style.display = '';
+    }
 }
 
 function cerrarModalAnular() { document.getElementById('modalAnular').classList.remove('active'); }
