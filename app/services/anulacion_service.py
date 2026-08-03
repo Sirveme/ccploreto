@@ -11,7 +11,7 @@ replícala en `anular_cobro`, y viceversa. NUNCA se toca `emitir_nota_credito`.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -156,17 +156,65 @@ async def ejecutar_anulacion(db: Session, payment, motivo_codigo: str, motivo_te
 # ════════════════════════════════════════════════════════════════
 # HISTORIAL DE NC (reutilizable: /admin/anulaciones y /decano, solo lectura)
 # ════════════════════════════════════════════════════════════════
+def _to_date(v):
+    """'YYYY-MM-DD' (o date/datetime) → date; None si no se puede parsear (no rompe)."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, date):
+        return v
+    try:
+        return datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+MOTIVOS_09 = {
+    "01": "Anulación de la operación", "02": "Anulación por error en RUC",
+    "03": "Corrección por error en descripción", "04": "Descuento global",
+    "05": "Descuento por ítem", "06": "Devolución total", "07": "Devolución parcial",
+}
+
+
+def _motivo_desde_obs(obs):
+    """Extrae el motivo limpio de comprobantes.observaciones ('NC por: {motivo}...').
+
+    Fuente UNIVERSAL del motivo: aplica a TODA NC (histórica o nueva), no solo a las
+    que pasan por solicitud_anulacion. Quita el prefijo 'NC por: ' y toma esa línea.
+    """
+    if not obs:
+        return None
+    for line in str(obs).split("\n"):
+        line = line.strip()
+        if line.lower().startswith("nc por:"):
+            m = line.split(":", 1)[1].strip()
+            return m or None
+    return None
+
+
 def listar_historial_nc(db: Session, org_id: int, *, fecha_desde=None, fecha_hasta=None,
                         motivo=None, q_comprobante=None, q_colegiado=None, limit=200) -> list:
-    """Todas las NC (tipo 07), totales y parciales. Una NC es una NC ante SUNAT."""
+    """Todas las NC (tipo 07), totales y parciales. Una NC es una NC ante SUNAT.
+
+    Todos los parámetros son named (:nombre) con bindparams de SQLAlchemy. Las fechas
+    se parsean a date en Python y se castean con CAST(:x AS date) — se evita el estilo
+    :x::date, que confunde al parser de text() (error 'syntax error at or near :').
+    """
     where = ["nc.organization_id = :org", "nc.tipo = '07'"]
     params = {"org": org_id, "lim": limit}
-    if fecha_desde:
-        where.append("nc.created_at >= :fd"); params["fd"] = fecha_desde
-    if fecha_hasta:
-        where.append("nc.created_at < (:fh::date + INTERVAL '1 day')"); params["fh"] = fecha_hasta
+    _fd = _to_date(fecha_desde)
+    if _fd:
+        where.append("nc.created_at >= CAST(:fd AS date)"); params["fd"] = _fd
+    _fh = _to_date(fecha_hasta)
+    if _fh:
+        where.append("nc.created_at < (CAST(:fh AS date) + INTERVAL '1 day')"); params["fh"] = _fh
     if motivo:
-        where.append("sa.motivo_sunat = :mot"); params["mot"] = motivo
+        # El <select> envía el CÓDIGO (01..07). solicitud_anulacion guarda el código;
+        # las NC antiguas guardan el TEXTO en observaciones ('NC por: {label}'). Se
+        # matchea por cualquiera de las dos fuentes (observaciones es la universal).
+        _lbl = MOTIVOS_09.get(motivo)
+        where.append("(sa.motivo_sunat = :mot OR nc.observaciones ILIKE :mot_txt)")
+        params["mot"] = motivo
+        params["mot_txt"] = f"%{_lbl}%" if _lbl else f"%{motivo}%"
     if q_comprobante:
         where.append("(orig.serie || '-' || orig.numero ILIKE :qc OR nc.serie || '-' || nc.numero ILIKE :qc)")
         params["qc"] = f"%{q_comprobante}%"
@@ -200,6 +248,10 @@ def listar_historial_nc(db: Session, org_id: int, *, fecha_desde=None, fecha_has
         "colegiado": r.apellidos_nombres or "—",
         "dni": r.dni or "—",
         "motivo_sunat": r.motivo_sunat,
+        # Motivo limpio para mostrar: preferente el de la solicitud (código→label);
+        # si no hay (NC directa/histórica), se parsea de observaciones. Universal.
+        "motivo": ((MOTIVOS_09.get(r.motivo_sunat) if r.motivo_sunat else None)
+                   or _motivo_desde_obs(r.observaciones) or "—"),
         "motivo_interno": r.motivo_interno,
         "solicitante": r.solicitante_nombre,
         "observaciones": r.observaciones,
