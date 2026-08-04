@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -17,27 +18,20 @@ class CredencialesService:
 
     def obtener_contexto_credencial(
         self,
-        organization_id: int,
+        request,
         colegiado_id: int
     ):
 
-        organizacion = (
+        org = getattr(request.state, "org", None)
 
-            self.db
+        if org is None:
 
-            .query(Organization)
-
-            .filter(
-                Organization.id == organization_id
+            raise HTTPException(
+                status_code=500,
+                detail="Middleware no encontró la organización."
             )
 
-            .first()
-
-        )
-
-        if organizacion is None:
-
-            return None
+        organization_id = org["id"]
 
         template = (
 
@@ -56,7 +50,10 @@ class CredencialesService:
 
         if template is None:
 
-            return None
+            raise HTTPException(
+                status_code=500,
+                detail=f"No existe plantilla para organization_id={organization_id}"
+            )
 
         colegiado = (
 
@@ -75,11 +72,37 @@ class CredencialesService:
 
         if colegiado is None:
 
-            return None
+            raise HTTPException(
+                status_code=404,
+                detail=f"No existe colegiado id={colegiado_id}"
+            )
+
+        organization = (
+
+            self.db
+
+            .query(Organization)
+
+            .filter(
+                Organization.id == organization_id
+            )
+
+            .first()
+
+        )
+
+        if organization is None:
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"No existe organization id={organization_id}"
+            )
 
         return {
 
-            "organization": organizacion,
+            "request": request,
+
+            "organization": organization,
 
             "template": template,
 
