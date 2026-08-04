@@ -1,0 +1,47 @@
+<div class="credencial frente">
+
+    <h2>
+
+        {{ organization.name }}
+
+    </h2>
+
+    <hr>
+
+    <div>
+
+        <img
+
+            class="foto"
+
+            src="{{ colegiado.foto_url or '/static/img/user.png' }}"
+
+        >
+
+    </div>
+
+    <p>
+
+        <strong>
+
+            {{ colegiado.apellidos_nombres }}
+
+        </strong>
+
+    </p>
+
+    <p>
+
+        Matrícula:
+
+        {{ colegiado.codigo_matricula }}
+
+    </p>
+
+    <p>
+
+        {{ colegiado.especialidad or '' }}
+
+    </p>
+
+</div>

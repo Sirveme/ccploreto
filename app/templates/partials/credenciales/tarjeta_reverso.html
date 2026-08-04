@@ -1,0 +1,27 @@
+<div class="credencial reverso">
+
+    <p>
+
+        DNI
+
+        {{ colegiado.dni }}
+
+    </p>
+
+    <p>
+
+        Fecha Colegiatura
+
+        {{ colegiado.fecha_colegiatura|fecha }}
+
+    </p>
+
+    <p>
+
+        Grupo
+
+        {{ colegiado.tipo_sangre or '' }}
+
+    </p>
+
+</div>
