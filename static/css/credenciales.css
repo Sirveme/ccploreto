@@ -1,0 +1,45 @@
+body{
+
+    background:#d7d7d7;
+
+    font-family:Arial;
+
+}
+
+.page{
+
+    display:flex;
+
+    gap:40px;
+
+    padding:40px;
+
+}
+
+.credencial{
+
+    width:85.6mm;
+
+    height:53.98mm;
+
+    background:white;
+
+    border-radius:5mm;
+
+    box-shadow:0 0 15px rgba(0,0,0,.30);
+
+    padding:5mm;
+
+    overflow:hidden;
+
+}
+
+.foto{
+
+    width:25mm;
+
+    height:30mm;
+
+    object-fit:cover;
+
+}
