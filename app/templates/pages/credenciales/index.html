@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h3>
+
+        Emisión de Credenciales
+
+    </h3>
+
+    <hr>
+
+    <table class="table table-sm table-hover">
+
+        <thead>
+
+            <tr>
+
+                <th></th>
+
+                <th>Matrícula</th>
+
+                <th>Apellidos y Nombres</th>
+
+                <th>Condición</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for c in colegiados %}
+
+            <tr>
+
+                <td>
+
+                    <input
+                        type="checkbox"
+                        value="{{ c.id }}"
+                    >
+
+                </td>
+
+                <td>
+
+                    {{ c.codigo_matricula }}
+
+                </td>
+
+                <td>
+
+                    {{ c.apellidos_nombres }}
+
+                </td>
+
+                <td>
+
+                    {{ c.condicion }}
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}
