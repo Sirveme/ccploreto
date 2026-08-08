@@ -1610,7 +1610,7 @@ def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
         .filter(
             Comprobante.organization_id == organization_id,
             Comprobante.tipo.in_(["01", "03"]),
-            Comprobante.status == "accepted",
+            Comprobante.status.in_(["accepted", "anulado"]),  # bruto: incluye anuladas (se restan aparte con las NC)
             Comprobante.payment_id.isnot(None),
             Comprobante.created_at >= hora_apertura,
         )
@@ -1641,6 +1641,31 @@ def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
     return cobros_efectivo, cobros_digital, cantidad
 
 
+def _calcular_anulaciones_sesion(db: Session, organization_id: int, hora_apertura, hasta=None):
+    """Anulaciones (NC tipo 07) atribuidas a la sesión por NC.created_at, clasificadas
+    efectivo/digital según el método de la boleta ORIGINAL (nc.payment_id = pago original).
+    Resuelve mismo-día y diferido sin marca manual. hasta=None → en vivo (sesión abierta);
+    hasta=hora_cierre → congela al cerrar. Retorna (anul_efectivo, anul_digital)."""
+    q = (
+        db.query(
+            func.lower(Payment.payment_method).label("metodo"),
+            func.coalesce(func.sum(Comprobante.total), 0).label("total"),
+        )
+        .join(Payment, Payment.id == Comprobante.payment_id)
+        .filter(
+            Comprobante.organization_id == organization_id,
+            Comprobante.tipo == "07",
+            Comprobante.created_at >= hora_apertura,
+        )
+    )
+    if hasta is not None:
+        q = q.filter(Comprobante.created_at <= hasta)
+    filas = q.group_by(func.lower(Payment.payment_method)).all()
+    anul_ef = sum(float(r.total or 0) for r in filas if (r.metodo or "").strip() in _METODOS_EFECTIVO)
+    anul_dig = sum(float(r.total or 0) for r in filas if (r.metodo or "").strip() not in _METODOS_EFECTIVO)
+    return anul_ef, anul_dig
+
+
 @router.get("/sesion-actual")
 async def sesion_actual(
     centro_costo_id: int = Query(1),
@@ -1668,7 +1693,8 @@ async def sesion_actual(
     )
 
     monto_apertura = float(sesion.monto_apertura or 0)
-    total_esperado = monto_apertura + total_efectivo - total_egresos
+    anul_ef, anul_dig = _calcular_anulaciones_sesion(db, sesion.organization_id, sesion.hora_apertura)
+    total_esperado = monto_apertura + (total_efectivo - anul_ef) - total_egresos
 
     cajero = db.query(UsuarioAdmin).filter(UsuarioAdmin.id == sesion.usuario_admin_id).first()
     centro = db.query(CentroCosto).filter(CentroCosto.id == sesion.centro_costo_id).first()
@@ -1685,6 +1711,8 @@ async def sesion_actual(
             "monto_apertura": monto_apertura,
             "total_cobros_efectivo": total_efectivo,
             "total_cobros_digital": total_digital,
+            "total_anulaciones_efectivo": anul_ef,
+            "total_anulaciones_digital": anul_dig,
             "total_egresos": total_egresos,
             "cantidad_operaciones": cantidad,
             "total_esperado": total_esperado,
@@ -1723,12 +1751,17 @@ async def cerrar_caja(
     )
 
     monto_apertura = float(sesion.monto_apertura or 0)
-    total_esperado = monto_apertura + total_efectivo - total_egresos
+    anul_ef, anul_dig = _calcular_anulaciones_sesion(
+        db, sesion.organization_id, sesion.hora_apertura, hasta=ahora
+    )
+    total_esperado = monto_apertura + (total_efectivo - anul_ef) - total_egresos
     diferencia = datos.monto_cierre - total_esperado
 
     sesion.estado = "cerrada"
     sesion.total_cobros_efectivo = Decimal(str(total_efectivo))
     sesion.total_cobros_digital = Decimal(str(total_digital))
+    sesion.total_anulaciones_efectivo = Decimal(str(anul_ef))
+    sesion.total_anulaciones_digital = Decimal(str(anul_dig))
     sesion.total_egresos = Decimal(str(total_egresos))
     sesion.cantidad_operaciones = cantidad
     sesion.total_esperado = Decimal(str(total_esperado))
@@ -1753,6 +1786,8 @@ async def cerrar_caja(
             "monto_apertura": monto_apertura,
             "total_cobros_efectivo": total_efectivo,
             "total_cobros_digital": total_digital,
+            "total_anulaciones_efectivo": anul_ef,
+            "total_anulaciones_digital": anul_dig,
             "total_egresos": total_egresos,
             "cantidad_operaciones": cantidad,
             "total_esperado": total_esperado,
