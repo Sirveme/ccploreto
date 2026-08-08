@@ -377,6 +377,7 @@ function mostrarCierreCaja() {
             document.getElementById('cierreResumen').innerHTML = `
                 <div class="c-row"><span>Apertura</span><span class="cmonto">S/ ${sesion.monto_apertura.toFixed(2)}</span></div>
                 <div class="c-row"><span>Cobros efectivo</span><span class="cmonto" style="color:var(--green)">+ S/ ${sesion.total_cobros_efectivo.toFixed(2)}</span></div>
+                <div class="c-row"><span>(-) Anulaciones del día (NC)</span><span class="cmonto" style="color:var(--red)">- S/ ${(sesion.total_anulaciones_efectivo||0).toFixed(2)}</span></div>
                 <div class="c-row"><span>Cobros digitales</span><span class="cmonto" style="color:var(--accent)">S/ ${sesion.total_cobros_digital.toFixed(2)}</span></div>
                 <div class="c-row"><span>Egresos (neto)</span><span class="cmonto" style="color:var(--red)">- S/ ${sesion.total_egresos.toFixed(2)}</span></div>
                 <div class="c-row"><span>Operaciones</span><span class="cmonto">${sesion.cantidad_operaciones}</span></div>
@@ -451,6 +452,7 @@ function mostrarCierreExitoso(sesionId, resumen, mensaje) {
     document.getElementById('cierreResumenBox').innerHTML = `
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">Apertura</span><span>S/ ${(resumen.monto_apertura || 0).toFixed(2)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(+) Efectivo</span><span>S/ ${(resumen.total_cobros_efectivo || 0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(-) Anulaciones (NC)</span><span>S/ ${(resumen.total_anulaciones_efectivo || 0).toFixed(2)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(+) Digital</span><span>S/ ${(resumen.total_cobros_digital || 0).toFixed(2)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sec);">(-) Egresos</span><span>S/ ${(resumen.total_egresos || 0).toFixed(2)}</span></div>
         <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
