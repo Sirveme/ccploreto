@@ -891,7 +891,9 @@ class SesionCaja(Base):
     cantidad_operaciones = Column(Integer, default=0)
 
     # Cierre
-    total_esperado = Column(Numeric(12, 2), default=0)    # apertura + efectivo - egresos
+    total_esperado = Column(Numeric(12, 2), default=0)    # apertura + (efectivo - anul_ef) - egresos
+    total_anulaciones_efectivo = Column(Numeric(12, 2), default=0)  # NC del día, método efectivo
+    total_anulaciones_digital  = Column(Numeric(12, 2), default=0)  # NC del día, método digital
     monto_cierre = Column(Numeric(12, 2), nullable=True)  # Lo que declara el cajero
     diferencia = Column(Numeric(12, 2), nullable=True)     # cierre - esperado
     hora_cierre = Column(DateTime(timezone=True), nullable=True)
