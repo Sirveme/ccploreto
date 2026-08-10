@@ -18,6 +18,7 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja, Member
 from app.models_debt_management import Debt
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
@@ -204,6 +205,7 @@ async def simular_fraccion(
     deudas = db.query(func.coalesce(func.sum(Debt.balance), 0)).filter(
         Debt.colegiado_id == colegiado_id,
         Debt.status.in_(["pending", "partial"]),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
     ).scalar()
 
     config = _get_config(db)
@@ -239,6 +241,7 @@ async def crear_fraccionamiento(
     deuda_total = db.query(func.coalesce(func.sum(Debt.balance), 0)).filter(
         Debt.colegiado_id == data.colegiado_id,
         Debt.status.in_(["pending", "partial"]),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc (base de simulación/validación)
     ).scalar()
 
     solicitud = SolicitudFraccionamiento(
@@ -262,6 +265,7 @@ async def crear_fraccionamiento(
     deudas_originales = db.query(Debt).filter(
         Debt.colegiado_id == data.colegiado_id,
         Debt.status.in_(["pending", "partial"]),
+        excluir_absorbidas_por_fracc_activo(),   # GUARD DURO: no reabsorber deudas ya absorbidas por otro fracc activo
     ).all()
 
     for d in deudas_originales:
@@ -402,6 +406,7 @@ async def generar_reporte(
         ).join(Debt, Debt.colegiado_id == Colegiado.id).filter(
             Colegiado.organization_id == org,
             Debt.status.in_(["pending", "partial"]),
+            excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
         ).group_by(
             Colegiado.id, Colegiado.apellidos_nombres, Colegiado.condicion,
         ).order_by(func.sum(Debt.balance).desc()).limit(100).all()
@@ -500,6 +505,7 @@ async def situacion_colegiado_caja(
             Debt.colegiado_id == colegiado_id,
             Debt.status.in_(["pending", "partial"]),
             Debt.estado_gestion.in_(["vigente", "en_cobranza", "fraccionada"]),
+            excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
         )
         .order_by(Debt.periodo.asc())
         .all()

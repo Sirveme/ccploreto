@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Member, Bulletin, Organization, User, Colegiado, Payment
 from app.models_debt_management import Debt
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 from sqlalchemy import func
 from jose import jwt, JWTError
 from app.config import SECRET_KEY 
@@ -246,12 +247,14 @@ def calcular_resumen_deuda(db: Session, colegiado_id: int) -> dict:
     """Calcula resumen de deuda del colegiado"""
     deuda_total = db.query(func.coalesce(func.sum(Debt.balance), 0)).filter(
         Debt.colegiado_id == colegiado_id,
-        Debt.status.in_(['pending', 'partial'])
+        Debt.status.in_(['pending', 'partial']),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
     ).scalar() or 0
-    
+
     cantidad_cuotas = db.query(func.count(Debt.id)).filter(
         Debt.colegiado_id == colegiado_id,
-        Debt.status.in_(['pending', 'partial'])
+        Debt.status.in_(['pending', 'partial']),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
     ).scalar() or 0
     
     en_revision = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(

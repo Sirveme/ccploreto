@@ -9,6 +9,7 @@ from datetime import date as dt_date, datetime, timezone, timedelta
 from sqlalchemy import and_
 
 from app.models_debt_management import Debt, Fraccionamiento, EstadoFraccionamiento, FraccionamientoCuota
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 from app.models import Colegiado, Member, ConceptoCobro, Organization
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -197,6 +198,7 @@ async def mi_deuda(
             Debt.colegiado_id == colegiado.id,
             Debt.status.in_(["pending", "partial"]),
             Debt.estado_gestion.in_(["vigente", "en_cobranza", "fraccionada"]),
+            excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
         )
         .order_by(Debt.periodo.asc())
         .all()
@@ -235,7 +237,7 @@ async def mi_deuda(
         )
         .first()
     )
-    califica_fracc = (total >= 500.0) and (plan_activo is None)
+    califica_fracc = (total >= 250.0) and (plan_activo is None)
 
     # ── Campaña / descuento activo ─────────────────────────────────────────
     hoy = dt_date.today()
@@ -277,7 +279,7 @@ async def crear_fraccionamiento(
     Crea un plan de fraccionamiento para el colegiado autenticado.
 
     Reglas del CCPL:
-    - Deuda mínima: S/ 500
+    - Deuda mínima: S/ 250
     - Cuota inicial: mínimo 20% de la deuda total
     - Cuota mensual resultante: mínimo S/ 100
     - Máximo 12 cuotas
@@ -305,8 +307,8 @@ async def crear_fraccionamiento(
     total = round(sum(float(d.balance or 0) for d in deudas_qs), 2)
 
     # ── 2. Validaciones de negocio ────────────────────────────────────────
-    if total < 500:
-        raise HTTPException(400, f"La deuda total (S/ {total:.2f}) es menor al mínimo de S/ 500")
+    if total < 250:
+        raise HTTPException(400, f"La deuda total (S/ {total:.2f}) es menor al mínimo de S/ 250")
 
     minimo_inicial = round(total * 0.20, 2)
     if data.cuota_inicial < minimo_inicial:

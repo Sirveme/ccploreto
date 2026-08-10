@@ -24,6 +24,7 @@ from app.models import (
     Comprobante,
 )
 from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 from app.models_audit_finanzas import log_audit_finanzas, AuditLogFinanzas
 from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
@@ -209,6 +210,7 @@ async def obtener_deudas(
     deudas = db.query(Debt).filter(
         Debt.colegiado_id == colegiado_id,
         Debt.status.in_(["pending", "partial"]),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
     ).order_by(Debt.periodo.asc()).all()
 
     resultado = []

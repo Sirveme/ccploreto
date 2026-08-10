@@ -50,6 +50,7 @@ from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamien
 
 from sqlalchemy.exc import IntegrityError
 from pydantic import field_validator, EmailStr
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 import re as _re_z78
 from datetime import date as _date_z78
 
@@ -281,6 +282,7 @@ async def buscar_colegiado(
         ).filter(
             Debt.colegiado_id == col.id,
             Debt.status.in_(["pending", "partial"]),
+            excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
         ).first()
 
         resultados.append(BuscarColegiadoResponse(
@@ -316,6 +318,7 @@ async def obtener_deudas(
     deudas = db.query(Debt).filter(
         Debt.colegiado_id == colegiado_id,
         Debt.status.in_(["pending", "partial"]),
+        excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
     ).order_by(Debt.periodo.asc()).all()
 
     resultado = []
