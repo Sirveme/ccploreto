@@ -191,6 +191,22 @@ def evaluar_habilidad(
                 f"{n_extras} cuota{'s' if n_extras > 1 else ''} extraordinaria{'s' if n_extras > 1 else ''} impaga{'s' if n_extras > 1 else ''}"
             )
 
+    # Regla DER-COL (CAMBIO H — OK explícito de Duilio, ACOTADA a colegiatura):
+    # Derecho de Colegiatura con saldo > 0 (pending/partial) → INHÁBIL hasta el 100%.
+    # Lee tanto 'obligaciones' (categoria/balance) como 'detalle' (tipo/saldo): el shape
+    # de deuda_info varía según el llamador (deuda_cuotas_service vs pagos_publicos, que
+    # es el que usa sincronizar_condicion). Acotada por concepto 'colegiatura' para NO
+    # afectar otros derechos (DER-AUD/DER-SOC) de colegiados existentes.
+    _items_dercol = list(deuda_info.get("obligaciones") or []) + list(deuda_info.get("detalle") or [])
+    tiene_dercol_pendiente = any(
+        float((o.get("balance") if o.get("balance") is not None else o.get("saldo", 0)) or 0) > 0
+        and (o.get("categoria") == "derecho" or o.get("tipo") == "derecho")
+        and "colegiatura" in (o.get("concepto") or "").lower()
+        for o in _items_dercol
+    )
+    if tiene_dercol_pendiente:
+        motivos.append("Derecho de colegiatura pendiente (saldo > 0)")
+
     # Regla 3: fraccionamiento con cuotas atrasadas
     if tiene_fracc and fracc_atrasadas >= umbral_fracc_atr:
         motivos.append(
