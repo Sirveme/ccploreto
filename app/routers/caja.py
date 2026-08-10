@@ -422,6 +422,46 @@ async def colegiado_alta_rapida(
                 nuevo.id, codigo_matricula, payload.dni, member.id,
             )
 
+            # DER-COL: pre-generar la deuda de Derecho de Colegiatura CON SALDO
+            # (status='pending', balance=monto_base) para cobro parcial por la rama
+            # item.tipo=='deuda' de registrar_cobro. Monto desde conceptos_cobro.monto_base
+            # (NO hardcodeado). Idempotente; no bloquea el alta si falla.
+            try:
+                concepto_der = db.query(ConceptoCobro).filter(
+                    ConceptoCobro.organization_id == org.id,
+                    ConceptoCobro.codigo == "DER-COL",
+                ).first()
+                if concepto_der and float(concepto_der.monto_base or 0) > 0:
+                    ya_der = db.query(Debt).filter(
+                        Debt.colegiado_id == nuevo.id,
+                        Debt.concepto_cobro_id == concepto_der.id,
+                    ).first()
+                    if not ya_der:
+                        _monto_der = float(concepto_der.monto_base)
+                        db.add(Debt(
+                            organization_id=org.id,
+                            colegiado_id=nuevo.id,
+                            concepto_cobro_id=concepto_der.id,
+                            concept=concepto_der.nombre,
+                            debt_type="derecho",
+                            amount=_monto_der,
+                            balance=_monto_der,
+                            status="pending",
+                            estado_gestion="vigente",
+                            origen="caja",
+                            fecha_generacion=datetime.now(PERU_TZ).date(),
+                        ))
+                        # CAMBIO 1b: nace INHÁBIL con DER-COL pendiente (saldo>0), SOLO si
+                        # se creó la deuda. Así el blindaje Opción B no revierte: nace
+                        # inhabil → cobro parcial sigue inhabil → cobro total → habil.
+                        nuevo.condicion = "inhabil"
+                        nuevo.motivo_inhabilidad = "DER-COL pendiente"
+                        db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.error("[DER-COL] Error pre-generando deuda DER-COL para %s: %s",
+                             nuevo.codigo_matricula, e)
+
             # zClaude-97g: generar cuotas ordinarias del año en curso
             cuotas_resultado = {"generadas": 0, "omitidas": 0, "errores": 0}
             try:
@@ -455,7 +495,8 @@ async def colegiado_alta_rapida(
                 "email": nuevo.email,
                 "telefono": nuevo.telefono,
                 "condicion": nuevo.condicion,
-                "habilitado": True,
+                # CAMBIO 1b: reflejar la condición real (INHÁBIL si nació con DER-COL pendiente).
+                "habilitado": nuevo.condicion in ("habil", "vitalicio"),
                 # zClaude-97g: información de cuotas generadas
                 "cuotas_generadas": cuotas_resultado.get("generadas", 0),
                 # zClaude-97f
