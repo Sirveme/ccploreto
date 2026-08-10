@@ -303,6 +303,10 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
 
             # Habilidad permanente: hasta 31 Dic del año en curso como mínimo
             _set_habil(colegiado, dt_date(hoy.year, 12, 31), permanente=True)
+            # (b) recalcular el flag desde el estado real (correcto si el colegiado
+            # aún tuviera OTRO fracc activo; _set_habil por sí solo lo apagaría).
+            from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+            refrescar_flag_fraccionamiento(db, fracc.colegiado_id)
             logger.info(
                 f"Fraccionamiento #{fracc_id} COMPLETADO — "
                 f"colegiado {fracc.colegiado_id} → HÁBIL permanente (pago #{payment_id})"

@@ -41,7 +41,7 @@ CONFIG_DEFECTO = {
 
     # ── Fraccionamiento ──
     "fraccionamiento": {
-        "monto_minimo": 500.00,          # Deuda mínima para fraccionar
+        "monto_minimo": 250.00,          # Deuda mínima para fraccionar
         "cuota_inicial_pct": 20,         # % mínimo de cuota inicial
         "cuota_minima": 100.00,          # Cuota mensual mínima
         "max_cuotas": 12,               # Máximo de cuotas
@@ -149,7 +149,7 @@ def validar_fraccionamiento(
     Valida y genera cronograma de fraccionamiento.
 
     Reglas (basadas en práctica CCPL, formalizadas):
-    1. Deuda mínima: S/ 500
+    1. Deuda mínima: S/ 250
     2. Cuota inicial: >= 20% de la deuda
     3. Cuota mensual: >= S/ 100
     4. Máximo 12 cuotas
@@ -537,6 +537,28 @@ def habilitar_por_fraccionamiento(
         f"Colegiado #{colegiado_id} → HÁBIL temporal hasta {vence} "
         f"(fraccionamiento, gracia {dias_gracia}d)"
     )
+
+
+def refrescar_flag_fraccionamiento(db, colegiado_id: int) -> None:
+    """(b) Sincroniza colegiados.tiene_fraccionamiento con la existencia de un
+    fraccionamiento ACTIVO. Idempotente y sin efectos si ya coincide. Llamar tras
+    cualquier transición de estado de fracc (completado / perdido / refinanciado).
+    NO hace commit — lo hace el llamador.
+
+    Cierra la fuga del 856-vs-134: antes el flag solo se apagaba al completar por
+    la rama de aprobar_pago; ahora se recalcula en cada transición desde el estado
+    real, para un colegiado puntual (barato)."""
+    from app.models import Colegiado
+    from app.models_debt_management import Fraccionamiento
+    col = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
+    if not col:
+        return
+    hay_activo = db.query(Fraccionamiento.id).filter(
+        Fraccionamiento.colegiado_id == colegiado_id,
+        Fraccionamiento.estado == "activo",
+    ).first() is not None
+    if bool(col.tiene_fraccionamiento) != hay_activo:
+        col.tiene_fraccionamiento = hay_activo
 
 
 def verificar_habilidades_vencidas(db, organization_id: int) -> dict:

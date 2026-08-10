@@ -370,6 +370,10 @@ def pagar_cuota_fraccionamiento(
         fracc.proxima_cuota_numero = None
         fracc.proxima_cuota_fecha = None
 
+    # (b) sincronizar flag con la existencia de fracc activo (idempotente).
+    from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+    refrescar_flag_fraccionamiento(db, fracc.colegiado_id)
+
     db.flush()
 
     return {
