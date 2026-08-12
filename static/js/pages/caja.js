@@ -729,6 +729,7 @@ function renderCarrito() {
     const t = carrito.reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
     document.getElementById('cartCnt').textContent = carrito.length;
     document.getElementById('cartTot').textContent = t.toFixed(2);
+    if (typeof mixtoActivo !== 'undefined' && mixtoActivo) mixtoRecalcular();
     document.getElementById('btnMonto').textContent = `S/ ${t.toFixed(2)}`;
     document.getElementById('btnCobrar').disabled = !carrito.length || t <= 0;
     const fb = document.getElementById('fabBadge');
@@ -821,6 +822,66 @@ function setMetodo(m) {
         const obsEl = document.getElementById('inputObservacion');
         if (obsEl) obsEl.focus();
     }
+}
+
+/* ── Pago mixto: varios medios en una operación (una boleta por el total) ── */
+let mixtoActivo = false;
+const MEDIOS_MIXTO = [
+    ['efectivo', '💵 Efectivo'], ['tarjeta', '💳 Tarjeta'], ['yape', '📱 Yape'],
+    ['plin', '📱 Plin'], ['transferencia', '🏦 Transferencia'],
+];
+
+function _mixtoTotalCarrito() { return carrito.reduce((s, i) => s + i.monto, 0); }
+
+function toggleMixto() {
+    mixtoActivo = !!document.getElementById('mixtoToggle')?.checked;
+    const ed = document.getElementById('mixtoEditor');
+    if (ed) ed.style.display = mixtoActivo ? 'block' : 'none';
+    if (mixtoActivo && !document.querySelectorAll('#mixtoRows .mixto-fila').length) mixtoAgregarFila();
+    mixtoRecalcular();
+}
+
+function mixtoAgregarFila() {
+    const cont = document.getElementById('mixtoRows');
+    if (!cont) return;
+    const div = document.createElement('div');
+    div.className = 'mixto-fila';
+    div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+    const opts = MEDIOS_MIXTO.map(m => `<option value="${m[0]}">${m[1]}</option>`).join('');
+    div.innerHTML =
+        `<select class="mixto-metodo" style="flex:1;padding:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;font-size:12px;">${opts}</select>` +
+        `<input type="number" step="0.01" min="0" class="mixto-monto" placeholder="0.00" style="width:90px;padding:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;font-size:12px;">` +
+        `<button type="button" class="mixto-quitar" title="Quitar" style="background:transparent;border:none;color:#f87171;cursor:pointer;font-size:16px;">×</button>`;
+    cont.appendChild(div);
+    div.querySelector('.mixto-monto').addEventListener('input', mixtoRecalcular);
+    div.querySelector('.mixto-quitar').addEventListener('click', () => { div.remove(); mixtoRecalcular(); });
+    mixtoRecalcular();
+}
+
+function mixtoLeerMedios() {
+    return Array.from(document.querySelectorAll('#mixtoRows .mixto-fila')).map(f => ({
+        metodo: f.querySelector('.mixto-metodo').value,
+        monto: parseFloat(f.querySelector('.mixto-monto').value) || 0,
+    })).filter(m => m.monto > 0);
+}
+
+function mixtoRecalcular() {
+    const total = _mixtoTotalCarrito();
+    const asignado = mixtoLeerMedios().reduce((s, m) => s + m.monto, 0);
+    const el = document.getElementById('mixtoResumen');
+    if (el) {
+        const ok = total > 0 && Math.abs(asignado - total) < 0.01;
+        el.textContent = `Asignado S/ ${asignado.toFixed(2)} / Total S/ ${total.toFixed(2)}` + (ok ? ' ✓' : '');
+        el.style.color = ok ? '#22c55e' : '#94a3b8';
+    }
+}
+
+function mixtoReset() {
+    mixtoActivo = false;
+    const t = document.getElementById('mixtoToggle'); if (t) t.checked = false;
+    const rows = document.getElementById('mixtoRows'); if (rows) rows.innerHTML = '';
+    const ed = document.getElementById('mixtoEditor'); if (ed) ed.style.display = 'none';
+    mixtoRecalcular();
 }
 
 function setComp(t) {
@@ -952,6 +1013,7 @@ function confirmarCobro() {
         counter.textContent = '0';
         txtObs.oninput = () => { counter.textContent = txtObs.value.length; };
     }
+    mixtoReset();  // pago mixto: limpiar el editor al abrir el modal de cobro
 }
 
 function cerrarModal() {
@@ -1033,6 +1095,18 @@ function _construirPayloadCobro() {
         observaciones: obs,
         tipo_comprobante: tipoComp, forma_pago: formaPago
     };
+    // Pago mixto: validar el desglose y adjuntarlo (metodo_pago='mixto').
+    if (mixtoActivo) {
+        const medios = mixtoLeerMedios();
+        const suma = medios.reduce((s, m) => s + m.monto, 0);
+        if (medios.length < 1) { toast('Agrega al menos un medio de pago', 'err'); return null; }
+        if (Math.abs(suma - total) > 0.01) {
+            toast(`El desglose (S/ ${suma.toFixed(2)}) no suma el total (S/ ${total.toFixed(2)})`, 'err');
+            return null;
+        }
+        payload.medios = medios;
+        payload.metodo_pago = 'mixto';
+    }
     if (tipoComp === '01') {
         payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
         payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
@@ -1125,6 +1199,17 @@ async function ejecutarCobro() {
         return;
     }
     const obs = (document.getElementById('inputObservacion')?.value || '').trim() || null;
+    // Pago mixto: validar el desglose ANTES de cerrar el modal (queda abierto si no cuadra).
+    if (mixtoActivo) {
+        const _tot = carrito.reduce((s, i) => s + i.monto, 0);
+        const _med = mixtoLeerMedios();
+        const _sum = _med.reduce((s, m) => s + m.monto, 0);
+        if (_med.length < 1) { toast('Agrega al menos un medio de pago', 'err'); return; }
+        if (Math.abs(_sum - _tot) > 0.01) {
+            toast(`El desglose (S/ ${_sum.toFixed(2)}) no suma el total (S/ ${_tot.toFixed(2)})`, 'err');
+            return;
+        }
+    }
     cerrarModal();
     const total = carrito.reduce((s, i) => s + i.monto, 0);
     const ref = document.getElementById('refInput').value.trim();
@@ -1139,6 +1224,18 @@ async function ejecutarCobro() {
         observaciones: obs,
         tipo_comprobante: tipoComp, forma_pago: formaPago
     };
+    // Pago mixto: validar el desglose y adjuntarlo (metodo_pago='mixto').
+    if (mixtoActivo) {
+        const medios = mixtoLeerMedios();
+        const suma = medios.reduce((s, m) => s + m.monto, 0);
+        if (medios.length < 1) { toast('Agrega al menos un medio de pago', 'err'); return null; }
+        if (Math.abs(suma - total) > 0.01) {
+            toast(`El desglose (S/ ${suma.toFixed(2)}) no suma el total (S/ ${total.toFixed(2)})`, 'err');
+            return null;
+        }
+        payload.medios = medios;
+        payload.metodo_pago = 'mixto';
+    }
     if (tipoComp === '01') {
         payload.cliente_ruc = document.getElementById('ffRuc').value.trim();
         payload.cliente_razon_social = document.getElementById('ffRazonSocial').value.trim();
