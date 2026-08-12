@@ -60,6 +60,7 @@
                 <span class="val" id="opsDia">0</span>
             </div>
             <button class="hdr-btn" id="btnEgreso" onclick="cambiarTab('egresos')" style="display:none;" title="Egresos">💸</button>
+            <button class="hdr-btn" id="btnExportComprob" onclick="exportarComprobantesDia()" style="display:none;" title="Exportar comprobantes del día a Excel">📊</button>
             <button class="hdr-btn danger" id="btnCerrar" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
             <span class="header-time" id="horaActual">--:--</span>
             <div class="hdr-menu">
@@ -597,9 +598,12 @@
             <div style="font-size:18px;font-weight:700;color:var(--text);">Caja Cerrada</div>
         </div>
         <div id="cierreResumenBox" style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.8;"></div>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button onclick="descargarPDFCierre()" style="flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:filter 0.15s;" onmouseenter="this.style.filter='brightness(1.15)'" onmouseleave="this.style.filter=''">
                 📄 Descargar PDF
+            </button>
+            <button onclick="exportarComprobantesDia()" style="flex:1;padding:12px;background:#166534;color:#dcfce7;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                📊 Comprobantes del día (Excel)
             </button>
             <button onclick="cerrarModalCierreExitoso()" style="padding:12px 20px;background:transparent;color:var(--text-sec, var(--text-dim));border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;">
                 Cerrar
