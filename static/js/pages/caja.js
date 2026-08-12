@@ -360,6 +360,14 @@ function abrirCajaUI() {
     document.getElementById('headerTitle').textContent = `Caja — ${sesion.centro_costo}`;
     document.getElementById('btnCerrar').style.display = 'block';
     document.getElementById('btnEgreso').style.display = 'block';
+    const be = document.getElementById('btnExportComprob');
+    if (be) be.style.display = 'block';
+}
+
+/* Export de comprobantes del día (una fila por concepto) → Excel */
+function exportarComprobantesDia() {
+    const cc = (sesion && sesion.centro_costo_id) ? sesion.centro_costo_id : 1;
+    window.open(`${API}/export-comprobantes-dia?centro_costo_id=${cc}`, '_blank');
 }
 
 
