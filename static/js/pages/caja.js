@@ -813,8 +813,13 @@ function setMetodo(m) {
         r.placeholder = REF_PLACEHOLDERS[m] || 'Nro. de operación / voucher';
         r.focus();
     } else {
+        // Efectivo: no hay N° de operación. Enfocar el campo Descripción/detalle
+        // (inputObservacion, siempre visible, se envía como `observaciones` — NO como
+        // referencia_pago) para que la cajera escriba ahí (ej. nombre del equipo).
         r.classList.remove('visible');
         r.value = '';
+        const obsEl = document.getElementById('inputObservacion');
+        if (obsEl) obsEl.focus();
     }
 }
 
