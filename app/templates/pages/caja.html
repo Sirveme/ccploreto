@@ -410,6 +410,19 @@
             </div>
             <input type="text" class="ref-input" id="refInput" placeholder="Nro. de operación / voucher">
             <div class="ref-required-hint" id="refHint">⚠ N° de operación obligatorio</div>
+            <!-- Pago mixto: varios medios en una operación (una boleta por el total) -->
+            <div class="mixto-wrap" style="margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#94a3b8;">
+                <input type="checkbox" id="mixtoToggle" onchange="toggleMixto()" style="width:16px;height:16px;cursor:pointer;">
+                Pago con varios medios (mixto)
+              </label>
+              <div id="mixtoEditor" style="display:none;margin-top:8px;">
+                <div id="mixtoRows"></div>
+                <button type="button" onclick="mixtoAgregarFila()"
+                        style="margin-top:6px;padding:6px 10px;border:1px dashed #334155;background:transparent;color:#60a5fa;border-radius:6px;cursor:pointer;font-size:12px;">+ agregar medio</button>
+                <div id="mixtoResumen" style="margin-top:6px;font-size:12px;color:#94a3b8;">Asignado S/ 0.00 / Total S/ 0.00</div>
+              </div>
+            </div>
             <div class="comp-row">
                 <button class="comp-btn active" onclick="setComp('03')" data-c="03">Boleta</button>
                 <button class="comp-btn" onclick="setComp('01')" data-c="01">Factura</button>
