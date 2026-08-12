@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func, and_, text
+from sqlalchemy import or_, func, and_, text, exists
 from pydantic import BaseModel, Field
 
 import io
@@ -29,7 +29,7 @@ from app.utils.templates import templates
 
 from app.database import get_db
 from app.models import (
-    Colegiado, Payment, Comprobante, ConceptoCobro,
+    Colegiado, Payment, PaymentSplit, Comprobante, ConceptoCobro,
     UsuarioAdmin, CentroCosto, Organization,
     ConfiguracionFacturacion
 )
@@ -49,7 +49,7 @@ from app.utils.comprobantes import get_numero_display, get_estado_display
 from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamiento
 
 from sqlalchemy.exc import IntegrityError
-from pydantic import field_validator, EmailStr
+from pydantic import field_validator, EmailStr, model_validator
 from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
 import re as _re_z78
 from datetime import date as _date_z78
@@ -163,6 +163,17 @@ class ItemCobro(BaseModel):
     monto_total: float = 0
 
 
+# Pago mixto: catálogo de medios permitidos en el desglose.
+_MEDIOS_VALIDOS = {"efectivo", "tarjeta", "yape", "plin", "transferencia"}
+
+
+class MedioPago(BaseModel):
+    """Un medio dentro de un pago mixto (varios medios en una operación)."""
+    metodo: str
+    monto: float
+    referencia: Optional[str] = None
+
+
 class RegistrarCobroRequest(BaseModel):
     """Request para registrar un cobro"""
     colegiado_id: Optional[int] = None
@@ -179,6 +190,22 @@ class RegistrarCobroRequest(BaseModel):
     # zClaude-98a: datos del cliente cuando es Público general y pide boleta a su DNI
     cliente_dni: Optional[str] = None
     cliente_nombres: Optional[str] = None
+    # Pago mixto (opción b): si viene, es el desglose de medios. Retrocompatible:
+    # sin `medios` → flujo actual con `metodo_pago` único.
+    medios: Optional[List[MedioPago]] = None
+
+    @model_validator(mode="after")
+    def _validar_medios(self):
+        if self.medios:
+            for m in self.medios:
+                if (m.metodo or "").lower() not in _MEDIOS_VALIDOS:
+                    raise ValueError(f"Método no válido en el desglose: {m.metodo}")
+                if not m.monto or m.monto <= 0:
+                    raise ValueError("Cada medio del desglose debe tener monto > 0")
+            suma = round(sum(m.monto for m in self.medios), 2)
+            if abs(suma - round(self.total, 2)) > 0.01:
+                raise ValueError(f"El desglose (S/{suma:.2f}) no suma el total (S/{self.total:.2f})")
+        return self
 
 
 class CobroResponse(BaseModel):
@@ -805,11 +832,17 @@ async def registrar_cobro(
         ).decode("ascii")
         notes_str += f" [CONCEPTOS_B64:{cb}]"
 
+    # Pago mixto: si viene desglose de medios, el método del payment es 'mixto'
+    # (o el método único si es un solo medio). Retrocompatible: sin medios → metodo_pago.
+    _medios = cobro.medios or None
+    _es_mixto = bool(_medios and len(_medios) > 1)
+    _pm = "mixto" if _es_mixto else (_medios[0].metodo.lower() if _medios else cobro.metodo_pago)
+
     payment = Payment(
         organization_id=org.id,
         colegiado_id=cobro.colegiado_id,
         amount=Decimal(str(cobro.total)),
-        payment_method=cobro.metodo_pago,
+        payment_method=_pm,
         operation_code=cobro.referencia_pago,
         notes=notes_str,
         status="approved",
@@ -838,6 +871,16 @@ async def registrar_cobro(
 
     db.add(payment)
     db.flush()
+
+    # Pago mixto: persistir el desglose de medios (solo si mixto). Un pago simple
+    # NO crea splits → arqueo lo suma por payment_method (retrocompat).
+    if _es_mixto:
+        for md in _medios:
+            db.execute(text("""
+                INSERT INTO payment_splits (payment_id, metodo, monto, operation_code, created_at)
+                VALUES (:pid, :m, :mo, :oc, NOW())
+            """), {"pid": payment.id, "m": md.metodo.lower(),
+                   "mo": md.monto, "oc": (md.referencia or None)})
 
     # ── Si el cobro incluye Constancia de Habilidad, emitir certificado
     #    para que la vigencia se registre y refleje en boleta/observaciones. ──
@@ -1643,6 +1686,13 @@ async def abrir_caja(
 _METODOS_EFECTIVO = {"efectivo", "cash", "en efectivo"}
 
 
+def _pago_es_mixto(db: Session, payment_id: int) -> bool:
+    """True si el pago tiene desglose de medios (payment_splits) → pago mixto."""
+    return db.query(PaymentSplit.id).filter(
+        PaymentSplit.payment_id == payment_id
+    ).first() is not None
+
+
 def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
     """
     Suma SOLO payments que tienen boleta o factura aceptada por SUNAT desde
@@ -1661,26 +1711,37 @@ def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
         .subquery()
     )
 
-    resultados = (
+    # Pago mixto: (a) pagos SIN splits → por payment_method (histórico + simple);
+    # (b) pagos MIXTOS → por método del desglose (payment_splits). Así 170 va a
+    # efectivo y 430 a digital en vez de todo a un solo lado.
+    res_simple = (
         db.query(
             func.lower(Payment.payment_method).label("metodo"),
             func.sum(Payment.amount).label("total"),
-            func.count(Payment.id).label("cantidad"),
         )
         .filter(Payment.id.in_(subq))
+        .filter(~exists().where(PaymentSplit.payment_id == Payment.id))
         .group_by(func.lower(Payment.payment_method))
         .all()
     )
+    res_split = (
+        db.query(
+            func.lower(PaymentSplit.metodo).label("metodo"),
+            func.sum(PaymentSplit.monto).label("total"),
+        )
+        .filter(PaymentSplit.payment_id.in_(subq))
+        .group_by(func.lower(PaymentSplit.metodo))
+        .all()
+    )
+    por_metodo = {}
+    for r in list(res_simple) + list(res_split):
+        k = (r.metodo or "").strip()
+        por_metodo[k] = por_metodo.get(k, 0.0) + float(r.total or 0)
 
-    cobros_efectivo = sum(
-        float(r.total or 0) for r in resultados
-        if (r.metodo or "").strip() in _METODOS_EFECTIVO
-    )
-    cobros_digital = sum(
-        float(r.total or 0) for r in resultados
-        if (r.metodo or "").strip() not in _METODOS_EFECTIVO
-    )
-    cantidad = sum(int(r.cantidad or 0) for r in resultados)
+    cobros_efectivo = sum(v for k, v in por_metodo.items() if k in _METODOS_EFECTIVO)
+    cobros_digital = sum(v for k, v in por_metodo.items() if k not in _METODOS_EFECTIVO)
+    # cantidad = nº de OPERACIONES (pagos), no de splits.
+    cantidad = db.query(func.count(Payment.id)).filter(Payment.id.in_(subq)).scalar() or 0
 
     return cobros_efectivo, cobros_digital, cantidad
 
@@ -1690,23 +1751,44 @@ def _calcular_anulaciones_sesion(db: Session, organization_id: int, hora_apertur
     efectivo/digital según el método de la boleta ORIGINAL (nc.payment_id = pago original).
     Resuelve mismo-día y diferido sin marca manual. hasta=None → en vivo (sesión abierta);
     hasta=hora_cierre → congela al cerrar. Retorna (anul_efectivo, anul_digital)."""
-    q = (
+    base_filters = [
+        Comprobante.organization_id == organization_id,
+        Comprobante.tipo == "07",
+        Comprobante.created_at >= hora_apertura,
+    ]
+    if hasta is not None:
+        base_filters.append(Comprobante.created_at <= hasta)
+
+    # (a) NC de pagos SIN splits → por payment_method del pago original (como hoy).
+    filas_simple = (
         db.query(
             func.lower(Payment.payment_method).label("metodo"),
             func.coalesce(func.sum(Comprobante.total), 0).label("total"),
         )
         .join(Payment, Payment.id == Comprobante.payment_id)
-        .filter(
-            Comprobante.organization_id == organization_id,
-            Comprobante.tipo == "07",
-            Comprobante.created_at >= hora_apertura,
-        )
+        .filter(*base_filters)
+        .filter(~exists().where(PaymentSplit.payment_id == Payment.id))
+        .group_by(func.lower(Payment.payment_method))
+        .all()
     )
-    if hasta is not None:
-        q = q.filter(Comprobante.created_at <= hasta)
-    filas = q.group_by(func.lower(Payment.payment_method)).all()
-    anul_ef = sum(float(r.total or 0) for r in filas if (r.metodo or "").strip() in _METODOS_EFECTIVO)
-    anul_dig = sum(float(r.total or 0) for r in filas if (r.metodo or "").strip() not in _METODOS_EFECTIVO)
+    # (b) NC de pagos MIXTOS → por método del desglose original. Como la NC parcial
+    # sobre mixto está prohibida (v1), la reversa es total = suma de los splits.
+    filas_split = (
+        db.query(
+            func.lower(PaymentSplit.metodo).label("metodo"),
+            func.coalesce(func.sum(PaymentSplit.monto), 0).label("total"),
+        )
+        .join(Comprobante, Comprobante.payment_id == PaymentSplit.payment_id)
+        .filter(*base_filters)
+        .group_by(func.lower(PaymentSplit.metodo))
+        .all()
+    )
+    por_metodo = {}
+    for r in list(filas_simple) + list(filas_split):
+        k = (r.metodo or "").strip()
+        por_metodo[k] = por_metodo.get(k, 0.0) + float(r.total or 0)
+    anul_ef = sum(v for k, v in por_metodo.items() if k in _METODOS_EFECTIVO)
+    anul_dig = sum(v for k, v in por_metodo.items() if k not in _METODOS_EFECTIVO)
     return anul_ef, anul_dig
 
 
@@ -2330,6 +2412,11 @@ async def anular_cobro(
     monto_anular = float(monto) if monto is not None else float(payment.amount)
     es_parcial = abs(monto_anular - float(payment.amount)) > 0.01
 
+    # Pago mixto: la anulación parcial aún no está soportada (v1). Solo total.
+    if es_parcial and _pago_es_mixto(db, payment.id):
+        raise HTTPException(400, detail="La anulación parcial de pagos con varios medios "
+                                        "estará disponible pronto; por ahora anula el total.")
+
     # ── Barrera NC configurable: admin/sote SIEMPRE pueden; la cajera solo si el
     #    flag organizations.config.cajera_puede_emitir_nc == True (leído FRESCO de BD,
     #    para que el toggle del SOTE surta efecto inmediato). Default: no puede. ──
@@ -2577,6 +2664,11 @@ async def solicitar_anulacion(
     ).first()
     monto_val = float(monto) if monto is not None else None
     es_parcial = monto_val is not None and abs(monto_val - float(payment.amount)) > 0.01
+
+    # Pago mixto: la anulación parcial aún no está soportada (v1). Solo total.
+    if es_parcial and _pago_es_mixto(db, payment_id):
+        raise HTTPException(400, detail="La anulación parcial de pagos con varios medios "
+                                        "estará disponible pronto; por ahora anula el total.")
 
     sol = await crear_solicitud(
         db, org_id=payment.organization_id,
