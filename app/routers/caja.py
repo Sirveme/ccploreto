@@ -1710,6 +1710,36 @@ def _calcular_anulaciones_sesion(db: Session, organization_id: int, hora_apertur
     return anul_ef, anul_dig
 
 
+@router.get("/export-comprobantes-dia")
+async def export_comprobantes_dia(
+    centro_costo_id: int = Query(1),
+    db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
+):
+    """Export a Excel de los comprobantes de la sesión de caja actual (una fila
+    por concepto). Si no hay sesión abierta, usa el inicio del día. Incluye
+    01/03/07/08; las NC (07) van con IMPORTE negativo. Solo lectura."""
+    if member.role not in ("cajero", "secretaria", "tesorero", "admin", "sote", "decano"):
+        raise HTTPException(403, "Acceso restringido")
+
+    from app.models import SesionCaja
+    sesion = db.query(SesionCaja).filter(
+        SesionCaja.centro_costo_id == centro_costo_id,
+        SesionCaja.estado == "abierta",
+    ).first()
+    desde = sesion.hora_apertura if (sesion and sesion.hora_apertura) else _inicio_dia_peru_utc()
+
+    from app.services.export_comprobantes_dia import generar_export_comprobantes
+    from fastapi.responses import Response
+    xls = generar_export_comprobantes(db, member.organization_id, desde)
+    fname = f"comprobantes_dia_{datetime.now(PERU_TZ).strftime('%Y%m%d_%H%M')}.xlsx"
+    return Response(
+        content=xls,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 @router.get("/sesion-actual")
 async def sesion_actual(
     centro_costo_id: int = Query(1),
