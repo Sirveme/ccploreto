@@ -416,6 +416,23 @@ class Payment(Base):
     organization = relationship("Organization")
 
 
+class PaymentSplit(Base):
+    """Desglose de medios de un pago MIXTO (varios medios en una operación).
+    Un pago simple NO tiene filas aquí; un mixto tiene N y payment.payment_method='mixto'.
+    Invariante: payments.amount = SUM(payment_splits.monto) para el pago mixto.
+    (Tabla creada por sql/zClaude-pago-mixto.sql; sin create_all.)"""
+    __tablename__ = "payment_splits"
+
+    id = Column(Integer, primary_key=True)
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False, index=True)
+    metodo = Column(String(30), nullable=False)      # efectivo, tarjeta, yape, plin, transferencia
+    monto = Column(Numeric(12, 2), nullable=False)
+    operation_code = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    payment = relationship("Payment")
+
+
 class Partner(Base):
     __tablename__ = "partners"
     id = Column(Integer, primary_key=True)
@@ -469,6 +486,8 @@ class Colegiado(Base):
     condicion = Column(String, default="inhabil")  # habil, inhabil, suspendido, fallecido
     es_transeunte = Column(Boolean, default=False)
     fecha_fin_transeunte = Column(Date, nullable=True)
+    # Fase 1 aportes (D): colegio de origen del transeúnte (para regla de aporte).
+    colegio_origen = Column(String, nullable=True)
     fecha_actualizacion_condicion = Column(DateTime(timezone=True), server_default=func.now())
     motivo_inhabilidad = Column(String, nullable=True)
     
