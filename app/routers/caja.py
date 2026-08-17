@@ -2000,6 +2000,17 @@ async def pdf_cierre_caja(sesion_id: int, db: Session = Depends(get_db)):
             Comprobante.payment_id.in_(payment_ids),
         ).order_by(Comprobante.created_at.asc()).all()
 
+    # Pago mixto: desglose por pago para que el PDF descomponga los medios (efectivo,
+    # tarjeta, ...) en vez de una fila "MIXTO". Dict {payment_id: [(metodo, monto), ...]}.
+    splits_por_pago = {}
+    if payment_ids:
+        for ps in db.query(PaymentSplit).filter(
+            PaymentSplit.payment_id.in_(payment_ids)
+        ).all():
+            splits_por_pago.setdefault(ps.payment_id, []).append(
+                (ps.metodo, float(ps.monto or 0))
+            )
+
     # Generar PDF
     pdf_bytes = generar_pdf_cierre(
         sesion=sesion,
@@ -2009,6 +2020,7 @@ async def pdf_cierre_caja(sesion_id: int, db: Session = Depends(get_db)):
         pagos=pagos,
         egresos=egresos,
         comprobantes=comprobantes,
+        splits_por_pago=splits_por_pago,
     )
 
     # Nombre del archivo
