@@ -837,6 +837,20 @@ function toggleMixto() {
     mixtoActivo = !!document.getElementById('mixtoToggle')?.checked;
     const ed = document.getElementById('mixtoEditor');
     if (ed) ed.style.display = mixtoActivo ? 'block' : 'none';
+    // Excluyentes: mixto ON desactiva el medio único de arriba y su N° de operacion.
+    document.querySelectorAll('.m-btn').forEach(b => {
+        b.disabled = mixtoActivo;
+        b.style.opacity = mixtoActivo ? '0.4' : '';
+        b.style.pointerEvents = mixtoActivo ? 'none' : '';
+    });
+    const rIn = document.getElementById('refInput');
+    if (mixtoActivo) {
+        if (rIn) { rIn.disabled = true; rIn.classList.remove('visible', 'error'); }
+        document.getElementById('refHint')?.classList.remove('visible');
+    } else {
+        if (rIn) rIn.disabled = false;
+        setMetodo(metodo);  // restaurar el estado visual del medio único
+    }
     if (mixtoActivo && !document.querySelectorAll('#mixtoRows .mixto-fila').length) mixtoAgregarFila();
     mixtoRecalcular();
 }
@@ -956,8 +970,9 @@ function cambiarTab(t) {
 function confirmarCobro() {
     if (!carrito.length) return;
 
-    // Validar N° operación obligatorio
-    if (requiereReferencia(metodo)) {
+    // Validar N° operación obligatorio (NO en mixto: usa su propio desglose,
+    // no el medio único de arriba).
+    if (!mixtoActivo && requiereReferencia(metodo)) {
         const ref = document.getElementById('refInput').value.trim();
         if (!ref) {
             const refEl = document.getElementById('refInput');
@@ -998,10 +1013,13 @@ function confirmarCobro() {
         clienteLabel = document.getElementById('ffRazonSocial').value.trim() + ' (RUC: ' + document.getElementById('ffRuc').value.trim() + ')';
     }
     document.getElementById('mTotal').textContent = `S/ ${t.toFixed(2)}`;
+    const metodoDetalle = mixtoActivo
+        ? mixtoLeerMedios().map(m => `${m.metodo} S/ ${(m.monto || 0).toFixed(2)}`).join(' + ')
+        : `${metodo}${ref ? ' · Op: ' + ref : ''}`;
     document.getElementById('mDetail').innerHTML = `
         <div><span>Cliente:</span><span>${clienteLabel}</span></div>
         <div><span>Items:</span><span>${carrito.length}</span></div>
-        <div><span>Método:</span><span>${metodo}${ref ? ' · Op: ' + ref : ''}</span></div>
+        <div><span>Método:</span><span>${metodoDetalle}</span></div>
         <div><span>Comprobante:</span><span>${tipoComp === '01' ? 'Factura' : 'Boleta'} · ${fpLabel}</span></div>`;
     document.getElementById('modalConfirm').classList.add('active');
     cajaConfigurarPublicoGeneral();  // zClaude-98a
@@ -1013,7 +1031,8 @@ function confirmarCobro() {
         counter.textContent = '0';
         txtObs.oninput = () => { counter.textContent = txtObs.value.length; };
     }
-    mixtoReset();  // pago mixto: limpiar el editor al abrir el modal de cobro
+    // Pago mixto: NO resetear aquí — destruía el desglose antes de ejecutarCobro().
+    // El reset se hace al iniciar un cobro nuevo (tras cobro exitoso).
 }
 
 function cerrarModal() {
@@ -1290,6 +1309,7 @@ async function ejecutarCobro() {
 
             document.getElementById('successBg').classList.add('active');
             carrito = []; renderCarrito();
+            mixtoReset();  // pago mixto: recién ahora (cobro nuevo), NO al confirmar
             if (colActual) cargarDeudas(colActual.id);
             cargarResumen();
 
