@@ -15,6 +15,7 @@ Requiere: pip install reportlab
 """
 
 import io
+import re
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from reportlab.lib.pagesizes import A4
@@ -124,6 +125,7 @@ def generar_pdf_cierre(
     pagos: list,
     egresos: list,
     comprobantes: list,
+    splits_por_pago: dict = None,
 ) -> bytes:
     """
     Genera el PDF de cierre de caja.
@@ -216,9 +218,27 @@ def generar_pdf_cierre(
     story.append(Paragraph("CUADRE DE CAJA", s_titulo))
 
     monto_apertura = float(sesion.monto_apertura or 0)
-    # Recalcular desde pagos reales (no confiar en totales guardados por posible bug timezone)
-    total_efectivo = sum(float(p.amount or 0) for p in pagos if p.payment_method in ("efectivo",))
-    total_digital = sum(float(p.amount or 0) for p in pagos if p.payment_method not in ("efectivo",))
+    # Recalcular desde pagos reales (no confiar en totales guardados por posible bug timezone).
+    # Pago MIXTO: descomponer por payment_splits — cada medio suma a SU bucket (efectivo,
+    # tarjeta, ...) en vez de quedar todo en una fila "MIXTO". Sin splits → payment_method.
+    _splits_pp = splits_por_pago or {}
+    _EFECTIVO = ("efectivo", "cash", "en efectivo")
+    por_metodo = {}   # {metodo_lower: {"cantidad": int, "total": float}}
+    for _p in pagos:
+        _sp = _splits_pp.get(_p.id)
+        if _sp:
+            for _met, _monto in _sp:
+                _k = (_met or "otro").strip().lower()
+                _d = por_metodo.setdefault(_k, {"cantidad": 0, "total": 0.0})
+                _d["cantidad"] += 1
+                _d["total"] += float(_monto or 0)
+        else:
+            _k = (_p.payment_method or "otro").strip().lower()
+            _d = por_metodo.setdefault(_k, {"cantidad": 0, "total": 0.0})
+            _d["cantidad"] += 1
+            _d["total"] += float(_p.amount or 0)
+    total_efectivo = sum(v["total"] for k, v in por_metodo.items() if k in _EFECTIVO)
+    total_digital = sum(v["total"] for k, v in por_metodo.items() if k not in _EFECTIVO)
     total_egresos_val = sum(float(e.monto or 0) for e in egresos)
     total_esperado = monto_apertura + total_efectivo - total_egresos_val
     monto_cierre = float(sesion.monto_cierre or 0)
@@ -282,17 +302,10 @@ def generar_pdf_cierre(
     story.append(Paragraph("DETALLE DE COBROS", s_titulo))
 
     if pagos:
-        # Agrupar por método de pago
-        metodos = {}
-        for p in pagos:
-            met = p.payment_method or "otro"
-            if met not in metodos:
-                metodos[met] = {"cantidad": 0, "total": 0}
-            metodos[met]["cantidad"] += 1
-            metodos[met]["total"] += float(p.amount or 0)
-
+        # Agrupar por método REAL (payment_splits descompuestos; sin fila "MIXTO").
+        # Reusa `por_metodo` calculado en el cuadre (mismo desglose splits-aware).
         met_data = [["MÉTODO DE PAGO", "CANT.", "TOTAL"]]
-        for met, vals in sorted(metodos.items()):
+        for met, vals in sorted(por_metodo.items()):
             met_data.append([
                 met.upper(),
                 str(vals["cantidad"]),
@@ -300,8 +313,8 @@ def generar_pdf_cierre(
             ])
         met_data.append([
             "TOTAL",
-            str(sum(v["cantidad"] for v in metodos.values())),
-            f"S/ {_f(sum(v['total'] for v in metodos.values()))}",
+            str(sum(v["cantidad"] for v in por_metodo.values())),
+            f"S/ {_f(sum(v['total'] for v in por_metodo.values()))}",
         ])
 
         t_met = Table(met_data, colWidths=[250, 60, 110])
@@ -335,14 +348,29 @@ def generar_pdf_cierre(
                 hora = h.astimezone(TZ_PERU).strftime("%H:%M")
 
             desc = (p.notes or "Cobro").replace("[CAJA] ", "")
+            # Fix mínimo: ocultar tokens técnicos ([DEBT_IDS:...] / [CONCEPTOS_B64:...]);
+            # el concepto legible ya está en las notas antes de los corchetes.
+            desc = re.sub(r"\s*\[(?:DEBT_IDS|CONCEPTOS_B64):[^\]]*\]", "", desc).strip() or "Cobro"
             if len(desc) > 55:
                 desc = desc[:52] + "..."
+
+            # Pago MIXTO: en la columna MÉTODO desglosar los medios en UNA sola fila
+            # (el monto total va en MONTO), para cruzar 1:1 contra la boleta. Sin splits
+            # → payment_method (retrocompat; no pisa el fix de agregación ni el legible).
+            _sp = _splits_pp.get(p.id)
+            if _sp:
+                metodo_cell = Paragraph(
+                    " + ".join(f"{(m or '').upper()} S/ {_f(mo)}" for m, mo in _sp),
+                    s_small,
+                )
+            else:
+                metodo_cell = (p.payment_method or "").upper()
 
             det_data.append([
                 str(i),
                 hora,
                 Paragraph(desc, s_small),
-                (p.payment_method or "").upper(),
+                metodo_cell,
                 f"S/ {_f(p.amount)}",
             ])
 

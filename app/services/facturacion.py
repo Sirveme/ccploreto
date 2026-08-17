@@ -1214,16 +1214,42 @@ class FacturacionService:
             fecha_str = ""
             hora_str = ""
 
+        # Bug A — Pago MIXTO: si el pago tiene payment_splits, la línea enumera los
+        # medios con su monto (ej. "EFECTIVO S/ 170.00 + Tarjeta S/ 430.00"). Un pago
+        # simple (sin splits) conserva EXACTAMENTE el formato anterior.
+        try:
+            from app.models import PaymentSplit
+            splits = (self.db.query(PaymentSplit)
+                      .filter(PaymentSplit.payment_id == payment.id)
+                      .order_by(PaymentSplit.id).all())
+        except Exception:
+            splits = []
+
         # Construir por partes; segmentos opcionales solo si tienen valor.
-        partes = [f"{etiqueta}:"]
+        if splits:
+            def _lbl(m):
+                m = (m or "").strip()
+                for k, v in ETIQUETAS.items():
+                    if k.lower() == m.lower():
+                        return v
+                return m.capitalize()
+            detalle = " + ".join(
+                f"{_lbl(s.metodo)} S/ {float(s.monto or 0):.2f}" for s in splits
+            )
+            partes = [detalle]
+        else:
+            partes = [f"{etiqueta}:"]
         if fecha_str:
             partes.append(f"Fecha [{fecha_str}]")
         if hora_str:
             partes.append(f"Hora [{hora_str}]")
 
-        op_code = (payment.operation_code or "").strip()
-        if op_code:
-            partes.append(f"N° Operación [{op_code}]")
+        # N° de operación solo en pago simple (en mixto cada medio lleva su ref en
+        # caja y no cabe una sola en la línea).
+        if not splits:
+            op_code = (payment.operation_code or "").strip()
+            if op_code:
+                partes.append(f"N° Operación [{op_code}]")
 
         return " ".join(partes)
 
