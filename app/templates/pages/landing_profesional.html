@@ -463,6 +463,8 @@
             justify-content: center;
             font-size: 22px;
         }
+
+        .section-icon.sm { width: 30px; height: 30px; border-radius: 10px; font-size: 16px; }
         
         .section-icon.gold { background: var(--gold-light); color: var(--gold); }
         .section-icon.blue { background: var(--blue-light); color: var(--blue); }
@@ -758,12 +760,19 @@
         
         /* === PROMO SECTION === */
         .promo-section {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.25);
+            background: rgba(148, 163, 184, 0.05);
+            border: 1px solid rgba(148, 163, 184, 0.15);
             border-radius: 20px;
-            padding: 28px 24px;
+            padding: 20px 18px;
             text-align: center;
             margin-bottom: 16px;
+        }
+        .promo-eyebrow {
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 6px;
         }
         
         .promo-icon {
@@ -800,38 +809,26 @@
         }
         
         .promo-btn {
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 700;
+            padding: 9px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
             text-decoration: none;
             transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            color: var(--text-muted);
         }
-        
+
         .promo-btn:hover {
             transform: translateY(-2px);
+            background: rgba(148, 163, 184, 0.16);
         }
-        
-        .promo-btn.pro {
-            background: var(--success-light);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            color: var(--success);
-        }
-        
-        .promo-btn.empresa {
-            background: var(--blue-light);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            color: var(--blue);
-        }
-        
-        .promo-btn.custom {
-            background: var(--pink-light);
-            border: 1px solid rgba(236, 72, 153, 0.4);
-            color: var(--pink);
-        }
+
+        /* Variantes de color eliminadas: los servicios van en estilo neutro/discreto. */
         
         /* === FOOTER === */
         .footer {
@@ -1052,7 +1049,7 @@
     <!-- ========== ABOUT ME ========== -->
     <div class="section">
         <div class="section-header">
-            <div class="section-icon gold"><i class="ph ph-user-circle"></i></div>
+            <div class="section-icon gold sm"><i class="ph ph-user-circle"></i></div>
             <div>
                 <div class="section-title">Sobre Mí</div>
                 <div class="section-subtitle">Presentación profesional</div>
@@ -1292,16 +1289,17 @@
     <!-- ========== PROMO ========== -->
     <div class="promo-section">
         <div class="promo-icon"><i class="ph ph-sparkle"></i></div>
+        <div class="promo-eyebrow">Servicio externo · ColegiosPro</div>
         <h3 class="promo-title">¿Necesitas presencia profesional?</h3>
         <p class="promo-subtitle">Destaca con un sitio web profesional verificado</p>
         <div class="promo-buttons">
-            <a href="https://wa.me/51999999999?text=Hola,%20soy%20{{ colegiado.apellidos_nombres | urlencode }}%20(Mat.%20{{ colegiado.codigo_matricula }}),%20me%20interesa%20el%20Sitio%20Pro" class="promo-btn pro">
+            <a href="https://wa.me/51967317946?text=Hola,%20soy%20{{ colegiado.apellidos_nombres | urlencode }}%20(Mat.%20{{ colegiado.codigo_matricula }}),%20me%20interesa%20un%20Sitio%20Web%20Pro" class="promo-btn">
                 <i class="ph ph-rocket"></i> Sitio Pro
             </a>
-            <a href="https://wa.me/51999999999?text=Hola,%20me%20interesa%20un%20Sitio%20Empresarial" class="promo-btn empresa">
+            <a href="https://wa.me/51967317946?text=Hola,%20soy%20{{ colegiado.apellidos_nombres | urlencode }}%20(Mat.%20{{ colegiado.codigo_matricula }}),%20me%20interesa%20un%20Sitio%20Web%20Empresarial" class="promo-btn">
                 <i class="ph ph-buildings"></i> Empresarial
             </a>
-            <a href="https://wa.me/51999999999?text=Quiero%20un%20Diseño%20Personalizado" class="promo-btn custom">
+            <a href="https://wa.me/51967317946?text=Hola,%20soy%20{{ colegiado.apellidos_nombres | urlencode }}%20(Mat.%20{{ colegiado.codigo_matricula }}),%20me%20interesa%20un%20Diseño%20Personalizado" class="promo-btn">
                 <i class="ph ph-magic-wand"></i> Personalizado
             </a>
         </div>
