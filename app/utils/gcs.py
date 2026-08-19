@@ -98,11 +98,10 @@ def upload_foto_perfil(
         blob.cache_control = "public, max-age=3600"
         blob.patch()
 
-        # Hacer público este objeto específico (fine-grained)
-        blob.acl.all().grant_read()
-        blob.acl.save()
-
-        return blob.public_url
+        # Bucket con Uniform Bucket-Level Access (UBLA): el acceso público va por
+        # IAM a nivel bucket (allUsers: objectViewer), NO por ACL de objeto. Tocar
+        # blob.acl rompe con "Cannot get legacy ACL ... UBLA enabled".
+        return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
 
     except Exception as e:
         print(f"⚠️ GCS: Error subiendo foto: {e}")
@@ -206,12 +205,8 @@ def upload_cms_imagen(
             blob.patch()
         except Exception:
             pass
-        try:
-            blob.acl.all().grant_read()
-            blob.acl.save()
-        except Exception as acl_err:
-            print(f"ℹ️ GCS CMS: no se pudo aplicar ACL pública ({acl_err}); "
-                  f"el bucket podría tener uniform access habilitado.")
+        # UBLA: acceso público por IAM a nivel bucket, NO por ACL de objeto.
+        # (Se removió el blob.acl que fallaba silenciosamente con uniform access.)
         return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
 
     except Exception as e:
