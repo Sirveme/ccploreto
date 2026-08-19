@@ -515,6 +515,103 @@ async def actualizar_todos_los_datos(
 
 
 # ============================================================
+# NUEVO (fix b): endpoints que el front (modal_perfil.js) YA llama.
+# Aditivos — NO modifican /actualizar. La foto reusa EXACTAMENTE guardar_foto.
+# ============================================================
+
+# Campos de texto CON .strip() (mismas reglas que /actualizar)
+_PERFIL_STRIP = [
+    "email", "telefono", "direccion", "referencia_domicilio", "lugar_nacimiento",
+    "universidad", "especialidad", "centro_trabajo", "cargo", "ruc_empleador",
+    "direccion_trabajo", "referencia_trabajo", "telefono_trabajo", "nombre_conyuge",
+    "contacto_emergencia_nombre", "contacto_emergencia_telefono",
+    "contacto_emergencia_parentesco", "sitio_web", "linkedin", "facebook",
+    "instagram", "tiktok", "sobre_mi",
+]
+# Campos SIN strip (igual que /actualizar)
+_PERFIL_PLAIN = ["estado_civil", "tipo_sangre", "grado_academico", "situacion_laboral", "comite_funcional"]
+
+
+def _aplicar_datos_perfil(colegiado, data: dict) -> None:
+    """Aplica los campos del perfil (JSON) con las MISMAS reglas que /actualizar."""
+    for f in _PERFIL_STRIP:
+        if f in data:
+            v = data.get(f)
+            setattr(colegiado, f, v.strip() if isinstance(v, str) and v.strip() else None)
+    for f in _PERFIL_PLAIN:
+        if f in data:
+            v = data.get(f)
+            setattr(colegiado, f, v if v else None)
+    for f in ("fecha_nacimiento", "fecha_titulo"):
+        v = data.get(f)
+        if v:
+            try:
+                setattr(colegiado, f, datetime.strptime(v, "%Y-%m-%d").date())
+            except Exception:
+                pass
+    if data.get("cantidad_hijos") is not None:
+        try:
+            colegiado.cantidad_hijos = int(data.get("cantidad_hijos") or 0)
+        except Exception:
+            pass
+    exp = data.get("experiencia_laboral")
+    if isinstance(exp, list):
+        norm = []
+        for e in exp:
+            if isinstance(e, dict) and (e.get("empresa") or "").strip():
+                norm.append({
+                    "empresa": e.get("empresa").strip(),
+                    "cargo": (e.get("cargo") or "").strip(),
+                    "periodo": (e.get("periodo") or "").strip(),
+                })
+        colegiado.experiencia_laboral = norm
+
+
+@router.post("/perfil")
+async def guardar_perfil_colegiado(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Guarda los campos de texto del perfil (JSON) que envia modal_perfil.js.
+    Mismas reglas de campo que /actualizar; NO toca /actualizar."""
+    colegiado = buscar_colegiado_de_member(member, db)
+    if not colegiado:
+        raise HTTPException(404, "Colegiado no encontrado")
+    data = await request.json()
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Cuerpo invalido")
+    _aplicar_datos_perfil(colegiado, data)
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
+    verificar_datos_completos(colegiado)
+    db.commit()
+    return {"status": "ok", "message": "Perfil actualizado",
+            "datos_completos": colegiado.datos_completos}
+
+
+@router.post("/foto")
+async def subir_foto_colegiado(
+    foto: UploadFile = File(...),
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Sube SOLO la foto (FormData 'foto'). Reusa EXACTAMENTE guardar_foto y la
+    escritura de foto_url de /actualizar."""
+    colegiado = buscar_colegiado_de_member(member, db)
+    if not colegiado:
+        raise HTTPException(404, "Colegiado no encontrado")
+    if not (foto and foto.filename):
+        raise HTTPException(400, "No se recibio archivo de foto")
+    foto_url = await guardar_foto(foto, colegiado.organization_id, colegiado.id)
+    if not foto_url:
+        raise HTTPException(400, "Foto invalida (formato o tamano no permitido)")
+    colegiado.foto_url = foto_url
+    colegiado.datos_actualizados_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": "ok", "foto_url": colegiado.foto_url}
+
+
+# ============================================================
 # FUNCIONES AUXILIARES
 # ============================================================
 
