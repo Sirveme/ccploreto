@@ -119,29 +119,37 @@ def resolver_derecho(db: Session, org_id: int, colegiado):
 
 
 # ── Stock ────────────────────────────────────────────────────────────────
+# FUENTE ÚNICA de verdad del inventario físico de tarjetas = conceptos_cobro.stock_actual
+# del concepto CARNE_CODIGO (MERC-3251). La tabla credential_stock queda INERTE (no se
+# lee ni se escribe). Reglas: descuenta SOLO la emisión/desecho de Morelia; el ingreso lo
+# hacen las cuentas auto-administrables (rol admin_stock). La Caja NO toca este stock
+# (concepto con maneja_stock=FALSE). credential_stock_movimientos se conserva como
+# AUDITORÍA (quién emitió/desechó/ingresó), ya no maneja el stock.
 def stock_actual(db: Session, org_id: int) -> int:
     disp = db.execute(text(
-        "SELECT disponibles FROM credential_stock WHERE organization_id = :org"
-    ), {"org": org_id}).scalar()
+        "SELECT stock_actual FROM conceptos_cobro WHERE organization_id = :org AND codigo = :cod"
+    ), {"org": org_id, "cod": CARNE_CODIGO}).scalar()
     return int(disp or 0)
 
 
 def _lock_stock(db: Session, org_id: int):
-    """Bloquea la fila de stock (FOR UPDATE) y devuelve disponibles (o None)."""
+    """Bloquea (FOR UPDATE) la fila del concepto de carné y devuelve stock_actual (o None)."""
     return db.execute(text(
-        "SELECT disponibles FROM credential_stock WHERE organization_id = :org FOR UPDATE"
-    ), {"org": org_id}).scalar()
+        "SELECT stock_actual FROM conceptos_cobro WHERE organization_id = :org AND codigo = :cod FOR UPDATE"
+    ), {"org": org_id, "cod": CARNE_CODIGO}).scalar()
 
 
 def ingreso_stock(db: Session, org_id: int, usuario_id, cantidad: int, motivo=None) -> int:
+    """Ingreso/reposición de tarjetas. Solo cuentas auto-administrables (gate por rol en
+    el router). ADICIONA a conceptos_cobro.stock_actual del concepto de carné."""
     if cantidad <= 0:
         raise ValueError("La cantidad debe ser mayor a 0.")
-    db.execute(text("""
-        INSERT INTO credential_stock (organization_id, disponibles)
-        VALUES (:org, :c)
-        ON CONFLICT (organization_id)
-        DO UPDATE SET disponibles = credential_stock.disponibles + :c, updated_at = now()
-    """), {"org": org_id, "c": cantidad})
+    res = db.execute(text("""
+        UPDATE conceptos_cobro SET stock_actual = COALESCE(stock_actual, 0) + :c
+        WHERE organization_id = :org AND codigo = :cod
+    """), {"org": org_id, "c": cantidad, "cod": CARNE_CODIGO})
+    if res.rowcount == 0:
+        raise ValueError("No existe el concepto de carné (%s) en esta organización." % CARNE_CODIGO)
     db.execute(text("""
         INSERT INTO credential_stock_movimientos (organization_id, tipo, cantidad, motivo, usuario_id)
         VALUES (:org, 'ingreso', :c, :m, :uid)
@@ -151,13 +159,15 @@ def ingreso_stock(db: Session, org_id: int, usuario_id, cantidad: int, motivo=No
 
 
 def desechar(db: Session, org_id: int, usuario_id, motivo=None, issuance_id=None) -> int:
-    """Carné en blanco arruinado: descuenta stock, NO consume derecho ni crea issuance."""
+    """Tarjeta en blanco arruinada: descuenta 1 del stock (consumo), NO consume derecho
+    ni crea issuance. Es consumo válido de Morelia."""
     disp = _lock_stock(db, org_id)
     if disp is None or disp <= 0:
-        raise ValueError("Sin stock de carnés en blanco.")
-    db.execute(text(
-        "UPDATE credential_stock SET disponibles = disponibles - 1, updated_at = now() WHERE organization_id = :org"
-    ), {"org": org_id})
+        raise ValueError("Sin stock de tarjetas de carné.")
+    db.execute(text("""
+        UPDATE conceptos_cobro SET stock_actual = stock_actual - 1
+        WHERE organization_id = :org AND codigo = :cod
+    """), {"org": org_id, "cod": CARNE_CODIGO})
     db.execute(text("""
         INSERT INTO credential_stock_movimientos (organization_id, tipo, cantidad, motivo, issuance_id, usuario_id)
         VALUES (:org, 'desecho', -1, :m, :iid, :uid)
@@ -177,7 +187,7 @@ def emitir(db: Session, org, tpl, colegiado, usuario_id):
 
     disp = _lock_stock(db, org.id)
     if disp is None or disp <= 0:
-        raise ValueError("Sin stock de carnés en blanco.")
+        raise ValueError("Sin stock de tarjetas de carné.")
 
     token = str(uuid.uuid4())
     max_v = db.query(func.coalesce(func.max(CredentialIssuance.version), 0)).filter_by(
@@ -207,10 +217,11 @@ def emitir(db: Session, org, tpl, colegiado, usuario_id):
     db.add(iss)
     db.flush()   # obtiene iss.id
 
-    # 3) Descontar stock + movimiento
-    db.execute(text(
-        "UPDATE credential_stock SET disponibles = disponibles - 1, updated_at = now() WHERE organization_id = :org"
-    ), {"org": org.id})
+    # 3) Descontar stock (conceptos_cobro.stock_actual del carné) + movimiento (auditoría)
+    db.execute(text("""
+        UPDATE conceptos_cobro SET stock_actual = stock_actual - 1
+        WHERE organization_id = :org AND codigo = :cod
+    """), {"org": org.id, "cod": CARNE_CODIGO})
     db.execute(text("""
         INSERT INTO credential_stock_movimientos (organization_id, tipo, cantidad, issuance_id, usuario_id)
         VALUES (:org, 'emision', -1, :iid, :uid)
