@@ -2332,6 +2332,39 @@ async def egresos_sesion_actual(
 # COMPROBANTES Y ANULACIÓN
 # ============================================================
 
+
+def _descripcion_legible(notes):
+    """Descripción legible del historial: decodifica CONCEPTOS_B64 (REUSA _parse_b64
+    del export) y oculta los marcadores técnicos [DEBT_IDS]/[CONCEPTOS_B64]. Cae con
+    gracia a la parte humana si no hay B64 decodificable."""
+    from app.services.export_comprobantes_dia import _parse_b64, _RE_B64, _RE_DEBT_IDS
+    if not notes:
+        return "Cobro"
+    items = _parse_b64(notes)
+    if items:
+        partes = []
+        for it in items:
+            nombre = (it.get("nombre") or "Concepto").strip()
+            try:
+                cant = int(it.get("cantidad") or 1)
+            except Exception:
+                cant = 1
+            mu = it.get("monto_unitario")
+            try:
+                monto = float(mu if mu is not None else (it.get("monto_total") or 0))
+            except Exception:
+                monto = 0.0
+            partes.append(("%s — %d x S/ %.2f" % (nombre, cant, monto)) if cant > 1
+                          else ("%s — S/ %.2f" % (nombre, monto)))
+        if partes:
+            return " · ".join(partes)
+    # Fallback: parte humana, sin los marcadores técnicos.
+    txt = (notes or "").replace("[CAJA] ", "")
+    txt = _RE_B64.sub("", txt)
+    txt = _RE_DEBT_IDS.sub("", txt)
+    return txt.strip() or "Cobro"
+
+
 @router.get("/historial-cobros")
 async def historial_cobros(
     fecha: str,
@@ -2382,6 +2415,7 @@ async def historial_cobros(
             "amount": float(p.amount or 0),
             "metodo_pago": p.payment_method,
             "notes": p.notes,
+            "descripcion_legible": _descripcion_legible(p.notes),
             "reviewed_at": hora_peru.isoformat() if hora_peru else None,
             "numero_comprobante": numero_comprobante,
             "status": p.status,
