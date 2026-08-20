@@ -1,9 +1,10 @@
 import re
+import json
 import datetime
 from types import SimpleNamespace
 from urllib.parse import quote
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Body
+from fastapi import APIRouter, Request, Depends, HTTPException, Body, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,9 @@ from app.models_credenciales import CredentialIssuance, CredentialTemplate
 from app.routers.dashboard import get_current_member
 from app.services.credenciales_service import CredencialesService
 from app.services import credenciales_emision_service as emision
-from app.services.credencial_reportlab import generar_credencial_pdf
+from app.services import credenciales_editor_service as editor
+from app.services.credencial_reportlab import generar_credencial_pdf, DEFAULT_LAYOUT
+from app.utils.gcs import upload_credencial_fondo
 from app.utils.templates import templates
 
 router = APIRouter(
@@ -24,6 +27,14 @@ router = APIRouter(
 # Roles por FUNCIÓN (no por persona): si cambia el operador, el rol sigue válido.
 ROLES_EMISION = ("emisor_carnes", "secretaria", "admin", "decano")
 ROLES_STOCK   = ("admin", "decano")
+ROLES_LOCK    = ("admin", "decano")   # desbloquean/bloquean la edición de la plantilla
+
+
+def _template_activo(db: Session, org_id):
+    return db.query(CredentialTemplate).filter(
+        CredentialTemplate.organization_id == org_id,
+        CredentialTemplate.activa == True,
+    ).first()
 
 # Token CENTINELA del PDF de revisión: su QR resuelve a "Carné no encontrado" en
 # /verificar → el preview sin marca NO puede usarse como carné válido (anti-backdoor).
@@ -381,3 +392,200 @@ async def panel_emision(
         "gratuitos": listas["gratuitos"],
         "puede_stock": puede_stock,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PARTE 7A — Editor visual de layout (fuente de verdad = layout JSONB)
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/editor", response_class=HTMLResponse)
+async def editor_layout(
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """Editor visual del TEMPLATE ACTIVO de la org. El candado (bloqueado_edicion)
+    decide si el operador puede editar; admin/decano puede editar y (des)bloquear."""
+    org_dict = request.state.org
+    organization = db.query(Organization).filter(Organization.id == org_dict["id"]).first()
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa para esta organización")
+    layout = tpl.layout or DEFAULT_LAYOUT
+    bloqueado = bool(tpl.bloqueado_edicion)
+    es_admin = member.role in ROLES_LOCK
+    puede_editar = es_admin or (not bloqueado)
+    cfg = {
+        "puede_editar": puede_editar,
+        "es_admin": es_admin,
+        "bloqueado": bloqueado,
+        "fondos": {"frente": tpl.fondo_frente_url, "reverso": tpl.fondo_reverso_url},
+    }
+    return templates.TemplateResponse("pages/credenciales/editor.html", {
+        "request": request,
+        "org": organization,
+        "tpl": tpl,
+        "layout_json": json.dumps(layout, ensure_ascii=False),
+        "cfg_json": json.dumps(cfg, ensure_ascii=False),
+        "bloqueado": bloqueado,
+        "es_admin": es_admin,
+        "puede_editar": puede_editar,
+    })
+
+
+@router.post("/editor/guardar")
+async def editor_guardar(
+    request: Request,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """Guarda el layout. 'Si guarda, imprime': candado + límites CR80 + test-render.
+    Si el PDF revienta, RECHAZA el guardado (nunca persiste un layout que no imprime)."""
+    org_dict = request.state.org
+    organization = db.query(Organization).filter(Organization.id == org_dict["id"]).first()
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa")
+
+    # (1) Candado SERVER-SIDE (no solo ocultar el botón).
+    if tpl.bloqueado_edicion and member.role not in ROLES_LOCK:
+        raise HTTPException(403, "La plantilla está bloqueada. Pide a un administrador que la desbloquee.")
+
+    nuevo = body.get("layout")
+    if not isinstance(nuevo, dict) or "frente" not in nuevo or "reverso" not in nuevo:
+        raise HTTPException(400, "Layout inválido (faltan caras frente/reverso)")
+
+    # (2) Límites CR80.
+    errs = editor.validar_bounds(nuevo)
+    if errs:
+        raise HTTPException(400, "Fuera de los límites del carné: " + " · ".join(errs[:6]))
+
+    # (3) Test-render con el layout nuevo.
+    ok, err = editor.test_render_layout(organization, tpl, nuevo)
+    if not ok:
+        raise HTTPException(400, "El diseño no se puede imprimir: " + str(err))
+
+    # (4) Undo de un nivel + persistir.
+    try:
+        tpl.layout_backup = tpl.layout
+        tpl.layout = nuevo
+        tpl.updated_at = datetime.datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {"ok": True}
+
+
+@router.post("/editor/restaurar")
+async def editor_restaurar(
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """Restaura la ÚLTIMA versión guardada (layout_backup → layout). Un solo nivel.
+    NO toca layout_backup: el respaldo sobrevive a la restauración → el usuario nunca
+    queda sin red y no es un 'deshacer' infinito. Mismo candado que el guardado."""
+    org_dict = request.state.org
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa")
+    if tpl.bloqueado_edicion and member.role not in ROLES_LOCK:
+        raise HTTPException(403, "La plantilla está bloqueada. Pide a un administrador que la desbloquee.")
+    if not tpl.layout_backup:
+        raise HTTPException(400, "No hay una versión guardada anterior para restaurar")
+    try:
+        tpl.layout = tpl.layout_backup   # layout_backup se conserva a propósito (red intacta)
+        tpl.updated_at = datetime.datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {"ok": True, "layout": tpl.layout}
+
+
+@router.post("/editor/preview-pdf")
+async def editor_preview_pdf(
+    request: Request,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """'Ver PDF real' de los cambios EN CURSO (sin guardar). El PDF es el juez final."""
+    org_dict = request.state.org
+    organization = db.query(Organization).filter(Organization.id == org_dict["id"]).first()
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa")
+    nuevo = body.get("layout")
+    if not isinstance(nuevo, dict):
+        raise HTTPException(400, "Layout inválido")
+    shim = SimpleNamespace(
+        layout=nuevo,
+        fondo_frente_url=tpl.fondo_frente_url,
+        fondo_reverso_url=tpl.fondo_reverso_url,
+        codigo_matricula="modelo",
+    )
+    try:
+        pdf = generar_credencial_pdf(editor.colegiado_demo(), organization, shim, token=None, muestra=True)
+    except Exception as e:
+        raise HTTPException(400, "No se pudo generar el PDF: %s" % e)
+    return StreamingResponse(iter([pdf]), media_type="application/pdf",
+                             headers={"Content-Disposition": 'inline; filename="editor_preview.pdf"'})
+
+
+@router.post("/editor/fondo")
+async def editor_fondo(
+    request: Request,
+    cara: str = Form(...),
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """Sube el fondo (anverso/reverso) a GCS (UBLA-safe) y actualiza fondo_{cara}_url."""
+    org_dict = request.state.org
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa")
+    if tpl.bloqueado_edicion and member.role not in ROLES_LOCK:
+        raise HTTPException(403, "La plantilla está bloqueada.")
+    if cara not in ("frente", "reverso"):
+        raise HTTPException(400, "Cara inválida (frente|reverso)")
+    data = await archivo.read()
+    if not data:
+        raise HTTPException(400, "Archivo vacío")
+    url = upload_credencial_fondo(data, archivo.content_type or "image/png", org_dict["id"], cara)
+    if not url:
+        raise HTTPException(500, "No se pudo subir el fondo (GCS no configurado)")
+    try:
+        if cara == "frente":
+            tpl.fondo_frente_url = url
+        else:
+            tpl.fondo_reverso_url = url
+        tpl.updated_at = datetime.datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {"ok": True, "url": url, "cara": cara}
+
+
+@router.post("/editor/bloqueo")
+async def editor_bloqueo(
+    request: Request,
+    body: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """(Des)bloquea la edición del template. Solo Administrador/Decano."""
+    if member.role not in ROLES_LOCK:
+        raise HTTPException(403, "Solo Administrador o Decano pueden bloquear/desbloquear la edición")
+    org_dict = request.state.org
+    tpl = _template_activo(db, org_dict["id"])
+    if not tpl:
+        raise HTTPException(404, "No hay plantilla activa")
+    tpl.bloqueado_edicion = bool(body.get("bloqueado", True))
+    tpl.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    return {"ok": True, "bloqueado": tpl.bloqueado_edicion}
