@@ -214,6 +214,46 @@ def upload_cms_imagen(
         return None
 
 
+def upload_credencial_fondo(
+    file_bytes: bytes,
+    content_type: str,
+    organization_id: int,
+    cara: str,
+) -> Optional[str]:
+    """
+    Sube el fondo (anverso/reverso) del carné a GCS y devuelve la URL pública.
+    Path fijo por org+cara → sobrescribe el fondo anterior automáticamente:
+      {org_id}/credenciales/fondos/{cara}.{ext}
+    UBLA-safe: acceso público por IAM a nivel bucket, sin blob.acl (igual que
+    upload_foto_perfil / upload_cms_imagen).
+    """
+    client = _get_client()
+    if not client:
+        print("⚠️ GCS no configurado — fondo no guardado")
+        return None
+
+    if cara not in ("frente", "reverso"):
+        return None
+
+    ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+    ext = ext_map.get(content_type, "png")
+    blob_path = f"{organization_id}/credenciales/fondos/{cara}.{ext}"
+
+    try:
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(file_bytes, content_type=content_type)
+        blob.cache_control = "public, max-age=300"
+        try:
+            blob.patch()
+        except Exception:
+            pass
+        return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
+    except Exception as e:
+        print(f"⚠️ GCS: Error subiendo fondo de credencial: {e}")
+        return None
+
+
 def generar_signed_url(blob_path: str, minutos: int = 5) -> Optional[str]:
     """
     Genera URL temporal para descargar documento privado.
