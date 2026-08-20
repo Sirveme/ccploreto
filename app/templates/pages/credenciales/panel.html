@@ -25,6 +25,7 @@
   .btn:hover{ filter:brightness(1.1); } .btn:disabled{ opacity:.5; cursor:not-allowed; }
   .btn.small{ padding:6px 10px; font-size:12px; }
   .btn.gold{ background:var(--gold); color:#1a1a1a; } .btn.danger{ background:var(--red); }
+  .btn.ghost{ background:transparent; border:1px solid var(--bd); color:var(--dim); }
   .banner{ background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#fecaca;
            border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px; }
   section{ background:var(--card); border:1px solid var(--bd); border-radius:14px; margin-bottom:16px; overflow:hidden; }
@@ -79,7 +80,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -94,7 +95,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -109,7 +110,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -133,6 +134,7 @@ async function emitir(id, btn){
     actualizarStock();
   }catch(e){ alert('Error de conexión'); btn.disabled=false; btn.textContent=t; }
 }
+function preview(id){ window.open('/credenciales/muestra/' + id + '/pdf', '_blank'); }
 function reimprimir(iid){ window.open('/credenciales/emision/' + iid + '/pdf', '_blank'); }
 async function desechar(iid){
   const motivo = prompt('Motivo del desecho (el carné en blanco salió mal). Descuenta 1 del stock, NO consume el derecho:');
