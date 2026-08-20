@@ -43,6 +43,14 @@
   .row.emitido{ background:rgba(34,197,94,.06); }
   .ok{ color:var(--green); font-size:12px; font-weight:700; }
   .vacio{ padding:14px 16px; color:var(--dim); font-size:13px; }
+  .segmentos{ display:flex; gap:4px; background:var(--card2); border:1px solid var(--bd); border-radius:12px; padding:4px; margin-bottom:14px; }
+  .seg{ flex:1; background:transparent; border:none; color:var(--dim); border-radius:9px; padding:10px 8px; cursor:pointer;
+        font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; transition:.15s; }
+  .seg:hover{ color:var(--txt); }
+  .seg.active{ background:var(--card); color:var(--txt); }
+  .seg .n{ background:var(--bg); border:1px solid var(--bd); border-radius:20px; padding:1px 9px; font-size:12px; color:var(--dim); }
+  .seg.active .n{ color:var(--gold); border-color:var(--gold); }
+  .lista{ display:none; } .lista.active{ display:block; }
   @media(max-width:640px){ .row .det{ display:none; } }
 </style>
 </head>
@@ -70,26 +78,16 @@
   <div class="banner">Sin stock de carnés en blanco. No se puede emitir hasta que el Colegio cargue stock.</div>
   {% endif %}
 
-  {# ── GRATUITOS por condición ── #}
-  <section>
-    <div class="sec-head"><span class="dot y"></span>
-      <div><div class="t">Gratuitos por condición</div><div class="sub">Vitalicios / ex-decanos (reglas activas)</div></div>
-      <span class="count">{{ gratuitos|length }}</span></div>
-    {% for c in gratuitos %}
-    <div class="row" data-id="{{ c.id }}">
-      <span class="mat">{{ c.matricula }}</span>
-      <span class="nom">{{ c.nombre }}</span>
-      <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
-    </div>
-    {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
-  </section>
+  <div class="segmentos">
+    <button class="seg active" onclick="mostrar('nuevos', this)">Nuevos <span class="n">{{ nuevos|length }}</span></button>
+    <button class="seg" onclick="mostrar('antiguos', this)">Antiguos <span class="n">{{ antiguos|length }}</span></button>
+    <button class="seg" onclick="mostrar('vitalicios', this)">Vitalicios <span class="n">{{ gratuitos|length }}</span></button>
+  </div>
 
   {# ── NUEVOS (gratis 1ª vez) ── #}
-  <section>
+  <section class="lista active" id="lista-nuevos">
     <div class="sec-head"><span class="dot g"></span>
-      <div><div class="t">Nuevos colegiados</div><div class="sub">Pagaron Derecho de Colegiatura · 1er carné gratis</div></div>
-      <span class="count">{{ nuevos|length }}</span></div>
+      <div><div class="t">Nuevos colegiados</div><div class="sub">Pagaron Derecho de Colegiatura · 1er carné gratis</div></div></div>
     {% for c in nuevos %}
     <div class="row" data-id="{{ c.id }}">
       <span class="mat">{{ c.matricula }}</span>
@@ -101,16 +99,29 @@
   </section>
 
   {# ── ANTIGUOS (pagaron carné S/35) ── #}
-  <section>
+  <section class="lista" id="lista-antiguos">
     <div class="sec-head"><span class="dot b"></span>
-      <div><div class="t">Antiguos habilitados</div><div class="sub">Pagaron el concepto Carné (S/35) · comprobante</div></div>
-      <span class="count">{{ antiguos|length }}</span></div>
+      <div><div class="t">Antiguos habilitados</div><div class="sub">Pagaron el concepto Carné (S/35) · comprobante</div></div></div>
     {% for c in antiguos %}
     <div class="row" data-id="{{ c.id }}">
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
       <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+    </div>
+    {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
+  </section>
+
+  {# ── VITALICIOS / GRATUITOS por condición ── #}
+  <section class="lista" id="lista-vitalicios">
+    <div class="sec-head"><span class="dot y"></span>
+      <div><div class="t">Vitalicios y gratuitos</div><div class="sub">Vitalicios / ex-decanos (reglas activas)</div></div></div>
+    {% for c in gratuitos %}
+    <div class="row" data-id="{{ c.id }}">
+      <span class="mat">{{ c.matricula }}</span>
+      <span class="nom">{{ c.nombre }}</span>
+      <span class="det">{{ c.detalle }}</span>
+      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -133,6 +144,12 @@ async function emitir(id, btn){
       '<button class="btn small danger" onclick="desechar(' + iid + ')">Desechar</button>';
     actualizarStock();
   }catch(e){ alert('Error de conexión'); btn.disabled=false; btn.textContent=t; }
+}
+function mostrar(t, btn){
+  document.querySelectorAll('.seg').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.lista').forEach(l => l.classList.remove('active'));
+  const el = document.getElementById('lista-' + t); if(el) el.classList.add('active');
 }
 function preview(id){ window.open('/credenciales/muestra/' + id + '/pdf', '_blank'); }
 function reimprimir(iid){ window.open('/credenciales/emision/' + iid + '/pdf', '_blank'); }
