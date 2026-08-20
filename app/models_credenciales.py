@@ -12,6 +12,7 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 
@@ -53,6 +54,10 @@ class CredentialTemplate(Base):
     qr_habilitado = Column(Boolean, default=True)
 
     mostrar_anio = Column(Boolean, default=True)
+
+    # Parte 1 emisión: layout configurable (incluye leyenda) + candado de edición.
+    layout = Column(JSONB)
+    bloqueado_edicion = Column(Boolean, default=True)
 
     created_at = Column(DateTime, server_default=func.now())
 
@@ -102,4 +107,40 @@ class CredentialIssuance(Base):
 
     impreso_en = Column(DateTime)
 
+    # Parte 1 emisión: estado del ciclo de vida, vínculo al pago y origen del derecho.
+    estado = Column(String(20), default="vigente")          # vigente | reemplazada | anulada
+    payment_id = Column(Integer, ForeignKey("payments.id"))  # pago del carné; NULL si gratuito
+    origen_derecho = Column(String(25))                      # nuevo_gratuito|carne_pagado|reposicion|condicion_gratuita
+
     template = relationship("CredentialTemplate")
+
+
+class CredentialStock(Base):
+    __tablename__ = "credential_stock"
+    organization_id = Column(BigInteger, ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True)
+    disponibles = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CredentialStockMovimiento(Base):
+    __tablename__ = "credential_stock_movimientos"
+    id = Column(BigInteger, primary_key=True)
+    organization_id = Column(BigInteger, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    tipo = Column(String(20), nullable=False)                # ingreso | emision | desecho | ajuste
+    cantidad = Column(Integer, nullable=False)               # +ingreso/ajuste, -emision/desecho
+    motivo = Column(Text)
+    issuance_id = Column(BigInteger, ForeignKey("credential_issuances.id"))
+    usuario_id = Column(BigInteger)
+    creado_en = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CredentialGratuidadRegla(Base):
+    __tablename__ = "credential_gratuidad_regla"
+    id = Column(BigInteger, primary_key=True)
+    organization_id = Column(BigInteger, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    tipo = Column(String(15), nullable=False)                # 'condicion' | 'colegiado'
+    valor = Column(String(60), nullable=False)               # condicion (ej. 'vitalicio') | colegiado_id
+    motivo = Column(Text)
+    activo = Column(Boolean, nullable=False, default=True)
+    creado_por = Column(BigInteger)
+    creado_en = Column(DateTime(timezone=True), server_default=func.now())
