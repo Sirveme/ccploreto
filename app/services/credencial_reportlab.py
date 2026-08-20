@@ -19,7 +19,7 @@ Reglas de negocio horneadas:
   - Split de nombre peruano: 2 primeros bloques = apellidos, resto = nombres
     (partículas DE / DE LA / DEL se pegan al apellido siguiente).
   - RUC persona natural = "10" + DNI(8) + dígito verificador (mód-11).
-  - QR único → https://ccploreto.org.pe/colegiado/{codigo_matricula} (host fijo, SEO).
+  - QR de emisión → https://ccploreto.org.pe/credenciales/verificar/{token} (host fijo, SEO).
 
 No usa create_all ni toca BD. Devuelve bytes del PDF (2 páginas: frente + reverso).
 """
@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 # ── Constantes CR80 ─────────────────────────────────────────────
 CARD_W = 85.60 * mm
 CARD_H = 53.98 * mm
-QR_BASE_URL = "https://ccploreto.org.pe/colegiado/"   # host fijo (regla SEO CCPL)
+QR_BASE_URL = "https://ccploreto.org.pe/colegiado/"   # perfil público (fallback sin token)
+QR_VERIFY_URL = "https://ccploreto.org.pe/credenciales/verificar/"  # QR de EMISIÓN (token)
 FETCH_TIMEOUT = 4                                     # segundos (corto)
 
 # Rutas en disco (assets se sirven desde static/ en la raíz, no app/static/)
@@ -74,14 +75,16 @@ _PARTICULAS = {"DE", "DEL", "LA", "LAS", "LOS", "DELA", "SAN", "SANTA", "Y", "DA
 DEFAULT_LAYOUT = {
     "frente": {
         "fondo":       {"tipo": "fondo", "src": "frente_prod.png"},
+        # Microtexto acotado: NO llega al borde derecho (deja libre la leyenda vertical)
+        # ni baja a la zona de firmas (h termina en y≈40; firmas empiezan en y=43).
         "microtexto_seg": {"tipo": "microtexto",
                         "text": "COLEGIO DE CONTADORES PUBLICOS DE LORETO • CCPL • JDCCPP • ",
                         "font": "Helvetica", "size": 2.0, "color": "#0E3A6D", "alpha": 0.10,
-                        "x": 2, "y": 2, "w": 81.6, "h": 50, "forma": "recta",
+                        "x": 2, "y": 2, "w": 72, "h": 38, "forma": "recta",
                         "angulo": -28, "sep_lineas": 2.4},
-        "logo":        {"tipo": "logo", "src": "logo_ccpl.png", "x": 4, "y": 4, "w": 12, "h": 12},
+        "logo":        {"tipo": "logo", "src": "logo_ccpl.png", "x": 70, "y": 3, "w": 12, "h": 12},
         "org_titulo":  {"tipo": "texto", "text": "COLEGIO DE CONTADORES PÚBLICOS DE LORETO",
-                        "x": 18, "y": 4, "w": 46, "size": 8.5, "bold": True, "color": "#0E3A6D"},
+                        "x": 4, "y": 4, "w": 62, "size": 8.5, "bold": True, "color": "#0E3A6D"},
         "foto":        {"tipo": "foto", "x": 11, "y": 15, "w": 17, "h": 24},
         "lbl_nombres":   {"tipo": "texto", "text": "NOMBRES:", "x": 31, "y": 14, "size": 6, "bold": True, "color": "#444444"},
         "val_nombres":   {"tipo": "valor", "campo": "nombres", "x": 31, "y": 16.5, "w": 52, "size": 8.5, "bold": True, "color": "#0E3A6D"},
@@ -96,6 +99,10 @@ DEFAULT_LAYOUT = {
         "firma_secretaria": {"tipo": "firma", "src": "firma_secretaria.png", "x": 53, "y": 43, "w": 26, "h": 4.5,
                              "nombre": "CPC. LYA ESTHER GARCIA RAMIREZ", "cargo": "DIRECTORA SECRETARIA",
                              "size_nombre": 5, "size_cargo": 5, "color_nombre": "#333333", "color_cargo": "#B00020"},
+        # Leyenda de fondo (editable por el Colegio): frente = vertical, margen derecho.
+        # text="" → no se dibuja. max_length controla el desborde.
+        "leyenda":          {"tipo": "leyenda", "text": "", "orientacion": "vertical",
+                             "x": 81.5, "y": 45, "size": 4, "color": "#8A8F98", "alpha": 1.0, "max_length": 45},
     },
     "reverso": {
         "fondo":      {"tipo": "fondo", "src": "reverso_prod.png"},
@@ -112,6 +119,9 @@ DEFAULT_LAYOUT = {
         "val_grupo":  {"tipo": "valor", "campo": "tipo_sangre", "x": 4, "y": 41.7, "size": 8, "bold": True, "color": "#0E3A6D"},
         "qr":         {"tipo": "qr", "x": 66, "y": 32, "size": 16, "label": "VERIFICAR COLEGIADO",
                        "size_label": 4.6, "color": "#0E3A6D"},
+        # Leyenda de fondo: reverso = horizontal, abajo, centrada.
+        "leyenda":    {"tipo": "leyenda", "text": "", "orientacion": "horizontal", "align": "center",
+                       "x": 42.8, "y": 51, "size": 4, "color": "#8A8F98", "max_length": 60},
     },
 }
 
@@ -260,11 +270,20 @@ def _draw_foto(c, el, cole):
     c.roundRect(x, yb, w, h, 1.2 * mm, fill=1, stroke=0)
     foto = _fetch_image(getattr(cole, "foto_url", None))
     if foto:
+        # object-fit: cover — la foto LLENA el recuadro con recorte centrado (sin deformar).
+        try:
+            iw, ih = foto.getSize()
+        except Exception:
+            iw, ih = w, h
+        escala = max(w / iw, h / ih) if iw and ih else 1
+        dw, dh = iw * escala, ih * escala
+        dx = x - (dw - w) / 2.0        # centra el excedente y lo recorta
+        dy = yb - (dh - h) / 2.0
         c.saveState()
         p = c.beginPath()
         p.roundRect(x, yb, w, h, 1.2 * mm)
         c.clipPath(p, stroke=0, fill=0)
-        c.drawImage(foto, x, yb, w, h, preserveAspectRatio=True, anchor="c", mask="auto")
+        c.drawImage(foto, dx, dy, dw, dh, preserveAspectRatio=False, mask="auto")
         c.restoreState()
     else:
         c.setFillColor(GRIS_TXT)
@@ -286,6 +305,8 @@ def _draw_text_element(c, el, text):
     base = CARD_H - el["y"] * mm - size
     x = el["x"] * mm
     align = el.get("align", "left")
+    c.saveState()
+    c.setFillAlpha(float(el.get("alpha", 1.0)))       # color + opacidad configurables
     c.setFont(font, size)
     c.setFillColor(_color(el.get("color"), AZUL_CCPL))
     if align == "center":
@@ -294,6 +315,7 @@ def _draw_text_element(c, el, text):
         c.drawRightString(x, base, text)
     else:
         c.drawString(x, base, text)
+    c.restoreState()
 
 
 def _draw_firma(c, el):
@@ -311,30 +333,72 @@ def _draw_firma(c, el):
     c.setLineWidth(0.2 * mm)
     c.line(x, yb, x + w, yb)
 
-    # (c) Nombre y cargo SIEMPRE, centrados bajo la línea (desde el layout)
+    # (c) Nombre y cargo SIEMPRE, centrados bajo la línea (color + alpha configurables)
+    c.saveState()
+    c.setFillAlpha(float(el.get("alpha", 1.0)))
     c.setFillColor(_color(el.get("color_nombre"), GRIS_TXT))
     c.setFont(FONT_BOLD, el.get("size_nombre", 5))
     c.drawCentredString(cx, yb - 2.4 * mm, el.get("nombre", ""))
     c.setFillColor(_color(el.get("color_cargo"), ROJO_CARGO))
     c.setFont(FONT_BOLD, el.get("size_cargo", 5))
     c.drawCentredString(cx, yb - 4.4 * mm, el.get("cargo", ""))
+    c.restoreState()
 
 
-def _draw_qr(c, el, cole):
-    mat = (getattr(cole, "codigo_matricula", None) or "").strip()
-    if not mat:
-        return
+def _draw_qr(c, el, cole, ctx=None):
+    # QR = URL de verificación con TOKEN de emisión. Sin token → perfil por matrícula.
+    token = (ctx or {}).get("token")
+    if token:
+        data = QR_VERIFY_URL + str(token)
+    else:
+        mat = (getattr(cole, "codigo_matricula", None) or "").strip()
+        if not mat:
+            return
+        data = QR_BASE_URL + mat
     x, y, s = el["x"] * mm, el["y"] * mm, el["size"] * mm
     yb = CARD_H - y - s
     # Panel blanco (quiet zone) para que el QR escanee sobre cualquier fondo
     c.setFillColor(white)
     c.roundRect(x - 1 * mm, yb - 1 * mm, s + 2 * mm, s + 2 * mm, 1 * mm, fill=1, stroke=0)
-    c.drawImage(_qr_reader(QR_BASE_URL + mat), x, yb, s, s, mask="auto")
+    c.drawImage(_qr_reader(data), x, yb, s, s, mask="auto")
     label = el.get("label")
     if label:
         c.setFillColor(_color(el.get("color"), AZUL_CCPL))
         c.setFont(FONT_BOLD, el.get("size_label", 4.6))
         c.drawCentredString(x + s / 2, yb - 3 * mm, label)
+
+
+def _draw_leyenda(c, el):
+    """Leyenda de fondo configurable por el Colegio (texto + posición + orientación).
+    Controla `max_length` (evita desborde). NO dibuja si el texto está vacío."""
+    text = (el.get("text") or "").strip()
+    if not text:
+        return
+    maxlen = int(el.get("max_length", 40))
+    if len(text) > maxlen:
+        text = text[:maxlen]
+    x = el["x"] * mm
+    y = el["y"] * mm
+    size = float(el.get("size", 5))
+    c.saveState()
+    c.setFillAlpha(float(el.get("alpha", 1.0)))
+    c.setFillColor(_color(el.get("color"), GRIS_TXT))
+    c.setFont(el.get("font", FONT), size)
+    if el.get("orientacion", "horizontal") == "vertical":
+        # Vertical (margen derecho): rota 90° y corre de abajo hacia arriba.
+        c.translate(x, CARD_H - y)
+        c.rotate(90)
+        c.drawString(0, 0, text)
+    else:
+        base = CARD_H - y - size
+        align = el.get("align", "left")
+        if align == "center":
+            c.drawCentredString(x, base, text)
+        elif align == "right":
+            c.drawRightString(x, base, text)
+        else:
+            c.drawString(x, base, text)
+    c.restoreState()
 
 
 # ── Microtexto de seguridad (configurable por software, NO horneado) ─────
@@ -425,24 +489,28 @@ def _micro_arco(c, el, text, font, size, x, yb, w, h):
 
 
 _RENDERERS = {
-    "logo":       lambda c, el, cole: _draw_logo(c, el),
-    "foto":       lambda c, el, cole: _draw_foto(c, el, cole),
-    "texto":      lambda c, el, cole: _draw_text_element(c, el, el.get("text", "")),
-    "valor":      lambda c, el, cole: _draw_text_element(c, el, _resolver_valor(el.get("campo"), cole, el)),
-    "firma":      lambda c, el, cole: _draw_firma(c, el),
-    "qr":         lambda c, el, cole: _draw_qr(c, el, cole),
-    "microtexto": lambda c, el, cole: _draw_microtexto(c, el),
+    "logo":       lambda c, el, cole, ctx: _draw_logo(c, el),
+    "foto":       lambda c, el, cole, ctx: _draw_foto(c, el, cole),
+    "texto":      lambda c, el, cole, ctx: _draw_text_element(c, el, el.get("text", "")),
+    "valor":      lambda c, el, cole, ctx: _draw_text_element(c, el, _resolver_valor(el.get("campo"), cole, el)),
+    "firma":      lambda c, el, cole, ctx: _draw_firma(c, el),
+    "qr":         lambda c, el, cole, ctx: _draw_qr(c, el, cole, ctx),
+    "leyenda":    lambda c, el, cole, ctx: _draw_leyenda(c, el),
+    "microtexto": lambda c, el, cole, ctx: _draw_microtexto(c, el),
 }
 
 
 # ── API pública ─────────────────────────────────────────────────
-def generar_credencial_pdf(cole, org, tpl):
+def generar_credencial_pdf(cole, org, tpl, token=None):
     """
     Genera el PDF (bytes) del carné CR80 de un colegiado.
     cole = ORM Colegiado ; org = ORM Organization ; tpl = ORM CredentialTemplate.
+    token = codigo_verificacion de la EMISIÓN → el QR apunta a /credenciales/verificar/{token}.
+    Sin token, el QR cae al perfil público por matrícula.
     Usa tpl.layout (JSONB) si existe; si no, DEFAULT_LAYOUT.
     """
     layout = getattr(tpl, "layout", None) or DEFAULT_LAYOUT
+    ctx = {"token": token}
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(CARD_W, CARD_H))
@@ -456,7 +524,7 @@ def generar_credencial_pdf(cole, org, tpl):
                 continue
             render = _RENDERERS.get(el.get("tipo"))
             if render:
-                render(c, el, cole)
+                render(c, el, cole, ctx)
         c.showPage()
 
     c.save()
