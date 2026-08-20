@@ -199,16 +199,22 @@ def _resolver_valor(campo, cole, el):
 
 # ── Helpers de imagen ───────────────────────────────────────────
 def _fetch_image(url):
-    """ImageReader desde URL remota (GCS foto) o None si falla/tarda/no hay url."""
+    """ImageReader desde URL http (GCS) o ruta /static (disco). None si falla/no hay url.
+    Las rutas /static/... las resuelve a disco: el navegador las renderiza pero reportlab
+    solo baja http, así que un fondo /static quedaba en blanco en el PDF."""
     if not url:
         return None
     try:
-        if str(url).startswith("http"):
-            r = requests.get(url, timeout=FETCH_TIMEOUT)
+        s = str(url)
+        if s.startswith("/static/"):
+            ruta = os.path.join(_STATIC, *s[len("/static/"):].split("/"))
+            return ImageReader(ruta) if os.path.exists(ruta) else None
+        if s.startswith("http"):
+            r = requests.get(s, timeout=FETCH_TIMEOUT)
             if r.status_code == 200 and r.content:
                 return ImageReader(BytesIO(r.content))
     except Exception as e:
-        logger.warning("Credencial: no se pudo bajar imagen %s (%s)", url, e)
+        logger.warning("Credencial: no se pudo cargar imagen %s (%s)", url, e)
     return None
 
 
@@ -260,8 +266,10 @@ def _draw_logo(c, el):
     if img is None:
         return
     x, y, w, h = el["x"] * mm, el["y"] * mm, el["w"] * mm, el["h"] * mm
+    # anchor="nw": el logo crece desde su esquina superior-izquierda (x,y) al subir w/h,
+    # no se centra en la caja (evita que "se desplace a la derecha" al ampliar w).
     c.drawImage(img, x, CARD_H - y - h, w, h,
-                preserveAspectRatio=True, anchor="c", mask="auto")
+                preserveAspectRatio=True, anchor="nw", mask="auto")
 
 
 def _draw_foto(c, el, cole):
