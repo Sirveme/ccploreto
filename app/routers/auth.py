@@ -394,6 +394,8 @@ def create_session_response(user, member, db=None):
         target_url = "/admin/cms"
     elif member.role == "secretaria":
         target_url = "/secretaria"
+    elif member.role == "emisor_carnes":
+        target_url = "/credenciales/panel"
     elif member.role == "colegiado":
         if db:
             col = db.query(Colegiado).filter(Colegiado.member_id == member.id).first()
