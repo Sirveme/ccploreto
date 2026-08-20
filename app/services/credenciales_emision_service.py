@@ -16,19 +16,25 @@ Reglas:
 Las funciones hacen FLUSH, NO commit — el llamador (router) decide commit/rollback
 (así el dry-run puede ejecutar todo y hacer rollback sin ensuciar producción).
 """
+import os
 import re
 import json
 import base64
 import uuid
+import secrets
 import logging
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, text, bindparam
 from sqlalchemy.orm import Session
 
 from app.models_credenciales import (
-    CredentialIssuance, CredentialGratuidadRegla,
+    CredentialIssuance, CredentialGratuidadRegla, CredentialShareToken,
 )
-from app.services.credencial_reportlab import generar_credencial_pdf
+from app.services.credencial_reportlab import (
+    generar_credencial_pdf, split_nombre,
+    DEFAULT_LAYOUT, _DIR_FONDOS, _DIR_LOGOS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -298,3 +304,118 @@ def listas_panel(db: Session, org_id: int):
                        "detalle": "Derecho de Colegiatura pagado"})
 
     return {"nuevos": nuevos, "antiguos": antiguos, "gratuitos": gratuitos}
+
+
+# ── Validación de emisión (gate a prueba de errores — Entrega 1) ──
+_RE_DNI = re.compile(r"^\d{8}$")
+# Formato de matrícula del Colegio: 10- + 3 a 5 dígitos + sufijo de letra opcional.
+# El sufijo cubre matrículas históricas de los inicios (10-0136A, 10-0137A).
+_RE_MATRICULA = re.compile(r"^10-\d{3,5}[A-Z]?$")
+
+
+def _layout_de(tpl):
+    """Layout efectivo de la plantilla (JSONB) o el DEFAULT."""
+    lay = getattr(tpl, "layout", None)
+    if not lay and isinstance(tpl, dict):
+        lay = tpl.get("layout")
+    return lay or DEFAULT_LAYOUT
+
+
+def _tpl_attr(tpl, name):
+    if isinstance(tpl, dict):
+        return tpl.get(name)
+    return getattr(tpl, name, None)
+
+
+def validar_emision(tpl, colegiado):
+    """Campos mínimos para poder IMPRIMIR. Dos niveles:
+      - faltan_colegiado: bloquean ESE carné (datos del colegiado).
+      - faltan_plantilla: bloquean TODOS los carnés (recursos de la plantilla/ORG).
+    Devuelve {"faltan_colegiado": [...], "faltan_plantilla": [...]}.
+    Se usa en el front (deshabilitar IMPRIMIR) Y como gate server-side en /emitir."""
+    fc, ft = [], []
+
+    # ── Nivel COLEGIADO ──
+    if not (getattr(colegiado, "foto_url", None) or "").strip():
+        fc.append("Foto del colegiado")
+
+    apellidos, nombres = split_nombre(getattr(colegiado, "apellidos_nombres", None))
+    ap_parts = apellidos.split()
+    if not ap_parts:
+        fc.append("Apellido paterno")
+        fc.append("Apellido materno")
+    elif len(ap_parts) < 2:
+        fc.append("Apellido materno")
+    if not (nombres or "").strip():
+        fc.append("Nombre(s)")
+
+    if not _RE_DNI.match((getattr(colegiado, "dni", None) or "").strip()):
+        fc.append("DNI válido (8 dígitos)")
+
+    if not _RE_MATRICULA.match((getattr(colegiado, "codigo_matricula", None) or "").strip()):
+        fc.append("Matrícula (formato 10-XXXX)")
+
+    if not getattr(colegiado, "fecha_colegiatura", None):
+        fc.append("Fecha de incorporación")
+
+    # ── Nivel PLANTILLA / ORG ──
+    layout = _layout_de(tpl)
+
+    tiene_qr = any(
+        isinstance(el, dict) and el.get("tipo") == "qr"
+        for cara in layout.values() if isinstance(cara, dict)
+        for el in cara.values()
+    )
+    if not tiene_qr:
+        ft.append("QR de verificación en el diseño")
+
+    def _fondo_ok(cara_key, url_attr):
+        cara = layout.get(cara_key, {}) if isinstance(layout, dict) else {}
+        el = cara.get("fondo") if isinstance(cara, dict) else None
+        src = el.get("src") if isinstance(el, dict) else None
+        if src and os.path.exists(os.path.join(_DIR_FONDOS, src)):
+            return True
+        return bool(_tpl_attr(tpl, url_attr))
+
+    if not _fondo_ok("frente", "fondo_frente_url"):
+        ft.append("Imagen de fondo del anverso")
+    if not _fondo_ok("reverso", "fondo_reverso_url"):
+        ft.append("Imagen de fondo del reverso")
+
+    if not os.path.exists(os.path.join(_DIR_LOGOS, "logo_ccpl.png")):
+        ft.append("Logo del CCPL")
+    if not os.path.exists(os.path.join(_DIR_LOGOS, "logo_junta.png")):
+        ft.append("Logo de la Junta de Decanos")
+
+    return {"faltan_colegiado": fc, "faltan_plantilla": ft}
+
+
+# ── Compartir preview por enlace temporal (Entrega 2) ──
+SHARE_TTL_HORAS = 24   # caducidad corta; el token es revocable (flag) por si hay que cortarlo antes.
+
+
+def crear_share_token(db: Session, org_id: int, colegiado_id: int, member_id, horas: int = SHARE_TTL_HORAS) -> str:
+    """Crea un token aleatorio no adivinable con caducidad. FLUSH (el router commitea)."""
+    tok = secrets.token_urlsafe(24)   # ~32 chars, [A-Za-z0-9_-]
+    row = CredentialShareToken(
+        token=tok,
+        colegiado_id=colegiado_id,
+        organization_id=org_id,
+        creado_por=member_id,
+        expires_at=datetime.utcnow() + timedelta(hours=horas),
+    )
+    db.add(row)
+    db.flush()
+    return tok
+
+
+def resolver_share_token(db: Session, token: str):
+    """Devuelve colegiado_id si el token es válido (existe, no revocado, no vencido); si no, None."""
+    if not token:
+        return None
+    row = db.query(CredentialShareToken).filter(CredentialShareToken.token == token).first()
+    if not row or row.revocado:
+        return None
+    if row.expires_at and row.expires_at < datetime.utcnow():
+        return None
+    return row.colegiado_id
