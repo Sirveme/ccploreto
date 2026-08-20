@@ -144,3 +144,17 @@ class CredentialGratuidadRegla(Base):
     activo = Column(Boolean, nullable=False, default=True)
     creado_por = Column(BigInteger)
     creado_en = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CredentialShareToken(Base):
+    """Entrega 2 — enlace temporal para compartir el preview (marca MUESTRA) con el
+    colegiado. Token no adivinable + caducidad corta (24h) + revocable."""
+    __tablename__ = "credential_share_tokens"
+    id = Column(BigInteger, primary_key=True)
+    token = Column(String(64), nullable=False, unique=True)
+    colegiado_id = Column(BigInteger, ForeignKey("colegiados.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(BigInteger, nullable=False)
+    creado_por = Column(BigInteger)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=False)
+    revocado = Column(Boolean, nullable=False, default=False)
