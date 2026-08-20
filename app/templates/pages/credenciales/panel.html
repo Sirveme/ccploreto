@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emisión de Carnés — {{ org.name if org else 'CCPL' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:18px; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  h1{ font-size:20px; font-weight:800; letter-spacing:.3px; }
+  h1 small{ display:block; font-size:12px; color:var(--dim); font-weight:500; }
+  .stock{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:10px 16px; text-align:center; }
+  .stock .num{ font-size:26px; font-weight:800; color:var(--gold); line-height:1; }
+  .stock.low .num{ color:var(--red); }
+  .stock .lbl{ font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  .stockform{ margin-top:8px; display:flex; gap:6px; }
+  .stockform input{ width:60px; }
+  input{ background:var(--card2); border:1px solid var(--bd); color:var(--txt); border-radius:8px; padding:7px 9px; font-size:13px; }
+  .btn{ background:var(--blue); color:#fff; border:none; border-radius:8px; padding:9px 16px; font-weight:700;
+        font-size:13px; cursor:pointer; transition:filter .15s; }
+  .btn:hover{ filter:brightness(1.1); } .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn.small{ padding:6px 10px; font-size:12px; }
+  .btn.gold{ background:var(--gold); color:#1a1a1a; } .btn.danger{ background:var(--red); }
+  .banner{ background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#fecaca;
+           border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px; }
+  section{ background:var(--card); border:1px solid var(--bd); border-radius:14px; margin-bottom:16px; overflow:hidden; }
+  .sec-head{ padding:12px 16px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:10px; }
+  .sec-head .dot{ width:10px; height:10px; border-radius:50%; }
+  .dot.g{ background:var(--green);} .dot.b{ background:var(--blue);} .dot.y{ background:var(--gold);}
+  .sec-head .t{ font-weight:800; font-size:14px; } .sec-head .sub{ font-size:12px; color:var(--dim); }
+  .sec-head .count{ margin-left:auto; background:var(--card2); border:1px solid var(--bd);
+                    border-radius:20px; padding:3px 12px; font-size:12px; font-weight:700; }
+  .row{ display:flex; align-items:center; gap:12px; padding:11px 16px; border-top:1px solid var(--card2); }
+  .row .mat{ font-weight:800; color:var(--gold); width:82px; flex-shrink:0; }
+  .row .nom{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .det{ font-size:11px; color:var(--dim); width:180px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .acciones{ flex-shrink:0; display:flex; gap:6px; align-items:center; }
+  .row.emitido{ background:rgba(34,197,94,.06); }
+  .ok{ color:var(--green); font-size:12px; font-weight:700; }
+  .vacio{ padding:14px 16px; color:var(--dim); font-size:13px; }
+  @media(max-width:640px){ .row .det{ display:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Emisión de Carnés
+      <small>{{ org.name if org else 'CCPL' }} · panel operativo</small>
+    </h1>
+    <div class="stock {{ 'low' if stock <= 3 else '' }}">
+      <div class="num" id="stockNum">{{ stock }}</div>
+      <div class="lbl">carnés en blanco</div>
+      {% if puede_stock %}
+      <div class="stockform">
+        <input type="number" id="inCant" min="1" placeholder="N°">
+        <input type="text" id="inMot" placeholder="motivo" style="width:90px">
+        <button class="btn small" onclick="ingresarStock()">+ Stock</button>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if stock <= 0 %}
+  <div class="banner">Sin stock de carnés en blanco. No se puede emitir hasta que el Colegio cargue stock.</div>
+  {% endif %}
+
+  {# ── GRATUITOS por condición ── #}
+  <section>
+    <div class="sec-head"><span class="dot y"></span>
+      <div><div class="t">Gratuitos por condición</div><div class="sub">Vitalicios / ex-decanos (reglas activas)</div></div>
+      <span class="count">{{ gratuitos|length }}</span></div>
+    {% for c in gratuitos %}
+    <div class="row" data-id="{{ c.id }}">
+      <span class="mat">{{ c.matricula }}</span>
+      <span class="nom">{{ c.nombre }}</span>
+      <span class="det">{{ c.detalle }}</span>
+      <span class="acciones"><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+    </div>
+    {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
+  </section>
+
+  {# ── NUEVOS (gratis 1ª vez) ── #}
+  <section>
+    <div class="sec-head"><span class="dot g"></span>
+      <div><div class="t">Nuevos colegiados</div><div class="sub">Pagaron Derecho de Colegiatura · 1er carné gratis</div></div>
+      <span class="count">{{ nuevos|length }}</span></div>
+    {% for c in nuevos %}
+    <div class="row" data-id="{{ c.id }}">
+      <span class="mat">{{ c.matricula }}</span>
+      <span class="nom">{{ c.nombre }}</span>
+      <span class="det">{{ c.detalle }}</span>
+      <span class="acciones"><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+    </div>
+    {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
+  </section>
+
+  {# ── ANTIGUOS (pagaron carné S/35) ── #}
+  <section>
+    <div class="sec-head"><span class="dot b"></span>
+      <div><div class="t">Antiguos habilitados</div><div class="sub">Pagaron el concepto Carné (S/35) · comprobante</div></div>
+      <span class="count">{{ antiguos|length }}</span></div>
+    {% for c in antiguos %}
+    <div class="row" data-id="{{ c.id }}">
+      <span class="mat">{{ c.matricula }}</span>
+      <span class="nom">{{ c.nombre }}</span>
+      <span class="det">{{ c.detalle }}</span>
+      <span class="acciones"><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+    </div>
+    {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
+  </section>
+
+</div>
+
+<script>
+async function emitir(id, btn){
+  if(!confirm('¿Emitir carné de este colegiado? Descuenta 1 carné en blanco del stock.')) return;
+  btn.disabled = true; const t = btn.textContent; btn.textContent = 'Emitiendo…';
+  try{
+    const r = await fetch('/credenciales/emitir/' + id, { method:'POST' });
+    if(!r.ok){ let m='Error al emitir'; try{ m = (await r.json()).detail || m; }catch(e){} alert(m); btn.disabled=false; btn.textContent=t; return; }
+    const iid = r.headers.get('X-Issuance-Id'); const ver = r.headers.get('X-Card-Version');
+    const blob = await r.blob(); window.open(URL.createObjectURL(blob), '_blank');
+    const row = btn.closest('.row'); row.classList.add('emitido');
+    row.querySelector('.acciones').innerHTML =
+      '<span class="ok">Emitido v' + ver + ' ✓</span>' +
+      '<button class="btn small" onclick="reimprimir(' + iid + ')">Reimprimir</button>' +
+      '<button class="btn small danger" onclick="desechar(' + iid + ')">Desechar</button>';
+    actualizarStock();
+  }catch(e){ alert('Error de conexión'); btn.disabled=false; btn.textContent=t; }
+}
+function reimprimir(iid){ window.open('/credenciales/emision/' + iid + '/pdf', '_blank'); }
+async function desechar(iid){
+  const motivo = prompt('Motivo del desecho (el carné en blanco salió mal). Descuenta 1 del stock, NO consume el derecho:');
+  if(motivo === null) return;
+  const r = await fetch('/credenciales/desechar', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ issuance_id: iid, motivo: motivo }) });
+  if(!r.ok){ alert('No se pudo registrar el desecho'); return; }
+  const d = await r.json();
+  document.getElementById('stockNum').textContent = d.disponibles;
+  alert('Desecho registrado. Stock: ' + d.disponibles + '. Usa "Reimprimir" para volver a imprimir.');
+}
+async function actualizarStock(){
+  try{ const r = await fetch('/credenciales/stock'); if(r.ok){ const d = await r.json(); document.getElementById('stockNum').textContent = d.disponibles; } }catch(e){}
+}
+async function ingresarStock(){
+  const c = parseInt((document.getElementById('inCant')||{}).value || '0');
+  if(!c || c <= 0){ alert('Cantidad inválida'); return; }
+  const r = await fetch('/credenciales/stock/ingreso', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ cantidad: c, motivo: (document.getElementById('inMot')||{}).value || 'Ingreso de stock' }) });
+  if(!r.ok){ let m='Error'; try{ m = (await r.json()).detail || m; }catch(e){} alert(m); return; }
+  const d = await r.json(); document.getElementById('stockNum').textContent = d.disponibles;
+  alert('Stock actualizado: ' + d.disponibles);
+}
+</script>
+</body>
+</html>
