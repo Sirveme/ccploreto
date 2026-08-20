@@ -345,16 +345,35 @@ def _draw_firma(c, el):
     c.restoreState()
 
 
+def _draw_marca_muestra(c):
+    """Marca de agua 'MUESTRA - NO VÁLIDO' para impresiones de prueba/calibración.
+    Se dibuja ENCIMA de todo, en ambas caras. Nunca en un carné emitido real."""
+    c.saveState()
+    c.setFillAlpha(0.20)
+    c.setFillColor(HexColor("#B00020"))
+    c.translate(CARD_W / 2, CARD_H / 2)
+    c.rotate(26)
+    c.setFont(FONT_BOLD, 13)
+    c.drawCentredString(0, 1.5 * mm, "MUESTRA")
+    c.setFont(FONT_BOLD, 7)
+    c.drawCentredString(0, -3.5 * mm, "NO VÁLIDO")
+    c.restoreState()
+
+
 def _draw_qr(c, el, cole, ctx=None):
-    # QR = URL de verificación con TOKEN de emisión. Sin token → perfil por matrícula.
-    token = (ctx or {}).get("token")
-    if token:
-        data = QR_VERIFY_URL + str(token)
+    ctx = ctx or {}
+    # Vista previa (muestra): el QR NO lleva token válido → texto no verificable.
+    if ctx.get("muestra"):
+        data = "MUESTRA - CARNE NO VALIDO"
     else:
-        mat = (getattr(cole, "codigo_matricula", None) or "").strip()
-        if not mat:
-            return
-        data = QR_BASE_URL + mat
+        token = ctx.get("token")
+        if token:
+            data = QR_VERIFY_URL + str(token)
+        else:
+            mat = (getattr(cole, "codigo_matricula", None) or "").strip()
+            if not mat:
+                return
+            data = QR_BASE_URL + mat
     x, y, s = el["x"] * mm, el["y"] * mm, el["size"] * mm
     yb = CARD_H - y - s
     # Panel blanco (quiet zone) para que el QR escanee sobre cualquier fondo
@@ -501,20 +520,22 @@ _RENDERERS = {
 
 
 # ── API pública ─────────────────────────────────────────────────
-def generar_credencial_pdf(cole, org, tpl, token=None):
+def generar_credencial_pdf(cole, org, tpl, token=None, muestra=False):
     """
     Genera el PDF (bytes) del carné CR80 de un colegiado.
     cole = ORM Colegiado ; org = ORM Organization ; tpl = ORM CredentialTemplate.
     token = codigo_verificacion de la EMISIÓN → el QR apunta a /credenciales/verificar/{token}.
     Sin token, el QR cae al perfil público por matrícula.
+    muestra=True → marca de agua "MUESTRA - NO VÁLIDO" + QR sin token válido (vista previa).
     Usa tpl.layout (JSONB) si existe; si no, DEFAULT_LAYOUT.
     """
     layout = getattr(tpl, "layout", None) or DEFAULT_LAYOUT
-    ctx = {"token": token}
+    ctx = {"token": token, "muestra": muestra}
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(CARD_W, CARD_H))
-    c.setTitle("Credencial %s" % (getattr(cole, "codigo_matricula", "") or ""))
+    c.setTitle("%s %s" % ("MUESTRA" if muestra else "Credencial",
+                          getattr(cole, "codigo_matricula", "") or ""))
 
     for cara in ("frente", "reverso"):
         capa = layout.get(cara, {})
@@ -525,6 +546,8 @@ def generar_credencial_pdf(cole, org, tpl, token=None):
             render = _RENDERERS.get(el.get("tipo"))
             if render:
                 render(c, el, cole, ctx)
+        if muestra:
+            _draw_marca_muestra(c)   # marca de agua ENCIMA de todo
         c.showPage()
 
     c.save()
