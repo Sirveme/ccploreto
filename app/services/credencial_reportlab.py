@@ -85,7 +85,8 @@ DEFAULT_LAYOUT = {
         "logo":        {"tipo": "logo", "src": "logo_ccpl.png", "x": 70, "y": 3, "w": 12, "h": 12},
         "org_titulo":  {"tipo": "texto", "text": "COLEGIO DE CONTADORES PÚBLICOS DE LORETO",
                         "x": 4, "y": 4, "w": 62, "size": 8.5, "bold": True, "color": "#0E3A6D"},
-        "foto":        {"tipo": "foto", "x": 11, "y": 15, "w": 17, "h": 24},
+        "foto":        {"tipo": "foto", "x": 11, "y": 15, "w": 17, "h": 24,
+                        "borde_ancho": 0.4, "borde_color": "#C7A347"},
         "lbl_nombres":   {"tipo": "texto", "text": "NOMBRES:", "x": 31, "y": 14, "size": 6, "bold": True, "color": "#444444"},
         "val_nombres":   {"tipo": "valor", "campo": "nombres", "x": 31, "y": 16.5, "w": 52, "size": 8.5, "bold": True, "color": "#0E3A6D"},
         "lbl_apellidos": {"tipo": "texto", "text": "APELLIDOS:", "x": 31, "y": 22, "size": 6, "bold": True, "color": "#444444"},
@@ -289,9 +290,13 @@ def _draw_foto(c, el, cole):
         c.setFillColor(GRIS_TXT)
         c.setFont(FONT, 6)
         c.drawCentredString(x + w / 2, yb + h / 2 - 2, "SIN FOTO")
-    c.setStrokeColor(_color(el.get("color_borde"), DORADO_CCPL))
-    c.setLineWidth(0.4 * mm)
-    c.roundRect(x, yb, w, h, 1.2 * mm, fill=0, stroke=1)
+    # Borde configurable (Parte pulido): borde_ancho (mm) + borde_color (hex).
+    # Compat: si no hay borde_color, cae a color_borde; ancho 0 => sin borde.
+    borde_ancho = float(el.get("borde_ancho", 0.4) or 0)
+    if borde_ancho > 0:
+        c.setStrokeColor(_color(el.get("borde_color") or el.get("color_borde"), DORADO_CCPL))
+        c.setLineWidth(borde_ancho * mm)
+        c.roundRect(x, yb, w, h, 1.2 * mm, fill=0, stroke=1)
 
 
 def _draw_text_element(c, el, text):
