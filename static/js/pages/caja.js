@@ -1586,7 +1586,8 @@ function renderHistorial(data) {
         const ncNumMatch = desc.match(/\[NC:\s*([^\]]+)\]/);
         const ncMonto = ncParcialMatch ? ncParcialMatch[1] : null;
         const ncNumero = ncNumMatch ? ncNumMatch[1].trim() : null;
-        const descLimpia = desc.replace('[CAJA] ', '').replace(/\[NC PARCIAL S\/[\d.]+\][^\[]*/g, '').replace(/\[NC:[^\]]+\]/g, '').replace(/\[ANULADO\][^\[]*/g, '').trim();
+        const descBase = o.descripcion_legible || desc;
+        const descLimpia = descBase.replace('[CAJA] ', '').replace(/\[NC PARCIAL S\/[\d.]+\][^\[]*/g, '').replace(/\[NC:[^\]]+\]/g, '').replace(/\[ANULADO\][^\[]*/g, '').replace(/\s*\[DEBT_IDS:[^\]]*\]/g, '').replace(/\s*\[CONCEPTOS_B64:[^\]]*\]/g, '').trim();
 
         let ncBadge = '';
         if (ncParcialMatch && !esAnulado) {
