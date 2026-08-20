@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Editor de diseño — {{ org.name if org else 'CCPL' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:16px; }
+  .wrap{ max-width:1180px; margin:0 auto; }
+  header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  h1{ font-size:18px; font-weight:800; } h1 small{ display:block; font-size:12px; color:var(--dim); font-weight:500; }
+  .sp{ flex:1; }
+  .btn{ background:var(--blue); color:#fff; border:none; border-radius:8px; padding:9px 15px; font-weight:700;
+        font-size:13px; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn:hover{ filter:brightness(1.1); } .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn.gold{ background:var(--gold); color:#1a1a1a; } .btn.ghost{ background:transparent; border:1px solid var(--bd); color:var(--dim); }
+  .lockbadge{ font-size:12px; font-weight:800; padding:5px 12px; border-radius:20px; }
+  .lockbadge.on{ background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid rgba(239,68,68,.4); }
+  .lockbadge.off{ background:rgba(34,197,94,.15); color:#86efac; border:1px solid rgba(34,197,94,.4); }
+  .notice{ background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30); color:#fecaca;
+           border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
+  .msg{ display:none; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
+  .msg.ok{ background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.30); color:#bbf7d0; }
+  .msg.bad{ background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30); color:#fecaca; }
+  .fondos{ display:flex; gap:16px; flex-wrap:wrap; background:var(--card); border:1px solid var(--bd);
+           border-radius:12px; padding:12px 14px; margin-bottom:14px; }
+  .fondos label{ font-size:12px; color:var(--dim); display:flex; flex-direction:column; gap:5px; }
+  .cols{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .col-prev{ flex:1 1 540px; min-width:320px; }
+  .col-form{ flex:1 1 360px; min-width:300px; }
+  .cardbox{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px; margin-bottom:14px; overflow:auto; }
+  .cardbox .cap{ font-size:12px; color:var(--dim); font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+  .card{ position:relative; width:513.6px; height:323.88px; background:#fff center/cover no-repeat;
+         border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
+  .card.focus{ outline:2px solid var(--gold); }
+  .el{ position:absolute; }
+  .el.sel{ outline:1px dashed var(--gold); outline-offset:1px; }
+  .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+       border:1px dashed rgba(120,130,150,.6); color:#5b6472; font-size:9px; font-weight:700; background:rgba(120,130,150,.10); }
+  .ph.firma{ align-items:flex-end; font-size:7px; } .ph.micro{ font-size:6px; }
+  .caratabs{ display:flex; gap:4px; background:var(--card2); border:1px solid var(--bd); border-radius:10px; padding:4px; margin-bottom:12px; }
+  .caratab{ flex:1; background:transparent; border:none; color:var(--dim); border-radius:8px; padding:9px; cursor:pointer; font-weight:700; font-size:13px; }
+  .caratab.active{ background:var(--card); color:var(--txt); }
+  #forms{ display:flex; flex-direction:column; gap:10px; }
+  .elform{ border:1px solid var(--bd); border-radius:10px; padding:10px 12px; background:var(--card); }
+  .elform legend{ font-size:12px; font-weight:800; padding:0 6px; }
+  .elform legend .tt{ color:var(--dim); font-weight:600; font-size:11px; }
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; }
+  .grid label{ font-size:11px; color:var(--dim); display:flex; flex-direction:column; gap:3px; }
+  .grid label.chk{ flex-direction:row; align-items:center; gap:6px; }
+  .grid input, .grid select{ background:var(--card2); border:1px solid var(--bd); color:var(--txt); border-radius:6px; padding:6px 7px; font-size:12px; width:100%; }
+  .hint{ font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Editor de diseño <small>{{ org.name if org else 'CCPL' }} · plantilla activa (CR80 85.60×53.98 mm)</small></h1>
+    <span class="sp"></span>
+    {% if bloqueado %}<span class="lockbadge on">🔒 Bloqueado</span>{% else %}<span class="lockbadge off">🔓 Editable</span>{% endif %}
+    {% if es_admin %}<button class="btn ghost" onclick="toggleLock()">{{ 'Desbloquear' if bloqueado else 'Bloquear' }}</button>{% endif %}
+    <button class="btn ghost" id="btnPdf" onclick="verPDF()">Ver PDF real</button>
+    <button class="btn ghost" id="btnRestore" onclick="restaurar()" {{ '' if puede_editar else 'disabled' }}>Restaurar última versión guardada</button>
+    <button class="btn gold" id="btnSave" onclick="guardar()" {{ '' if puede_editar else 'disabled' }}>Guardar</button>
+    <a class="btn ghost" href="/credenciales/panel">← Panel</a>
+  </header>
+
+  {% if not puede_editar %}
+  <div class="notice">La plantilla está <strong>bloqueada</strong>. Puedes ver el diseño pero no editar ni guardar.
+    Un Administrador o el Decano debe desbloquearla.</div>
+  {% endif %}
+
+  <div class="msg" id="msg"></div>
+
+  <div class="fondos">
+    <label>Fondo del anverso
+      <input type="file" accept="image/png,image/jpeg,image/webp" onchange="subirFondo(this,'frente')" {{ '' if puede_editar else 'disabled' }}>
+    </label>
+    <label>Fondo del reverso
+      <input type="file" accept="image/png,image/jpeg,image/webp" onchange="subirFondo(this,'reverso')" {{ '' if puede_editar else 'disabled' }}>
+    </label>
+  </div>
+
+  <div class="cols">
+    <div class="col-prev">
+      <div class="cardbox">
+        <div class="cap">Anverso (preview vivo · 1 mm = 6 px)</div>
+        <div class="card" id="card-frente"></div>
+      </div>
+      <div class="cardbox">
+        <div class="cap">Reverso</div>
+        <div class="card" id="card-reverso"></div>
+      </div>
+      <p class="hint">El preview HTML es para mover rápido; <strong>"Ver PDF real" es el juez final</strong>
+        (mismo layout, generador reportlab). Al guardar se validan límites CR80 y se genera un PDF de prueba:
+        si no imprime, no se guarda.</p>
+    </div>
+
+    <div class="col-form">
+      <div class="caratabs">
+        <button class="caratab" onclick="verCara('frente', this)">Anverso</button>
+        <button class="caratab" onclick="verCara('reverso', this)">Reverso</button>
+      </div>
+      <div id="forms"></div>
+      <p class="hint">Logo y foto son <strong>redimensionables</strong> (w/h), no solo movibles. Coordenadas en
+        milímetros desde arriba-izquierda. Colores en hex (#RRGGBB). Alpha 0–1.</p>
+    </div>
+  </div>
+
+</div>
+
+<script type="application/json" id="layout-data">{{ layout_json|safe }}</script>
+<script type="application/json" id="editor-cfg">{{ cfg_json|safe }}</script>
+<script>
+"use strict";
+var MM = 6;                          // px por mm
+var PT = 6 / 2.834645669;            // px por punto (~2.1167)
+
+var LAYOUT = JSON.parse(document.getElementById('layout-data').textContent);
+var CFG    = JSON.parse(document.getElementById('editor-cfg').textContent);
+var FONDOS = CFG.fondos || {frente:null, reverso:null};
+var caraActual = 'frente';
+var selEl = null;
+
+var NUM = ['x','y','w','h','size','alpha','size_nombre','size_cargo'];
+var COL = ['color','color_borde','color_nombre','color_cargo'];
+var SEL = {align:['left','center','right'], orientacion:['horizontal','vertical']};
+var CHK = ['bold'];
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+
+// ── Preview ──────────────────────────────────────────────
+function styleFor(el){
+  var t = el.tipo, s = {position:'absolute'};
+  if(['logo','foto','firma','microtexto'].indexOf(t) >= 0){
+    s.left=(el.x*MM)+'px'; s.top=(el.y*MM)+'px';
+    s.width=((el.w||0)*MM)+'px'; s.height=((el.h||0)*MM)+'px';
+  } else if(t==='qr'){
+    var sz=(el.size||0)*MM;
+    s.left=(el.x*MM)+'px'; s.top=(el.y*MM)+'px'; s.width=sz+'px'; s.height=sz+'px';
+  } else if(t==='texto' || t==='valor'){
+    var fs=(el.size||8)*PT;
+    s.left=(el.x*MM)+'px';
+    s.top=(el.y*MM + (el.size||8)*PT)+'px';       // baseline reportlab desde arriba
+    s.fontSize=fs+'px'; s.lineHeight='1'; s.whiteSpace='nowrap';
+    s.color=el.color||'#0E3A6D'; s.fontWeight=el.bold?'700':'400';
+    s.opacity=(el.alpha!=null?el.alpha:1);
+    s.transform='translateY(-0.8em)';
+    if(el.align==='center') s.transform='translate(-50%,-0.8em)';
+    if(el.align==='right')  s.transform='translate(-100%,-0.8em)';
+  } else if(t==='leyenda'){
+    s.left=((el.x||0)*MM)+'px'; s.top=((el.y||0)*MM)+'px'; s.fontSize='7px'; s.color=el.color||'#8892a0';
+  } else {
+    s.left=((el.x||0)*MM)+'px'; s.top=((el.y||0)*MM)+'px';
+  }
+  return s;
+}
+function contentFor(name, el){
+  var t = el.tipo;
+  if(t==='logo')  return '<img src="/static/img/credenciales/logos/'+escapeHtml(el.src||'')+'" style="width:100%;height:100%;object-fit:contain">';
+  if(t==='foto')  return '<div class="ph">FOTO</div>';
+  if(t==='qr')    return '<div class="ph">QR</div>';
+  if(t==='firma') return '<div class="ph firma">'+escapeHtml(el.nombre||'firma')+'</div>';
+  if(t==='microtexto') return '<div class="ph micro">micro</div>';
+  if(t==='texto') return escapeHtml(el.text||'');
+  if(t==='valor') return '{'+escapeHtml(el.campo||'?')+'}';
+  if(t==='leyenda') return escapeHtml(el.text||'leyenda');
+  return escapeHtml(name);
+}
+function renderCara(cara){
+  var host = document.getElementById('card-'+cara);
+  if(!host) return;
+  host.style.backgroundImage = FONDOS[cara] ? ('url("'+FONDOS[cara]+'")') : 'none';
+  host.innerHTML = '';
+  var capa = LAYOUT[cara] || {};
+  for(var name in capa){
+    var el = capa[name];
+    if(name==='fondo' || !el || typeof el!=='object') continue;
+    var d = document.createElement('div');
+    d.className = 'el'; d.title = name;
+    var st = styleFor(el);
+    for(var k in st){ d.style[k] = st[k]; }
+    d.innerHTML = contentFor(name, el);
+    if(name===selEl && cara===caraActual) d.className += ' sel';
+    host.appendChild(d);
+  }
+}
+function renderAll(){ renderCara('frente'); renderCara('reverso'); }
+
+// ── Formularios ──────────────────────────────────────────
+function field(name,k,v){
+  var step = (k==='alpha') ? '0.05' : '0.5';
+  return '<label>'+k+'<input type="number" step="'+step+'" value="'+v+'" '+
+         'oninput="upd(\''+name+'\',\''+k+'\',this.value,true)" onfocus="sel(\''+name+'\')"></label>';
+}
+function fieldColor(name,k,v){
+  return '<label>'+k+'<input type="text" value="'+escapeHtml(v)+'" '+
+         'oninput="upd(\''+name+'\',\''+k+'\',this.value,false)" onfocus="sel(\''+name+'\')"></label>';
+}
+function fieldSelect(name,k,opts,v){
+  var o = opts.map(function(x){ return '<option'+(x===v?' selected':'')+'>'+x+'</option>'; }).join('');
+  return '<label>'+k+'<select onchange="upd(\''+name+'\',\''+k+'\',this.value,false)" onfocus="sel(\''+name+'\')">'+o+'</select></label>';
+}
+function fieldCheck(name,k,v){
+  return '<label class="chk">'+k+'<input type="checkbox"'+(v?' checked':'')+' onchange="updBool(\''+name+'\',\''+k+'\',this.checked)"></label>';
+}
+function buildForms(){
+  var cont = document.getElementById('forms');
+  cont.innerHTML = '';
+  var capa = LAYOUT[caraActual] || {};
+  for(var name in capa){
+    var el = capa[name];
+    if(name==='fondo' || !el || typeof el!=='object') continue;
+    var fs = document.createElement('fieldset'); fs.className = 'elform';
+    var h = '<legend>'+escapeHtml(name)+' <span class="tt">'+escapeHtml(el.tipo||'')+'</span></legend><div class="grid">';
+    NUM.forEach(function(k){ if(el[k]!==undefined) h += field(name,k,el[k]); });
+    COL.forEach(function(k){ if(el[k]!==undefined) h += fieldColor(name,k,el[k]); });
+    for(var sk in SEL){ if(el[sk]!==undefined) h += fieldSelect(name,sk,SEL[sk],el[sk]); }
+    CHK.forEach(function(k){ if(el[k]!==undefined) h += fieldCheck(name,k,el[k]); });
+    h += '</div>';
+    fs.innerHTML = h;
+    cont.appendChild(fs);
+  }
+  if(!CFG.puede_editar){
+    var inputs = cont.querySelectorAll('input,select');
+    for(var i=0;i<inputs.length;i++){ inputs[i].disabled = true; }
+  }
+}
+function upd(name,k,val,isNum){
+  var el = LAYOUT[caraActual][name]; if(!el) return;
+  el[k] = isNum ? (val===''?0:parseFloat(val)) : val;
+  renderCara(caraActual);
+}
+function updBool(name,k,val){ LAYOUT[caraActual][name][k]=val; renderCara(caraActual); }
+function sel(name){ selEl = name; renderCara(caraActual); }
+
+function verCara(cara, btn){
+  caraActual = cara;
+  var tabs = document.querySelectorAll('.caratab');
+  for(var i=0;i<tabs.length;i++){ tabs[i].classList.remove('active'); }
+  if(btn) btn.classList.add('active');
+  document.getElementById('card-frente').classList.toggle('focus', cara==='frente');
+  document.getElementById('card-reverso').classList.toggle('focus', cara==='reverso');
+  buildForms(); renderCara(cara);
+}
+
+// ── Acciones ─────────────────────────────────────────────
+function msg(text, ok){
+  var b = document.getElementById('msg');
+  b.textContent = text; b.className = 'msg ' + (ok?'ok':'bad'); b.style.display = 'block';
+}
+async function verPDF(){
+  var btn = document.getElementById('btnPdf'); var t = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generando…';
+  try{
+    var r = await fetch('/credenciales/editor/preview-pdf', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({layout: LAYOUT})});
+    if(!r.ok){ var m='No se pudo generar'; try{ m=(await r.json()).detail||m; }catch(e){} msg(m,false); }
+    else { var b = await r.blob(); window.open(URL.createObjectURL(b), '_blank'); }
+  }catch(e){ msg('Error de conexión', false); }
+  btn.disabled = false; btn.textContent = t;
+}
+async function guardar(){
+  var btn = document.getElementById('btnSave'); var t = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    var r = await fetch('/credenciales/editor/guardar', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({layout: LAYOUT})});
+    var d = {}; try{ d = await r.json(); }catch(e){}
+    if(!r.ok){ msg(d.detail || 'No se pudo guardar', false); }
+    else { msg('Guardado ✓ — el diseño valida e imprime.', true); }
+  }catch(e){ msg('Error de conexión', false); }
+  btn.disabled = false; btn.textContent = t;
+}
+async function subirFondo(inp, cara){
+  if(!inp.files || !inp.files[0]) return;
+  var fd = new FormData(); fd.append('cara', cara); fd.append('archivo', inp.files[0]);
+  msg('Subiendo fondo '+cara+'…', true);
+  try{
+    var r = await fetch('/credenciales/editor/fondo', {method:'POST', body: fd});
+    var d = {}; try{ d = await r.json(); }catch(e){}
+    if(!r.ok){ msg(d.detail || 'No se pudo subir', false); inp.value=''; return; }
+    FONDOS[cara] = d.url; renderCara(cara); msg('Fondo '+cara+' actualizado ✓', true);
+  }catch(e){ msg('Error de conexión', false); }
+  inp.value = '';
+}
+// Restaurar la última versión guardada (layout_backup → layout). Confirmación de 2
+// toques (sin diálogo nativo): descarta los cambios en curso a favor de lo guardado.
+var _armRestore = false;
+function restaurar(){
+  var btn = document.getElementById('btnRestore');
+  if(!_armRestore){
+    _armRestore = true;
+    btn.dataset.txt = btn.textContent;
+    btn.textContent = '¿Descartar cambios y restaurar? Toca otra vez';
+    setTimeout(function(){ if(_armRestore){ _armRestore=false; btn.textContent = btn.dataset.txt || 'Restaurar última versión guardada'; } }, 4000);
+    return;
+  }
+  _armRestore = false;
+  doRestaurar(btn);
+}
+async function doRestaurar(btn){
+  var t = btn.dataset.txt || 'Restaurar última versión guardada';
+  btn.disabled = true; btn.textContent = 'Restaurando…';
+  try{
+    var r = await fetch('/credenciales/editor/restaurar', {method:'POST'});
+    var d = {}; try{ d = await r.json(); }catch(e){}
+    if(!r.ok){ msg(d.detail || 'No se pudo restaurar', false); }
+    else {
+      for(var k in LAYOUT){ delete LAYOUT[k]; }   // reemplaza el layout en memoria
+      Object.assign(LAYOUT, d.layout || {});
+      buildForms(); renderAll();
+      msg('Restaurada la última versión guardada ✓', true);
+    }
+  }catch(e){ msg('Error de conexión', false); }
+  btn.disabled = false; btn.textContent = t;
+}
+async function toggleLock(){
+  var nuevo = !CFG.bloqueado;
+  try{
+    var r = await fetch('/credenciales/editor/bloqueo', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({bloqueado: nuevo})});
+    var d = {}; try{ d = await r.json(); }catch(e){}
+    if(!r.ok){ msg(d.detail || 'No se pudo cambiar el candado', false); return; }
+    location.reload();
+  }catch(e){ msg('Error de conexión', false); }
+}
+
+// ── Init ─────────────────────────────────────────────────
+document.querySelector('.caratab').classList.add('active');
+document.getElementById('card-frente').classList.add('focus');
+buildForms();
+renderAll();
+</script>
+</body>
+</html>
