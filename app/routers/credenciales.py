@@ -53,6 +53,23 @@ async def preview_credencial(
     return templates.TemplateResponse("pages/credenciales/preview.html", contexto)
 
 
+@router.get("/muestra/{colegiado_id}/pdf")
+async def muestra_credencial(
+    colegiado_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    member: Member = Depends(require_credenciales_emision),
+):
+    """Vista previa / impresión de prueba: PDF con marca 'MUESTRA - NO VÁLIDO',
+    QR sin token válido. NO crea issuance, NO consume derecho, NO descuenta stock."""
+    ctx = CredencialesService(db).obtener_contexto_credencial(request=request, colegiado_id=colegiado_id)
+    pdf = generar_credencial_pdf(ctx["colegiado"], ctx["organization"], ctx["template"],
+                                 token=None, muestra=True)
+    filename = "muestra_carne_%s.pdf" % (ctx["colegiado"].codigo_matricula or "sn")
+    return StreamingResponse(iter([pdf]), media_type="application/pdf",
+                             headers={"Content-Disposition": 'inline; filename="%s"' % filename})
+
+
 @router.post("/emitir/{colegiado_id}")
 async def emitir_credencial(
     colegiado_id: int,
