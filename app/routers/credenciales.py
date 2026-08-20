@@ -26,7 +26,9 @@ router = APIRouter(
 
 # Roles por FUNCIÓN (no por persona): si cambia el operador, el rol sigue válido.
 ROLES_EMISION = ("emisor_carnes", "secretaria", "admin", "decano")
-ROLES_STOCK   = ("admin", "decano")
+# INGRESO/reposición de stock: solo cuentas auto-administrables (rol dedicado admin_stock)
+# + superusuarios. Morelia (emisor_carnes) NO ingresa stock: solo consume al emitir/desechar.
+ROLES_STOCK   = ("admin_stock", "admin", "decano")
 ROLES_LOCK    = ("admin", "decano")   # desbloquean/bloquean la edición de la plantilla
 
 
