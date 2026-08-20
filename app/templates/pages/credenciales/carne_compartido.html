@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Revisa tu carné — {{ org.name if org else 'CCPL' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif;
+        min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 14px; }
+  .top{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .top img{ height:34px; width:auto; border-radius:6px; }
+  .top .n{ font-size:13px; font-weight:800; line-height:1.2; }
+  .top .n small{ display:block; font-size:10px; color:var(--dim); font-weight:700;
+                 letter-spacing:.6px; text-transform:uppercase; margin-top:2px; }
+  .card{ width:100%; max-width:420px; background:var(--card); border:1px solid var(--bd);
+         border-radius:16px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+  .hd{ padding:16px 18px; border-bottom:1px solid var(--bd); }
+  .hd h1{ font-size:16px; font-weight:800; } .hd p{ font-size:12.5px; color:var(--dim); margin-top:3px; line-height:1.5; }
+  .body{ padding:16px 18px; }
+  object.pdf{ width:100%; height:440px; border:1px solid var(--bd); border-radius:10px; background:#fff; }
+  .muestra{ margin-top:12px; background:rgba(212,175,55,.10); border:1px solid rgba(212,175,55,.35);
+            color:#f3e2a8; border-radius:10px; padding:11px 13px; font-size:12.5px; line-height:1.6; }
+  .bad{ padding:26px 18px; text-align:center; }
+  .bad .ico{ font-size:44px; color:var(--red); } .bad .msg{ font-size:17px; font-weight:800; color:var(--red); margin-top:6px; }
+  .bad p{ font-size:13.5px; color:var(--dim); margin-top:10px; line-height:1.6; }
+  a.link{ color:var(--gold); }
+  .foot{ margin-top:16px; font-size:11px; color:var(--dim); text-align:center; }
+</style>
+</head>
+<body>
+  <div class="top">
+    {% if org and org.logo_url %}<img src="{{ org.logo_url }}" alt="">{% endif %}
+    <div class="n">{{ org.name if org and org.name else 'Colegio de Contadores Públicos de Loreto' }}
+      <small>Revisión de carné</small></div>
+  </div>
+
+  <div class="card">
+  {% if valido and colegiado %}
+    <div class="hd">
+      <h1>Hola, revisa tu carné</h1>
+      <p>CPC. {{ colegiado.apellidos_nombres }} · Mat. {{ colegiado.codigo_matricula }}.
+        Verifica que tu <strong>foto</strong> y tus <strong>datos</strong> estén correctos.</p>
+    </div>
+    <div class="body">
+      <object class="pdf" data="/credenciales/carne-compartido/{{ token }}/pdf" type="application/pdf">
+        <p style="color:var(--dim);font-size:13px;padding:10px">Tu teléfono no puede mostrar el PDF aquí.
+          <a class="link" href="/credenciales/carne-compartido/{{ token }}/pdf">Ábrelo aquí</a>.</p>
+      </object>
+      <div class="muestra">⚠️ Esto es una <strong>MUESTRA</strong>, no es tu carné final ni sirve como
+        identificación. Si algo está mal (foto, nombre, fecha), comunícate con el Colegio para corregirlo
+        antes de la impresión.</div>
+    </div>
+  {% else %}
+    <div class="bad">
+      <div class="ico">✕</div>
+      <div class="msg">Enlace vencido o no válido</div>
+      <p>Este enlace de revisión ya expiró o no es correcto. Solicita al Colegio uno nuevo.</p>
+    </div>
+  {% endif %}
+  </div>
+
+  <div class="foot">Colegio de Contadores Públicos de Loreto · ccploreto.org.pe</div>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisar carné — {{ colegiado.apellidos_nombres if colegiado else 'CCPL' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:18px; }
+  .wrap{ max-width:920px; margin:0 auto; }
+  .top{ display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .top a.back{ color:var(--dim); text-decoration:none; font-size:13px; border:1px solid var(--bd);
+               border-radius:8px; padding:8px 13px; }
+  .top a.back:hover{ color:var(--txt); }
+  .top h1{ font-size:18px; font-weight:800; line-height:1.2; }
+  .top h1 small{ display:block; font-size:12px; color:var(--dim); font-weight:500; margin-top:2px; }
+  .cols{ display:flex; gap:16px; flex-wrap:wrap; }
+  .col-pdf{ flex:1 1 400px; min-width:300px; }
+  .col-side{ flex:1 1 300px; min-width:280px; }
+  .card{ background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:16px; margin-bottom:14px; }
+  .card h2{ font-size:14px; font-weight:800; margin-bottom:10px; }
+  object.pdf{ width:100%; height:520px; border:1px solid var(--bd); border-radius:10px; background:#fff; }
+  .btn{ background:var(--blue); color:#fff; border:none; border-radius:9px; padding:13px 18px; font-weight:700;
+        font-size:14px; cursor:pointer; width:100%; transition:filter .15s; }
+  .btn:hover{ filter:brightness(1.1); } .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn.gold{ background:var(--gold); color:#1a1a1a; } .btn.ghost{ background:transparent; border:1px solid var(--bd); color:var(--dim); }
+  .btn + .btn{ margin-top:9px; }
+  .chk{ list-style:none; }
+  .chk li{ display:flex; gap:8px; align-items:flex-start; padding:6px 0; font-size:13px; border-bottom:1px solid var(--card2); }
+  .chk li:last-child{ border-bottom:none; }
+  .chk li .i{ flex-shrink:0; font-weight:800; color:var(--red); }
+  .grp{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); margin:12px 0 4px; font-weight:800; }
+  .ok-all{ text-align:center; color:var(--green); font-weight:800; padding:12px; font-size:15px; }
+  .warn{ background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30); color:#fecaca;
+         border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; line-height:1.5; }
+  .soon{ font-size:11px; color:var(--dim); text-align:center; margin-top:8px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <a class="back" href="/credenciales/panel">← Volver</a>
+    <h1>Revisar antes de imprimir
+      <small>CPC. {{ colegiado.apellidos_nombres }} · Mat. {{ colegiado.codigo_matricula }}</small></h1>
+  </div>
+
+  <div class="cols">
+
+    <div class="col-pdf">
+      <div class="card">
+        <h2>Cómo saldrá impreso</h2>
+        <object class="pdf" data="/credenciales/revisar/{{ colegiado.id }}/pdf" type="application/pdf">
+          <p style="color:var(--dim);font-size:13px;padding:12px">Tu navegador no puede mostrar el PDF aquí.
+            <a href="/credenciales/revisar/{{ colegiado.id }}/pdf" target="_blank" style="color:var(--gold)">Abrir en otra pestaña</a>.</p>
+        </object>
+        <p class="soon">Vista de revisión · el QR de este preview <strong>aún NO es válido</strong>
+          (se activa recién al IMPRIMIR).</p>
+      </div>
+    </div>
+
+    <div class="col-side">
+      <div class="card">
+        <h2>Verificación de datos</h2>
+        {% if not faltan_colegiado and not faltan_plantilla %}
+          <div class="ok-all">✓ Todo listo para imprimir</div>
+        {% else %}
+          <div class="warn">No se puede imprimir hasta corregir lo siguiente. El botón IMPRIMIR está deshabilitado.</div>
+          {% if faltan_colegiado %}
+            <div class="grp">Datos del colegiado</div>
+            <ul class="chk">
+              {% for f in faltan_colegiado %}<li><span class="i">✕</span><span>{{ f }}</span></li>{% endfor %}
+            </ul>
+          {% endif %}
+          {% if faltan_plantilla %}
+            <div class="grp">Plantilla del Colegio (bloquea a todos)</div>
+            <ul class="chk">
+              {% for f in faltan_plantilla %}<li><span class="i">✕</span><span>{{ f }}</span></li>{% endfor %}
+            </ul>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="card" id="acciones">
+        <button class="btn gold" id="btnImprimir" onclick="imprimir()" {{ '' if puede_imprimir else 'disabled' }}>🖨️ IMPRIMIR (emite el carné)</button>
+        <button class="btn ghost" id="btnCompartir" onclick="compartir()">Compartir con el colegiado</button>
+        <div id="sharePanel" style="display:none;margin-top:9px"></div>
+        <p class="soon">Envía una <strong>MUESTRA</strong> (no usable como carné) para que revise su foto y datos.
+          {% if tiene_telefono %}Se abre WhatsApp del colegiado.{% else %}Sin teléfono registrado: podrás copiar el enlace.{% endif %}
+          Enlace válido {{ share_horas }}h.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const COLEGIADO_ID = {{ colegiado.id }};
+
+async function imprimir(){
+  const btn = document.getElementById('btnImprimir');
+  btn.disabled = true; const t = btn.textContent; btn.textContent = 'Emitiendo…';
+  try{
+    const r = await fetch('/credenciales/emitir/' + COLEGIADO_ID, { method:'POST' });
+    if(!r.ok){
+      let m = 'No se pudo emitir';
+      try{ m = (await r.json()).detail || m; }catch(e){}
+      flash(m); btn.disabled = false; btn.textContent = t; return;
+    }
+    const iid = r.headers.get('X-Issuance-Id'); const ver = r.headers.get('X-Card-Version');
+    const blob = await r.blob(); window.open(URL.createObjectURL(blob), '_blank');
+    emitido(iid, ver);
+  }catch(e){ flash('Error de conexión'); btn.disabled = false; btn.textContent = t; }
+}
+
+function emitido(iid, ver){
+  document.getElementById('acciones').innerHTML =
+    '<div class="ok-all">✓ Carné emitido (copia N° ' + ver + ')</div>' +
+    '<button class="btn" onclick="reimprimir(' + iid + ')">Reimprimir (mismo carné)</button>' +
+    '<button class="btn ghost" onclick="desechar(' + iid + ')">Se arruinó el blanco — desechar</button>' +
+    '<button class="btn ghost" onclick="location.href=\'/credenciales/panel\'">Volver al panel</button>';
+}
+
+function reimprimir(iid){ window.open('/credenciales/emision/' + iid + '/pdf', '_blank'); }
+
+async function desechar(iid){
+  const r = await fetch('/credenciales/desechar', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ issuance_id: iid, motivo: 'Carné en blanco arruinado en impresión' }) });
+  if(!r.ok){ flash('No se pudo registrar el desecho'); return; }
+  flash('Desecho registrado (descuenta 1 del stock, NO consume el derecho). Usa "Reimprimir" para imprimir de nuevo.', true);
+}
+
+function flash(msg, ok){
+  let b = document.getElementById('flashmsg');
+  if(!b){ b = document.createElement('div'); b.id = 'flashmsg'; document.getElementById('acciones').prepend(b); }
+  b.className = 'warn';
+  if(ok){ b.style.background = 'rgba(34,197,94,.10)'; b.style.color = '#bbf7d0'; b.style.borderColor = 'rgba(34,197,94,.3)'; }
+  b.textContent = msg;
+}
+
+// ── Compartir (Entrega 2): genera enlace temporal y ofrece WhatsApp / copiar ──
+let _shareLink = null;
+async function compartir(){
+  const b = document.getElementById('btnCompartir');
+  b.disabled = true; const t = b.textContent; b.textContent = 'Generando enlace…';
+  try{
+    const r = await fetch('/credenciales/compartir/' + COLEGIADO_ID, { method:'POST' });
+    if(!r.ok){ let m='No se pudo generar el enlace'; try{ m=(await r.json()).detail||m; }catch(e){} flash(m); b.disabled=false; b.textContent=t; return; }
+    const d = await r.json();
+    _shareLink = d.link;
+    const p = document.getElementById('sharePanel');
+    let html = '';
+    if(d.wa_url){
+      html += '<a class="btn" href="' + d.wa_url + '" target="_blank" rel="noopener" style="text-decoration:none;display:block;text-align:center">Enviar por WhatsApp</a>';
+    } else {
+      html += '<div class="warn">Sin teléfono registrado. Copia el enlace y envíalo por otro medio.</div>';
+    }
+    html += '<button class="btn ghost" style="margin-top:9px" onclick="copiar(this)">Copiar enlace</button>';
+    p.innerHTML = html; p.style.display = 'block';
+    b.textContent = 'Enlace generado ✓';
+  }catch(e){ flash('Error de conexión'); b.disabled=false; b.textContent=t; }
+}
+function copiar(btn){
+  if(!_shareLink) return;
+  navigator.clipboard.writeText(_shareLink).then(function(){ btn.textContent = 'Copiado ✓'; })
+    .catch(function(){
+      const p = document.getElementById('sharePanel');
+      const i = document.createElement('input'); i.value = _shareLink;
+      i.style.width = '100%'; i.style.marginTop = '8px'; i.readOnly = true;
+      p.appendChild(i); i.focus(); i.select();
+    });
+}
+</script>
+</body>
+</html>

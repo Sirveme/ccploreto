@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificación de Carné — {{ org.name if org else 'CCPL' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --bd:#22304a; --txt:#e2e8f0; --dim:#94a3b8;
+         --gold:#d4af37; --green:#22c55e; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif;
+        min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:22px 16px; }
+  .top{ display:flex; align-items:center; gap:10px; margin-bottom:18px; text-align:left; }
+  .top img{ height:36px; width:auto; border-radius:6px; flex-shrink:0; }
+  .top .n{ font-size:13px; font-weight:800; line-height:1.2; }
+  .top .n small{ display:block; font-size:10px; color:var(--dim); font-weight:700;
+                 letter-spacing:.6px; text-transform:uppercase; margin-top:2px; }
+  .card{ width:100%; max-width:400px; background:var(--card); border:1px solid var(--bd);
+         border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+  .status{ padding:22px 18px; text-align:center; }
+  .status .ico{ font-size:46px; line-height:1; }
+  .status .msg{ font-size:18px; font-weight:800; margin-top:6px; letter-spacing:.3px; }
+  .status.ok{ background:rgba(34,197,94,.12); border-bottom:1px solid rgba(34,197,94,.30); }
+  .status.ok .ico, .status.ok .msg{ color:var(--green); }
+  .status.bad{ background:rgba(239,68,68,.12); border-bottom:1px solid rgba(239,68,68,.30); }
+  .status.bad .ico, .status.bad .msg{ color:var(--red); }
+  .body{ padding:22px 18px; text-align:center; }
+  .foto{ width:108px; height:108px; border-radius:50%; object-fit:cover; border:3px solid var(--gold);
+         background:#0f1826; margin:0 auto 12px; display:block; }
+  .nom{ font-size:18px; font-weight:800; line-height:1.25; }
+  .mat{ font-size:14px; color:var(--gold); font-weight:700; margin-top:5px; }
+  .cond{ display:inline-block; margin-top:12px; padding:5px 15px; border-radius:20px;
+         font-size:12px; font-weight:800; letter-spacing:.5px; }
+  .cond.h{ background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.4); }
+  .cond.i{ background:rgba(239,68,68,.15); color:var(--red); border:1px solid rgba(239,68,68,.4); }
+  .meta{ margin-top:14px; font-size:12px; color:var(--dim); }
+  .expl{ font-size:14px; color:var(--dim); line-height:1.6; }
+  .foot{ margin-top:18px; font-size:11px; color:var(--dim); text-align:center; }
+</style>
+</head>
+<body>
+  <div class="top">
+    {% if org and org.logo_url %}<img src="{{ org.logo_url }}" alt="">{% endif %}
+    <div class="n">{{ org.name if org and org.name else 'Colegio de Contadores Públicos de Loreto' }}
+      <small>Verificación de Carné</small></div>
+  </div>
+
+  <div class="card">
+  {% if estado == 'vigente' %}
+    <div class="status ok"><div class="ico">✓</div><div class="msg">CARNÉ VIGENTE</div></div>
+    <div class="body">
+      <img class="foto" src="{{ colegiado.foto_url or '/static/img/user.png' }}" alt="Foto del colegiado">
+      <div class="nom">CPC. {{ colegiado.apellidos_nombres }}</div>
+      <div class="mat">Matrícula {{ colegiado.codigo_matricula }}</div>
+      {% set cond = (colegiado.condicion or '')|lower %}
+      {% if cond in ['habil', 'vitalicio'] %}
+        <div class="cond h">{{ cond|upper }}</div>
+      {% else %}
+        <div class="cond i">{{ (colegiado.condicion or 'INHÁBIL')|upper }}</div>
+      {% endif %}
+      {% if emitido %}<div class="meta">Emitido el {{ emitido }}</div>{% endif %}
+    </div>
+  {% elif estado == 'invalido' %}
+    <div class="status bad"><div class="ico">✕</div><div class="msg">Carné no válido</div></div>
+    <div class="body">
+      <p class="expl">Este carné fue <strong>reemplazado</strong> por una emisión posterior o anulado.
+        El colegiado puede tener un carné vigente más reciente.</p>
+      {% if colegiado %}
+      <div class="mat" style="margin-top:14px">Matrícula {{ colegiado.codigo_matricula }}</div>
+      <div style="font-size:14px;color:var(--dim);margin-top:2px">CPC. {{ colegiado.apellidos_nombres }}</div>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="status bad"><div class="ico">✕</div><div class="msg">Carné no encontrado</div></div>
+    <div class="body">
+      <p class="expl">El código escaneado no corresponde a ningún carné emitido por el Colegio.</p>
+    </div>
+  {% endif %}
+  </div>
+
+  <div class="foot">Verificación oficial · ccploreto.org.pe</div>
+</body>
+</html>

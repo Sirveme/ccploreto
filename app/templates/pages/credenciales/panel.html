@@ -28,6 +28,8 @@
   .btn.ghost{ background:transparent; border:1px solid var(--bd); color:var(--dim); }
   .banner{ background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#fecaca;
            border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px; }
+  .toolbar{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .toolbar a{ text-decoration:none; }
   section{ background:var(--card); border:1px solid var(--bd); border-radius:14px; margin-bottom:16px; overflow:hidden; }
   .sec-head{ padding:12px 16px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:10px; }
   .sec-head .dot{ width:10px; height:10px; border-radius:50%; }
@@ -74,6 +76,11 @@
     </div>
   </header>
 
+  <div class="toolbar">
+    <button class="btn ghost small" onclick="verModelo()">🖨️ Ver modelo (calibrar impresora)</button>
+    <a class="btn ghost small" href="/logout">Cerrar sesión</a>
+  </div>
+
   {% if stock <= 0 %}
   <div class="banner">Sin stock de carnés en blanco. No se puede emitir hasta que el Colegio cargue stock.</div>
   {% endif %}
@@ -93,7 +100,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn small" onclick="revisar({{ c.id }})" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -107,7 +114,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn small" onclick="revisar({{ c.id }})" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -121,7 +128,7 @@
       <span class="mat">{{ c.matricula }}</span>
       <span class="nom">{{ c.nombre }}</span>
       <span class="det">{{ c.detalle }}</span>
-      <span class="acciones"><button class="btn ghost small" onclick="preview({{ c.id }})">Vista previa</button><button class="btn gold small" onclick="emitir({{ c.id }}, this)" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
+      <span class="acciones"><button class="btn gold small" onclick="revisar({{ c.id }})" {{ 'disabled' if stock <= 0 else '' }}>Emitir</button></span>
     </div>
     {% else %}<div class="vacio">Sin colegiados en esta lista.</div>{% endfor %}
   </section>
@@ -129,42 +136,15 @@
 </div>
 
 <script>
-async function emitir(id, btn){
-  if(!confirm('¿Emitir carné de este colegiado? Descuenta 1 carné en blanco del stock.')) return;
-  btn.disabled = true; const t = btn.textContent; btn.textContent = 'Emitiendo…';
-  try{
-    const r = await fetch('/credenciales/emitir/' + id, { method:'POST' });
-    if(!r.ok){ let m='Error al emitir'; try{ m = (await r.json()).detail || m; }catch(e){} alert(m); btn.disabled=false; btn.textContent=t; return; }
-    const iid = r.headers.get('X-Issuance-Id'); const ver = r.headers.get('X-Card-Version');
-    const blob = await r.blob(); window.open(URL.createObjectURL(blob), '_blank');
-    const row = btn.closest('.row'); row.classList.add('emitido');
-    row.querySelector('.acciones').innerHTML =
-      '<span class="ok">Emitido v' + ver + ' ✓</span>' +
-      '<button class="btn small" onclick="reimprimir(' + iid + ')">Reimprimir</button>' +
-      '<button class="btn small danger" onclick="desechar(' + iid + ')">Desechar</button>';
-    actualizarStock();
-  }catch(e){ alert('Error de conexión'); btn.disabled=false; btn.textContent=t; }
-}
+// Un solo botón por fila: abre la página de REVISIÓN del colegiado (no emite nada aún).
+function revisar(id){ location.href = '/credenciales/revisar/' + id; }
+// Botón general: carné MODELO con marca MUESTRA para calibrar impresora.
+function verModelo(){ window.open('/credenciales/modelo/pdf', '_blank'); }
 function mostrar(t, btn){
   document.querySelectorAll('.seg').forEach(s => s.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.lista').forEach(l => l.classList.remove('active'));
   const el = document.getElementById('lista-' + t); if(el) el.classList.add('active');
-}
-function preview(id){ window.open('/credenciales/muestra/' + id + '/pdf', '_blank'); }
-function reimprimir(iid){ window.open('/credenciales/emision/' + iid + '/pdf', '_blank'); }
-async function desechar(iid){
-  const motivo = prompt('Motivo del desecho (el carné en blanco salió mal). Descuenta 1 del stock, NO consume el derecho:');
-  if(motivo === null) return;
-  const r = await fetch('/credenciales/desechar', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ issuance_id: iid, motivo: motivo }) });
-  if(!r.ok){ alert('No se pudo registrar el desecho'); return; }
-  const d = await r.json();
-  document.getElementById('stockNum').textContent = d.disponibles;
-  alert('Desecho registrado. Stock: ' + d.disponibles + '. Usa "Reimprimir" para volver a imprimir.');
-}
-async function actualizarStock(){
-  try{ const r = await fetch('/credenciales/stock'); if(r.ok){ const d = await r.json(); document.getElementById('stockNum').textContent = d.disponibles; } }catch(e){}
 }
 async function ingresarStock(){
   const c = parseInt((document.getElementById('inCant')||{}).value || '0');
