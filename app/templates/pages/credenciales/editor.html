@@ -10,9 +10,9 @@
          --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; }
   *{ box-sizing:border-box; margin:0; padding:0; }
   body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:16px; }
-  .wrap{ max-width:1180px; margin:0 auto; }
+  .wrap{ max-width:1360px; margin:0 auto; }
   header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  h1{ font-size:18px; font-weight:800; } h1 small{ display:block; font-size:12px; color:var(--dim); font-weight:500; }
+  h1{ font-size:19px; font-weight:800; } h1 small{ display:block; font-size:12.5px; color:var(--dim); font-weight:500; }
   .sp{ flex:1; }
   .btn{ background:var(--blue); color:#fff; border:none; border-radius:8px; padding:9px 15px; font-weight:700;
         font-size:13px; cursor:pointer; text-decoration:none; display:inline-block; }
@@ -23,37 +23,48 @@
   .lockbadge.off{ background:rgba(34,197,94,.15); color:#86efac; border:1px solid rgba(34,197,94,.4); }
   .notice{ background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30); color:#fecaca;
            border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
-  .msg{ display:none; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
+  .msg{ display:none; border-radius:10px; padding:11px 14px; margin-bottom:12px; font-size:13.5px; line-height:1.5; }
   .msg.ok{ background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.30); color:#bbf7d0; }
   .msg.bad{ background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30); color:#fecaca; }
   .fondos{ display:flex; gap:16px; flex-wrap:wrap; background:var(--card); border:1px solid var(--bd);
            border-radius:12px; padding:12px 14px; margin-bottom:14px; }
-  .fondos label{ font-size:12px; color:var(--dim); display:flex; flex-direction:column; gap:5px; }
-  .cols{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
-  .col-prev{ flex:1 1 540px; min-width:320px; }
-  .col-form{ flex:1 1 360px; min-width:300px; }
+  .fondos label{ font-size:13px; color:var(--dim); display:flex; flex-direction:column; gap:6px; font-weight:600; }
+  .cols{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+  .col-prev{ flex:1 1 630px; min-width:340px; }
+  .col-form{ flex:1 1 420px; min-width:320px; }
   .cardbox{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px; margin-bottom:14px; overflow:auto; }
-  .cardbox .cap{ font-size:12px; color:var(--dim); font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
-  .card{ position:relative; width:513.6px; height:323.88px; background:#fff center/cover no-repeat;
+  .cardbox .cap{ font-size:13px; color:var(--dim); font-weight:800; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+  .card{ position:relative; width:599.2px; height:377.86px;
+         background-color:#fff; background-position:center; background-size:100% 100%; background-repeat:no-repeat;
          border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
   .card.focus{ outline:2px solid var(--gold); }
-  .el{ position:absolute; }
-  .el.sel{ outline:1px dashed var(--gold); outline-offset:1px; }
+  .el{ position:absolute; z-index:1; }
+  .el.sel{ outline:1px dashed var(--gold); outline-offset:1px; z-index:2; }
   .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center;
        border:1px dashed rgba(120,130,150,.6); color:#5b6472; font-size:9px; font-weight:700; background:rgba(120,130,150,.10); }
   .ph.firma{ align-items:flex-end; font-size:7px; } .ph.micro{ font-size:6px; }
   .caratabs{ display:flex; gap:4px; background:var(--card2); border:1px solid var(--bd); border-radius:10px; padding:4px; margin-bottom:12px; }
-  .caratab{ flex:1; background:transparent; border:none; color:var(--dim); border-radius:8px; padding:9px; cursor:pointer; font-weight:700; font-size:13px; }
+  .caratab{ flex:1; background:transparent; border:none; color:var(--dim); border-radius:8px; padding:11px; cursor:pointer; font-weight:700; font-size:14px; }
   .caratab.active{ background:var(--card); color:var(--txt); }
-  #forms{ display:flex; flex-direction:column; gap:10px; }
-  .elform{ border:1px solid var(--bd); border-radius:10px; padding:10px 12px; background:var(--card); }
-  .elform legend{ font-size:12px; font-weight:800; padding:0 6px; }
-  .elform legend .tt{ color:var(--dim); font-weight:600; font-size:11px; }
-  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; }
-  .grid label{ font-size:11px; color:var(--dim); display:flex; flex-direction:column; gap:3px; }
-  .grid label.chk{ flex-direction:row; align-items:center; gap:6px; }
-  .grid input, .grid select{ background:var(--card2); border:1px solid var(--bd); color:var(--txt); border-radius:6px; padding:6px 7px; font-size:12px; width:100%; }
-  .hint{ font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5; }
+  #forms{ display:flex; flex-direction:column; gap:12px; }
+  .addbar{ margin-bottom:2px; }
+  .elform{ border:1px solid var(--bd); border-radius:10px; padding:12px 14px; background:var(--card); }
+  .elform legend{ font-size:14px; font-weight:800; padding:0 6px; }
+  .elform legend .tt{ color:var(--dim); font-weight:600; font-size:12px; }
+  .delel{ float:right; background:transparent; border:1px solid rgba(239,68,68,.4); color:#fca5a5;
+          border-radius:6px; font-size:11.5px; padding:3px 9px; cursor:pointer; }
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin-top:8px; }
+  .grid label{ font-size:12.5px; color:var(--dim); display:flex; flex-direction:column; gap:5px; font-weight:600; }
+  .grid label.full{ grid-column:1 / -1; }
+  .grid label.chk{ flex-direction:row; align-items:center; gap:7px; }
+  .grid input, .grid select{ background:var(--card2); border:1px solid var(--bd); color:var(--txt);
+                             border-radius:6px; padding:8px 9px; font-size:13.5px; width:100%; }
+  .colorrow{ display:flex; gap:7px; align-items:center; }
+  .colorrow input[type=color]{ width:42px; height:36px; padding:2px; border:1px solid var(--bd); border-radius:6px; background:var(--card2); cursor:pointer; flex:0 0 auto; }
+  .colorrow input[type=text]{ flex:1; }
+  .swatches{ display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; }
+  .sw{ width:24px; height:24px; border-radius:5px; border:1px solid rgba(255,255,255,.25); cursor:pointer; padding:0; }
+  .hint{ font-size:12px; color:var(--dim); margin-top:10px; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -89,7 +100,7 @@
   <div class="cols">
     <div class="col-prev">
       <div class="cardbox">
-        <div class="cap">Anverso (preview vivo · 1 mm = 6 px)</div>
+        <div class="cap">Anverso (preview vivo · 1 mm = 7 px)</div>
         <div class="card" id="card-frente"></div>
       </div>
       <div class="cardbox">
@@ -107,8 +118,9 @@
         <button class="caratab" onclick="verCara('reverso', this)">Reverso</button>
       </div>
       <div id="forms"></div>
-      <p class="hint">Logo y foto son <strong>redimensionables</strong> (w/h), no solo movibles. Coordenadas en
-        milímetros desde arriba-izquierda. Colores en hex (#RRGGBB). Alpha 0–1.</p>
+      <p class="hint">Logo y foto son <strong>redimensionables</strong> (w/h). La foto tiene <strong>borde</strong>
+        configurable (borde_ancho mm + borde_color). Puedes <strong>agregar texto libre</strong> que se imprime.
+        Coordenadas en mm desde arriba-izquierda; colores con el selector o la paleta institucional.</p>
     </div>
   </div>
 
@@ -118,17 +130,22 @@
 <script type="application/json" id="editor-cfg">{{ cfg_json|safe }}</script>
 <script>
 "use strict";
-var MM = 6;                          // px por mm
-var PT = 6 / 2.834645669;            // px por punto (~2.1167)
+var MM = 7;                          // px por mm (preview más grande para desktop)
+var PT = 7 / 2.834645669;            // px por punto (~2.469)
+var CR80_RATIO = 85.60 / 53.98;      // ≈ 1.586
+
+// Paleta institucional del Colegio (hex de las constantes del generador).
+var PALETA = ['#0E3A6D', '#C7A347', '#555555', '#B00020', '#FFFFFF', '#111111'];
 
 var LAYOUT = JSON.parse(document.getElementById('layout-data').textContent);
 var CFG    = JSON.parse(document.getElementById('editor-cfg').textContent);
 var FONDOS = CFG.fondos || {frente:null, reverso:null};
 var caraActual = 'frente';
 var selEl = null;
+var _txtSeq = 0;
 
-var NUM = ['x','y','w','h','size','alpha','size_nombre','size_cargo'];
-var COL = ['color','color_borde','color_nombre','color_cargo'];
+var NUM = ['x','y','w','h','size','alpha','borde_ancho','size_nombre','size_cargo'];
+var COL = ['color','borde_color','color_borde','color_nombre','color_cargo'];
 var SEL = {align:['left','center','right'], orientacion:['horizontal','vertical']};
 var CHK = ['bold'];
 
@@ -138,12 +155,38 @@ function escapeHtml(s){
   });
 }
 
+// Normaliza: logo y foto redimensionables (w/h); foto con borde configurable. Inyecta
+// defaults faltantes para que aparezcan en los formularios (también en layouts viejos).
+function normalizeLayout(){
+  for(var cara in LAYOUT){
+    var capa = LAYOUT[cara];
+    if(!capa || typeof capa !== 'object') continue;
+    for(var name in capa){
+      var el = capa[name];
+      if(name==='fondo' || !el || typeof el!=='object') continue;
+      if(el.tipo==='logo'){
+        if(el.w===undefined) el.w = 12;
+        if(el.h===undefined) el.h = 12;
+      } else if(el.tipo==='foto'){
+        if(el.w===undefined) el.w = 17;
+        if(el.h===undefined) el.h = 24;
+        if(el.borde_ancho===undefined) el.borde_ancho = 0.4;
+        if(el.borde_color===undefined) el.borde_color = el.color_borde || '#C7A347';
+      }
+    }
+  }
+}
+
 // ── Preview ──────────────────────────────────────────────
 function styleFor(el){
   var t = el.tipo, s = {position:'absolute'};
   if(['logo','foto','firma','microtexto'].indexOf(t) >= 0){
     s.left=(el.x*MM)+'px'; s.top=(el.y*MM)+'px';
     s.width=((el.w||0)*MM)+'px'; s.height=((el.h||0)*MM)+'px';
+    if(t==='foto'){
+      var bw = (el.borde_ancho!=null ? el.borde_ancho : 0.4);
+      if(bw>0){ s.border=(bw*MM)+'px solid '+(el.borde_color||el.color_borde||'#C7A347'); s.borderRadius='4px'; }
+    }
   } else if(t==='qr'){
     var sz=(el.size||0)*MM;
     s.left=(el.x*MM)+'px'; s.top=(el.y*MM)+'px'; s.width=sz+'px'; s.height=sz+'px';
@@ -179,7 +222,14 @@ function contentFor(name, el){
 function renderCara(cara){
   var host = document.getElementById('card-'+cara);
   if(!host) return;
-  host.style.backgroundImage = FONDOS[cara] ? ('url("'+FONDOS[cara]+'")') : 'none';
+  if(FONDOS[cara]){
+    host.style.backgroundImage = 'url("'+FONDOS[cara]+'")';
+    host.style.backgroundPosition = 'center';
+    host.style.backgroundSize = '100% 100%';      // fiel a reportlab (preserveAspectRatio=False)
+    host.style.backgroundRepeat = 'no-repeat';
+  } else {
+    host.style.backgroundImage = 'none';
+  }
   host.innerHTML = '';
   var capa = LAYOUT[cara] || {};
   for(var name in capa){
@@ -198,13 +248,29 @@ function renderAll(){ renderCara('frente'); renderCara('reverso'); }
 
 // ── Formularios ──────────────────────────────────────────
 function field(name,k,v){
-  var step = (k==='alpha') ? '0.05' : '0.5';
+  var step = (k==='alpha') ? '0.05' : (k==='borde_ancho' ? '0.1' : '0.5');
   return '<label>'+k+'<input type="number" step="'+step+'" value="'+v+'" '+
          'oninput="upd(\''+name+'\',\''+k+'\',this.value,true)" onfocus="sel(\''+name+'\')"></label>';
 }
+function fieldText(name,v){
+  return '<label class="full">contenido (se imprime)<input type="text" value="'+escapeHtml(v)+'" '+
+         'oninput="updText(\''+name+'\',this.value)" onfocus="sel(\''+name+'\')"></label>';
+}
 function fieldColor(name,k,v){
-  return '<label>'+k+'<input type="text" value="'+escapeHtml(v)+'" '+
-         'oninput="upd(\''+name+'\',\''+k+'\',this.value,false)" onfocus="sel(\''+name+'\')"></label>';
+  var idc='cin_'+name+'_'+k, idh='hin_'+name+'_'+k;
+  var safe = /^#[0-9a-fA-F]{6}$/.test(v||'') ? v : '#000000';
+  var sw='';
+  for(var i=0;i<PALETA.length;i++){
+    var p=PALETA[i];
+    sw += '<button type="button" class="sw" title="'+p+'" style="background:'+p+'" onclick="setColor(\''+name+'\',\''+k+'\',\''+p+'\')"></button>';
+  }
+  return '<label class="full">'+k+
+    '<span class="colorrow">'+
+      '<input type="color" id="'+idc+'" value="'+safe+'" oninput="updColorPick(\''+name+'\',\''+k+'\',this.value)">'+
+      '<input type="text" id="'+idh+'" value="'+escapeHtml(v)+'" oninput="updColorHex(\''+name+'\',\''+k+'\',this.value)" onfocus="sel(\''+name+'\')">'+
+    '</span>'+
+    '<span class="swatches">'+sw+'</span>'+
+  '</label>';
 }
 function fieldSelect(name,k,opts,v){
   var o = opts.map(function(x){ return '<option'+(x===v?' selected':'')+'>'+x+'</option>'; }).join('');
@@ -216,12 +282,18 @@ function fieldCheck(name,k,v){
 function buildForms(){
   var cont = document.getElementById('forms');
   cont.innerHTML = '';
+  var bar = document.createElement('div'); bar.className = 'addbar';
+  bar.innerHTML = '<button type="button" class="btn ghost" onclick="addTexto()">＋ Agregar texto libre</button>';
+  cont.appendChild(bar);
   var capa = LAYOUT[caraActual] || {};
   for(var name in capa){
     var el = capa[name];
     if(name==='fondo' || !el || typeof el!=='object') continue;
     var fs = document.createElement('fieldset'); fs.className = 'elform';
-    var h = '<legend>'+escapeHtml(name)+' <span class="tt">'+escapeHtml(el.tipo||'')+'</span></legend><div class="grid">';
+    var esUsuario = name.indexOf('txt_') === 0;
+    var del = esUsuario ? '<button type="button" class="delel" onclick="delEl(\''+name+'\')">✕ eliminar</button>' : '';
+    var h = '<legend>'+escapeHtml(name)+' <span class="tt">'+escapeHtml(el.tipo||'')+'</span>'+del+'</legend><div class="grid">';
+    if(el.text!==undefined || el.tipo==='texto' || el.tipo==='leyenda'){ h += fieldText(name, el.text||''); }
     NUM.forEach(function(k){ if(el[k]!==undefined) h += field(name,k,el[k]); });
     COL.forEach(function(k){ if(el[k]!==undefined) h += fieldColor(name,k,el[k]); });
     for(var sk in SEL){ if(el[sk]!==undefined) h += fieldSelect(name,sk,SEL[sk],el[sk]); }
@@ -231,8 +303,8 @@ function buildForms(){
     cont.appendChild(fs);
   }
   if(!CFG.puede_editar){
-    var inputs = cont.querySelectorAll('input,select');
-    for(var i=0;i<inputs.length;i++){ inputs[i].disabled = true; }
+    var ctrls = cont.querySelectorAll('input,select,button');
+    for(var i=0;i<ctrls.length;i++){ ctrls[i].disabled = true; }
   }
 }
 function upd(name,k,val,isNum){
@@ -240,8 +312,43 @@ function upd(name,k,val,isNum){
   el[k] = isNum ? (val===''?0:parseFloat(val)) : val;
   renderCara(caraActual);
 }
+function updText(name,val){ LAYOUT[caraActual][name].text = val; renderCara(caraActual); }
 function updBool(name,k,val){ LAYOUT[caraActual][name][k]=val; renderCara(caraActual); }
 function sel(name){ selEl = name; renderCara(caraActual); }
+
+// Color: selector nativo <input type=color> ↔ hex sincronizados + paleta.
+function updColorPick(name,k,val){
+  LAYOUT[caraActual][name][k]=val;
+  var h=document.getElementById('hin_'+name+'_'+k); if(h) h.value=val;
+  renderCara(caraActual);
+}
+function updColorHex(name,k,val){
+  LAYOUT[caraActual][name][k]=val;
+  if(/^#[0-9a-fA-F]{6}$/.test(val)){ var c=document.getElementById('cin_'+name+'_'+k); if(c) c.value=val; }
+  renderCara(caraActual);
+}
+function setColor(name,k,val){
+  LAYOUT[caraActual][name][k]=val;
+  var c=document.getElementById('cin_'+name+'_'+k); if(c) c.value=val;
+  var hh=document.getElementById('hin_'+name+'_'+k); if(hh) hh.value=val;
+  renderCara(caraActual);
+}
+
+// Texto libre imprimible (tipo 'texto' → lo dibuja reportlab).
+function addTexto(){
+  if(!CFG.puede_editar) return;
+  _txtSeq++;
+  var key = 'txt_' + Date.now() + '_' + _txtSeq;
+  LAYOUT[caraActual][key] = {tipo:'texto', text:'Texto nuevo', x:6, y:48, w:70, size:6, color:'#0E3A6D', bold:false, align:'left'};
+  selEl = key;
+  buildForms(); renderCara(caraActual);
+}
+function delEl(name){
+  if(!CFG.puede_editar) return;
+  if(LAYOUT[caraActual] && LAYOUT[caraActual][name]){ delete LAYOUT[caraActual][name]; }
+  if(selEl===name) selEl=null;
+  buildForms(); renderCara(caraActual);
+}
 
 function verCara(cara, btn){
   caraActual = cara;
@@ -281,20 +388,35 @@ async function guardar(){
   }catch(e){ msg('Error de conexión', false); }
   btn.disabled = false; btn.textContent = t;
 }
-async function subirFondo(inp, cara){
+// Fondo: avisa (no bloquea) si la proporción no es CR80 ~1.586:1.
+function subirFondo(inp, cara){
   if(!inp.files || !inp.files[0]) return;
-  var fd = new FormData(); fd.append('cara', cara); fd.append('archivo', inp.files[0]);
+  var file = inp.files[0];
+  var img = new Image();
+  img.onload = function(){
+    var ratio = img.naturalWidth / img.naturalHeight;
+    var aviso = (Math.abs(ratio - CR80_RATIO) > 0.12)
+      ? '⚠️ Esta imagen no es proporción CR80 ('+ratio.toFixed(2)+':1 vs 1.59:1): puede verse deformada o recortada.'
+      : '';
+    URL.revokeObjectURL(img.src);
+    doSubirFondo(file, cara, inp, aviso);
+  };
+  img.onerror = function(){ URL.revokeObjectURL(img.src); doSubirFondo(file, cara, inp, ''); };
+  img.src = URL.createObjectURL(file);
+}
+async function doSubirFondo(file, cara, inp, aviso){
+  var fd = new FormData(); fd.append('cara', cara); fd.append('archivo', file);
   msg('Subiendo fondo '+cara+'…', true);
   try{
     var r = await fetch('/credenciales/editor/fondo', {method:'POST', body: fd});
     var d = {}; try{ d = await r.json(); }catch(e){}
     if(!r.ok){ msg(d.detail || 'No se pudo subir', false); inp.value=''; return; }
-    FONDOS[cara] = d.url; renderCara(cara); msg('Fondo '+cara+' actualizado ✓', true);
+    FONDOS[cara] = d.url; renderCara(cara);
+    msg('Fondo '+cara+' actualizado ✓' + (aviso ? ' — '+aviso : ''), aviso ? false : true);
   }catch(e){ msg('Error de conexión', false); }
   inp.value = '';
 }
-// Restaurar la última versión guardada (layout_backup → layout). Confirmación de 2
-// toques (sin diálogo nativo): descarta los cambios en curso a favor de lo guardado.
+// Restaurar la última versión guardada (layout_backup → layout). Confirmación de 2 toques.
 var _armRestore = false;
 function restaurar(){
   var btn = document.getElementById('btnRestore');
@@ -316,8 +438,9 @@ async function doRestaurar(btn){
     var d = {}; try{ d = await r.json(); }catch(e){}
     if(!r.ok){ msg(d.detail || 'No se pudo restaurar', false); }
     else {
-      for(var k in LAYOUT){ delete LAYOUT[k]; }   // reemplaza el layout en memoria
+      for(var k in LAYOUT){ delete LAYOUT[k]; }
       Object.assign(LAYOUT, d.layout || {});
+      normalizeLayout();
       buildForms(); renderAll();
       msg('Restaurada la última versión guardada ✓', true);
     }
@@ -336,6 +459,7 @@ async function toggleLock(){
 }
 
 // ── Init ─────────────────────────────────────────────────
+normalizeLayout();
 document.querySelector('.caratab').classList.add('active');
 document.getElementById('card-frente').classList.add('focus');
 buildForms();
