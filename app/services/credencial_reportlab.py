@@ -351,12 +351,13 @@ def _draw_marca_muestra(c):
     c.saveState()
     c.setFillAlpha(0.20)
     c.setFillColor(HexColor("#B00020"))
-    c.translate(CARD_W / 2, CARD_H / 2)
-    c.rotate(26)
-    c.setFont(FONT_BOLD, 13)
-    c.drawCentredString(0, 1.5 * mm, "MUESTRA")
-    c.setFont(FONT_BOLD, 7)
-    c.drawCentredString(0, -3.5 * mm, "NO VÁLIDO")
+    # Zona baja-derecha: NO pisa nombre/apellidos (arriba, y≈14-32).
+    c.translate(CARD_W * 0.52, CARD_H * 0.28)
+    c.rotate(24)
+    c.setFont(FONT_BOLD, 12)
+    c.drawCentredString(0, 1.3 * mm, "MUESTRA")
+    c.setFont(FONT_BOLD, 6.5)
+    c.drawCentredString(0, -3 * mm, "NO VÁLIDO")
     c.restoreState()
 
 
