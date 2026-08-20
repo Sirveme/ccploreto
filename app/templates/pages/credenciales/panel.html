@@ -65,19 +65,13 @@
     </h1>
     <div class="stock {{ 'low' if stock <= 3 else '' }}">
       <div class="num" id="stockNum">{{ stock }}</div>
-      <div class="lbl">carnés en blanco</div>
-      {% if puede_stock %}
-      <div class="stockform">
-        <input type="number" id="inCant" min="1" placeholder="N°">
-        <input type="text" id="inMot" placeholder="motivo" style="width:90px">
-        <button class="btn small" onclick="ingresarStock()">+ Stock</button>
-      </div>
-      {% endif %}
+      <div class="lbl">tarjetas en stock</div>
     </div>
   </header>
 
   <div class="toolbar">
     <button class="btn ghost small" onclick="verModelo()">🖨️ Ver modelo (calibrar impresora)</button>
+    <a class="btn ghost small" href="/credenciales/editor">🎛️ Editor de diseño</a>
     <a class="btn ghost small" href="/logout">Cerrar sesión</a>
   </div>
 
@@ -145,15 +139,6 @@ function mostrar(t, btn){
   btn.classList.add('active');
   document.querySelectorAll('.lista').forEach(l => l.classList.remove('active'));
   const el = document.getElementById('lista-' + t); if(el) el.classList.add('active');
-}
-async function ingresarStock(){
-  const c = parseInt((document.getElementById('inCant')||{}).value || '0');
-  if(!c || c <= 0){ alert('Cantidad inválida'); return; }
-  const r = await fetch('/credenciales/stock/ingreso', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ cantidad: c, motivo: (document.getElementById('inMot')||{}).value || 'Ingreso de stock' }) });
-  if(!r.ok){ let m='Error'; try{ m = (await r.json()).detail || m; }catch(e){} alert(m); return; }
-  const d = await r.json(); document.getElementById('stockNum').textContent = d.disponibles;
-  alert('Stock actualizado: ' + d.disponibles);
 }
 </script>
 </body>
