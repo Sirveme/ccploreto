@@ -59,4 +59,4 @@ def get_allowed_actions(user_role: str, org_type: str):
     return allowed
 
 def get_action_ui(action_id):
-    return ACTION_REGISTRY.get(action_id, {}).get("ui")
+    return ACTION_REGISTRY.get(action_id, {}).get("ui")    
