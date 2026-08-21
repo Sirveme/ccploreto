@@ -136,8 +136,8 @@ var caraActual = 'frente';
 var selEl = null;
 var _txtSeq = 0;
 
-var NUM = ['x','y','w','h','size','alpha','borde_ancho','size_nombre','size_cargo'];
-var COL = ['color','borde_color','color_borde','color_nombre','color_cargo'];
+var NUM = ['x','y','w','h','size','alpha','borde_ancho','stroke_ancho','sombra_dx','sombra_dy','size_nombre','size_cargo'];
+var COL = ['color','stroke_color','sombra_color','borde_color','color_borde','color_nombre','color_cargo'];
 var SEL = {align:['left','center','right'], orientacion:['horizontal','vertical']};
 var CHK = ['bold'];
 
@@ -153,6 +153,11 @@ function normalizeLayout(){
   for(var cara in LAYOUT){
     var capa = LAYOUT[cara];
     if(!capa || typeof capa !== 'object') continue;
+    // Fondo (A1): asegurar el elemento + defaults de opacidad/velo.
+    if(!capa.fondo || typeof capa.fondo !== 'object') capa.fondo = {tipo:'fondo'};
+    if(capa.fondo.opacidad===undefined)   capa.fondo.opacidad = 1;
+    if(capa.fondo.velo_color===undefined) capa.fondo.velo_color = '#000000';
+    if(capa.fondo.velo_alpha===undefined) capa.fondo.velo_alpha = 0;
     for(var name in capa){
       var el = capa[name];
       if(name==='fondo' || !el || typeof el!=='object') continue;
@@ -165,8 +170,19 @@ function normalizeLayout(){
         if(el.borde_ancho===undefined) el.borde_ancho = 0.4;
         if(el.borde_color===undefined) el.borde_color = el.color_borde || '#C7A347';
       }
+      // Contorno (A2) en textos: default apagado (stroke_ancho 0) → compat.
+      if(el.tipo==='texto' || el.tipo==='valor'){
+        if(el.stroke_color===undefined) el.stroke_color = '#FFFFFF';
+        if(el.stroke_ancho===undefined) el.stroke_ancho = 0;
+      }
     }
   }
+}
+function hexA(hex, a){
+  var m = /^#([0-9a-fA-F]{6})$/.exec(hex || '');
+  if(!m) return 'rgba(0,0,0,'+a+')';
+  var n = parseInt(m[1], 16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
 
 // ── Preview ──────────────────────────────────────────────
@@ -192,6 +208,14 @@ function styleFor(el){
     s.transform='translateY(-0.8em)';
     if(el.align==='center') s.transform='translate(-50%,-0.8em)';
     if(el.align==='right')  s.transform='translate(-100%,-0.8em)';
+    var sw = (el.stroke_ancho||0);
+    if(sw>0){                                         // contorno detrás del relleno (A2)
+      s.webkitTextStroke = (sw*MM)+'px '+(el.stroke_color||'#FFFFFF');
+      s.paintOrder = 'stroke';
+    }
+    if((el.sombra_dx||el.sombra_dy) && el.sombra_color){
+      s.textShadow = ((el.sombra_dx||0)*MM)+'px '+((el.sombra_dy||0)*MM)+'px 0 '+el.sombra_color;
+    }
   } else if(t==='leyenda'){
     s.left=((el.x||0)*MM)+'px'; s.top=((el.y||0)*MM)+'px'; s.fontSize='7px'; s.color=el.color||'#8892a0';
   } else {
@@ -222,8 +246,16 @@ function contentFor(name, el){
 function renderCara(cara){
   var host = document.getElementById('card-'+cara);
   if(!host) return;
-  if(FONDOS[cara]){
-    host.style.backgroundImage = 'url("'+FONDOS[cara]+'")';
+  var fdo = (LAYOUT[cara] && LAYOUT[cara].fondo) || {};
+  var op = (fdo.opacidad!=null ? fdo.opacidad : 1);
+  var va = (fdo.velo_alpha!=null ? fdo.velo_alpha : 0);
+  var vc = fdo.velo_color || '#000000';
+  var layers = [];
+  if(va>0) layers.push('linear-gradient('+hexA(vc,va)+','+hexA(vc,va)+')');                 // velo (arriba)
+  if(op<1) layers.push('linear-gradient(rgba(255,255,255,'+(1-op)+'),rgba(255,255,255,'+(1-op)+'))'); // atenúa imagen
+  if(FONDOS[cara]) layers.push('url("'+FONDOS[cara]+'")');                                    // imagen (abajo)
+  if(layers.length){
+    host.style.backgroundImage = layers.join(',');
     host.style.backgroundPosition = 'center';
     host.style.backgroundSize = '100% 100%';      // fiel a reportlab (preserveAspectRatio=False)
     host.style.backgroundRepeat = 'no-repeat';
@@ -248,7 +280,8 @@ function renderAll(){ renderCara('frente'); renderCara('reverso'); }
 
 // ── Formularios ──────────────────────────────────────────
 function field(name,k,v){
-  var step = (k==='alpha') ? '0.05' : (k==='borde_ancho' ? '0.1' : '0.5');
+  var step = (k==='alpha'||k==='opacidad'||k==='velo_alpha') ? '0.05'
+           : (k==='borde_ancho'||k==='stroke_ancho') ? '0.1' : '0.5';
   return '<label>'+k+'<input type="number" step="'+step+'" value="'+v+'" '+
          'oninput="upd(\''+name+'\',\''+k+'\',this.value,true)" onfocus="sel(\''+name+'\')"></label>';
 }
@@ -285,6 +318,15 @@ function buildForms(){
   var bar = document.createElement('div'); bar.className = 'addbar';
   bar.innerHTML = '<button type="button" class="btn ghost" onclick="addTexto()">＋ Agregar texto libre</button>';
   cont.appendChild(bar);
+  // Tarjeta de FONDO de la cara (A1): opacidad de la imagen + velo de color.
+  var fdo = (LAYOUT[caraActual] && LAYOUT[caraActual].fondo) || {};
+  var ff = document.createElement('fieldset'); ff.className = 'elform';
+  ff.innerHTML = '<legend>Fondo · '+caraActual+' <span class="tt">imagen + velo</span></legend><div class="grid">' +
+    field('fondo','opacidad', (fdo.opacidad!=null?fdo.opacidad:1)) +
+    field('fondo','velo_alpha', (fdo.velo_alpha!=null?fdo.velo_alpha:0)) +
+    fieldColor('fondo','velo_color', fdo.velo_color||'#000000') +
+    '</div>';
+  cont.appendChild(ff);
   var capa = LAYOUT[caraActual] || {};
   for(var name in capa){
     var el = capa[name];

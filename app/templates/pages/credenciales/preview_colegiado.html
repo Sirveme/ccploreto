@@ -83,6 +83,15 @@
         {% endif %}
       </div>
 
+      <div class="card">
+        <h2>Contacto del colegiado</h2>
+        <div style="font-size:13.5px;line-height:1.9">
+          <div>📱 Celular/WhatsApp: <strong>{{ colegiado.telefono or 'sin registrar' }}</strong></div>
+          <div>✉️ Correo: <strong>{{ colegiado.email or 'sin registrar' }}</strong></div>
+        </div>
+        <p class="soon">Solo visible para el operador — no aparece en la verificación pública del carné.</p>
+      </div>
+
       <div class="card" id="acciones">
         <button class="btn gold" id="btnImprimir" onclick="imprimir()" {{ '' if puede_imprimir else 'disabled' }}>🖨️ IMPRIMIR (emite el carné)</button>
         <button class="btn ghost" id="btnCompartir" onclick="compartir()">Compartir con el colegiado</button>
@@ -150,6 +159,16 @@ async function compartir(){
     if(!r.ok){ let m='No se pudo generar el enlace'; try{ m=(await r.json()).detail||m; }catch(e){} flash(m); b.disabled=false; b.textContent=t; return; }
     const d = await r.json();
     _shareLink = d.link;
+    // Opción por DEFECTO: share sheet nativo del dispositivo (WhatsApp/correo/etc del sistema).
+    if(navigator.share){
+      try{
+        await navigator.share({ title:'Carné CCPL (muestra)',
+          text:'Revisa tu carné del CCPL — es una MUESTRA:', url:d.link });
+        b.textContent = 'Compartido ✓'; b.disabled = false;
+        return;
+      }catch(e){ /* cancelado o no permitido → cae al panel (no es error) */ }
+    }
+    // Fallback SOLO donde no hay share nativo: WhatsApp directo + copiar enlace.
     const p = document.getElementById('sharePanel');
     let html = '';
     if(d.wa_url){
@@ -159,7 +178,7 @@ async function compartir(){
     }
     html += '<button class="btn ghost" style="margin-top:9px" onclick="copiar(this)">Copiar enlace</button>';
     p.innerHTML = html; p.style.display = 'block';
-    b.textContent = 'Enlace generado ✓';
+    b.textContent = 'Opciones de envío ↓'; b.disabled = false;
   }catch(e){ flash('Error de conexión'); b.disabled=false; b.textContent=t; }
 }
 function copiar(btn){
