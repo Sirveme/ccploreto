@@ -254,6 +254,39 @@ def upload_credencial_fondo(
         return None
 
 
+def upload_asamblea_foto(
+    file_bytes: bytes,
+    content_type: str,
+    organization_id: int,
+    asamblea_id: int,
+) -> Optional[str]:
+    """
+    Sube la foto OPCIONAL de asistencia (prueba de presencia, uso interno).
+    Nombre de archivo aleatorio (uuid) → URL NO adivinable. Nunca se muestra en
+    páginas públicas. Path: {org}/asambleas/{asamblea_id}/{uuid}.{ext}
+    """
+    import uuid
+    client = _get_client()
+    if not client:
+        print("⚠️ GCS no configurado — foto de asamblea no guardada")
+        return None
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}.get(content_type, "jpg")
+    blob_path = f"{organization_id}/asambleas/{asamblea_id}/{uuid.uuid4().hex}.{ext}"
+    try:
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(file_bytes, content_type=content_type)
+        blob.cache_control = "private, max-age=0"
+        try:
+            blob.patch()
+        except Exception:
+            pass
+        return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_path}"
+    except Exception as e:
+        print(f"⚠️ GCS: Error subiendo foto de asamblea: {e}")
+        return None
+
+
 def generar_signed_url(blob_path: str, minutos: int = 5) -> Optional[str]:
     """
     Genera URL temporal para descargar documento privado.
