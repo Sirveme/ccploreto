@@ -246,19 +246,34 @@ def _fit_size(c, text, font, max_size, min_size, max_width):
 
 # ── Renderers por tipo de elemento ──────────────────────────────
 def _draw_fondo(c, el, tpl, cara):
-    """Fondo a sangre. Prioridad: PNG en disco (layout.src) → GCS del template → plano."""
-    img = _disk_image(_DIR_FONDOS, el.get("src")) if el else None
+    """Fondo a sangre. Prioridad: PNG en disco (layout.src) → GCS del template → plano.
+    Soporta 'opacidad' de la imagen (0-1) y un 'velo' de color (velo_color + velo_alpha)
+    que se pinta entre el fondo y los elementos, para asentar el texto."""
+    el = el or {}
+    img = _disk_image(_DIR_FONDOS, el.get("src")) if el.get("src") else None
     if img is None:
         img = _fetch_image(getattr(tpl, "fondo_%s_url" % cara, None))
     if img is not None:
+        opac = float(el.get("opacidad", 1.0) or 0)
+        c.saveState()
+        c.setFillAlpha(max(0.0, min(1.0, opac)))          # atenúa la imagen misma
         c.drawImage(img, 0, 0, CARD_W, CARD_H, preserveAspectRatio=False, mask="auto")
-        return
-    # Fondo plano temporal (para revisar posiciones antes de tener el fondo real)
-    c.setFillColor(FONDO_PLANO)
-    c.rect(0, 0, CARD_W, CARD_H, fill=1, stroke=0)
-    c.setStrokeColor(HexColor("#CCCCCC"))
-    c.setLineWidth(0.2 * mm)
-    c.rect(0.3 * mm, 0.3 * mm, CARD_W - 0.6 * mm, CARD_H - 0.6 * mm, fill=0, stroke=1)
+        c.restoreState()
+    else:
+        # Fondo plano temporal (para revisar posiciones antes de tener el fondo real)
+        c.setFillColor(FONDO_PLANO)
+        c.rect(0, 0, CARD_W, CARD_H, fill=1, stroke=0)
+        c.setStrokeColor(HexColor("#CCCCCC"))
+        c.setLineWidth(0.2 * mm)
+        c.rect(0.3 * mm, 0.3 * mm, CARD_W - 0.6 * mm, CARD_H - 0.6 * mm, fill=0, stroke=1)
+    # Velo/overlay de color (después del fondo, ANTES de los elementos)
+    va = float(el.get("velo_alpha", 0) or 0)
+    if va > 0:
+        c.saveState()
+        c.setFillColor(_color(el.get("velo_color"), HexColor("#000000")))
+        c.setFillAlpha(max(0.0, min(1.0, va)))
+        c.rect(0, 0, CARD_W, CARD_H, fill=1, stroke=0)
+        c.restoreState()
 
 
 def _draw_logo(c, el):
@@ -316,18 +331,43 @@ def _draw_text_element(c, el, text):
     if max_w:
         size = _fit_size(c, text, font, size, 4.5, max_w * mm)
     base = CARD_H - el["y"] * mm - size
+    # Alineación resuelta a mano (los TextObject escriben desde su x inicial).
+    tw = c.stringWidth(text, font, size)
     x = el["x"] * mm
     align = el.get("align", "left")
+    if align == "center":
+        x -= tw / 2.0
+    elif align == "right":
+        x -= tw
+
+    def _emit(px, pbase, fill_color, render_mode, stroke_color=None):
+        to = c.beginText(px, pbase)
+        to.setFont(font, size)
+        to.setFillColor(fill_color)
+        if stroke_color is not None:
+            to.setStrokeColor(stroke_color)
+        to.setTextRenderMode(render_mode)     # 0=relleno, 1=contorno, 2=relleno+contorno
+        to.textOut(text)
+        c.drawText(to)
+
     c.saveState()
     c.setFillAlpha(float(el.get("alpha", 1.0)))       # color + opacidad configurables
-    c.setFont(font, size)
-    c.setFillColor(_color(el.get("color"), AZUL_CCPL))
-    if align == "center":
-        c.drawCentredString(x, base, text)
-    elif align == "right":
-        c.drawRightString(x, base, text)
-    else:
-        c.drawString(x, base, text)
+
+    # (a) Sombra opcional (offset simple, sin blur): DETRÁS, en sombra_color.
+    sdx = float(el.get("sombra_dx", 0) or 0)
+    sdy = float(el.get("sombra_dy", 0) or 0)
+    if (sdx or sdy) and el.get("sombra_color"):
+        _emit(x + sdx * mm, base - sdy * mm, _color(el.get("sombra_color"), HexColor("#000000")), 0)
+
+    # (b) Contorno/halo (A2): stroke_ancho (mm) + stroke_color, DETRÁS del relleno.
+    sw = float(el.get("stroke_ancho", 0) or 0)
+    if sw > 0:
+        c.setLineWidth(sw * mm)
+        _emit(x, base, _color(el.get("color"), AZUL_CCPL), 1,
+              stroke_color=_color(el.get("stroke_color"), HexColor("#FFFFFF")))
+
+    # (c) Relleno encima
+    _emit(x, base, _color(el.get("color"), AZUL_CCPL), 0)
     c.restoreState()
 
 
