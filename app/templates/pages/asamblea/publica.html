@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Asistentes — {{ asamblea.titulo if asamblea else 'Asamblea' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:16px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  h1{ font-size:19px; font-weight:800; text-align:center; } h1 small{ display:block; font-size:13px; color:var(--dim); font-weight:500; margin-top:3px; }
+  .tot{ text-align:center; margin:14px 0; }
+  .tot .n{ font-size:34px; font-weight:800; color:var(--green); line-height:1; }
+  .tot .l{ font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  #filtro{ width:100%; background:var(--card2); border:1px solid var(--bd); color:var(--txt);
+           border-radius:10px; padding:12px 14px; font-size:15px; margin-bottom:12px; }
+  .card{ background:var(--card); border:1px solid var(--bd); border-radius:12px; overflow:hidden; }
+  .row{ display:flex; gap:12px; align-items:center; padding:10px 14px; border-top:1px solid var(--card2); }
+  .row:first-child{ border-top:none; }
+  .row .mat{ color:var(--gold); font-weight:800; width:92px; flex-shrink:0; }
+  .row .nom{ flex:1; }
+  .vacio{ padding:16px; color:var(--dim); text-align:center; }
+  .foot{ text-align:center; margin-top:14px; font-size:11px; color:var(--dim); }
+</style>
+</head>
+<body data-asamblea="{{ asamblea_id }}">
+<div class="wrap">
+  <h1>Asistentes registrados
+    <small>{{ asamblea.titulo if asamblea else 'Asamblea' }}{% if asamblea %} · {{ asamblea.fecha }}{% endif %}</small></h1>
+  <div class="tot"><div class="n" id="tot">0</div><div class="l">presentes</div></div>
+  <input id="filtro" type="text" placeholder="Busca tu nombre o matrícula…" oninput="pintar()">
+  <div class="card" id="lista"><div class="vacio">Cargando…</div></div>
+  <div class="foot">Actualización en vivo · solo nombre y matrícula.</div>
+</div>
+<script>
+"use strict";
+var ASAMBLEA_ID = document.body.dataset.asamblea;
+var DATA = [];
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function pintar(){
+  var q = (document.getElementById('filtro').value||'').toLowerCase().trim();
+  var rows = DATA;
+  if(q){ rows = DATA.filter(function(a){ return (a.nombre+' '+a.matricula).toLowerCase().indexOf(q)>=0; }); }
+  var el = document.getElementById('lista');
+  if(!rows.length){ el.innerHTML='<div class="vacio">'+(q?'Sin coincidencias.':'Aún no hay asistentes.')+'</div>'; return; }
+  var html='';
+  for(var i=0;i<rows.length;i++){
+    html += '<div class="row"><span class="mat">'+esc(rows[i].matricula)+'</span><span class="nom">'+esc(rows[i].nombre)+'</span></div>';
+  }
+  el.innerHTML = html;
+}
+async function cargar(){
+  if(!ASAMBLEA_ID) return;
+  try{
+    var r = await fetch('/asamblea/api/lista/'+ASAMBLEA_ID);
+    if(!r.ok) return;
+    var d = await r.json();
+    DATA = d.asistentes || [];
+    document.getElementById('tot').textContent = d.total;
+    pintar();
+  }catch(e){}
+}
+cargar();
+setInterval(cargar, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Mesa de asistencia — {{ asamblea.titulo if asamblea else 'Asamblea' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:16px; }
+  .wrap{ max-width:820px; margin:0 auto; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  h1{ font-size:19px; font-weight:800; } h1 small{ display:block; font-size:13px; color:var(--dim); font-weight:500; }
+  .counter{ background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:10px 20px; text-align:center; }
+  .counter .n{ font-size:40px; font-weight:800; color:var(--green); line-height:1; }
+  .counter .l{ font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  .tools{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  a.btn, button.btn{ background:transparent; border:1px solid var(--bd); color:var(--dim); border-radius:8px;
+       padding:8px 13px; font-size:13px; font-weight:700; text-decoration:none; cursor:pointer; }
+  .btn.prim{ background:var(--green); color:#08240f; border:none; }
+  .btn.gold{ background:var(--gold); color:#1a1a1a; border:none; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  #scan{ width:100%; background:var(--card2); border:2px solid var(--gold); color:var(--txt);
+         border-radius:12px; padding:18px 16px; font-size:22px; font-weight:700; letter-spacing:1px; }
+  .hint{ font-size:12.5px; color:var(--dim); margin:8px 2px 16px; line-height:1.5; }
+  .flash{ display:none; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:15px; font-weight:700; }
+  .flash.ok{ background:rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.4); color:#bbf7d0; }
+  .flash.dup{ background:rgba(212,175,55,.14); border:1px solid rgba(212,175,55,.4); color:#f3e2a8; }
+  .flash.bad{ background:rgba(239,68,68,.14); border:1px solid rgba(239,68,68,.4); color:#fecaca; }
+  .res{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .res .nom{ font-size:20px; font-weight:800; line-height:1.25; }
+  .res .mat{ font-size:15px; color:var(--gold); font-weight:700; margin-top:3px; }
+  .cond{ display:inline-block; margin-top:8px; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:800; }
+  .cond.h{ background:rgba(34,197,94,.15); color:#86efac; } .cond.i{ background:rgba(239,68,68,.15); color:#fca5a5; }
+  .res .acc{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .lista .row{ display:flex; gap:12px; align-items:center; padding:10px 12px; border-top:1px solid var(--card2); cursor:pointer; }
+  .lista .row:hover{ background:var(--card2); }
+  .lista .row .mat{ color:var(--gold); font-weight:800; width:90px; }
+  .fototag{ font-size:12px; color:var(--green); font-weight:700; }
+  /* Modal cámara */
+  #cam{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); align-items:center; justify-content:center; z-index:50; }
+  #cam .box{ background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:14px; max-width:420px; width:92%; }
+  #cam video{ width:100%; border-radius:10px; background:#000; }
+  .banner{ background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#fecaca; border-radius:10px; padding:14px; }
+</style>
+</head>
+<body data-asamblea="{{ asamblea.id if asamblea else '' }}">
+<div class="wrap">
+
+  <header>
+    <h1>Mesa de asistencia
+      <small>{{ asamblea.titulo if asamblea else '—' }}{% if asamblea %} · {{ asamblea.fecha }}{% endif %}</small></h1>
+    <div class="counter"><div class="n" id="cnt">{{ total }}</div><div class="l">presentes</div></div>
+  </header>
+
+  {% if not asamblea %}
+    <div class="banner">No hay una asamblea <strong>abierta</strong>. Pide a un administrador que la abra (o corre el seed en PGAdmin).</div>
+  {% else %}
+    <div class="tools">
+      <a class="btn" href="/asamblea/proyeccion/{{ asamblea.id }}" target="_blank">📽️ Proyección</a>
+      <a class="btn" href="/asamblea/publica/{{ asamblea.id }}" target="_blank">🌐 Lista pública</a>
+      <a class="btn" href="/asamblea/export/{{ asamblea.id }}.xlsx">⬇️ Excel</a>
+    </div>
+
+    <input id="scan" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+           placeholder="Escanear DNI (lector) o escribir DNI / nombre / matrícula…">
+    <p class="hint">Escanea con el lector (escribe el DNI + Enter) y busca solo. Enter con el campo vacío
+      = registrar al último encontrado. Respaldo manual: DNI, nombre/apellido o matrícula.</p>
+
+    <div class="flash" id="flash"></div>
+    <div id="res"></div>
+  {% endif %}
+</div>
+
+<!-- Modal de cámara (foto opcional/excepcional) -->
+<div id="cam">
+  <div class="box">
+    <video id="vid" playsinline autoplay muted></video>
+    <div style="display:flex; gap:10px; margin-top:12px">
+      <button class="btn gold" style="flex:1" onclick="capturar()">Capturar</button>
+      <button class="btn" onclick="cerrarCam()">Cancelar</button>
+    </div>
+  </div>
+</div>
+<input id="fileFoto" type="file" accept="image/*" capture="user" style="display:none" onchange="fileFotoChange(this)">
+<canvas id="cv" style="display:none"></canvas>
+
+<script>
+"use strict";
+var ASAMBLEA_ID = document.body.dataset.asamblea;
+var pendingId = null;      // colegiado listo para registrar
+var fotoData = null;       // dataURL de foto opcional (se envía y se limpia)
+var _stream = null;
+
+function $(id){ return document.getElementById(id); }
+function scanEl(){ return $('scan'); }
+function refocus(){ var s=scanEl(); if(s){ s.value=''; s.focus(); } }
+
+function flash(msg, cls){
+  var f=$('flash'); f.textContent=msg; f.className='flash '+cls; f.style.display='block';
+}
+
+async function buscar(q){
+  try{
+    var r = await fetch('/asamblea/api/buscar?q='+encodeURIComponent(q));
+    if(!r.ok){ var m='Error de búsqueda'; try{ m=(await r.json()).detail||m; }catch(e){} flash(m,'bad'); return; }
+    var d = await r.json();
+    var res = d.resultados || [];
+    if(res.length===0){ pendingId=null; $('res').innerHTML=''; flash('No está en el padrón: '+q, 'bad'); return; }
+    if(res.length===1){ mostrar(res[0]); return; }
+    // varios → lista para elegir
+    pendingId=null;
+    var html='<div class="res lista"><div style="font-size:13px;color:#94a3b8;padding:2px 2px 8px">'+res.length+' coincidencias — toca una:</div>';
+    res.forEach(function(c){
+      html += '<div class="row" onclick="pick('+c.id+')"><span class="mat">'+esc(c.matricula)+'</span>'+
+              '<span style="flex:1">'+esc(c.nombre)+(c.registrado?' · <span style=\"color:#f3e2a8\">✓ '+c.hora+'</span>':'')+'</span></div>';
+    });
+    html+='</div>';
+    $('res').innerHTML=html; $('flash').style.display='none';
+  }catch(e){ flash('Error de conexión','bad'); }
+}
+
+var _lastResults = {};
+function mostrar(c){
+  _lastResults[c.id]=c;
+  var cond = (['HABIL','VITALICIO'].indexOf((c.condicion||'').toUpperCase())>=0)?'h':'i';
+  var yaFoto = fotoData ? '<span class="fototag">📷 foto lista</span>' : '';
+  var acc;
+  if(c.registrado){
+    pendingId=null;
+    acc = '<div style="color:#f3e2a8;font-weight:800;font-size:16px">✓ Ya registrado a las '+c.hora+'</div>';
+  }else{
+    pendingId=c.id;
+    acc = '<button class="btn prim" onclick="registrar('+c.id+')">Registrar asistencia (Enter)</button>'+
+          '<button class="btn" onclick="abrirCam()">📷 Foto (opcional)</button> '+yaFoto;
+  }
+  $('res').innerHTML =
+    '<div class="res"><div class="nom">'+esc(c.nombre)+'</div>'+
+    '<div class="mat">Mat. '+esc(c.matricula)+'</div>'+
+    '<span class="cond '+cond+'">'+esc(c.condicion||'')+'</span>'+
+    '<div class="acc">'+acc+'</div></div>';
+  $('flash').style.display='none';
+}
+function pick(id){ if(_lastResults[id]) mostrar(_lastResults[id]); }
+
+async function registrar(id){
+  if(!id) return;
+  var body = { colegiado_id: id };
+  if(fotoData) body.foto = fotoData;
+  try{
+    var r = await fetch('/asamblea/api/registrar', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    if(!r.ok){ var m='No se pudo registrar'; try{ m=(await r.json()).detail||m; }catch(e){} flash(m,'bad'); return; }
+    var d = await r.json();
+    $('cnt').textContent = d.total;
+    if(d.status==='ok'){ flash('✓ Registrado '+d.hora+' · '+d.nombre+' (Mat. '+d.matricula+')', 'ok'); }
+    else { flash('Ya registrado a las '+(d.hora||'—')+' · '+d.nombre, 'dup'); }
+  }catch(e){ flash('Error de conexión','bad'); }
+  pendingId=null; fotoData=null; $('res').innerHTML=''; refocus();
+}
+
+// ── Cámara (foto opcional) ──
+async function abrirCam(){
+  try{
+    _stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
+    $('vid').srcObject = _stream; $('cam').style.display='flex';
+  }catch(e){ $('fileFoto').click(); }   // fallback: input capture
+}
+function cerrarCam(){
+  if(_stream){ _stream.getTracks().forEach(function(t){ t.stop(); }); _stream=null; }
+  $('cam').style.display='none';
+}
+function capturar(){
+  var v=$('vid'), cv=$('cv');
+  cv.width=v.videoWidth||640; cv.height=v.videoHeight||480;
+  cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);
+  fotoData = cv.toDataURL('image/jpeg', 0.7);
+  cerrarCam();
+  if(pendingId && _lastResults[pendingId]) mostrar(_lastResults[pendingId]);   // refresca el tag "foto lista"
+}
+function fileFotoChange(inp){
+  if(!inp.files || !inp.files[0]) return;
+  var fr=new FileReader();
+  fr.onload=function(){ fotoData=fr.result; if(pendingId && _lastResults[pendingId]) mostrar(_lastResults[pendingId]); };
+  fr.readAsDataURL(inp.files[0]); inp.value='';
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+// Enter en el campo: con texto → buscar; vacío + pendiente → registrar.
+var sc = scanEl();
+if(sc){
+  sc.addEventListener('keydown', function(ev){
+    if(ev.key!=='Enter') return;
+    ev.preventDefault();
+    var v = sc.value.trim();
+    if(v){ buscar(v); sc.value=''; }
+    else if(pendingId){ registrar(pendingId); }
+  });
+  sc.focus();
+  // Contador de respaldo (por si otra mesa registra): refresca cada 25 s.
+  if(ASAMBLEA_ID){
+    setInterval(function(){
+      fetch('/asamblea/api/estado/'+ASAMBLEA_ID).then(function(r){return r.ok?r.json():null;})
+        .then(function(d){ if(d) $('cnt').textContent=d.total; }).catch(function(){});
+    }, 25000);
+  }
+}
+</script>
+</body>
+</html>

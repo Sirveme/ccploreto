@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Proyección — {{ asamblea.titulo if asamblea else 'Asamblea' }}</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --bd:#22304a; --txt:#e2e8f0; --dim:#94a3b8;
+         --gold:#d4af37; --green:#22c55e; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif;
+        min-height:100vh; padding:3vh 3vw; }
+  .top{ text-align:center; margin-bottom:2.5vh; }
+  .top h1{ font-size:3.2vw; font-weight:800; } .top .f{ font-size:1.6vw; color:var(--dim); margin-top:.5vh; }
+  .grid{ display:flex; gap:3vw; align-items:stretch; flex-wrap:wrap; }
+  .col{ flex:1 1 380px; background:var(--card); border:1px solid var(--bd); border-radius:18px; padding:3vh 2.5vw; }
+  .col h2{ font-size:1.7vw; color:var(--gold); font-weight:800; text-transform:uppercase; letter-spacing:.1vw; margin-bottom:2vh; }
+  ol.agenda{ list-style:none; counter-reset:a; }
+  ol.agenda li{ counter-increment:a; font-size:2.1vw; font-weight:700; padding:1.4vh 0; border-bottom:1px solid #1b2740; display:flex; gap:1.4vw; }
+  ol.agenda li:last-child{ border-bottom:none; }
+  ol.agenda li::before{ content:counter(a); background:var(--gold); color:#1a1a1a; font-weight:800;
+        width:2.6vw; height:2.6vw; min-width:38px; min-height:38px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center; font-size:1.5vw; flex-shrink:0; }
+  .big{ text-align:center; display:flex; flex-direction:column; justify-content:center; }
+  .cnt{ font-size:11vw; font-weight:800; color:var(--green); line-height:1; }
+  .cnt-l{ font-size:1.8vw; color:var(--dim); text-transform:uppercase; letter-spacing:.3vw; }
+  .cd{ margin-top:4vh; }
+  .cd .lbl{ font-size:1.7vw; color:var(--gold); font-weight:800; }
+  .cd .time{ font-size:6vw; font-weight:800; color:var(--txt); line-height:1; margin-top:1vh; font-variant-numeric:tabular-nums; }
+  .cd .done{ font-size:2.4vw; font-weight:800; color:var(--green); }
+</style>
+</head>
+<body data-asamblea="{{ asamblea_id }}" data-fecha="{{ asamblea.fecha }}">
+  <div class="top">
+    <h1>{{ asamblea.titulo }}</h1>
+    <div class="f">{{ asamblea.fecha }}</div>
+  </div>
+  <div class="grid">
+    <div class="col">
+      <h2>Agenda</h2>
+      <ol class="agenda">
+        {% for punto in (asamblea.agenda or []) %}<li>{{ punto }}</li>{% endfor %}
+      </ol>
+    </div>
+    <div class="col big">
+      <div>
+        <div class="cnt" id="cnt">0</div>
+        <div class="cnt-l">colegiados presentes</div>
+      </div>
+      <div class="cd">
+        <div class="lbl" id="cd-lbl">Próximo llamado</div>
+        <div class="time" id="cd-time">--:--</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+var ASAMBLEA_ID = document.body.dataset.asamblea;
+var FECHA = document.body.dataset.fecha;   // 'YYYY-MM-DD'
+
+function targets(){
+  var p = (FECHA||'').split('-');
+  var y=+p[0], mo=+p[1]-1, dd=+p[2];
+  return [ {label:'1er llamado · 10:00', t:new Date(y,mo,dd,10,0,0)},
+           {label:'2do llamado · 10:30', t:new Date(y,mo,dd,10,30,0)} ];
+}
+function dos(n){ return (n<10?'0':'')+n; }
+function tick(){
+  var now = new Date().getTime();
+  var ts = targets(), next=null;
+  for(var i=0;i<ts.length;i++){ if(ts[i].t.getTime() > now){ next=ts[i]; break; } }
+  var lbl=document.getElementById('cd-lbl'), tm=document.getElementById('cd-time');
+  if(!next){ lbl.textContent='Llamados cumplidos'; tm.className='done'; tm.textContent='Asamblea en curso'; return; }
+  lbl.textContent = next.label;
+  var s = Math.max(0, Math.floor((next.t.getTime()-now)/1000));
+  var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  tm.className='time';
+  tm.textContent = (h>0 ? h+':' : '') + dos(m)+':'+dos(sec);
+}
+function contador(){
+  if(!ASAMBLEA_ID) return;
+  fetch('/asamblea/api/estado/'+ASAMBLEA_ID).then(function(r){return r.ok?r.json():null;})
+    .then(function(d){ if(d) document.getElementById('cnt').textContent=d.total; }).catch(function(){});
+}
+tick(); setInterval(tick, 1000);
+contador(); setInterval(contador, 7000);
+</script>
+</body>
+</html>
