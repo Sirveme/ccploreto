@@ -92,6 +92,7 @@ from app.routers.seo import router as seo_router
 
 # CARNETs PARA COLEGIADOS 
 from app.routers import credenciales
+from app.routers import asamblea
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -249,6 +250,9 @@ app.include_router(router_anulaciones)
 app.include_router(
     credenciales.router
 )
+
+# ASISTENCIA A ASAMBLEA (mesa + lista pública + proyección)
+app.include_router(asamblea.router)
 
 # ════════════════════════════════════════════════════════════════
 # PIEZA J — Blindaje de rutas para el rol junta_jdccpp.
