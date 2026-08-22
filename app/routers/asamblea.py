@@ -19,8 +19,8 @@ from app.utils.templates import templates
 
 router = APIRouter(prefix="/asamblea", tags=["Asamblea"])
 
-# Personal de mesa (Morelia entra con emisor_carnes; Anggie por su rol).
-ROLES_MESA = ("admin", "decano", "secretaria", "sote", "emisor_carnes")
+# Personal de mesa: Morelia (emisor_carnes), Anggie (cajero), + staff del Colegio.
+ROLES_MESA = ("admin", "decano", "secretaria", "sote", "emisor_carnes", "cajero")
 ROLES_CERRAR = ("admin", "decano")
 
 
@@ -42,10 +42,11 @@ def _org_id(request: Request):
 async def mesa(request: Request, db: Session = Depends(get_db),
                member: Member = Depends(require_mesa)):
     org_id = _org_id(request)
-    asamblea = svc.asamblea_abierta(db, org_id)
+    asamblea = svc.asamblea_actual(db, org_id)
     total = svc.total_asistentes(db, asamblea.id) if asamblea else 0
     return templates.TemplateResponse("pages/asamblea/mesa.html", {
         "request": request, "asamblea": asamblea, "total": total,
+        "puede_cerrar": member.role in ROLES_CERRAR,
     })
 
 
@@ -53,9 +54,11 @@ async def mesa(request: Request, db: Session = Depends(get_db),
 async def api_buscar(request: Request, q: str = "", db: Session = Depends(get_db),
                      member: Member = Depends(require_mesa)):
     org_id = _org_id(request)
-    asamblea = svc.asamblea_abierta(db, org_id)
+    asamblea = svc.asamblea_actual(db, org_id)
     if not asamblea:
-        raise HTTPException(400, "No hay una asamblea abierta")
+        raise HTTPException(400, "No hay ninguna asamblea")
+    if asamblea.estado != "abierta":
+        raise HTTPException(400, "El registro está cerrado")
     resultados = []
     for c in svc.buscar_colegiado(db, org_id, q):
         reg = svc.estado_registro(db, asamblea.id, c.id)
@@ -75,9 +78,11 @@ async def api_registrar(request: Request, body: dict = Body(default={}),
                         db: Session = Depends(get_db),
                         member: Member = Depends(require_mesa)):
     org_id = _org_id(request)
-    asamblea = svc.asamblea_abierta(db, org_id)
+    asamblea = svc.asamblea_actual(db, org_id)
     if not asamblea:
-        raise HTTPException(400, "No hay una asamblea abierta")
+        raise HTTPException(400, "No hay ninguna asamblea")
+    if asamblea.estado != "abierta":
+        raise HTTPException(400, "El registro está cerrado")
     colegiado_id = body.get("colegiado_id")
     if not colegiado_id:
         raise HTTPException(400, "Falta el colegiado")
@@ -133,6 +138,24 @@ async def api_lista(asamblea_id: int, db: Session = Depends(get_db)):
     """Lista pública: SOLO nombre + matrícula."""
     asistentes = svc.lista_publica(db, asamblea_id)
     return {"total": len(asistentes), "asistentes": asistentes}
+
+
+@router.get("/qr/{asamblea_id}.png")
+async def qr_publica(asamblea_id: int, request: Request):
+    """QR (PNG) que apunta a la lista pública, para proyectar. Alta corrección de error
+    para que sea legible a distancia."""
+    import qrcode
+    from io import BytesIO
+    url = str(request.base_url).rstrip("/") + "/asamblea/publica/" + str(asamblea_id)
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=12, border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return StreamingResponse(iter([buf.getvalue()]), media_type="image/png",
+                             headers={"Cache-Control": "no-store"})
 
 
 # ─────────────────────── PÚBLICO (sin login) ───────────────────────
