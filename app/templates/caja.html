@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Caja - CCPL</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/pages/caja.css?v={{ asset_v('css/pages/caja.css') }}">
+</head>
+<body>
+
+<!-- ═══ GEOLOCALIZACIÓN ═══ -->
+<div class="geo-block active" id="geoBlock">
+    <div class="geo-icon">📍</div>
+    <div class="geo-title" id="geoTitle">Verificando ubicación...</div>
+    <div class="geo-desc" id="geoDesc">El sistema de caja solo funciona desde las instalaciones del CCPL.</div>
+    <div class="geo-coords" id="geoCoords" style="display:none;"></div>
+    <button class="geo-retry" id="geoRetry" style="display:none;" onclick="verificarGeo()">🔄 Reintentar</button>
+</div>
+
+<!-- ═══ APERTURA DE CAJA ═══ -->
+<div class="apertura-bg" id="aperturaOverlay">
+    <div class="apertura-box">
+        <div class="ap-icon">🏦</div>
+        <h2 class="ap-title">Abrir Caja</h2>
+        <p class="ap-desc">Ingresa el monto del fondo inicial</p>
+        <div class="ap-field">
+            <label>Centro de costo</label>
+            <select id="aperturaCentro" class="ap-select"></select>
+        </div>
+        <div class="ap-field">
+            <label>Monto de apertura (S/)</label>
+            <input type="number" id="aperturaMontoInput" class="m-input" value="0" min="0" step="0.01">
+        </div>
+        <button class="btn-abrir" onclick="ejecutarApertura()">Abrir Caja</button>
+    </div>
+</div>
+
+<!-- ═══ LAYOUT PRINCIPAL ═══ -->
+<div class="caja-layout">
+
+    <!-- ═══ HEADER ═══ -->
+    <header class="caja-header">
+        <div class="header-left">
+            <span class="header-logo">CCPL</span>
+            <span class="header-title" id="headerTitle">Caja</span>
+        </div>
+        <div class="header-right">
+            <div class="header-pill sesion-indicator" id="sesionIndicator" style="display:none;">
+                <span class="sesion-dot"></span>
+                <span class="lbl">Caja:</span>
+                <span class="val" id="sesionInfo">--</span>
+            </div>
+            <div class="header-pill">
+                <span class="lbl">Hoy:</span>
+                <span class="val" id="totalDia">S/ 0</span>
+            </div>
+            <div class="header-pill">
+                <span class="lbl">Ops:</span>
+                <span class="val" id="opsDia">0</span>
+            </div>
+            <button class="hdr-btn" id="btnEgreso" onclick="cambiarTab('egresos')" style="display:none;" title="Egresos">💸</button>
+            <button class="hdr-btn" id="btnExportComprob" onclick="exportarComprobantesDia()" style="display:none;" title="Exportar comprobantes del día a Excel">📊</button>
+            <button class="hdr-btn danger" id="btnCerrar" onclick="mostrarCierreCaja()" style="display:none;" title="Cerrar caja">🔒</button>
+            <span class="header-time" id="horaActual">--:--</span>
+            <div class="hdr-menu">
+                <button class="hdr-btn" onclick="toggleMenu()" title="Opciones">☰</button>
+                <div class="hdr-menu-drop" id="headerMenu">
+                    <button class="hdr-menu-item" onclick="notificarDesdeCaja()">🔔 Notificar</button>
+                    <div class="hdr-menu-sep"></div>
+                    <button class="hdr-menu-item" onclick="abrirCorreccion()">🔧 Corrección de datos</button>
+                    <div class="hdr-menu-sep"></div>
+                    <!-- zClaude-95b: activación del Bingazo (Admin/Finanzas) -->
+                    <button class="hdr-menu-item" onclick="toggleMenu(); window.BingazoPanel && window.BingazoPanel.mostrarActivacion()">🎯 Activar Bingazo</button>
+                    <div class="hdr-menu-sep"></div>
+                    <button class="hdr-menu-item" onclick="location.href='/asamblea/mesa'">🗳️ Mesa de asamblea</button>
+                    <div class="hdr-menu-sep"></div>
+                    <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══ PANEL IZQUIERDO ═══ -->
+    <div class="panel-left">
+
+        <!-- Búsqueda -->
+        <div class="search-card">
+            <div class="search-box">
+                <span class="search-icon">⌕</span>
+                <input type="text" class="search-input" id="searchInput"
+                       placeholder="Buscar por DNI, matrícula o nombre..." autocomplete="off">
+                <span class="search-shortcut">F2</span>
+                <button id="btn-alta-rapida" class="btn-alta-rapida" type="button"
+                        title="Registrar nuevo colegiado (atajo de caja)">
+                    <span class="icon-plus">+</span> Nuevo Colegiado
+                </button>
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            <div class="col-card" id="colCard">
+                <div class="col-avatar" id="colAvatar">--</div>
+                <div class="col-info">
+                    <div class="col-name" id="colName">--</div>
+                    <div class="col-detail" id="colDetail">--</div>
+                </div>
+                <span class="badge" id="colBadge"></span>
+                <a id="linkSecretaria" href="#" target="_blank" rel="noopener"
+                   title="Ver en /secretaria"
+                   style="display:none;font-size:11px;color:#94a3b8;text-decoration:none;
+                          padding:3px 8px;border:1px solid rgba(255,255,255,.12);
+                          border-radius:6px;margin-left:6px">
+                    📋 /secretaria
+                </a>
+                <button class="col-clear" onclick="limpiarCol()">✕</button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs-bar">
+            <button class="tab active" data-t="deudas" onclick="cambiarTab('deudas')" id="tabDeudas">
+                Deudas <span class="tab-count" id="cntDeudas">0</span>
+            </button>
+            <button class="tab" data-t="catalogo" onclick="cambiarTab('catalogo')" id="tabCatalogo">
+                Catálogo <span class="tab-count" id="cntConceptos">0</span>
+            </button>
+            <button class="tab" data-t="egresos" onclick="cambiarTab('egresos')" id="tabEgresos">
+                Egresos <span class="tab-count" id="cntEgresos">0</span>
+            </button>
+            <button class="tab" data-t="historial" onclick="cambiarTab('historial')" id="tabHistorial">Historial</button>
+            <button class="tab" data-t="comprobantes" onclick="cambiarTab('comprobantes')" id="tabComprobantes">Comprobantes</button>
+            <button class="tab" data-t="generador" onclick="cambiarTab('generador')" id="tabGenerador">
+                ⚡ Generador <span class="tab-count" id="cntGenerador" style="background:#f59e0b;color:#000;display:none;"></span>
+            </button>
+        </div>
+
+        <!-- Contenido scrollable -->
+        <div class="content-scroll">
+
+            <!-- Panel Deudas -->
+            <div id="panelDeudas">
+                <div class="empty">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-title">Busca un colegiado</div>
+                    <div class="empty-desc">DNI, matrícula o nombre</div>
+                </div>
+            </div>
+
+            <!-- Panel Catálogo -->
+            <div id="panelCatalogo" style="display:none;">
+                <div class="section-box blue">
+                    <div class="sec-title blue">📦 Conceptos de cobro</div>
+                    <div class="cats-row" id="catsGrid"></div>
+                    <div id="concLista"></div>
+                </div>
+            </div>
+
+            <!-- Panel Egresos -->
+            <div id="panelEgresos" style="display:none;">
+                <div class="section-box amber">
+                    <div class="sec-title amber">💸 Registrar salida de dinero</div>
+                    <div class="egr-form-row">
+                        <div class="egr-field" style="flex:1;">
+                            <label>Monto (S/)</label>
+                            <input type="number" id="eMonto" class="egr-input mono" min="0.01" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="egr-field" style="flex:1.2;">
+                            <label>Tipo</label>
+                            <select id="eTipo" class="egr-input">
+                                <option value="gasto">Gasto / Compra</option>
+                                <option value="devolucion">Devolución a cliente</option>
+                                <option value="retiro_fondo">Retiro de fondo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="egr-field">
+                        <label>Responsable</label>
+                        <input type="text" id="eResp" class="egr-input" placeholder="Quién recibe el dinero...">
+                    </div>
+                    <div class="egr-field">
+                        <label>Concepto / Motivo</label>
+                        <input type="text" id="eConc" class="egr-input" placeholder="Compra de papel, movilidad, refrigerios...">
+                    </div>
+                    <div class="egr-field">
+                        <label>Detalle (opcional)</label>
+                        <input type="text" id="eDet" class="egr-input" placeholder="Notas adicionales...">
+                    </div>
+                    <button class="btn-reg-egr" onclick="registrarEgreso()">💸 Registrar Egreso</button>
+                </div>
+                <div class="egr-summary" id="egrSummary" style="display:none;">
+                    <div class="egr-summary-row"><span>Entregado:</span><span class="mono" id="egrTotEnt">S/ 0</span></div>
+                    <div class="egr-summary-row"><span>Facturado:</span><span class="mono" style="color:var(--green)" id="egrTotFact">S/ 0</span></div>
+                    <div class="egr-summary-row"><span>Devuelto a caja:</span><span class="mono" style="color:var(--accent)" id="egrTotDev">S/ 0</span></div>
+                    <div class="egr-summary-row" id="egrPendRow" style="display:none;"><span>⚠ Pendientes:</span><span class="mono" style="color:var(--amber)" id="egrPend">0</span></div>
+                </div>
+                <div id="egrLista"></div>
+            </div>
+
+            <!-- Panel Historial -->
+            <div id="panelHistorial" style="display:none;">
+                <div class="section-box green">
+                    <div class="sec-title green">📊 Historial de operaciones</div>
+                    <div class="flt-bar">
+                        <input type="date" id="histFecha" class="flt-input flt-date">
+                        <select id="histTipo" class="flt-input flt-select">
+                            <option value="">Todos</option>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="yape">Yape</option>
+                            <option value="plin">Plin</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="transferencia">Transfer.</option>
+                            <option value="deposito">Depósito</option>
+                        </select>
+                        <button class="flt-btn flt-btn-primary" onclick="cargarHistorial()">Buscar</button>
+                        <button class="flt-btn flt-btn-green" onclick="exportarDia()" title="Exportar Excel">📥</button>
+                    </div>
+                    <div class="strip-summary" id="histSummary"></div>
+                    <div id="histLista">
+                        <div class="hist-empty">Selecciona una fecha y presiona Buscar</div>
+                    </div>
+                </div>
+                <a href="#" onclick="verSesionesAnteriores();return false;"
+                   style="font-size:11px;color:var(--text-sec);text-decoration:none;opacity:0.7;">
+                    📋 Ver cierres anteriores
+                </a>
+            </div>
+
+            <!-- Panel Comprobantes -->
+            <div class="tab-content" id="panelComprobantes" style="display:none;">
+                <div class="panel-box">
+                    <div class="sec-title" style="color:var(--purple);">📄 Comprobantes emitidos</div>
+                    <div class="flt-bar">
+                        <input type="text" id="compBuscar" class="flt-input" style="flex:1;min-width:0;"
+                               placeholder="DNI, nombre, serie..."
+                               onkeydown="if(event.key==='Enter')buscarComprobantes()">
+                        <select id="compTipo" class="flt-input flt-select">
+                            <option value="">Tipo</option>
+                            <option value="03">Boleta</option>
+                            <option value="01">Factura</option>
+                            <option value="07">NC</option>
+                        </select>
+                        <select id="compEstado" class="flt-input flt-select">
+                            <option value="">Estado</option>
+                            <option value="accepted">Aceptado</option>
+                            <option value="pending">Pendiente</option>
+                            <option value="rejected">Rechazado</option>
+                            <option value="anulado">Anulado</option>
+                        </select>
+                        <button class="flt-btn flt-btn-primary" onclick="buscarComprobantes()">🔍</button>
+                    </div>
+                    <div id="compSummary" class="strip-info"></div>
+                    <div id="compLista">
+                        <div class="hist-empty">Busca comprobantes por DNI, nombre o número</div>
+                    </div>
+                    <div id="compPaginacion" style="display:flex;justify-content:center;gap:6px;margin-top:10px;"></div>
+                </div>
+            </div>
+
+
+            <!-- Panel Generador de Deudas -->
+            <div id="panelGenerador" style="display:none;">
+
+                <!-- Fraccionamientos en riesgo -->
+                <div class="section-box" style="border-color:rgba(245,158,11,.3);margin-bottom:10px;">
+                    <div class="sec-title" style="color:#f59e0b;">⚠️ Fraccionamientos en riesgo</div>
+                    <div id="fraccResumen" style="font-size:12px;color:#888;padding:8px 0;">Cargando...</div>
+                    <div id="fraccDetalle" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;"></div>
+                </div>
+            
+                <!-- Generador de Cuotas Ordinarias -->
+                <div class="section-box" style="border-color:rgba(99,102,241,.3);margin-bottom:10px;">
+                    <div class="sec-title" style="color:#818cf8;">📅 Cuotas Ordinarias</div>
+            
+                    <!-- Selectores -->
+                    <div style="display:flex;gap:8px;margin:8px 0;">
+                        <select id="genMes" class="flt-input flt-select" style="flex:2;"
+                                onchange="consultarEstadoMes()">
+                            <option value="">-- Seleccionar mes --</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                        <select id="genAnio" class="flt-input flt-select" style="flex:1;"
+                                onchange="consultarEstadoMes()">
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                        </select>
+                    </div>
+            
+                    <!-- Estado del mes (se carga al seleccionar) -->
+                    <div id="genEstadoMes" style="display:none;margin-bottom:10px;">
+                        <div id="genEstadoIndicador" style="font-size:12px;padding:8px 10px;
+                            border-radius:8px;margin-bottom:8px;"></div>
+                        <div id="genLotesLista" style="display:flex;flex-direction:column;gap:6px;"></div>
+                    </div>
+            
+                    <!-- Resultado de operación -->
+                    <div id="genOrdResultado" style="font-size:12px;color:#888;min-height:20px;margin-bottom:8px;"></div>
+            
+                    <!-- Botones -->
+                    <div style="display:flex;gap:8px;">
+                        <button id="btnGenerar" class="btn-reg-egr"
+                                style="flex:1;background:#818cf8;padding:10px;opacity:.4;cursor:not-allowed;"
+                                disabled onclick="generarCuotasOrdinarias()">
+                            ⚡ Generar
+                        </button>
+                        <button id="btnRevertir" class="btn-reg-egr"
+                                style="flex:1;background:rgba(239,68,68,.15);color:#ef4444;
+                                    border:1px solid rgba(239,68,68,.3);padding:10px;
+                                    opacity:.4;cursor:not-allowed;"
+                                disabled onclick="mostrarPanelRevertir()">
+                            ↩ Revertir
+                        </button>
+                    </div>
+                </div>
+            
+                <!-- Panel Revertir (oculto por defecto) -->
+                <div id="rollbackPanel" style="display:none;margin-bottom:10px;">
+                    <div class="section-box" style="border-color:rgba(239,68,68,.3);">
+                        <div class="sec-title" style="color:#ef4444;">↩ Revertir Lote</div>
+                        <div id="rollbackLotesOpciones" style="margin-bottom:8px;"></div>
+                        <input type="hidden" id="rollbackLoteId">
+                        <input type="text" id="rollbackMotivo" class="egr-input"
+                            placeholder="Motivo de reversión (obligatorio)" style="margin-bottom:8px;">
+                        <div id="rollbackResultado" style="font-size:12px;min-height:20px;margin-bottom:8px;"></div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-reg-egr" style="flex:1;background:#ef4444;"
+                                    onclick="ejecutarRollback()">
+                                🗑 Confirmar reversión
+                            </button>
+                            <button class="btn-reg-egr"
+                                    style="flex:1;background:rgba(255,255,255,.06);color:#888;"
+                                    onclick="document.getElementById('rollbackPanel').style.display='none'">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generar cuotas fraccionamiento -->
+                <div class="section-box" style="border-color:rgba(34,197,94,.2);">
+                    <div class="sec-title" style="color:#22c55e;">🔄 Cuotas Fraccionamiento</div>
+                    <p style="font-size:11px;color:#888;margin:4px 0 10px;">
+                        Genera deudas por cuotas vencidas no pagadas de todos los fraccionamientos activos.
+                    </p>
+                    <div id="genFraccResultado" style="font-size:12px;color:#888;min-height:20px;"></div>
+                    <button class="btn-reg-egr" style="width:100%;background:#22c55e;color:#000;margin-top:8px;"
+                            onclick="generarCuotasFraccionamiento()">
+                        ⚡ Generar Deudas Fraccionamiento
+                    </button>
+                </div>
+
+                <!-- Rollback (oculto por defecto) -->
+                <div id="rollbackPanel" style="display:none;margin-top:10px;">
+                    <div class="section-box" style="border-color:rgba(239,68,68,.3);">
+                        <div class="sec-title" style="color:#ef4444;">↩ Revertir Lote</div>
+                        <input type="text" id="rollbackLoteId" class="egr-input" 
+                            placeholder="GEN-ORD-202601-123456" style="margin:8px 0;">
+                        <input type="text" id="rollbackMotivo" class="egr-input" 
+                            placeholder="Motivo de reversión (obligatorio)">
+                        <div id="rollbackResultado" style="font-size:12px;min-height:20px;margin-top:6px;"></div>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <button class="btn-reg-egr" style="flex:1;background:#ef4444;"
+                                    onclick="ejecutarRollback()">
+                                🗑 Revertir
+                            </button>
+                            <button class="btn-reg-egr" style="flex:1;background:rgba(255,255,255,.06);color:#888;"
+                                    onclick="document.getElementById('rollbackPanel').style.display='none'">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div><!-- /content-scroll -->
+    </div><!-- /panel-left -->
+
+    <!-- ═══ CARRITO (panel derecho) ═══ -->
+    <div class="panel-right" id="panelRight">
+        <button class="cart-close-btn" id="cartCloseBtn" onclick="toggleCart()">✕</button>
+        <div class="cart-head">
+            <div class="cart-head-title">🧾 Cobro actual <span class="cart-head-badge" id="cartCnt">0</span></div>
+        </div>
+        <div class="cart-body" id="cartBody">
+            <div class="cart-empty">
+                <div class="cart-empty-icon">🛒</div>
+                Selecciona deudas o conceptos<br>para agregar al cobro
+            </div>
+        </div>
+        <div class="cart-foot">
+            <div class="cart-total-row">
+                <span class="cart-total-lbl">TOTAL</span>
+                <span class="cart-total-val"><span class="cart-total-cur">S/</span><span id="cartTot">0.00</span></span>
+            </div>
+            <div class="metodos-grid">
+                <button class="m-btn active" onclick="setMetodo('efectivo')" data-m="efectivo"><span class="m-icon">💵</span>Efectivo</button>
+                <button class="m-btn" onclick="setMetodo('yape')" data-m="yape"><span class="m-icon">📱</span>Yape</button>
+                <button class="m-btn" onclick="setMetodo('plin')" data-m="plin"><span class="m-icon">📱</span>Plin</button>
+                <button class="m-btn" onclick="setMetodo('tarjeta')" data-m="tarjeta"><span class="m-icon">💳</span>Tarjeta</button>
+                <button class="m-btn" onclick="setMetodo('transferencia')" data-m="transferencia"><span class="m-icon">🏦</span>Transfer.</button>
+                <button class="m-btn" onclick="setMetodo('deposito')" data-m="deposito"><span class="m-icon">🧾</span>Depósito</button>
+            </div>
+            <input type="text" class="ref-input" id="refInput" placeholder="Nro. de operación / voucher">
+            <div class="ref-required-hint" id="refHint">⚠ N° de operación obligatorio</div>
+            <!-- Pago mixto: varios medios en una operación (una boleta por el total) -->
+            <div class="mixto-wrap" style="margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#94a3b8;">
+                <input type="checkbox" id="mixtoToggle" onchange="toggleMixto()" style="width:16px;height:16px;cursor:pointer;">
+                Pago con varios medios (mixto)
+              </label>
+              <div id="mixtoEditor" style="display:none;margin-top:8px;">
+                <div id="mixtoRows"></div>
+                <button type="button" onclick="mixtoAgregarFila()"
+                        style="margin-top:6px;padding:6px 10px;border:1px dashed #334155;background:transparent;color:#60a5fa;border-radius:6px;cursor:pointer;font-size:12px;">+ agregar medio</button>
+                <div id="mixtoResumen" style="margin-top:6px;font-size:12px;color:#94a3b8;">Asignado S/ 0.00 / Total S/ 0.00</div>
+              </div>
+            </div>
+            <div class="comp-row">
+                <button class="comp-btn active" onclick="setComp('03')" data-c="03">Boleta</button>
+                <button class="comp-btn" onclick="setComp('01')" data-c="01">Factura</button>
+            </div>
+            <div class="factura-fields" id="facturaFields">
+                <div class="ff-row">
+                    <div class="ff-label">RUC</div>
+                    <div class="ff-ruc-row">
+                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="this.value=this.value.replace(/\D/g,'')">
+                        <button class="ff-ruc-btn" id="ffBuscarRuc" onclick="buscarRuc()">🔍 Buscar</button>
+                    </div>
+                </div>
+                <div class="ff-row">
+                    <div class="ff-label">Razón Social</div>
+                    <input type="text" class="ff-input" id="ffRazonSocial" placeholder="Nombre o Razón Social">
+                </div>
+                <div class="ff-row">
+                    <div class="ff-label">Dirección Fiscal</div>
+                    <input type="text" class="ff-input" id="ffDireccion" placeholder="Dirección (opcional)">
+                </div>
+            </div>
+            <div class="pago-row">
+                <button class="pago-btn active" onclick="setFormaPago('contado')" data-fp="contado">💵 Contado</button>
+                <button class="pago-btn" onclick="setFormaPago('credito')" data-fp="credito">📅 Crédito</button>
+            </div>
+            <button class="btn-cobrar" id="btnCobrar" disabled onclick="confirmarCobro()">
+                COBRAR <span class="cobrar-monto" id="btnMonto">S/ 0.00</span>
+            </button>
+        </div>
+    </div>
+
+</div><!-- /caja-layout -->
+
+<!-- MOBILE FAB -->
+<button class="cart-fab" id="cartFab" onclick="toggleCart()">
+    🛒 <span class="fab-badge" id="fabBadge" style="display:none;">0</span>
+</button>
+
+<!-- ═══ MODALES ═══ -->
+
+<!-- Modal Confirmar Cobro -->
+<div class="modal-bg" id="modalConfirm">
+    <div class="modal-box">
+        <div class="modal-title">Confirmar cobro</div>
+        <div class="modal-sub">¿Confirmar el siguiente cobro?</div>
+        <div class="modal-total" id="mTotal">S/ 0.00</div>
+        <div class="modal-detail" id="mDetail"></div>
+
+        <!-- zClaude-98a: datos del cliente para boleta a Público general (solo boleta sin colegiado) -->
+        <div id="caja-publico-datos"
+             style="margin-top: 12px; padding: 14px; background: rgba(59,130,246,0.08);
+                    border-left: 3px solid #3b82f6; border-radius: 6px; display: none;">
+          <div style="font-size: 11px; font-weight: 600; color: #3b82f6;
+                      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+            📋 Datos del cliente (para boleta)
+          </div>
+          <div style="display: grid; gap: 8px; grid-template-columns: 1fr 2fr;">
+            <div>
+              <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">DNI</label>
+              <input type="text" id="caja-publico-dni" value="99999999" maxlength="8" inputmode="numeric"
+                     oninput="cajaPublicoDniInput(this)"
+                     style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
+                            border: 1px solid #334155; color: #e2e8f0; font-family: monospace; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Apellidos y Nombres</label>
+              <input type="text" id="caja-publico-nombres" value="VARIOS" maxlength="100"
+                     oninput="cajaPublicoNombresInput(this)"
+                     style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
+                            border: 1px solid #334155; color: #e2e8f0; font-size: 14px;">
+            </div>
+          </div>
+          <div id="caja-publico-error" style="font-size: 11px; color: #ef4444; margin-top: 6px; display: none;"></div>
+        </div>
+
+        <div class="modal-observacion" style="margin: 12px 0;">
+            <label for="inputObservacion" style="display:block; font-size:13px; color:#94a3b8; margin-bottom:4px;">
+                Descripción / detalle (opcional, aparece en el comprobante):
+            </label>
+            <textarea id="inputObservacion" maxlength="200" rows="2"
+                      placeholder="Ej: equipo del campeonato, detalle del pago…"
+                      style="width:100%; padding:8px; border-radius:6px; background:#0f172a; color:#e2e8f0; border:1px solid #334155; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+            <div style="font-size:11px; color:#64748b; text-align:right; margin-top:2px;">
+                <span id="obsCounter">0</span>/200
+            </div>
+        </div>
+        <div class="modal-btns">
+            <button class="mbtn mbtn-cancel" onclick="cerrarModal()">Cancelar</button>
+            <button class="mbtn mbtn-preview" id="mbtnPreview" onclick="solicitarPreview()" type="button">🔍 Vista previa</button>
+            <button class="mbtn mbtn-ok" onclick="ejecutarCobro()">✅ Confirmar y emitir</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cierre de Caja -->
+<div class="modal-bg" id="modalCierre">
+    <div class="modal-box" style="width:440px;">
+        <div class="modal-title">🔒 Cierre de Caja</div>
+        <div class="cierre-box" id="cierreResumen"></div>
+        <div class="c-field">
+            <label>¿Cuánto dinero hay en caja? (S/)</label>
+            <input type="number" id="cierreMontoInput" class="m-input" min="0" step="0.01" placeholder="0.00" oninput="calcDiff()">
+        </div>
+        <div class="c-diff" id="cierreDiff" style="display:none;"></div>
+        <div class="c-field" id="cierreObsCont" style="display:none;">
+            <label>Observaciones (obligatorio si dif. > S/ 50)</label>
+            <textarea id="cierreObsInput" class="m-textarea" rows="2" placeholder="Explicar..."></textarea>
+        </div>
+        <div class="modal-btns">
+            <button class="mbtn mbtn-cancel" onclick="cerrarModalCierre()">Cancelar</button>
+            <button class="mbtn mbtn-ok" onclick="ejecutarCierre()">🔒 Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Liquidar Egreso -->
+<div class="modal-bg" id="modalLiquidar">
+    <div class="modal-box" style="width:400px;">
+        <div class="modal-title">📄 Liquidar Egreso</div>
+        <div class="modal-sub" id="liqInfo">--</div>
+        <div class="c-field">
+            <label>Monto de la factura/boleta (S/)</label>
+            <input type="number" id="liqFactura" class="m-input" min="0" step="0.01" placeholder="0.00" oninput="calcVuelto()">
+        </div>
+        <div class="c-diff" id="liqVuelto" style="display:none;"></div>
+        <div class="c-field">
+            <label>Nro. factura/boleta (opcional)</label>
+            <input type="text" id="liqNroDoc" class="egr-input" placeholder="B001-00001234">
+        </div>
+        <input type="hidden" id="liqId">
+        <input type="hidden" id="liqOriginal">
+        <div class="modal-btns">
+            <button class="mbtn mbtn-cancel" onclick="cerrarModalLiq()">Cancelar</button>
+            <button class="mbtn mbtn-ok" onclick="ejecutarLiq()">✓ Liquidar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Anular Cobro -->
+<div class="modal-bg" id="modalAnular">
+    <div class="modal-box" style="width:420px;">
+        <div class="modal-title" style="color:var(--red);">⚠️ Anular cobro</div>
+        <div class="modal-sub" id="anularInfo">--</div>
+        <div class="c-field">
+            <label>Motivo de anulación</label>
+            <select id="anularMotivo" class="ap-select" onchange="toggleMontoParcial()">
+                <option value="01">Anulación de la operación</option>
+                <option value="02">Anulación por error en RUC</option>
+                <option value="03">Corrección por error en descripción</option>
+                <option value="04">Descuento global</option>
+                <option value="05">Descuento por ítem</option>
+                <option value="06">Devolución total</option>
+                <option value="07">Devolución parcial</option>
+            </select>
+        </div>
+        <div class="c-field" id="anularMontoCont" style="display:none;">
+            <label>Monto a devolver (S/)</label>
+            <input type="number" id="anularMonto" class="m-input" min="0.01" step="0.01" placeholder="0.00">
+        </div>
+        <div class="c-field">
+            <label>Observaciones (opcional)</label>
+            <input type="text" id="anularObs" class="egr-input" placeholder="Detalle adicional...">
+        </div>
+        <div class="c-field" id="anularMotivoInternoCont">
+            <label>Argumento para el Administrador (sustento de la solicitud)</label>
+            <textarea id="anularMotivoInterno" class="egr-input" rows="2" placeholder="Explica por qué se solicita anular este comprobante..."></textarea>
+        </div>
+        <input type="hidden" id="anularPayId">
+        <input type="hidden" id="anularTotal">
+        <div id="anularWarn" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:10px;margin:10px 0;font-size:12px;color:var(--red);">
+            ⚠ Esta acción emitirá una Nota de Crédito ante SUNAT y revertirá las deudas del colegiado. No se puede deshacer.
+        </div>
+        <div class="modal-btns">
+            <button class="mbtn mbtn-cancel" onclick="cerrarModalAnular()">Cancelar</button>
+            <button class="mbtn" id="btnSolicitarAnul" style="background:#b45309;color:#fff;" onclick="solicitarAnulacion()">📩 Solicitar anulación</button>
+            <button class="mbtn mbtn-ok" id="btnEmitirAnul" style="background:var(--red);" onclick="ejecutarAnulacion()">🗑 Emitir directo</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cierre Exitoso -->
+<div id="modalCierreExitoso" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+    <div style="background:var(--surface, var(--bg-elevated));border:1px solid var(--border);border-radius:14px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:40px;margin-bottom:8px;">✅</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text);">Caja Cerrada</div>
+        </div>
+        <div id="cierreResumenBox" style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.8;"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="descargarPDFCierre()" style="flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:filter 0.15s;" onmouseenter="this.style.filter='brightness(1.15)'" onmouseleave="this.style.filter=''">
+                📄 Descargar PDF
+            </button>
+            <button onclick="exportarComprobantesDia()" style="flex:1;padding:12px;background:#166534;color:#dcfce7;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                📊 Comprobantes del día (Excel)
+            </button>
+            <button onclick="cerrarModalCierreExitoso()" style="padding:12px 20px;background:transparent;color:var(--text-sec, var(--text-dim));border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay Cobro Exitoso -->
+<div class="success-bg" id="successBg">
+    <div class="success-box">
+        <div class="success-check">✓</div>
+        <div class="success-title">¡Cobro registrado!</div>
+        <div class="success-amt" id="successAmt">S/ 0</div>
+        <div class="success-ref" id="successRef"></div>
+        <div class="success-comprobante" id="successComp">
+            <div class="success-comp-numero" id="successCompNum"></div>
+            <div class="success-comp-loading" id="successCompLoading">
+                <span class="spin"></span> Generando comprobante...
+            </div>
+            <div class="success-actions" id="successActions" style="display:none;">
+                <a class="success-action-btn primary" id="successCompPdf" href="#" target="_blank">📄 Ver PDF</a>
+                <button class="success-action-btn secondary" id="successShareBtn" onclick="compartirComprobante()">📤 Compartir</button>
+            </div>
+            <div class="success-comp-error" id="successCompErr"></div>
+        </div>
+        <div class="success-close-hint" id="successCloseHint">Toca en cualquier lugar para cerrar</div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-box" id="toastBox"></div>
+
+<!-- Badge verificación bancaria -->
+<div id="verifBadge" style="display:none;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;margin:8px 12px;font-size:13px;transition:all 0.3s ease;">
+    <span id="verifIcon" style="font-size:18px;">🔍</span>
+    <span id="verifText" style="flex:1;">Verificando...</span>
+    <span id="verifTimer" style="font-size:11px;color:var(--text-sec, var(--text-dim));"></span>
+</div>
+
+
+<!-- OVERLAY CORRECCIÓN DE DATOS -->
+<div id="overlayCorreccion" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.85);z-index:3000;
+  overflow-y:auto;padding:20px;">
+ 
+  <div style="
+    max-width:900px;margin:0 auto;
+    background:var(--surface,#1a1a2e);
+    border:1px solid var(--border,#2a2a3a);
+    border-radius:12px;overflow:hidden">
+ 
+    <!-- Header -->
+    <div style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px;
+      background:rgba(245,158,11,.08);
+      border-bottom:1px solid rgba(245,158,11,.2)">
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#f59e0b">
+          🔧 Corrección de Datos — Pre Producción
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:2px">
+          Solo registros anteriores al 31/03/2026 · Cada cambio queda en log de auditoría
+        </div>
+      </div>
+      <button onclick="cerrarCorreccion()" style="
+        background:none;border:none;color:#888;
+        font-size:20px;cursor:pointer">✕</button>
+    </div>
+ 
+    <!-- Tabs de tipo -->
+    <div style="
+      display:flex;gap:0;
+      border-bottom:1px solid var(--border,#2a2a3a);
+      padding:0 16px;background:rgba(0,0,0,.2)">
+      <button class="corr-tab active" data-tipo="inhabil_sin_deuda"
+              onclick="corrCambiarTipo('inhabil_sin_deuda',this)"
+              style="padding:10px 14px;background:none;border:none;
+                     border-bottom:2px solid #f59e0b;color:#f59e0b;
+                     font-size:12px;font-weight:600;cursor:pointer">
+        Inhábil sin deudas
+        <span id="corr-cnt-inhabil" style="
+          background:rgba(245,158,11,.2);border-radius:10px;
+          padding:1px 6px;margin-left:4px;font-size:10px">—</span>
+      </button>
+      <button class="corr-tab" data-tipo="habil_con_deuda_alta"
+              onclick="corrCambiarTipo('habil_con_deuda_alta',this)"
+              style="padding:10px 14px;background:none;border:none;
+                     border-bottom:2px solid transparent;color:#888;
+                     font-size:12px;font-weight:600;cursor:pointer">
+        Hábil con deuda alta
+        <span id="corr-cnt-habil" style="
+          background:rgba(255,255,255,.05);border-radius:10px;
+          padding:1px 6px;margin-left:4px;font-size:10px">—</span>
+      </button>
+      <button class="corr-tab" data-tipo="mixto"
+              onclick="corrCambiarTipo('mixto',this)"
+              style="padding:10px 14px;background:none;border:none;
+                     border-bottom:2px solid transparent;color:#888;
+                     font-size:12px;font-weight:600;cursor:pointer">
+        Mezcla condonadas/vigentes
+        <span id="corr-cnt-mixto" style="
+          background:rgba(255,255,255,.05);border-radius:10px;
+          padding:1px 6px;margin-left:4px;font-size:10px">—</span>
+      </button>
+      <button class="corr-tab" data-tipo="log"
+              onclick="corrCambiarTipo('log',this)"
+              style="padding:10px 14px;background:none;border:none;
+                     border-bottom:2px solid transparent;color:#888;
+                     font-size:12px;font-weight:600;cursor:pointer">
+        📋 Log de cambios
+      </button>
+    </div>
+ 
+    <!-- Lista de casos -->
+    <div id="corr-lista" style="padding:16px;min-height:200px">
+      <div style="text-align:center;color:#888;padding:40px;font-size:13px">
+        Cargando casos...
+      </div>
+    </div>
+ 
+    <!-- Paginación -->
+    <div id="corr-paginacion" style="
+      display:flex;justify-content:center;gap:8px;
+      padding:12px;border-top:1px solid var(--border,#2a2a3a)">
+    </div>
+ 
+  </div>
+</div>
+ 
+<!-- MODAL EDITAR COLEGIADO -->
+<div id="modalCorrEdit" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.75);z-index:4000;
+  display:none;align-items:center;justify-content:center;padding:20px">
+ 
+  <div style="
+    width:min(600px,96vw);
+    background:var(--surface,#1a1a2e);
+    border:1px solid var(--border,#2a2a3a);
+    border-radius:12px;overflow:hidden;
+    max-height:90vh;overflow-y:auto">
+ 
+    <!-- Header modal -->
+    <div style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--border,#2a2a3a)">
+      <div>
+        <div id="corr-edit-nombre" style="font-weight:700;font-size:14px"></div>
+        <div id="corr-edit-matricula" style="font-size:11px;color:#888"></div>
+      </div>
+      <button onclick="cerrarModalCorrEdit()" style="
+        background:none;border:none;color:#888;font-size:18px;cursor:pointer">✕</button>
+    </div>
+ 
+    <!-- Condición -->
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border,#2a2a3a)">
+      <label style="
+        font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+        color:#888;font-weight:600;display:block;margin-bottom:8px">
+        Condición del colegiado
+      </label>
+      <div style="display:flex;gap:8px">
+        <button class="corr-cond-btn" data-val="habil"
+                onclick="corrSelCond('habil',this)"
+                style="flex:1;padding:10px;border-radius:8px;font-size:13px;
+                       font-weight:600;cursor:pointer;transition:all .15s;
+                       background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);
+                       color:#22c55e">
+          ✅ Hábil
+        </button>
+        <button class="corr-cond-btn" data-val="inhabil"
+                onclick="corrSelCond('inhabil',this)"
+                style="flex:1;padding:10px;border-radius:8px;font-size:13px;
+                       font-weight:600;cursor:pointer;transition:all .15s;
+                       background:rgba(255,255,255,.03);border:1px solid var(--border,#2a2a3a);
+                       color:#888">
+          ⛔ Inhábil
+        </button>
+        <button class="corr-cond-btn" data-val="vitalicio"
+                onclick="corrSelCond('vitalicio',this)"
+                style="flex:1;padding:10px;border-radius:8px;font-size:13px;
+                       font-weight:600;cursor:pointer;transition:all .15s;
+                       background:rgba(255,255,255,.03);border:1px solid var(--border,#2a2a3a);
+                       color:#888">
+          🏅 Vitalicio
+        </button>
+        <button class="corr-cond-btn" data-val="fallecido"
+                onclick="corrSelCond('fallecido',this)"
+                style="flex:1;padding:10px;border-radius:8px;font-size:13px;
+                       font-weight:600;cursor:pointer;transition:all .15s;
+                       background:rgba(255,255,255,.03);border:1px solid var(--border,#2a2a3a);
+                       color:#888">
+          🕊 Fallecido
+        </button>
+      </div>
+    </div>
+ 
+    <!-- Lista de deudas corregibles -->
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border,#2a2a3a)">
+      <label style="
+        font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+        color:#888;font-weight:600;display:block;margin-bottom:8px">
+        Deudas (anteriores al 01/04/2026)
+      </label>
+      <div id="corr-deudas-lista" style="
+        max-height:280px;overflow-y:auto;
+        display:flex;flex-direction:column;gap:4px">
+        <div style="color:#888;font-size:12px;text-align:center;padding:20px">
+          Cargando deudas...
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Motivo obligatorio -->
+    <div style="padding:16px 18px;border-bottom:1px solid var(--border,#2a2a3a)">
+      <label style="
+        font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+        color:#f59e0b;font-weight:600;display:block;margin-bottom:6px">
+        Motivo de corrección * (obligatorio)
+      </label>
+      <textarea id="corr-motivo" rows="2"
+                placeholder="Ej: Colegiado al día según Excel, error en carga inicial..."
+                style="width:100%;background:var(--bg,#12121f);
+                       border:1px solid var(--border,#2a2a3a);
+                       color:#eee;border-radius:8px;padding:10px;
+                       font-size:13px;resize:vertical;box-sizing:border-box">
+      </textarea>
+    </div>
+ 
+    <!-- Botones -->
+    <div style="padding:14px 18px;display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="cerrarModalCorrEdit()" style="
+        padding:10px 20px;background:transparent;
+        border:1px solid var(--border,#2a2a3a);color:#888;
+        border-radius:8px;cursor:pointer;font-size:13px">
+        Cancelar
+      </button>
+      <button onclick="corrGuardar()" style="
+        padding:10px 24px;background:#f59e0b;color:#000;
+        border:none;border-radius:8px;font-weight:700;
+        font-size:13px;cursor:pointer">
+        💾 Guardar corrección
+      </button>
+    </div>
+ 
+    <input type="hidden" id="corr-edit-id">
+    <input type="hidden" id="corr-edit-cond-actual">
+    <input type="hidden" id="corr-edit-cond-nueva">
+ 
+  </div>
+</div>
+
+<!-- zClaude-78a: Modal de Alta Rápida de Colegiado -->
+<div id="modal-alta-rapida">
+  <div class="modal-backdrop" data-action="cerrar-alta"></div>
+  <div class="modal-alta-dialog" role="dialog" aria-modal="true">
+    <header class="modal-header">
+      <h3>+ Nuevo Colegiado</h3>
+      <button type="button" class="modal-close" data-action="cerrar-alta" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal-body">
+      <p class="alta-hint">
+        Registro inmediato. La matrícula se asigna automáticamente al guardar.
+        Para datos adicionales (foto, estudios, dirección), completar luego en el módulo de Alta.
+      </p>
+
+      <div class="alta-info-box" id="alta-info-box">
+        <div class="alta-info-loading">Cargando información…</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label>DNI *</label>
+          <div class="dni-wrap">
+            <input type="text" id="alta-dni" maxlength="8" inputmode="numeric"
+                   autocomplete="off" placeholder="8 dígitos">
+            <button type="button" id="alta-btn-reniec" class="btn-mini"
+                    title="Consultar RENIEC">Consultar</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Apellidos y nombres *</label>
+          <input type="text" id="alta-apenom" maxlength="300"
+                 style="text-transform:uppercase;"
+                 placeholder="PEREZ GARCIA, JUAN CARLOS">
+        </div>
+
+        <div class="form-row">
+          <label>WhatsApp *</label>
+          <input type="text" id="alta-whatsapp" maxlength="9"
+                 inputmode="numeric" placeholder="9XXXXXXXX">
+        </div>
+
+        <div class="form-row">
+          <label>Email *</label>
+          <input type="email" id="alta-email" maxlength="120"
+                 style="text-transform:lowercase;" placeholder="correo@dominio.com">
+        </div>
+
+        <!-- zClaude-97f: marca opcional de transeúnte -->
+        <div class="form-row" style="grid-column:1/-1;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:8px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600">
+            <input type="checkbox" id="alta-es-transeunte"
+                   style="width:18px;height:18px;cursor:pointer">
+            <span>Es transeúnte</span>
+            <span style="font-size:11px;color:#94a3b8;font-weight:400">
+              (contador que permanecerá en la ciudad por tiempo determinado)
+            </span>
+          </label>
+        </div>
+        <div class="form-row" id="alta-transeunte-fecha-wrap" style="display:none">
+          <label>Fecha estimada de partida <span style="color:#94a3b8;font-weight:400">(opcional)</span></label>
+          <input type="date" id="alta-fecha-fin-transeunte"
+                 style="padding:8px 12px;background:#1f2937;border:1px solid #374151;color:#fff;border-radius:6px">
+          <small style="color:#94a3b8;font-size:11px;margin-top:4px;display:block">
+            Si no sabes cuándo se irá, déjalo en blanco. Puede actualizarse después desde /secretaria.
+          </small>
+        </div>
+
+      </div>
+
+      <div id="alta-mensaje" class="alta-mensaje"></div>
+    </div>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-action="cerrar-alta">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="btn-confirmar-alta" disabled>
+        Registrar y seleccionar
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Scripts -->
+<!-- Flag de permiso NC (la JS estática no renderiza Jinja; se inyecta aquí). -->
+<script>window.CAJA_PUEDE_NC = {{ 'true' if puede_emitir_nc else 'false' }};</script>
+<script src="/static/js/pages/caja.js?v={{ asset_v('js/pages/caja.js') }}"></script>
+<script src="/static/js/pages/caja_correccion.js?v={{ asset_v('js/pages/caja_correccion.js') }}"></script>
+<!-- zClaude-95: módulo Bingazo. Expone window.BingazoPanel.
+     Wiring: BingazoPanel.montarFicha(colegiadoId, contenedor) en la ficha del
+     colegiado; BingazoPanel.mostrarActivacion() en el botón "Activar Bingazo". -->
+<script src="/static/js/sites/bingazo_panel.js?v={{ asset_v('js/sites/bingazo_panel.js') }}"></script>
+</body>
+</html>
