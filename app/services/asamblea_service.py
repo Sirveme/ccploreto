@@ -27,6 +27,18 @@ def asamblea_abierta(db: Session, org_id: int):
             .first())
 
 
+def asamblea_actual(db: Session, org_id: int):
+    """La asamblea abierta si existe; si no, la más reciente. Sirve para mostrar la mesa
+    aunque el registro ya esté cerrado (con su estado), en vez de 'no hay asamblea'."""
+    ab = asamblea_abierta(db, org_id)
+    if ab:
+        return ab
+    return (db.query(Asamblea)
+            .filter(Asamblea.organization_id == org_id)
+            .order_by(Asamblea.id.desc())
+            .first())
+
+
 def get_asamblea(db: Session, org_id: int, asamblea_id: int):
     return (db.query(Asamblea)
             .filter(Asamblea.organization_id == org_id, Asamblea.id == asamblea_id)
