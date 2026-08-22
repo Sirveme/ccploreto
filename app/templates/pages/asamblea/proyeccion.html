@@ -29,6 +29,9 @@
   .cd .lbl{ font-size:1.7vw; color:var(--gold); font-weight:800; }
   .cd .time{ font-size:6vw; font-weight:800; color:var(--txt); line-height:1; margin-top:1vh; font-variant-numeric:tabular-nums; }
   .cd .done{ font-size:2.4vw; font-weight:800; color:var(--green); }
+  .qr{ margin-top:4vh; text-align:center; }
+  .qr img{ width:18vw; min-width:230px; max-width:360px; background:#fff; padding:1.2vw; border-radius:16px; display:inline-block; }
+  .qr-l{ font-size:1.55vw; color:var(--txt); font-weight:800; margin-top:1.6vh; line-height:1.3; }
 </style>
 </head>
 <body data-asamblea="{{ asamblea_id }}" data-fecha="{{ asamblea.fecha }}">
@@ -51,6 +54,10 @@
       <div class="cd">
         <div class="lbl" id="cd-lbl">Próximo llamado</div>
         <div class="time" id="cd-time">--:--</div>
+      </div>
+      <div class="qr">
+        <img src="/asamblea/qr/{{ asamblea_id }}.png" alt="QR lista de asistentes">
+        <div class="qr-l">Escanea para ver la lista<br>y confirmar tu asistencia</div>
       </div>
     </div>
   </div>

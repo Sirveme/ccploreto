@@ -44,6 +44,10 @@
   #cam .box{ background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:14px; max-width:420px; width:92%; }
   #cam video{ width:100%; border-radius:10px; background:#000; }
   .banner{ background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#fecaca; border-radius:10px; padding:14px; }
+  .btn.danger{ background:var(--red); color:#fff; border:none; }
+  .cerrado{ background:rgba(239,68,68,.14); border:1px solid rgba(239,68,68,.45); color:#fecaca;
+            border-radius:14px; padding:30px 18px; text-align:center; font-size:26px; font-weight:800; }
+  .cerrado span{ display:block; font-size:14px; font-weight:600; color:var(--dim); margin-top:8px; }
 </style>
 </head>
 <body data-asamblea="{{ asamblea.id if asamblea else '' }}">
@@ -62,8 +66,12 @@
       <a class="btn" href="/asamblea/proyeccion/{{ asamblea.id }}" target="_blank">📽️ Proyección</a>
       <a class="btn" href="/asamblea/publica/{{ asamblea.id }}" target="_blank">🌐 Lista pública</a>
       <a class="btn" href="/asamblea/export/{{ asamblea.id }}.xlsx">⬇️ Excel</a>
+      {% if puede_cerrar and asamblea.estado == 'abierta' %}
+      <button class="btn danger" id="btnCerrar" onclick="cerrarRegistro()">🔒 Cerrar registro</button>
+      {% endif %}
     </div>
 
+    {% if asamblea.estado == 'abierta' %}
     <input id="scan" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
            placeholder="Escanear DNI (lector) o escribir DNI / nombre / matrícula…">
     <p class="hint">Escanea con el lector (escribe el DNI + Enter) y busca solo. Enter con el campo vacío
@@ -71,6 +79,9 @@
 
     <div class="flash" id="flash"></div>
     <div id="res"></div>
+    {% else %}
+    <div class="cerrado">🔒 REGISTRO CERRADO<span>No se aceptan más asistencias · Total: {{ total }} presentes</span></div>
+    {% endif %}
   {% endif %}
 </div>
 
@@ -188,6 +199,27 @@ function fileFotoChange(inp){
 }
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+// Cerrar registro (admin/decano) — doble toque de confirmación, sin diálogo nativo.
+var _armCerrar = false;
+function cerrarRegistro(){
+  var b = document.getElementById('btnCerrar'); if(!b) return;
+  if(!_armCerrar){
+    _armCerrar = true; b.dataset.txt = b.textContent; b.textContent = '¿Seguro? Toca otra vez para CERRAR';
+    setTimeout(function(){ if(_armCerrar){ _armCerrar=false; b.textContent = b.dataset.txt || '🔒 Cerrar registro'; } }, 4000);
+    return;
+  }
+  _armCerrar = false; doCerrar(b);
+}
+async function doCerrar(b){
+  b.disabled = true; b.textContent = 'Cerrando…';
+  try{
+    var r = await fetch('/asamblea/'+ASAMBLEA_ID+'/cerrar', {method:'POST'});
+    if(r.ok){ location.reload(); return; }
+    var m='No se pudo cerrar'; try{ m=(await r.json()).detail||m; }catch(e){}
+    b.textContent = m; b.disabled = false;
+  }catch(e){ b.textContent = 'Error de conexión'; b.disabled = false; }
+}
 
 // Enter en el campo: con texto → buscar; vacío + pendiente → registrar.
 var sc = scanEl();
