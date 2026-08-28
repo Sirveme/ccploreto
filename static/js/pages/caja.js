@@ -522,15 +522,24 @@ async function buscar(q) {
     } catch (e) { toast('Error', 'err'); }
 }
 
+// Resultados de la última búsqueda: la fila pasa SOLO el id (numérico, no rompe la cadena);
+// selColById resuelve el objeto completo por id. Evita meter el nombre en el onclick inline
+// (un apóstrofo/comilla en el nombre rompía el JS → el clic no cargaba la deuda).
+let _resCol = [];
+function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
 function renderRes(arr) {
+    _resCol = arr || [];
     const c = document.getElementById('searchResults');
     if (!arr.length) {
         c.innerHTML = '<div style="padding:12px;color:var(--text-muted);text-align:center;font-size:11px;">Sin resultados</div>';
         c.classList.add('active'); return;
     }
-    c.innerHTML = arr.map(r => `<div class="search-result-item" onclick='selCol(${JSON.stringify(r)})'>
-        <div class="result-info"><div class="result-name">${r.apellidos_nombres}</div>
-        <div class="result-meta">DNI ${r.dni} · Mat. ${r.codigo_matricula || '-'}
+    c.innerHTML = arr.map(r => `<div class="search-result-item" onclick="selColById(${r.id})">
+        <div class="result-info"><div class="result-name">${_esc(r.apellidos_nombres)}</div>
+        <div class="result-meta">DNI ${_esc(r.dni)} · Mat. ${_esc(r.codigo_matricula || '-')}
         ${r.condicion === 'vitalicio'
             ? '<span class="badge" style="background:#f59e0b;color:#000;font-weight:700">VITALICIO</span>'
             : `<span class="badge badge-${r.habilitado ? 'ok' : 'no'}">${r.habilitado ? 'HÁBIL' : 'INHÁBIL'}</span>`
@@ -540,6 +549,11 @@ function renderRes(arr) {
         <div class="result-deuda ${r.total_deuda > 0 ? 'tiene' : 'no-tiene'}">${r.total_deuda > 0 ? `S/ ${r.total_deuda.toFixed(2)}` : 'Al día ✓'}</div>
     </div>`).join('');
     c.classList.add('active');
+}
+
+function selColById(id) {
+    const col = _resCol.find(x => x.id === id);
+    if (col) selCol(col);
 }
 
 function selCol(col) {
