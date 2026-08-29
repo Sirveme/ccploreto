@@ -1631,6 +1631,7 @@ class CerrarCajaRequest(BaseModel):
 async def abrir_caja(
     datos: AbrirCajaRequest,
     db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
 ):
     """Abre una sesión de caja. Solo 1 por centro de costo."""
     from app.models import SesionCaja
@@ -1657,15 +1658,21 @@ async def abrir_caja(
 
     org = db.query(Organization).first()
 
+    # Atribuir la caja al UsuarioAdmin del usuario LOGUEADO (por user_id), NO al primero.
     usuario_admin = db.query(UsuarioAdmin).filter(
         UsuarioAdmin.organization_id == org.id,
+        UsuarioAdmin.user_id == member.user_id,
         UsuarioAdmin.activo == True,
     ).first()
+    if not usuario_admin:
+        raise HTTPException(400, detail=(
+            "Tu usuario no está registrado como cajero en el sistema de caja. "
+            "Pide a un administrador que te dé de alta antes de abrir caja."))
 
     sesion = SesionCaja(
         organization_id=org.id,
         centro_costo_id=datos.centro_costo_id,
-        usuario_admin_id=usuario_admin.id if usuario_admin else 1,
+        usuario_admin_id=usuario_admin.id,
         fecha=ahora,
         estado="abierta",
         monto_apertura=Decimal(str(datos.monto_apertura)),
@@ -1882,6 +1889,7 @@ async def cerrar_caja(
     sesion_id: int,
     datos: CerrarCajaRequest,
     db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
 ):
     """Cierra una sesión de caja. El cajero declara cuánto tiene."""
     from app.models import SesionCaja, EgresoCaja
@@ -1925,6 +1933,15 @@ async def cerrar_caja(
     sesion.diferencia = Decimal(str(diferencia))
     sesion.hora_cierre = ahora
     sesion.observaciones_cierre = datos.observaciones
+
+    # Registrar quién CIERRA (si tiene UsuarioAdmin; cerrado_por_id es nullable → no bloquea).
+    ua_cierre = db.query(UsuarioAdmin).filter(
+        UsuarioAdmin.organization_id == sesion.organization_id,
+        UsuarioAdmin.user_id == member.user_id,
+        UsuarioAdmin.activo == True,
+    ).first()
+    if ua_cierre:
+        sesion.cerrado_por_id = ua_cierre.id
 
     alerta = ""
     if abs(diferencia) > 50:
