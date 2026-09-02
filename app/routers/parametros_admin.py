@@ -25,9 +25,11 @@ ORG_ID_LECTURA = 1
 
 
 def require_admin(current_member: Member = Depends(get_current_member)) -> Member:
-    """Gate estricto: solo rol 'admin' (patrón limpio, no el check comentado)."""
-    if current_member.role != "admin":
-        raise HTTPException(403, "Acceso restringido al rol admin")
+    """Gate de escritura/historial. TEMPORAL durante el desarrollo del módulo:
+    incluye 'sote' (soporte/mantenedor) con el mismo acceso que 'admin'.
+    Al cerrar el desarrollo, revertir a solo 'admin' (SOTE queda en solo consulta)."""
+    if current_member.role not in ("admin", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración")
     return current_member
 
 

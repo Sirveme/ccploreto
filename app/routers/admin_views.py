@@ -55,9 +55,11 @@ async def admin_parametros_page(
     member: Member = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    """Panel de Parámetros del Sistema (solo Administrador). Sección Fraccionamiento."""
-    if member.role != "admin":
-        raise HTTPException(403, "Acceso restringido al rol admin")
+    """Panel de Parámetros del Sistema. Sección Fraccionamiento.
+    TEMPORAL: 'sote' (mantenedor) accede igual que 'admin' durante el desarrollo;
+    revertir a solo 'admin' al cerrar el módulo."""
+    if member.role not in ("admin", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración")
     return templates.TemplateResponse("pages/admin/parametros_admin.html", {
         "request": request,
     })
