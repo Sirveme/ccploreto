@@ -30,21 +30,27 @@
   }
 
   // ── Carga inicial: secciones → selector ──
+  function poblarSecciones(secs) {
+    var sel = document.getElementById("selSeccion");
+    sel.innerHTML = "";
+    (secs || []).forEach(function (s) {
+      var o = document.createElement("option");
+      o.value = s.seccion; o.textContent = s.etiqueta || s.seccion;
+      sel.appendChild(o);
+    });
+    if (sel.options.length) { seccionActual = sel.value; cargarSeccion(seccionActual); }
+    sel.onchange = function () { seccionActual = sel.value; cargarSeccion(seccionActual); };
+  }
+
   function cargarSecciones() {
     fetch(API, { credentials: "same-origin" })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        var sel = document.getElementById("selSeccion");
-        sel.innerHTML = "";
-        (d.secciones || []).forEach(function (s) {
-          var o = document.createElement("option");
-          o.value = s.seccion; o.textContent = s.etiqueta || s.seccion;
-          sel.appendChild(o);
-        });
-        if (sel.options.length) { seccionActual = sel.value; cargarSeccion(seccionActual); }
-        sel.onchange = function () { seccionActual = sel.value; cargarSeccion(seccionActual); };
-      })
-      .catch(function () { toast("No se pudieron cargar las secciones", false); });
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) { poblarSecciones(d.secciones || []); })
+      .catch(function () {
+        // Fallback robusto: si la lista de secciones no responde (p.ej. endpoint no
+        // desplegado), no dejar el panel muerto — cargar la sección por defecto.
+        poblarSecciones([{ seccion: "fraccionamiento", etiqueta: "Fraccionamiento de deuda" }]);
+      });
   }
 
   // ── Carga de una sección → tabla ──
