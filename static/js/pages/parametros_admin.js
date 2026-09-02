@@ -56,12 +56,16 @@
   // ── Carga de una sección → tabla ──
   function cargarSeccion(seccion) {
     fetch(API + "/" + encodeURIComponent(seccion), { credentials: "same-origin" })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        // No enmascarar un error (p.ej. 500) como "sin parámetros": surface el estado real.
+        if (!r.ok) return r.text().then(function (t) { return Promise.reject(r.status + " " + (t || "").slice(0, 140)); });
+        return r.json();
+      })
       .then(function (d) {
         document.getElementById("secEtiqueta").textContent = d.etiqueta || "";
         renderTabla(d.parametros || []);
       })
-      .catch(function () { toast("No se pudo cargar la sección", false); });
+      .catch(function (e) { toast("No se pudo cargar la sección (" + e + ")", false); });
   }
 
   function renderTabla(params) {
