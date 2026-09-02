@@ -209,7 +209,8 @@ async def simular_fraccion(
     ).scalar()
 
     config = _get_config(db)
-    resultado = simular_fraccionamiento(Decimal(str(deudas)), config)
+    # Fuente única del subtree fraccionamiento: parametros_sistema (db+org_id).
+    resultado = simular_fraccionamiento(Decimal(str(deudas)), config, db=db, org_id=_org_id())
 
     col = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
     resultado["colegiado"] = {
@@ -254,7 +255,8 @@ async def crear_fraccionamiento(
     )
 
     config = _get_config(db)
-    resultado = validar_fraccionamiento(solicitud, config)
+    # Fuente única del subtree fraccionamiento: parametros_sistema (db+org_id).
+    resultado = validar_fraccionamiento(solicitud, config, db=db, org_id=_org_id())
 
     if not resultado.valido:
         raise HTTPException(400, resultado.mensaje)

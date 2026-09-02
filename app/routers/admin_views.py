@@ -2,7 +2,7 @@
 Router: Vistas Admin (HTML)
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
@@ -46,6 +46,20 @@ async def admin_home_page(
         "request": request,
         "user": user_ctx,
         "profiles": [],
+    })
+
+
+@router.get("/admin/parametros", response_class=HTMLResponse)
+async def admin_parametros_page(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Panel de Parámetros del Sistema (solo Administrador). Sección Fraccionamiento."""
+    if member.role != "admin":
+        raise HTTPException(403, "Acceso restringido al rol admin")
+    return templates.TemplateResponse("pages/admin/parametros_admin.html", {
+        "request": request,
     })
 
 
