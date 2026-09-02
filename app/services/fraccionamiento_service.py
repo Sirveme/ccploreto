@@ -30,13 +30,49 @@ from fastapi import HTTPException
 
 from dateutil.relativedelta import relativedelta
 
+import logging
+
 from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
+from app.services import parametros_service
+
+logger = logging.getLogger(__name__)
 
 PERU_TZ = timezone(timedelta(hours=-5))
+# FALLBACK de seguridad. La fuente vigente son los parámetros de la tabla
+# parametros_sistema (get_fraccionamiento); estas constantes solo se usan si esa
+# lectura no devuelve la clave (tabla ausente/incompleta) para no romper el flujo.
 DEUDA_MIN = 250.0
 CUOTA_MENSUAL_MIN = 100.0
 MAX_CUOTAS = 12
 CUOTA_INICIAL_PCT = 0.20
+
+
+def _resolver_parametros_fracc(db: Session, organization_id: int):
+    """Resuelve los 4 parámetros de fraccionamiento desde parametros_sistema,
+    con FALLBACK a las constantes del módulo si la tabla no responde una clave.
+
+    Devuelve (deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct) donde
+    cuota_inicial_pct es FRACCIÓN (0.20), convertida desde el valor humano (20)
+    que guarda la tabla. Nunca lanza: ante cualquier fallo cae a las constantes.
+    """
+    cfg = {}
+    try:
+        cfg = parametros_service.get_fraccionamiento(db, organization_id) or {}
+    except Exception as e:  # tabla ausente, DB, etc. -> fallback total
+        logger.warning("[fracc] get_fraccionamiento falló (%s); uso constantes fallback",
+                       str(e)[:160])
+
+    def _num(clave, fallback):
+        v = cfg.get(clave)
+        return float(v) if v is not None else float(fallback)
+
+    deuda_min = _num("monto_minimo", DEUDA_MIN)
+    cuota_mensual_min = _num("cuota_minima", CUOTA_MENSUAL_MIN)
+    max_cuotas = int(_num("max_cuotas", MAX_CUOTAS))
+    pct_humano = cfg.get("cuota_inicial_pct")
+    # tabla = humano (20 = 20%) -> fracción; fallback ya es fracción (0.20)
+    cuota_inicial_pct = (float(pct_humano) / 100.0) if pct_humano is not None else CUOTA_INICIAL_PCT
+    return deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct
 
 
 @dataclass
@@ -81,10 +117,14 @@ def crear_fraccionamiento(
     if not deuda_ids:
         raise HTTPException(400, "Debe seleccionar al menos una deuda para fraccionar")
 
-    if not (2 <= n_cuotas <= MAX_CUOTAS):
+    # Parámetros vigentes (parametros_sistema) con fallback a las constantes.
+    deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct = \
+        _resolver_parametros_fracc(db, colegiado.organization_id)
+
+    if not (2 <= n_cuotas <= max_cuotas):
         raise HTTPException(
             400,
-            f"El número de cuotas debe estar entre 2 y {MAX_CUOTAS}"
+            f"El número de cuotas debe estar entre 2 y {max_cuotas}"
         )
 
     # ── Verificar plan activo ──
@@ -121,19 +161,19 @@ def crear_fraccionamiento(
         )
 
     total = round(sum(float(d.balance or d.amount or 0) for d in deudas_qs), 2)
-    if total < DEUDA_MIN:
+    if total < deuda_min:
         raise HTTPException(
             400,
-            f"La deuda (S/ {total:.2f}) es menor al mínimo de S/ {DEUDA_MIN:.2f}"
+            f"La deuda (S/ {total:.2f}) es menor al mínimo de S/ {deuda_min:.2f}"
         )
 
     # ── Validar cuota inicial ──
-    minimo_inicial = round(total * CUOTA_INICIAL_PCT, 2)
+    minimo_inicial = round(total * cuota_inicial_pct, 2)
     if monto_cuota_inicial < minimo_inicial - 0.009:
         raise HTTPException(
             400,
             f"La cuota inicial mínima es S/ {minimo_inicial:.2f} "
-            f"({int(CUOTA_INICIAL_PCT * 100)}% de S/ {total:.2f})"
+            f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f})"
         )
     if monto_cuota_inicial >= total:
         raise HTTPException(
@@ -155,11 +195,11 @@ def crear_fraccionamiento(
             )
     monto_mensual = monto_mensual_calc
 
-    if monto_mensual < CUOTA_MENSUAL_MIN:
+    if monto_mensual < cuota_mensual_min:
         raise HTTPException(
             400,
             f"La cuota mensual resultante (S/ {monto_mensual:.2f}) es menor "
-            f"al mínimo de S/ {CUOTA_MENSUAL_MIN:.2f}. Reduce el número "
+            f"al mínimo de S/ {cuota_mensual_min:.2f}. Reduce el número "
             f"de cuotas o aumenta la cuota inicial."
         )
 
