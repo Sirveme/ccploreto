@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block container_width %}max-w-full lg:max-w-[95%]{% endblock %}
+
+{% block content %}
+<style>
+  /* Estilo Excel: hoja blanca sobre el panel oscuro, líneas interiores tenues */
+  .px-sheet { background:#ffffff; color:#1f2937; border-radius:12px; overflow:hidden;
+              box-shadow:0 6px 24px rgba(0,0,0,.35); }
+  .px-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .px-tbl th, .px-tbl td { padding:8px 12px; border:1px solid #edf0f3; text-align:left; vertical-align:middle; }
+  .px-tbl thead th { background:#f8fafc; color:#475569; font-weight:600; font-size:11px;
+                     text-transform:uppercase; letter-spacing:.03em; border-color:#e5e9ee; }
+  .px-tbl tbody tr:hover { background:#fcfdff; }
+  .px-grp td { background:#f1f5f9; color:#64748b; font-weight:600; font-size:11px;
+               text-transform:uppercase; letter-spacing:.03em; }
+  .px-in { width:120px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; }
+  .px-in:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.15); }
+  .px-ro { color:#94a3b8; }               /* valor no editable */
+  .px-lock { color:#94a3b8; font-size:12px; }
+  .px-desc { color:#94a3b8; font-size:11px; }
+  .px-btn { padding:5px 12px; border:0; border-radius:6px; font-size:12px; cursor:pointer; }
+  .px-btn-save { background:#2563eb; color:#fff; }
+  .px-btn-save[disabled] { background:#cbd5e1; cursor:not-allowed; }
+  .px-btn-hist { background:#eef2f7; color:#475569; }
+  .px-unit { color:#64748b; font-size:12px; }
+  .px-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; padding:20px; }
+  .px-card { background:#fff; color:#1f2937; max-width:640px; margin:48px auto; padding:22px; border-radius:14px; }
+  .px-warn { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:10px 12px;
+             border-radius:8px; font-size:13px; margin-bottom:12px; }
+  .px-modal .px-tbl td, .px-modal .px-tbl th { font-size:12px; }
+</style>
+
+<div class="fade-me-in flex flex-col h-full justify-start">
+
+  <!-- Cabecera -->
+  <header class="flex justify-between items-center mb-4 shrink-0 pt-2">
+    <div>
+      <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+        <i class="ph ph-sliders-horizontal"></i> Parámetros del Sistema
+      </h2>
+      <div class="text-slate-400 text-xs mt-1">
+        Los cambios se <b>versionan</b>: cada guardado crea una versión nueva y conserva la anterior (auditable).
+      </div>
+    </div>
+    <a href="/admin" class="text-slate-300 hover:text-white text-sm flex items-center gap-1">
+      <i class="ph ph-arrow-left"></i> Volver al panel
+    </a>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="flex items-center gap-3 mb-3">
+    <label class="text-slate-300 text-sm">Sección:</label>
+    <select id="selSeccion" class="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700">
+      <!-- poblado por JS desde /api/admin/parametros (get_secciones) -->
+    </select>
+    <span id="secEtiqueta" class="text-slate-400 text-sm"></span>
+  </div>
+
+  <!-- Hoja Excel -->
+  <div class="px-sheet max-w-5xl">
+    <table class="px-tbl">
+      <thead>
+        <tr>
+          <th style="width:34%">Parámetro</th>
+          <th style="width:20%">Valor</th>
+          <th style="width:10%">Unidad</th>
+          <th style="width:18%"></th>
+          <th style="width:18%"></th>
+        </tr>
+      </thead>
+      <tbody id="tbodyParametros">
+        <tr><td colspan="5" style="color:#94a3b8">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-3 text-slate-500 text-xs max-w-5xl">
+    Los parámetros en gris con 🔒 son informativos y no editables (aún no cableados a comportamiento).
+  </div>
+</div>
+
+<!-- MODAL: Motivo del cambio -->
+<div id="modalMotivo" class="px-modal">
+  <div class="px-card">
+    <h3 style="margin-top:0; color:#1e3a8a; display:flex; align-items:center; gap:8px;">
+      <i class="ph ph-note-pencil"></i> Guardar cambio de parámetro
+    </h3>
+    <div id="motivoResumen" style="color:#475569; font-size:14px; margin-bottom:10px;"></div>
+    <div id="motivoWarn" class="px-warn" style="display:none;"></div>
+    <label style="display:block; font-size:13px; color:#374151; margin-bottom:6px;">
+      Motivo del cambio (para el registro)
+    </label>
+    <textarea id="motivoTexto" rows="3" placeholder="Ej.: Acuerdo de Consejo N°..., fecha..."
+      style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button onclick="pxCerrarMotivo()"
+        style="background:#e5e7eb; color:#374151; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        Cancelar
+      </button>
+      <button id="btnConfirmarMotivo" onclick="pxConfirmarGuardado()"
+        style="background:#2563eb; color:#fff; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        Guardar versión
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Historial -->
+<div id="modalHistorial" class="px-modal">
+  <div class="px-card">
+    <h3 style="margin-top:0; color:#1e3a8a; display:flex; align-items:center; gap:8px;">
+      <i class="ph ph-clock-counter-clockwise"></i> <span id="histTitulo">Historial</span>
+    </h3>
+    <div class="px-sheet" style="box-shadow:none; border:1px solid #edf0f3;">
+      <table class="px-tbl">
+        <thead>
+          <tr><th>Vigencia</th><th>Valor</th><th>Origen</th><th>Cambió</th><th>Motivo</th></tr>
+        </thead>
+        <tbody id="tbodyHistorial"></tbody>
+      </table>
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button onclick="pxCerrarHistorial()"
+        style="background:#e5e7eb; color:#374151; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="pxToast" style="display:none; position:fixed; bottom:20px; right:20px; color:#fff;
+     padding:14px 22px; border-radius:8px; z-index:10000; box-shadow:0 4px 12px rgba(0,0,0,.25); font-size:14px;"></div>
+
+<script src="/static/js/pages/parametros_admin.js?v={{ asset_v('js/pages/parametros_admin.js') }}"></script>
+{% endblock %}
