@@ -237,7 +237,10 @@ async def mi_deuda(
         )
         .first()
     )
-    califica_fracc = (total >= 250.0) and (plan_activo is None)
+    # Piso de deuda fraccionable desde parametros_sistema (fallback a literal 250).
+    from app.services.fraccionamiento_service import _resolver_parametros_fracc
+    _deuda_min, _c_min, _c_max, _pct = _resolver_parametros_fracc(db, colegiado.organization_id)
+    califica_fracc = (total >= _deuda_min) and (plan_activo is None)
 
     # ── Campaña / descuento activo ─────────────────────────────────────────
     hoy = dt_date.today()
@@ -306,15 +309,21 @@ async def crear_fraccionamiento(
 
     total = round(sum(float(d.balance or 0) for d in deudas_qs), 2)
 
-    # ── 2. Validaciones de negocio ────────────────────────────────────────
-    if total < 250:
-        raise HTTPException(400, f"La deuda total (S/ {total:.2f}) es menor al mínimo de S/ 250")
+    # Parámetros vigentes (parametros_sistema) con fallback a los literales.
+    # pct viene en FRACCIÓN (0.20). Mismo helper que fraccionamiento_service.
+    from app.services.fraccionamiento_service import _resolver_parametros_fracc
+    deuda_min, cuota_min, _max_cuotas, cuota_inicial_pct = \
+        _resolver_parametros_fracc(db, colegiado.organization_id)
 
-    minimo_inicial = round(total * 0.20, 2)
+    # ── 2. Validaciones de negocio ────────────────────────────────────────
+    if total < deuda_min:
+        raise HTTPException(400, f"La deuda total (S/ {total:.2f}) es menor al mínimo de S/ {deuda_min:.0f}")
+
+    minimo_inicial = round(total * cuota_inicial_pct, 2)
     if data.cuota_inicial < minimo_inicial:
         raise HTTPException(
             400,
-            f"La cuota inicial mínima es S/ {minimo_inicial:.2f} (20% de S/ {total:.2f})"
+            f"La cuota inicial mínima es S/ {minimo_inicial:.2f} ({int(cuota_inicial_pct * 100)}% de S/ {total:.2f})"
         )
 
     if data.cuota_inicial >= total:
@@ -323,10 +332,10 @@ async def crear_fraccionamiento(
     saldo = round(total - data.cuota_inicial, 2)
     monto_cuota = round(saldo / data.num_cuotas, 2)
 
-    if monto_cuota < 100:
+    if monto_cuota < cuota_min:
         raise HTTPException(
             400,
-            f"La cuota mensual resultante (S/ {monto_cuota:.2f}) es menor al mínimo de S/ 100. "
+            f"La cuota mensual resultante (S/ {monto_cuota:.2f}) es menor al mínimo de S/ {cuota_min:.0f}. "
             f"Reduce el número de cuotas o aumenta la cuota inicial."
         )
 
