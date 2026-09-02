@@ -141,9 +141,42 @@ class ResultadoFraccionamiento:
     documento_url: Optional[str] = None
 
 
+def _cfg_fraccionamiento(config: dict = None, db=None, org_id: int = None) -> dict:
+    """Fuente ÚNICA del subtree 'fraccionamiento'.
+
+    Precedencia (decisión de arquitectura): parametros_sistema (valores presentes)
+    → CONFIG_DEFECTO['fraccionamiento']. NO usa config_finanzas como capa intermedia
+    para estas claves (evita dos fuentes escribibles que se contradigan).
+
+    BLINDADO: nunca lanza. Ante cualquier fallo (tabla ausente, DB caída, etc.) cae
+    a CONFIG_DEFECTO. La base SIEMPRE es CONFIG_DEFECTO['fraccionamiento'] completo
+    (10 claves; la tabla añade 2 operativas → 12 vía db), así que nunca falta una
+    clave que consuman las funciones → elimina el KeyError del shallow-merge parcial.
+
+    Compatibilidad: si NO llega db/org_id (llamador antiguo), respeta el `config`
+    recibido igual que antes; con db/org_id, parametros_sistema manda.
+    """
+    base = dict(CONFIG_DEFECTO["fraccionamiento"])   # base completa (10 claves); la tabla añade 2
+    try:
+        if db is not None and org_id is not None:
+            from app.services.parametros_service import get_fraccionamiento
+            tabla = get_fraccionamiento(db, org_id) or {}
+            base.update({k: v for k, v in tabla.items() if v is not None})
+        elif config:
+            # Ruta de compatibilidad (sin db): comportamiento previo con config.
+            sub = config.get("fraccionamiento")
+            if isinstance(sub, dict):
+                base.update({k: v for k, v in sub.items() if v is not None})
+    except Exception as e:  # jamás romper el llamador (camino caliente incluido)
+        logger.warning("[politicas] _cfg_fraccionamiento fallback a CONFIG_DEFECTO (%s)", str(e)[:160])
+    return base
+
+
 def validar_fraccionamiento(
     solicitud: SolicitudFraccionamiento,
     config: dict = None,
+    db=None,
+    org_id: int = None,
 ) -> ResultadoFraccionamiento:
     """
     Valida y genera cronograma de fraccionamiento.
@@ -158,7 +191,7 @@ def validar_fraccionamiento(
     Returns:
         ResultadoFraccionamiento con cronograma si es válido
     """
-    cfg = (config or CONFIG_DEFECTO).get("fraccionamiento", CONFIG_DEFECTO["fraccionamiento"])
+    cfg = _cfg_fraccionamiento(config, db, org_id)
 
     deuda = solicitud.deuda_total
     inicial = solicitud.cuota_inicial
@@ -254,12 +287,12 @@ def validar_fraccionamiento(
     )
 
 
-def simular_fraccionamiento(deuda: Decimal, config: dict = None) -> dict:
+def simular_fraccionamiento(deuda: Decimal, config: dict = None, db=None, org_id: int = None) -> dict:
     """
     Calcula las opciones de fraccionamiento disponibles para una deuda.
     Útil para mostrar al colegiado las alternativas.
     """
-    cfg = (config or CONFIG_DEFECTO).get("fraccionamiento", CONFIG_DEFECTO["fraccionamiento"])
+    cfg = _cfg_fraccionamiento(config, db, org_id)
 
     monto_min = Decimal(str(cfg["monto_minimo"]))
     pct_inicial = Decimal(str(cfg["cuota_inicial_pct"])) / 100
@@ -509,20 +542,24 @@ def habilitar_por_fraccionamiento(
     colegiado_id: int,
     proxima_cuota_vencimiento: date,
     config: dict = None,
+    org_id: int = None,
 ):
     """
     Habilita temporalmente a un colegiado que pagó cuota de fraccionamiento.
 
     La habilidad dura hasta la fecha de la próxima cuota + días de gracia.
+
+    CAMINO CALIENTE (aprobar_pago): la resolución del parámetro está blindada
+    (_cfg_fraccionamiento nunca lanza); si org_id no viene, se deriva del colegiado.
     """
     from app.models import Colegiado
-
-    cfg = (config or CONFIG_DEFECTO).get("fraccionamiento", CONFIG_DEFECTO["fraccionamiento"])
-    dias_gracia = cfg.get("dias_gracia", 5)
 
     col = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
     if not col:
         return
+
+    cfg = _cfg_fraccionamiento(config, db, org_id or getattr(col, "organization_id", None))
+    dias_gracia = cfg.get("dias_gracia", 5)
 
     vence = proxima_cuota_vencimiento + timedelta(days=dias_gracia)
 

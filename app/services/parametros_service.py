@@ -128,6 +128,58 @@ def get_seccion(db: Session, seccion, org_id=1, en_fecha=None):
                              r.valor_booleano, r.valor_json) for r in rows}
 
 
+def get_seccion_detalle(db: Session, seccion, org_id=1, en_fecha=None):
+    """Como get_seccion pero con METADATA por clave (para el panel del Administrador).
+
+    Devuelve una lista de dicts ordenada por `orden`, cada uno con el valor vigente
+    (resuelto override-org → global) más etiqueta/tipo/unidad/editable/min/max/descripcion.
+    """
+    hoy = en_fecha or date.today()
+    rows = db.execute(text("""
+        SELECT DISTINCT ON (clave)
+               clave, tipo, valor_numerico, valor_texto, valor_booleano, valor_json,
+               unidad, etiqueta, descripcion, valor_min, valor_max, editable, orden
+        FROM parametros_sistema
+        WHERE seccion = :sec
+          AND (organizacion_id = :org OR organizacion_id IS NULL)
+          AND vigencia_desde <= :hoy
+          AND (vigencia_hasta IS NULL OR vigencia_hasta >= :hoy)
+        ORDER BY clave, (organizacion_id IS NULL), vigencia_desde DESC
+    """), {"sec": seccion, "org": org_id, "hoy": hoy}).fetchall()
+    out = []
+    for r in rows:
+        out.append({
+            "clave": r.clave,
+            "tipo": r.tipo,
+            "valor": _coerce(r.tipo, r.valor_numerico, r.valor_texto, r.valor_booleano, r.valor_json),
+            "unidad": r.unidad,
+            "etiqueta": r.etiqueta,
+            "descripcion": r.descripcion,
+            "valor_min": float(r.valor_min) if r.valor_min is not None else None,
+            "valor_max": float(r.valor_max) if r.valor_max is not None else None,
+            "editable": bool(r.editable),
+            "orden": r.orden if r.orden is not None else 0,
+        })
+    out.sort(key=lambda d: d["orden"])
+    return out
+
+
+def nombre_usuario(db: Session, user_id):
+    """Resuelve el nombre de un usuario para auditoría (historial).
+
+    Fallback deliberado: si el join no resuelve un nombre, devuelve el user_id CRUDO
+    como str (rastreable) — NUNCA un guion/vacío. Solo devuelve None si user_id es None
+    (p.ej. filas de precarga sin autor).
+    """
+    if user_id is None:
+        return None
+    try:
+        n = db.execute(text("SELECT name FROM users WHERE id = :id"), {"id": user_id}).scalar()
+        return n if n else str(user_id)
+    except Exception:
+        return str(user_id)
+
+
 def get_fraccionamiento(db: Session, org_id=1, en_fecha=None):
     """Drop-in de CONFIG_DEFECTO['fraccionamiento']: dict COMPLETO desde la tabla.
 
@@ -196,7 +248,7 @@ def set_param(db: Session, seccion, clave, nuevo_valor, *,
     hoy = en_fecha or date.today()
     actual = db.execute(text("""
         SELECT id, tipo, unidad, etiqueta, descripcion, valor_min, valor_max,
-               editable, orden
+               editable, orden, vigencia_desde
         FROM parametros_sistema
         WHERE seccion = :sec AND clave = :cla
           AND organizacion_id IS NOT DISTINCT FROM :org
@@ -225,6 +277,34 @@ def set_param(db: Session, seccion, clave, nuevo_valor, *,
         if actual.valor_max is not None and v > float(actual.valor_max):
             raise ValueError("%s.%s = %s por encima del máximo %s" %
                              (seccion, clave, v, actual.valor_max))
+
+    # Caso borde: la vigente abrió HOY (p.ej. dos ediciones el mismo día, o editar una
+    # precarga sembrada hoy). No se puede cerrar en hoy-1 (violaría chk_vigencia: hasta<desde)
+    # ni abrir otra con desde=hoy (solaparía). Se ACTUALIZA EN SITIO: una sola versión por
+    # día, sin ruido de versiones de <1 día. Conserva el mismo id y su reemplaza_id original.
+    valnum_o = valtxt_o = valboo_o = valjson_o = None
+    if columna == "valor_numerico":
+        valnum_o = nuevo_valor
+    elif columna == "valor_booleano":
+        valboo_o = bool(nuevo_valor)
+    elif columna == "valor_json":
+        valjson_o = nuevo_valor
+    else:
+        valtxt_o = nuevo_valor
+
+    if actual.vigencia_desde == hoy:
+        db.execute(text("""
+            UPDATE parametros_sistema
+            SET valor_numerico = :valnum, valor_texto = :valtxt,
+                valor_booleano = :valboo, valor_json = :valjson,
+                origen = 'admin', motivo = :motivo, created_by = :por, created_at = NOW()
+            WHERE id = :id
+        """), {"valnum": valnum_o, "valtxt": valtxt_o, "valboo": valboo_o,
+               "valjson": valjson_o, "motivo": motivo, "por": usuario_id, "id": actual.id})
+        db.commit()
+        logger.info("[parametros] %s.%s (org=%r) actualizado EN SITIO (misma fecha) fila %s",
+                    seccion, clave, org_id, actual.id)
+        return actual.id
 
     # 1) Cerrar la vigente en hoy-1 (evita solape con la nueva que abre hoy)
     db.execute(text("""
