@@ -3850,13 +3850,37 @@ function _renderFraccSelector(deudas) {
     _recalcFraccSel();
 }
 
+// Pisos de fraccionamiento desde parametros_sistema (fuente única). Se cargan 1 vez
+// y se cachean; FALLBACK a los literales históricos si el endpoint no responde.
+let _fraccParams = null;
+let _fraccParamsLoading = false;
+function _ensureFraccParams() {
+    if (_fraccParams !== null || _fraccParamsLoading) return;
+    _fraccParamsLoading = true;
+    fetch('/api/admin/parametros/fraccionamiento?solo_valores=1', { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(d => { _fraccParams = d || {}; })
+        .catch(() => { _fraccParams = {}; })   // fallback: se usarán los literales
+        .finally(() => {
+            _fraccParamsLoading = false;
+            try { _recalcFraccSel(); } catch (e) {}   // re-render con los valores ya cargados
+        });
+}
+
 function _recalcFraccSel() {
     const wrap = document.getElementById('frac-selector-wrap');
     if (!wrap) return;
+    _ensureFraccParams();
     const checks = wrap.querySelectorAll('.frac-check:checked');
     let seleccionado = 0;
     checks.forEach(c => { seleccionado += parseFloat(c.dataset.balance || 0); });
     seleccionado = _fNum(seleccionado);
+
+    // Pisos vigentes (tabla) con fallback a los literales. El 0.20 NO se toca (fórmula congelada).
+    const _P = _fraccParams || {};
+    const MONTO_MIN  = (_P.monto_minimo != null) ? Number(_P.monto_minimo) : 250;
+    const CUOTA_MIN  = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
+    const MAX_CUOTAS = (_P.max_cuotas   != null) ? Number(_P.max_cuotas)   : 12;
 
     const minimo = Math.ceil(seleccionado * 0.20 * 100) / 100;
     const inpIni = document.getElementById('frac-inicial-actual');
@@ -3881,13 +3905,13 @@ function _recalcFraccSel() {
     const setWarn = (txt) => { msg.textContent = txt; msg.style.color = '#f9c64a'; btn.disabled = true; };
 
     if (seleccionado <= 0)               return setWarn('Selecciona al menos un concepto.');
-    if (seleccionado < 250)              return setErr(`Deuda mínima para fraccionar: S/ 250.00 (actual: S/ ${seleccionado.toFixed(2)}).`);
+    if (seleccionado < MONTO_MIN)        return setErr(`Deuda mínima para fraccionar: S/ ${MONTO_MIN.toFixed(2)} (actual: S/ ${seleccionado.toFixed(2)}).`);
     if (inicial + 0.009 < minimo)        return setErr(`El inicial debe ser al menos S/ ${minimo.toFixed(2)} (20%).`);
     if (inicial >= seleccionado)         return setWarn('El inicial cubre el total. Cobra directamente en lugar de fraccionar.');
-    if (numCuotas < 2 || numCuotas > 12) return setErr('El número de cuotas debe estar entre 2 y 12.');
+    if (numCuotas < 2 || numCuotas > MAX_CUOTAS) return setErr(`El número de cuotas debe estar entre 2 y ${MAX_CUOTAS}.`);
 
     const mensual = _fNum(saldo / numCuotas);
-    if (mensual < 100) return setErr(`Cuota mensual S/ ${mensual.toFixed(2)} < S/ 100. Reduce el N° de cuotas o aumenta el inicial.`);
+    if (mensual < CUOTA_MIN) return setErr(`Cuota mensual S/ ${mensual.toFixed(2)} < S/ ${CUOTA_MIN.toFixed(2)}. Reduce el N° de cuotas o aumenta el inicial.`);
 
     btn.disabled = false;
     msg.textContent = `Cuota mensual estimada: S/ ${mensual.toFixed(2)}`;
