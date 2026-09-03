@@ -24,13 +24,23 @@ Estilo: raw SQL con text(), igual que aportes_junta_service. Ningún commit parc
 set_param confirma al final; los lectores no escriben.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import logging
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
+
+# Perú = UTC-5 (sin DST). El servidor (Railway) corre en UTC: usar date.today() ahí
+# adelanta un día cerca de medianoche. La fecha "de hoy" del versionado debe ser la de
+# Lima. Mismo criterio que aportes_junta_service.TZ_PERU.
+TZ_PERU = timezone(timedelta(hours=-5))
+
+
+def _hoy_peru() -> date:
+    """Fecha de HOY en zona horaria de Perú (no la del servidor UTC)."""
+    return datetime.now(TZ_PERU).date()
 
 # tipo -> columna física donde vive el valor
 _COLUMNA_POR_TIPO = {
@@ -90,7 +100,7 @@ def get_param(db: Session, seccion, clave, org_id=1, en_fecha=None, default=None
     Prefiere la fila de la organización sobre la global; dentro del mismo ámbito
     toma la de vigencia más reciente. Devuelve `default` si no existe.
     """
-    hoy = en_fecha or date.today()
+    hoy = en_fecha or _hoy_peru()
     row = db.execute(text("""
         SELECT tipo, valor_numerico, valor_texto, valor_booleano, valor_json
         FROM parametros_sistema
@@ -113,7 +123,7 @@ def get_seccion(db: Session, seccion, org_id=1, en_fecha=None):
     Por clave gana el override de la org sobre el global, y dentro del ámbito la
     vigencia más reciente (DISTINCT ON).
     """
-    hoy = en_fecha or date.today()
+    hoy = en_fecha or _hoy_peru()
     rows = db.execute(text("""
         SELECT DISTINCT ON (clave)
                clave, tipo, valor_numerico, valor_texto, valor_booleano, valor_json
@@ -134,7 +144,7 @@ def get_seccion_detalle(db: Session, seccion, org_id=1, en_fecha=None):
     Devuelve una lista de dicts ordenada por `orden`, cada uno con el valor vigente
     (resuelto override-org → global) más etiqueta/tipo/unidad/editable/min/max/descripcion.
     """
-    hoy = en_fecha or date.today()
+    hoy = en_fecha or _hoy_peru()
     rows = db.execute(text("""
         SELECT DISTINCT ON (clave)
                clave, tipo, valor_numerico, valor_texto, valor_booleano, valor_json,
@@ -245,7 +255,7 @@ def set_param(db: Session, seccion, clave, nuevo_valor, *,
         / precarga primero; set_param solo VERSIONA lo existente).
       • Rango: si hay valor_min/valor_max y el tipo es numérico, valida.
     """
-    hoy = en_fecha or date.today()
+    hoy = en_fecha or _hoy_peru()
     actual = db.execute(text("""
         SELECT id, tipo, unidad, etiqueta, descripcion, valor_min, valor_max,
                editable, orden, vigencia_desde
