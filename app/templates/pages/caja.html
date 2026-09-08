@@ -73,6 +73,8 @@
                     <!-- zClaude-95b: activación del Bingazo (Admin/Finanzas) -->
                     <button class="hdr-menu-item" onclick="toggleMenu(); window.BingazoPanel && window.BingazoPanel.mostrarActivacion()">🎯 Activar Bingazo</button>
                     <div class="hdr-menu-sep"></div>
+                    <button class="hdr-menu-item" onclick="location.href='/asamblea/mesa'">🗳️ Mesa de asamblea</button>
+                    <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
                 </div>
             </div>
@@ -431,7 +433,7 @@
                 <div class="ff-row">
                     <div class="ff-label">RUC</div>
                     <div class="ff-ruc-row">
-                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="this.value=this.value.replace(/\D/g,'')">
+                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="ffRucInput(this)">
                         <button class="ff-ruc-btn" id="ffBuscarRuc" onclick="buscarRuc()">🔍 Buscar</button>
                     </div>
                 </div>
