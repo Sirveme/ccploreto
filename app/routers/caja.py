@@ -38,6 +38,7 @@ from app.services.generador_deudas import generar_cuotas_para_colegiado_nuevo
 
 from starlette.responses import StreamingResponse
 import httpx
+import os
 
 from app.routers.dashboard import get_current_member
 from app.models import Member
@@ -58,6 +59,9 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
+
+# apis.net.pe: v1 con token (Authorization Bearer). Sin token funciona rate-limited.
+APIS_NET_PE_KEY = os.getenv("APIS_NET_PE_KEY", "")
 
 # Router para la página HTML (sin prefix)
 page_router = APIRouter(tags=["Caja"])
@@ -2990,15 +2994,61 @@ async def reenviar_comprobante(
 
 @router.get("/consulta-ruc/{ruc}")
 async def consulta_ruc(ruc: str):
-    """Proxy a facturalo.pro o API SUNAT para consultar RUC"""
-    # Puedes usar la API de facturalo o apis.net.pe
-    import httpx
-    async with httpx.AsyncClient(timeout=10) as client:
-        r = await client.get(f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}")
+    """Consulta RUC en apis.net.pe (v1 + Authorization Bearer). Devuelve
+    razon_social + direccion. Mismo patrón que api_tienda/portal_pagos.
+    Fallback silencioso (campos None) para que el frontend deje editar a mano."""
+    ruc = (ruc or "").strip()
+    if not ruc.isdigit() or len(ruc) != 11:
+        return {"razon_social": None, "direccion": None, "error": "RUC inválido"}
+    try:
+        headers = {"Accept": "application/json"}
+        if APIS_NET_PE_KEY:
+            headers["Authorization"] = f"Bearer {APIS_NET_PE_KEY}"
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                f"https://api.apis.net.pe/v1/ruc?numero={ruc}",
+                headers=headers,
+            )
         if r.status_code == 200:
             d = r.json()
-            return {"razon_social": d.get("nombre"), "direccion": d.get("direccion")}
-    return {"razon_social": None}
+            razon = d.get("nombre") or d.get("razonSocial") or ""
+            direccion = d.get("direccion") or ""
+            logger.info("[CAJA-RUC] %s -> %s", ruc, razon[:40] or "sin nombre")
+            return {"razon_social": razon or None, "direccion": direccion}
+        logger.warning("[CAJA-RUC] %s -> HTTP %s", ruc, r.status_code)
+    except Exception as e:
+        logger.warning("[CAJA-RUC] error consultando %s: %s", ruc, e)
+    return {"razon_social": None, "direccion": None}
+
+
+@router.get("/consulta-dni/{dni}")
+async def consulta_dni(dni: str):
+    """Consulta DNI en RENIEC vía apis.net.pe (v1/reniec + Authorization Bearer).
+    Devuelve el nombre completo. Fallback silencioso (nombre None)."""
+    dni = (dni or "").strip()
+    if not dni.isdigit() or len(dni) != 8:
+        return {"nombre": None, "error": "DNI debe tener 8 dígitos"}
+    try:
+        headers = {"Accept": "application/json"}
+        if APIS_NET_PE_KEY:
+            headers["Authorization"] = f"Bearer {APIS_NET_PE_KEY}"
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                f"https://api.apis.net.pe/v1/reniec/dni?numero={dni}",
+                headers=headers,
+            )
+        if r.status_code == 200:
+            d = r.json()
+            nombre = (
+                d.get("nombreCompleto")
+                or f"{d.get('nombres','')} {d.get('apellidoPaterno','')} {d.get('apellidoMaterno','')}".strip()
+            )
+            logger.info("[CAJA-DNI] %s -> %s", dni, nombre[:40] or "sin nombre")
+            return {"nombre": nombre or None}
+        logger.warning("[CAJA-DNI] %s -> HTTP %s", dni, r.status_code)
+    except Exception as e:
+        logger.warning("[CAJA-DNI] error consultando %s: %s", dni, e)
+    return {"nombre": None}
 
 
 
