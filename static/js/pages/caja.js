@@ -948,6 +948,42 @@ async function buscarRuc() {
     btn.disabled = false; btn.textContent = '🔍 Buscar';
 }
 
+/* ── Autoconsulta RUC/DNI por longitud (anti-rebote: no repetir el mismo número) ──
+   FACTURA: 11 dígitos → RUC. BOLETA: 8 dígitos → DNI. El botón 🔍 Buscar queda como
+   respaldo manual. El sub-caso "boleta + 11 dígitos (RUC)" NO está cableado aquí
+   (el campo de boleta va a DNI de 8 y el backend de boleta usa cliente_dni). */
+let _ultimoRucAuto = '';
+let _ultimoDniAuto = '';
+
+function ffRucInput(el) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 11);
+    const v = el.value;
+    if (tipoComp === '01' && v.length === 11) {
+        if (v !== _ultimoRucAuto) { _ultimoRucAuto = v; buscarRuc(); }   // dispara UNA vez
+    } else {
+        _ultimoRucAuto = '';   // si baja de 11, permite re-disparar al volver a 11
+    }
+}
+
+async function buscarDni() {
+    const el = document.getElementById('caja-publico-dni');
+    if (!el) return;
+    const dni = el.value.trim();
+    if (dni.length !== 8 || dni === '99999999') return;   // 99999999 = "VARIOS", no consultar
+    try {
+        const r = await fetch(`${API}/consulta-dni/${dni}`);
+        if (r.ok) {
+            const d = await r.json();
+            if (d.nombre) {
+                const nom = document.getElementById('caja-publico-nombres');
+                if (nom) nom.value = d.nombre.toUpperCase();
+                toast('DNI encontrado', 'ok');
+                cajaPublicoValidar();
+            } else { toast('DNI no encontrado', 'err'); }
+        }
+    } catch (e) { /* silencioso: el nombre queda editable a mano */ }
+}
+
 
 /* ══════════════════════════════════════════════════
    TABS
@@ -1079,6 +1115,12 @@ function cajaPublicoDniInput(el) {
     if (el.value === '99999999') {
         const n = document.getElementById('caja-publico-nombres');
         if (n && n.value.trim() === '') n.value = 'VARIOS';
+    }
+    // Boleta: al llegar EXACTAMENTE a 8 dígitos (DNI real), autoconsulta una sola vez.
+    if (el.value.length === 8 && el.value !== '99999999') {
+        if (el.value !== _ultimoDniAuto) { _ultimoDniAuto = el.value; buscarDni(); }
+    } else {
+        _ultimoDniAuto = '';
     }
     cajaPublicoValidar();
 }
