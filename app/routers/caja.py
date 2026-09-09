@@ -60,8 +60,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
 
-# apis.net.pe: v1 con token (Authorization Bearer). Sin token funciona rate-limited.
+# apis.net.pe: RUC v1 funciona sin token (tier gratis); DNI/RENIEC requiere token v2.
+# Facturalo/QueVendi consultan con APIS_NET_PE_TOKEN (mismo token para RUC y DNI). Se
+# prefiere ese nombre de env var; si no está, cae a APIS_NET_PE_KEY (compat).
 APIS_NET_PE_KEY = os.getenv("APIS_NET_PE_KEY", "")
+APIS_NET_PE_TOKEN = os.getenv("APIS_NET_PE_TOKEN", "") or APIS_NET_PE_KEY
 
 # Router para la página HTML (sin prefix)
 page_router = APIRouter(tags=["Caja"])
@@ -3023,29 +3026,36 @@ async def consulta_ruc(ruc: str):
 
 @router.get("/consulta-dni/{dni}")
 async def consulta_dni(dni: str):
-    """Consulta DNI en RENIEC vía apis.net.pe (v1/reniec + Authorization Bearer).
-    Devuelve el nombre completo. Fallback silencioso (nombre None)."""
+    """Consulta DNI en RENIEC vía apis.net.pe — MISMO patrón que Facturalo/QueVendi:
+    v2/reniec/dni + Authorization Bearer con APIS_NET_PE_TOKEN. RENIEN exige token
+    (a diferencia del RUC v1 que tiene tier gratis). Fallback silencioso (nombre None)."""
     dni = (dni or "").strip()
     if not dni.isdigit() or len(dni) != 8:
         return {"nombre": None, "error": "DNI debe tener 8 dígitos"}
+    if not APIS_NET_PE_TOKEN:
+        logger.warning("[CAJA-DNI] APIS_NET_PE_TOKEN no configurado -> DNI no consultable")
+        return {"nombre": None, "error": "Token apis.net.pe no configurado"}
     try:
-        headers = {"Accept": "application/json"}
-        if APIS_NET_PE_KEY:
-            headers["Authorization"] = f"Bearer {APIS_NET_PE_KEY}"
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {APIS_NET_PE_TOKEN}",
+        }
         async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(
-                f"https://api.apis.net.pe/v1/reniec/dni?numero={dni}",
+                f"https://api.apis.net.pe/v2/reniec/dni?numero={dni}",
                 headers=headers,
             )
         if r.status_code == 200:
             d = r.json()
+            # Parseo igual que Facturalo: apellidoPaterno + apellidoMaterno + nombres.
             nombre = (
-                d.get("nombreCompleto")
-                or f"{d.get('nombres','')} {d.get('apellidoPaterno','')} {d.get('apellidoMaterno','')}".strip()
+                f"{d.get('apellidoPaterno','')} {d.get('apellidoMaterno','')} {d.get('nombres','')}".strip()
+                or d.get("nombreCompleto")
             )
+            nombre = " ".join((nombre or "").split())  # colapsa espacios dobles
             logger.info("[CAJA-DNI] %s -> %s", dni, nombre[:40] or "sin nombre")
             return {"nombre": nombre or None}
-        logger.warning("[CAJA-DNI] %s -> HTTP %s", dni, r.status_code)
+        logger.warning("[CAJA-DNI] %s -> HTTP %s | %s", dni, r.status_code, r.text[:120])
     except Exception as e:
         logger.warning("[CAJA-DNI] error consultando %s: %s", dni, e)
     return {"nombre": None}

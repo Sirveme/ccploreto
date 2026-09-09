@@ -26,8 +26,10 @@ TZ_PERU = timezone(timedelta(hours=-5))
 
 logger = logging.getLogger(__name__)
 
-# apis.net.pe — funciona sin token (rate limited) o con token vía env
+# apis.net.pe — RUC v1 tiene tier gratis; DNI/RENIEC v2 requiere token (Bearer).
+# Facturalo/QueVendi usan APIS_NET_PE_TOKEN (mismo token RUC+DNI); fallback a KEY.
 APIS_NET_PE_KEY = os.getenv("APIS_NET_PE_KEY", "")
+APIS_NET_PE_TOKEN = os.getenv("APIS_NET_PE_TOKEN", "") or APIS_NET_PE_KEY
 
 # OpenAI — usado por /analizar-voucher (visión multimodal)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -37,8 +39,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 @router.get("/dni/{dni}")
 async def consultar_dni_publico(dni: str):
     """
-    Consulta DNI en apis.net.pe — sin login requerido.
-    Retorna: { ok, dni, nombre } o { ok: false, error }
+    Consulta DNI en RENIEC vía apis.net.pe — MISMO patrón que Facturalo/QueVendi:
+    v2/reniec/dni + Authorization Bearer con APIS_NET_PE_TOKEN.
+    Retorna: { ok, dni, nombre } o { ok: false, error } (nunca 200 vacío mudo).
     """
     import httpx
 
@@ -48,24 +51,35 @@ async def consultar_dni_publico(dni: str):
             status_code=400,
         )
 
+    if not APIS_NET_PE_TOKEN:
+        logger.warning("[DNI] APIS_NET_PE_TOKEN no configurado -> DNI no consultable")
+        return JSONResponse({"ok": False, "error": "Token apis.net.pe no configurado"})
+
     try:
-        headers = {"Accept": "application/json"}
-        if APIS_NET_PE_KEY:
-            headers["Authorization"] = f"Bearer {APIS_NET_PE_KEY}"
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {APIS_NET_PE_TOKEN}",
+        }
 
         async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(
-                f"https://api.apis.net.pe/v1/reniec/dni?numero={dni}",
+                f"https://api.apis.net.pe/v2/reniec/dni?numero={dni}",
                 headers=headers,
             )
 
         if r.status_code == 200:
             d = r.json()
+            # Parseo igual que Facturalo: apellidoPaterno + apellidoMaterno + nombres.
             nombre = (
-                d.get("nombreCompleto")
-                or f"{d.get('nombres','')} {d.get('apellidoPaterno','')} {d.get('apellidoMaterno','')}".strip()
+                f"{d.get('apellidoPaterno','')} {d.get('apellidoMaterno','')} {d.get('nombres','')}".strip()
+                or d.get("nombreCompleto")
             )
-            return JSONResponse({"ok": True, "dni": dni, "nombre": nombre})
+            nombre = " ".join((nombre or "").split())  # colapsa espacios dobles
+            if nombre:
+                return JSONResponse({"ok": True, "dni": dni, "nombre": nombre})
+            return JSONResponse({"ok": False, "error": "DNI sin datos en RENIEC"})
+
+        logger.warning(f"[DNI] {dni} -> HTTP {r.status_code} | {r.text[:120]}")
 
     except Exception as e:
         logger.warning(f"[DNI] Error consultando {dni}: {e}")
