@@ -433,7 +433,7 @@
                 <div class="ff-row">
                     <div class="ff-label">RUC</div>
                     <div class="ff-ruc-row">
-                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="ffRucInput(this)">
+                        <input type="text" class="ff-input" id="ffRuc" maxlength="11" placeholder="20XXXXXXXXX" oninput="ffRucInput(this)" onfocus="this.select()">
                         <button class="ff-ruc-btn" id="ffBuscarRuc" onclick="buscarRuc()">🔍 Buscar</button>
                     </div>
                 </div>
@@ -485,14 +485,14 @@
             <div>
               <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">DNI</label>
               <input type="text" id="caja-publico-dni" value="99999999" maxlength="8" inputmode="numeric"
-                     oninput="cajaPublicoDniInput(this)"
+                     oninput="cajaPublicoDniInput(this)" onfocus="this.select()"
                      style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
                             border: 1px solid #334155; color: #e2e8f0; font-family: monospace; font-size: 14px;">
             </div>
             <div>
               <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Apellidos y Nombres</label>
               <input type="text" id="caja-publico-nombres" value="VARIOS" maxlength="100"
-                     oninput="cajaPublicoNombresInput(this)"
+                     oninput="cajaPublicoNombresInput(this)" onfocus="this.select()"
                      style="width: 100%; padding: 8px 10px; border-radius: 6px; background: #0f172a;
                             border: 1px solid #334155; color: #e2e8f0; font-size: 14px;">
             </div>
