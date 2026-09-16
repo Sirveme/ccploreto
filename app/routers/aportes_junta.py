@@ -64,31 +64,37 @@ async def aportes_lista(
     current_member: Member = Depends(require_aportes),
 ):
     periodos = db.execute(text("""
-        SELECT ap.id, ap.anio, ap.mes, ap.estado,
+        SELECT ap.id, ap.anio, ap.mes, ap.estado, ap.aprobado, ap.origen,
                ap.cantidad_nuevos, ap.monto_nuevos,
                ap.cantidad_habiles, ap.monto_habiles, ap.monto_total,
                ap.cerrado_en,
                dep.id AS deposito_id, dep.numero_voucher, dep.fecha_deposito, dep.monto AS deposito_monto,
                (SELECT COUNT(*) FROM aporte_periodo_alerta a
                  WHERE a.aporte_periodo_id = ap.id AND a.tipo = 'colegiado_sin_pago'
-                   AND a.resuelto = FALSE) AS alertas
+                   AND a.resuelto = FALSE) AS alertas,
+               (SELECT COUNT(*) FROM aporte_periodo_alerta a
+                 WHERE a.aporte_periodo_id = ap.id AND a.tipo = 'cierre_vencido'
+                   AND a.resuelto = FALSE) AS vencido
         FROM aporte_periodos ap
         LEFT JOIN aporte_deposito dep ON dep.aporte_periodo_id = ap.id
         WHERE ap.organizacion_id = :org
         ORDER BY ap.anio DESC, ap.mes DESC
     """), {"org": ORG_CCPL}).fetchall()
 
+    from app.services.aportes_junta_service import etapa_periodo
     filas = [{
         "id": p.id,
         "periodo_label": f"{MESES_ES[p.mes]} {p.anio}",
         "anio": p.anio, "mes": p.mes,
         "estado": p.estado,
+        "etapa": etapa_periodo(p.estado, p.aprobado, p.monto_total, p.deposito_monto),
         "cantidad_nuevos": p.cantidad_nuevos or 0,
         "monto_nuevos": float(p.monto_nuevos or 0),
         "cantidad_habiles": p.cantidad_habiles or 0,
         "monto_habiles": float(p.monto_habiles or 0),
         "monto_total": float(p.monto_total or 0),
         "alertas": p.alertas or 0,
+        "vencido": p.vencido or 0,
         "tiene_deposito": p.deposito_id is not None,
         "numero_voucher": p.numero_voucher,
     } for p in periodos]
@@ -280,12 +286,19 @@ async def aportes_detalle(
         ORDER BY created_at
     """), {"pid": periodo_id}).fetchall()
 
+    from app.services.aportes_junta_service import etapa_periodo
+    etapa = etapa_periodo(periodo.estado, getattr(periodo, "aprobado", False),
+                          periodo.monto_total, getattr(periodo, "deposito_monto", None))
+
     ctx = {
         "request": request,
         "periodo": periodo,
         "periodo_label": f"{MESES_ES[periodo.mes]} {periodo.anio}",
         "nuevos": nuevos,
         "alertas": alertas,
+        "etapa": etapa,
+        "origen": getattr(periodo, "origen", "SISTEMA"),
+        "detalle_habiles_disponible": bool(getattr(periodo, "detalle_habiles_disponible", False)),
         "show_psp_footer": _show_psp_footer(db, current_member),
     }
     return templates.TemplateResponse("pages/admin/aportes_detalle.html", ctx)
@@ -331,6 +344,47 @@ async def aportes_recalcular(
         "monto_total": result["monto_total"],
         "pendientes_registro": result["pendientes_registro"],
     }})
+
+
+# ════════════════════════════════════════════════════════════════
+# B8 — PANEL DE REVISIÓN PREVIA AL CIERRE (datos para el modal)
+# ════════════════════════════════════════════════════════════════
+@router.get("/periodo/{periodo_id}/revision-cierre")
+async def aportes_revision_cierre(
+    periodo_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    from app.services.aportes_junta_service import datos_revision_cierre
+    datos = datos_revision_cierre(db, periodo_id, organizacion_id=ORG_CCPL)
+    if datos is None:
+        raise HTTPException(404, "Periodo no encontrado")
+    return JSONResponse({"ok": True, "datos": datos})
+
+
+# ════════════════════════════════════════════════════════════════
+# CIERRE MANUAL (Opción M) — congela nominal + resuelve alertas + acuse
+# Body: {"acuse": true, "causas": {"<alerta_id>": {"causa": "...", "detalle": "..."}}}
+# ════════════════════════════════════════════════════════════════
+@router.post("/periodo/{periodo_id}/cerrar")
+async def aportes_cerrar(
+    periodo_id: int,
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    if not payload.get("acuse"):
+        return JSONResponse(
+            {"ok": False, "error": "Debe confirmar la revisión previa antes de cerrar."},
+            status_code=400)
+    causas = payload.get("causas") or {}
+    from app.services.aportes_junta_service import cerrar_periodo_manual
+    try:
+        result = cerrar_periodo_manual(db, periodo_id, current_member.user_id,
+                                       causas=causas, organizacion_id=ORG_CCPL)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "result": result})
 
 
 # ════════════════════════════════════════════════════════════════
@@ -386,11 +440,11 @@ def _recalcular_totales(db: Session, periodo_id: int, monto_por_habil: float):
         SELECT COUNT(*) AS c, COALESCE(SUM(monto_aporte), 0) AS s
         FROM aporte_detalle_nuevos WHERE aporte_periodo_id = :p
     """), {"p": periodo_id}).fetchone()
-    hab = db.execute(text("""
+    from app.services.aportes_junta_service import HABIL_WHERE
+    hab = db.execute(text(f"""
         SELECT COUNT(*) AS c FROM colegiados
-        WHERE organization_id = :o AND condicion = 'habil' AND habilidad_vence >= :corte
-          AND COALESCE(aporta_jdccpp, TRUE) = TRUE
-    """), {"o": ORG_CCPL, "corte": corte}).fetchone()
+        WHERE organization_id = :o AND {HABIL_WHERE}
+    """), {"o": ORG_CCPL, "fecha_corte": corte}).fetchone()
     cn, mn = tot.c, float(tot.s)
     ch = hab.c or 0
     mh = ch * float(monto_por_habil)
@@ -766,8 +820,10 @@ async def aportes_pdf(
         raise HTTPException(404, "Periodo no encontrado")
     per = db.execute(text("SELECT anio, mes FROM aporte_periodos WHERE id=:p"), {"p": periodo_id}).fetchone()
     fname = f"aporte_jdccpp_{per.anio}_{per.mes:02d}.pdf"
+    # attachment (no inline): el PDF se DESCARGA como el Excel, en la misma pestaña,
+    # sin abrir pestaña nueva ni render inline (que rompía con el service worker).
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{fname}"'})
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 # ════════════════════════════════════════════════════════════════
