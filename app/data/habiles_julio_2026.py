@@ -8,14 +8,14 @@ mecanismo para otros periodos.
 Lista de 964 hábiles reconstruida por RASTROS DE DATOS al 31/07/2026
 (F1 vigencia continua + F2a evento ≤ corte con vigencia ≥ 31/08; tope 964 = cifra
 oficial de julio). Congelada el 2026-09-16. Solo lectura por el generador del Excel.
-"""
+
 
 NOTA_RECONSTRUCCION = (
     "Lista reconstruida por rastros de datos al 31/07/2026 — el detalle nominal no se "
     "congeló en su momento. Conteo oficial de julio: 964. Detalle nominal fiel por "
     "periodo disponible desde agosto 2026."
 )
-
+"""
 # (matricula, apellidos_nombres, condicion) — 964 filas, orden alfabético
 HABILES_JULIO_2026 = [
     ("10-1543", "ACOSTA GRANDEZ JESSICA LOURDES", "habil"),
