@@ -162,11 +162,10 @@ def generar_pdf(db: Session, periodo_id: int, show_footer: bool = False, org_id:
             "<b>DOCUMENTO PREVIEW — PENDIENTE DE APROBACIÓN</b>",
             ParagraphStyle("pv", parent=styles["Normal"], textColor=colors.HexColor("#b91c1c"))))
 
-    if show_footer:
-        el.append(Spacer(1, 12 * mm))
-        el.append(Paragraph(
-            "Sistema desarrollado por Perú Sistemas Pro · perusistemas.pro · WhatsApp +51 967 317 946",
-            small))
+    # Fase 1 (C): el PDF SALE del sistema (se comparte con la JDCCPP) → NO lleva
+    # pie promocional de Perú Sistemas Pro. El parámetro show_footer se conserva
+    # por compatibilidad de firma pero ya no emite footer.
+    _ = show_footer
 
     doc.build(el, onFirstPage=_watermark, onLaterPages=_watermark)
     return buf.getvalue()
@@ -207,6 +206,52 @@ def generar_excel(db: Session, periodo_id: int, show_footer: bool = False, org_i
     ws1["A8"].font = bold; ws1["B8"].font = bold
     ws1.column_dimensions["A"].width = 34; ws1.column_dimensions["B"].width = 18
 
+    # ── Hoja "Hábiles" (posición 2: Resumen, Hábiles, Detalle Nuevos, Metadata) ──
+    # Fuente por prioridad: (1) foto REAL congelada en aporte_detalle_habiles
+    # (agosto en adelante); (2) julio 2026 → reconstrucción histórica ÚNICA por
+    # rastros de datos (app/data/habiles_julio_2026.py), con nota visible; (3) resto
+    # → hoja con nota "no disponible". Solo LECTURA: no escribe en la BD.
+    ws_h = wb.create_sheet("Hábiles", 1)
+    habiles = db.execute(text("""
+        SELECT codigo_matricula, apellidos_nombres, condicion
+        FROM aporte_detalle_habiles WHERE aporte_periodo_id = :pid
+        ORDER BY apellidos_nombres
+    """), {"pid": periodo_id}).fetchall()
+    nota_recon = None
+    if habiles:
+        filas_h = [(h.codigo_matricula, h.apellidos_nombres, h.condicion) for h in habiles]
+    elif periodo.anio == 2026 and periodo.mes == 7:
+        from app.data.habiles_julio_2026 import HABILES_JULIO_2026, NOTA_RECONSTRUCCION
+        filas_h = HABILES_JULIO_2026
+        nota_recon = NOTA_RECONSTRUCCION
+    else:
+        filas_h = []
+        nota_recon = "Foto nominal no disponible para este periodo (no se congeló al cierre)."
+
+    ws_h["A1"] = f"Hábiles — {periodo_label}"
+    ws_h["A1"].font = Font(bold=True, size=13)
+    hrow = 3
+    if nota_recon:
+        ws_h["A2"] = nota_recon
+        ws_h["A2"].font = Font(italic=True, size=9, color="B00000")
+        ws_h["A2"].alignment = Alignment(wrap_text=True, vertical="top")
+        ws_h.merge_cells("A2:D2")
+        ws_h.row_dimensions[2].height = 44
+        hrow = 4
+    heads_h = ["N°", "Matrícula", "Apellidos y Nombres", "Condición"]
+    for c, htxt in enumerate(heads_h, 1):
+        cell = ws_h.cell(row=hrow, column=c, value=htxt)
+        cell.fill = azul; cell.font = blanco_bold; cell.alignment = Alignment(horizontal="center")
+    for i, (mat, nom, cond) in enumerate(filas_h, 1):
+        rr = hrow + i
+        ws_h.cell(row=rr, column=1, value=i)
+        ws_h.cell(row=rr, column=2, value=mat or "—")
+        ws_h.cell(row=rr, column=3, value=nom)
+        ws_h.cell(row=rr, column=4, value=cond)
+    for col, w in zip("ABCD", [6, 14, 44, 12]):
+        ws_h.column_dimensions[col].width = w
+    ws_h.freeze_panes = ws_h.cell(row=hrow + 1, column=1)
+
     ws2 = wb.create_sheet("Detalle Nuevos")
     headers = ["N°", "Matrícula", "Apellidos y Nombres", "DNI", "Fecha Pago", "Monto Aporte"]
     ws2.append(headers)
@@ -239,9 +284,8 @@ def generar_excel(db: Session, periodo_id: int, show_footer: bool = False, org_i
     ]
     for k, v in meta:
         ws3.append([k, v])
-    if show_footer:
-        ws3.append(["", ""])
-        ws3.append(["Sistema", "Perú Sistemas Pro · perusistemas.pro · WhatsApp +51 967 317 946"])
+    # Fase 1 (C): el Excel SALE del sistema → sin pie promocional PSP.
+    _ = show_footer
     ws3.column_dimensions["A"].width = 22; ws3.column_dimensions["B"].width = 48
 
     out = io.BytesIO(); wb.save(out)
