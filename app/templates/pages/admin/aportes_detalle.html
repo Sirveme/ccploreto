@@ -9,10 +9,21 @@
   .head h1 { font-size:20px; font-weight:700; color:#f8fafc; }
   .pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; }
   .pill-abierto { background:rgba(234,179,8,.15); color:#fbbf24; }
-  .pill-cerrado { background:rgba(34,197,94,.15); color:#4ade80; }
+  .pill-cerrado { background:rgba(148,163,184,.15); color:#cbd5e1; }
+  .pill-aprobado { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .pill-pagado { background:rgba(34,197,94,.15); color:#4ade80; }
   .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:8px; font-size:13px; font-weight:600; border:none; cursor:pointer; }
   .btn-primary { background:#2563eb; color:#fff; } .btn-primary:hover { background:#1d4ed8; }
+  .btn-cerrar { background:#7c2d12; color:#fed7aa; } .btn-cerrar:hover { background:#9a3412; }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9999; align-items:center; justify-content:center; padding:16px; }
+  .modal-card { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:22px; width:100%; max-width:640px; max-height:88vh; overflow:auto; }
+  .rev-sec { border:1px solid #1e293b; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .rev-sec h4 { font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:8px; letter-spacing:.03em; }
+  .rev-warn { border-color:#a16207; }
+  .rev-item { font-size:12px; color:#cbd5e1; padding:6px 0; border-bottom:1px solid #1e293b; }
+  .rev-item:last-child { border-bottom:none; }
+  .causa-sel { width:100%; background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:6px; padding:6px 8px; font-size:12px; margin-top:4px; }
   .resumen { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:20px; margin-bottom:16px; }
   .resumen .line { display:flex; justify-content:space-between; padding:7px 0; font-size:14px; }
   .resumen .line .k { color:#94a3b8; } .resumen .line .sub { color:#64748b; font-size:12px; }
@@ -35,15 +46,22 @@
   <a href="/admin/aportes-junta" class="back"><i class="ph ph-arrow-left"></i> Volver a reportes</a>
   <div class="head">
     <h1>Aporte mensual a JDCCPP — {{ periodo_label }}</h1>
-    {% if periodo.estado == 'cerrado' %}<span class="pill pill-cerrado"><i class="ph ph-check-circle"></i> Cerrado{% if periodo.cerrado_en %} {{ periodo.cerrado_en.strftime('%d/%m/%Y') }}{% endif %}</span>
-    {% else %}
-      <span class="pill pill-abierto"><i class="ph ph-clock"></i> Abierto</span>
-      <button class="btn btn-primary" id="btn-recalcular" onclick="recalcular({{ periodo.id }})"><i class="ph ph-arrows-clockwise"></i> Recalcular</button>
-    {% endif %}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      {% set et = etapa.etapa %}
+      {% if et == 'Abierto' %}<span class="pill pill-abierto"><i class="ph ph-clock"></i> Abierto</span>
+      {% elif et == 'Pagado' %}<span class="pill pill-pagado"><i class="ph ph-check-circle"></i> Pagado</span>
+      {% elif et == 'Aprobado' %}<span class="pill pill-aprobado"><i class="ph ph-seal-check"></i> Aprobado</span>
+      {% else %}<span class="pill pill-cerrado"><i class="ph ph-lock-simple"></i> Cerrado{% if periodo.cerrado_en %} {{ periodo.cerrado_en.strftime('%d/%m/%Y') }}{% endif %}</span>{% endif %}
+      {% if etapa.inconsistencia %}<span class="pill" style="background:rgba(239,68,68,.15);color:#f87171;" title="{{ etapa.nota }}">⚠ Inconsistencia</span>{% endif %}
+      {% if periodo.estado != 'cerrado' %}
+        <button class="btn btn-primary" id="btn-recalcular" onclick="recalcular({{ periodo.id }})"><i class="ph ph-arrows-clockwise"></i> Recalcular</button>
+        <button class="btn btn-cerrar" onclick="abrirRevision()"><i class="ph ph-lock-simple"></i> Cerrar periodo</button>
+      {% endif %}
+    </div>
   </div>
 
   <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
-    <a href="/admin/aportes-junta/periodo/{{ periodo.id }}/pdf" target="_blank"
+    <a href="/admin/aportes-junta/periodo/{{ periodo.id }}/pdf"
        style="padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-file-pdf"></i> PDF</a>
     <a href="/admin/aportes-junta/periodo/{{ periodo.id }}/excel"
        style="padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#1e293b;color:#cbd5e1;"><i class="ph ph-file-xls"></i> Excel</a>
@@ -125,7 +143,38 @@
   <p style="color:#64748b;padding:20px 0;">Sin nuevos colegiados registrados en este periodo.</p>
   {% endif %}
 
+  <!-- B6: disponibilidad de la lista nominal de hábiles (congelada al cierre) -->
+  <h2 style="font-size:13px;text-transform:uppercase;color:#94a3b8;margin:22px 0 8px;">Lista nominal de hábiles</h2>
+  {% if detalle_habiles_disponible %}
+    <p style="color:#94a3b8;font-size:13px;">
+      <i class="ph ph-list-checks"></i> Nominal congelada disponible para este periodo.
+      <span style="color:#64748b;">(La vista nominal detallada se habilita en la siguiente entrega.)</span>
+    </p>
+  {% else %}
+    <p style="color:#64748b;font-size:13px;">
+      Solo conteo{% if origen == 'REGULARIZACION' %} (periodo regularizado, sin lista nominal){% else %} (la lista nominal se congela al cerrar el periodo){% endif %}.
+    </p>
+  {% endif %}
+
   {% include "partials/aportes_footer.html" %}
+</div>
+
+<!-- B8: Modal de revisión previa al cierre -->
+<div id="modal-revision" class="modal-bg">
+  <div class="modal-card">
+    <h3 style="font-size:17px;color:#f8fafc;margin-bottom:4px;">Revisión previa al cierre — {{ periodo_label }}</h3>
+    <p style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Revise y acuse antes de cerrar. El cierre congela el nominal y es inmutable.</p>
+    <div id="rev-body"><p style="color:#64748b;">Cargando…</p></div>
+    <label style="display:flex;align-items:center;gap:9px;margin:14px 0;cursor:pointer;color:#e2e8f0;font-size:13px;font-weight:600;">
+      <input type="checkbox" id="rev-acuse" style="width:18px;height:18px;cursor:pointer;">
+      He revisado la información anterior y autorizo el cierre.
+    </label>
+    <div id="rev-msg" style="font-size:12px;color:#f87171;min-height:16px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+      <button type="button" class="btn" style="background:#1e293b;color:#cbd5e1;" onclick="cerrarRevision()">Cancelar</button>
+      <button type="button" class="btn btn-cerrar" id="btn-confirmar-cierre" disabled onclick="confirmarCierre({{ periodo.id }})"><i class="ph ph-lock-simple"></i> Confirmar cierre</button>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Registrar/Editar depósito (custom, sin dialogs nativos) -->
@@ -175,6 +224,139 @@ async function recalcular(pid) {
   } catch (e) {
     if (window.Toast) Toast.show('Error de red', 'error');
     btn.disabled = false; btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Recalcular';
+  }
+}
+
+// ── B8: revisión previa al cierre ──
+const CAUSAS = [
+  ['pago_fuera', 'Pagó fuera del sistema'],
+  ['pago_incompleto', 'Pago incompleto'],
+  ['transeunte_con_origen', 'Transeúnte con colegio de origen'],
+  ['otro', 'Otro'],
+];
+let REV_ALERTAS = [];
+
+function _esc(s) {
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function abrirRevision() {
+  const modal = document.getElementById('modal-revision');
+  modal.style.display = 'flex';
+  document.getElementById('rev-acuse').checked = false;
+  document.getElementById('btn-confirmar-cierre').disabled = true;
+  document.getElementById('rev-msg').textContent = '';
+  const body = document.getElementById('rev-body');
+  body.innerHTML = '<p style="color:#64748b;">Cargando…</p>';
+  try {
+    const r = await fetch(`/admin/aportes-junta/periodo/{{ periodo.id }}/revision-cierre`);
+    const data = await r.json();
+    if (!data.ok) { body.innerHTML = `<p style="color:#f87171;">${_esc(data.error||'Error')}</p>`; return; }
+    renderRevision(data.datos);
+  } catch (e) {
+    body.innerHTML = '<p style="color:#f87171;">Error de red.</p>';
+  }
+}
+
+function renderRevision(d) {
+  REV_ALERTAS = d.alertas || [];
+  const optHtml = CAUSAS.map(c => `<option value="${c[0]}">${c[1]}</option>`).join('');
+  let html = '';
+
+  // (a) alertas de nuevos sin pago — causal obligatoria
+  html += '<div class="rev-sec ' + (REV_ALERTAS.length ? 'rev-warn' : '') + '">';
+  html += `<h4>a) Nuevos sin pago localizado (${REV_ALERTAS.length})</h4>`;
+  if (!REV_ALERTAS.length) {
+    html += '<p style="color:#4ade80;font-size:12px;">Sin pendientes. ✓</p>';
+  } else {
+    html += '<p style="color:#fca5a5;font-size:11px;margin-bottom:6px;">Cada caso exige una causal para poder cerrar.</p>';
+    REV_ALERTAS.forEach(a => {
+      html += `<div class="rev-item">${_esc(a.mensaje)}
+        <select class="causa-sel" data-alerta="${a.id}"><option value="">— Elegir causal —</option>${optHtml}</select>
+        <input type="text" class="causa-det" data-alerta="${a.id}" placeholder="Detalle (obligatorio si 'Otro')"
+               style="display:none;width:100%;background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:6px;padding:6px 8px;font-size:12px;margin-top:4px;"></div>`;
+    });
+  }
+  html += '</div>';
+
+  // (b) hábiles con habilidad_vence NULL (informativo)
+  const hn = d.habiles_null_vence || [];
+  html += '<div class="rev-sec"><h4>b) Hábiles sin corte registrado que el criterio va a contar (' + hn.length + ')</h4>';
+  if (!hn.length) {
+    html += '<p style="color:#64748b;font-size:12px;">Ninguno.</p>';
+  } else {
+    html += '<p style="color:#94a3b8;font-size:11px;margin-bottom:4px;">Informativo: cuentan como hábiles (habilidad_vence NULL).</p>';
+    html += hn.slice(0, 50).map(h => `<div class="rev-item">${_esc(h.codigo_matricula||'—')} · ${_esc(h.apellidos_nombres)} ${h.dni?('· DNI '+_esc(h.dni)):''}</div>`).join('');
+    if (hn.length > 50) html += `<div class="rev-item" style="color:#64748b;">… y ${hn.length-50} más</div>`;
+  }
+  html += '</div>';
+
+  // (c) total de aportantes + variación
+  html += '<div class="rev-sec ' + (d.supera_umbral ? 'rev-warn' : '') + '"><h4>c) Total de aportantes y variación</h4>';
+  html += `<div class="rev-item">Total de aportantes este periodo: <b>${d.total_actual}</b></div>`;
+  if (d.total_anterior == null) {
+    html += `<div class="rev-item" style="color:#64748b;">Sin periodo anterior (${_esc(d.periodo_anterior_label)}) para comparar.</div>`;
+  } else {
+    const signo = d.variacion_pct > 0 ? '+' : '';
+    html += `<div class="rev-item">Anterior (${_esc(d.periodo_anterior_label)}): <b>${d.total_anterior}</b> · Variación: <b style="color:${d.supera_umbral?'#f87171':'#4ade80'};">${signo}${d.variacion_pct}%</b></div>`;
+    if (d.supera_umbral) html += `<div class="rev-item" style="color:#f87171;">⚠ La variación supera el umbral de ±${d.umbral}%. Verifique antes de cerrar.</div>`;
+  }
+  html += '</div>';
+
+  document.getElementById('rev-body').innerHTML = html;
+
+  // mostrar campo detalle solo cuando la causal es "otro"
+  document.querySelectorAll('.causa-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const det = document.querySelector(`.causa-det[data-alerta="${sel.dataset.alerta}"]`);
+      if (det) det.style.display = (sel.value === 'otro') ? 'block' : 'none';
+    });
+  });
+}
+
+document.getElementById('rev-acuse').addEventListener('change', e => {
+  document.getElementById('btn-confirmar-cierre').disabled = !e.target.checked;
+});
+
+function cerrarRevision() {
+  document.getElementById('modal-revision').style.display = 'none';
+}
+
+async function confirmarCierre(pid) {
+  const msg = document.getElementById('rev-msg');
+  msg.textContent = '';
+  if (!document.getElementById('rev-acuse').checked) {
+    msg.textContent = 'Debe marcar la casilla de revisión.'; return;
+  }
+  const causas = {};
+  for (const a of REV_ALERTAS) {
+    const sel = document.querySelector(`.causa-sel[data-alerta="${a.id}"]`);
+    const causa = sel ? sel.value : '';
+    if (!causa) { msg.textContent = 'Falta la causal de al menos un nuevo sin pago.'; return; }
+    const det = document.querySelector(`.causa-det[data-alerta="${a.id}"]`);
+    const detalle = det ? det.value.trim() : '';
+    if (causa === 'otro' && !detalle) { msg.textContent = "La causal 'Otro' exige un detalle."; return; }
+    causas[a.id] = { causa, detalle };
+  }
+  const btn = document.getElementById('btn-confirmar-cierre');
+  btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> Cerrando…';
+  try {
+    const r = await fetch(`/admin/aportes-junta/periodo/${pid}/cerrar`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acuse: true, causas }),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      if (window.Toast) Toast.show('Periodo cerrado', 'success');
+      setTimeout(() => location.reload(), 600);
+    } else {
+      msg.textContent = data.error || 'No se pudo cerrar.';
+      btn.disabled = false; btn.innerHTML = '<i class="ph ph-lock-simple"></i> Confirmar cierre';
+    }
+  } catch (e) {
+    msg.textContent = 'Error de red.';
+    btn.disabled = false; btn.innerHTML = '<i class="ph ph-lock-simple"></i> Confirmar cierre';
   }
 }
 </script>
