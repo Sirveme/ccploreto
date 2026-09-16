@@ -1,7 +1,7 @@
 // static/service-worker.js
 // v2 — PWA instalable + push comunicados + push pánico
 
-const CACHE_NAME = 'ccpl-v4';
+const CACHE_NAME = 'ccpl-v5';
 const ASSETS_TO_CACHE = [
   '/static/css/pages/dashboard_colegiado.css',
   '/static/js/pages/dashboard_colegiado.js',
@@ -38,20 +38,21 @@ self.addEventListener('activate', event => {
 // ── Fetch — cache first para assets estáticos ─────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
-  // Solo cachear GET de assets estáticos
   if (event.request.method !== 'GET') return;
-  if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname.startsWith('/auth/')) return;
+
+  // SOLO interceptar assets estáticos (cache-first). TODO lo demás — páginas,
+  // descargas y endpoints autenticados (p. ej. /admin/aportes-junta/.../pdf y /excel,
+  // dashboards) — pasa DIRECTO al network, sin tocar el SW. Antes el SW interceptaba
+  // todo salvo /api/ y /auth/, y su `.catch(()=>cached)` devolvía undefined para esos
+  // documentos dinámicos → "no se puede obtener acceso a esta página" en el PDF.
+  const esEstatico = url.pathname.startsWith('/static/') || url.pathname === '/manifest.json';
+  if (!esEstatico) return;
 
   event.respondWith(
     caches.match(event.request).then(cached => {
       return cached || fetch(event.request).then(response => {
-        // Cachear solo assets estáticos
-        if (url.pathname.startsWith('/static/')) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;
       }).catch(() => cached);
     })
@@ -72,6 +73,11 @@ self.addEventListener('push', event => {
     try { Object.assign(data, event.data.json()); }
     catch(e) { data.body = event.data.text(); }
   }
+
+  // zClaude-97o: aceptar también titulo/mensaje (nomenclatura del diseño v3),
+  // manteniendo compatibilidad con el payload title/body existente.
+  if (data.titulo) data.title = data.titulo;
+  if (data.mensaje) data.body = data.mensaje;
 
   // Configuración según tipo de notificación
   const configs = {
@@ -114,9 +120,13 @@ self.addEventListener('push', event => {
     body:    data.body,
     icon:    data.icon || '/static/img/icon-192.png',
     image:   data.image || null,   // imagen grande (comunicados con foto)
-    data:    { url: data.url },
+    data:    { url: data.url, sonido: data.sonido || null, nivel: data.nivel || 'N3' },
     ...cfg,
   };
+
+  // zClaude-97o: los avisos críticos N4 quedan "sticky" (requireInteraction)
+  // aunque su 'type' no lo fuera. No debilita los configs existentes.
+  if (data.nivel === 'N4') options.requireInteraction = true;
 
   // Limpiar nulls
   if (!options.image) delete options.image;
@@ -134,8 +144,12 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const client of list) {
-        if (client.url.includes(targetUrl) && 'focus' in client) {
-          return client.focus();
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.focus();
+          // zClaude-97o: navegar la ventana ya abierta al destino del aviso.
+          if ('navigate' in client) { client.navigate(targetUrl).catch(() => {}); }
+          client.postMessage({ type: 'navigate', url: targetUrl });
+          return;
         }
       }
       if (clients.openWindow) return clients.openWindow(targetUrl);
