@@ -32,7 +32,7 @@ from dateutil.relativedelta import relativedelta
 
 import logging
 
-from app.models_debt_management import Debt, Fraccionamiento, FraccionamientoCuota
+from app.models_debt_management import Debt, DebtAction, Fraccionamiento, FraccionamientoCuota
 from app.services import parametros_service
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,9 @@ class ResultadoFraccionamiento:
     cuotas_debts_creadas: int = 0
     cuotas_debts_omitidas: int = 0
     cuota_inicial_debt_id: Optional[int] = None
+    # Regla 20%-no-bloquea (Decano): si el inicial quedó bajo el mínimo de
+    # referencia y NO se bloqueó, aquí va el texto de la advertencia/constancia.
+    advertencia_inicial: Optional[str] = None
 
 
 def _generar_numero_solicitud(db: Session, organization_id: int, anio: int) -> str:
@@ -106,6 +109,8 @@ def crear_fraccionamiento(
     created_by_user_id: int,
     nota_audit: Optional[str] = None,
     aplicar_acuerdo_007: bool = True,
+    commit: bool = True,
+    permitir_con_activo: bool = False,
 ) -> ResultadoFraccionamiento:
     """
     Crea un plan de fraccionamiento. Valida reglas, crea Fraccionamiento,
@@ -120,6 +125,17 @@ def crear_fraccionamiento(
     # Parámetros vigentes (parametros_sistema) con fallback a las constantes.
     deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct = \
         _resolver_parametros_fracc(db, colegiado.organization_id)
+
+    # Regla 20%-no-bloquea (Decano): ¿el inicial bajo el mínimo BLOQUEA o solo
+    # advierte? Se lee aparte para NO cambiar la aridad de _resolver_parametros_fracc
+    # (usada también por portal_colegiado). Default FALSE = NO bloquea (proceder + constancia).
+    try:
+        inicial_bloquea = bool(parametros_service.get_param(
+            db, "fraccionamiento", "inicial_minima_bloquea",
+            colegiado.organization_id, default=False,
+        ))
+    except Exception:
+        inicial_bloquea = False
 
     if not (2 <= n_cuotas <= max_cuotas):
         raise HTTPException(
@@ -136,11 +152,14 @@ def crear_fraccionamiento(
         )
         .first()
     )
-    if plan_existente:
+    if plan_existente and not permitir_con_activo:
         raise HTTPException(
             409,
             f"El colegiado ya tiene un plan activo (#{plan_existente.numero_solicitud})"
         )
+    # permitir_con_activo=True: usado por refinanciar_core, que crea el nuevo plan
+    # ANTES de cerrar el viejo (ambos en la MISMA transacción atómica). El estado
+    # committeado nunca tiene dos activos.
 
     # ── Cargar deudas y validar pertenencia ──
     deudas_qs = (
@@ -167,13 +186,24 @@ def crear_fraccionamiento(
             f"La deuda (S/ {total:.2f}) es menor al mínimo de S/ {deuda_min:.2f}"
         )
 
-    # ── Validar cuota inicial ──
+    # ── Validar cuota inicial (regla 20%-no-bloquea del Decano) ──
+    # El % es REFERENCIA. Con inicial_minima_bloquea=FALSE (default) NO se bloquea:
+    # se procede con cualquier inicial y se deja CONSTANCIA de la excepción; nunca
+    # dar al colegiado la percepción de que no le quieren recibir el pago.
     minimo_inicial = round(total * cuota_inicial_pct, 2)
+    advertencia_inicial = None
     if monto_cuota_inicial < minimo_inicial - 0.009:
-        raise HTTPException(
-            400,
-            f"La cuota inicial mínima es S/ {minimo_inicial:.2f} "
-            f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f})"
+        if inicial_bloquea:
+            raise HTTPException(
+                400,
+                f"La cuota inicial mínima es S/ {minimo_inicial:.2f} "
+                f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f})"
+            )
+        advertencia_inicial = (
+            f"Cuota inicial S/ {monto_cuota_inicial:.2f} por debajo del mínimo de "
+            f"referencia S/ {minimo_inicial:.2f} "
+            f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f}). "
+            f"Procede por excepción (inicial_minima_bloquea=FALSE)."
         )
     if monto_cuota_inicial >= total:
         raise HTTPException(
@@ -306,8 +336,27 @@ def crear_fraccionamiento(
         )
     debt_id_inicial = obtener_debt_id_cuota_inicial(db, fracc.id)
 
-    db.commit()
-    db.refresh(fracc)
+    # ── Constancia de excepción 20%-no-bloquea (DebtAction tipo='nota') ──
+    # Deja registro AUDITABLE de quién procedió con inicial bajo el mínimo.
+    # 'nota' NO requiere doble firma. Solo si hay debt de cuota inicial al que anclar.
+    if advertencia_inicial and debt_id_inicial:
+        db.add(DebtAction(
+            organization_id=colegiado.organization_id,
+            debt_id=debt_id_inicial,
+            fraccionamiento_id=fracc.id,
+            tipo="nota",
+            descripcion=f"[INICIAL-BAJO-20%] {advertencia_inicial}",
+            created_by=created_by_user_id,
+        ))
+        db.flush()
+
+    # commit=False: el llamador (p.ej. refinanciar_core) orquesta varios pasos en
+    # UNA transacción y commitea al final. Default True conserva el comportamiento.
+    if commit:
+        db.commit()
+        db.refresh(fracc)
+    else:
+        db.flush()
 
     # ── Aplicar Acuerdo 007-2026 si corresponde ──
     condona_info = None
@@ -345,6 +394,7 @@ def crear_fraccionamiento(
         cuotas_debts_creadas=len(resultado_gen["creadas"]),
         cuotas_debts_omitidas=len(resultado_gen["omitidas"]),
         cuota_inicial_debt_id=debt_id_inicial,
+        advertencia_inicial=advertencia_inicial,
     )
 
 
