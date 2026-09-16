@@ -896,6 +896,33 @@ class RegistrarPagoCuotaFraccRequest(BaseModel):
     nota: Optional[str] = None
 
 
+@router.get("/fraccionamientos/por-revisar")
+async def fraccionamientos_por_revisar(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Read-only: fraccionamientos ACTIVOS que cumplen la condición de pérdida
+    (>= cuotas_impagas_perdida consecutivas). Modo MANUAL (perdida_automatica=FALSE):
+    NO ejecuta nada — solo lista candidatos para que una persona decida y use el
+    botón 'Marcar perdido' (que reusa POST /fraccionamientos/{id}/marcar-perdido).
+
+    Declarado ANTES de /fraccionamientos/{colegiado_id} para que el segmento
+    'por-revisar' no sea capturado por ese path param entero.
+    """
+    from app.services.fraccionamiento_perdida_service import detectar_candidatos_perdida
+    org = getattr(request.state, "org", None)
+    org_id = (
+        (org.get("id") if isinstance(org, dict) else getattr(org, "id", None))
+        or getattr(current_member, "organization_id", None)
+        or 1
+    )
+    # ejecutar=False SIEMPRE aquí: la vista nunca dispara pérdidas.
+    # solo_sanos=True: filtra por distinct_venc>1 → deja fuera el batch sin conciliar,
+    # solo muestra candidatos reales entre los fraccionamientos operables.
+    return detectar_candidatos_perdida(db, org_id, ejecutar=False, solo_sanos=True)
+
+
 @router.get("/fraccionamientos/{colegiado_id}")
 async def listar_fraccionamientos_colegiado(
     colegiado_id: int,
@@ -1031,6 +1058,8 @@ async def registrar_fraccionamiento(
         "cuotas_omitidas": resultado.cuotas_debts_omitidas,
         "cuota_inicial_debt_id": resultado.cuota_inicial_debt_id,
         "cuota_inicial_monto": float(fracc.cuota_inicial or 0),
+        # Regla 20%-no-bloquea: constancia de excepción si el inicial fue < mínimo.
+        "advertencia_inicial": resultado.advertencia_inicial,
         "mensaje": (
             f"Plan {fracc.numero_solicitud} creado. "
             f"Cuota inicial S/ {float(fracc.cuota_inicial):.2f}, "
@@ -1347,170 +1376,131 @@ async def marcar_fracc_perdido(
     4. Cancela cuotas del fracc (status='cancelled').
     5. Cambia estado del fracc a 'perdido' con fecha y motivo.
     """
-    fr = db.execute(text("""
-        SELECT id, colegiado_id, estado, deuda_total_original
-        FROM fraccionamientos
-        WHERE id = :fid
-        FOR UPDATE
-    """), {"fid": fracc_id}).fetchone()
+    # Lógica extraída a servicio reutilizable (mismo comportamiento). El endpoint
+    # solo deriva el user_id y traduce el error de dominio a HTTPException.
+    from app.services.fraccionamiento_perdida_service import (
+        marcar_fracc_perdido_core, FraccPerdidoError,
+    )
+    user_id = current_member.user_id if current_member.user_id else current_member.id
+    try:
+        return marcar_fracc_perdido_core(db, fracc_id, payload.motivo, user_id)
+    except FraccPerdidoError as e:
+        raise HTTPException(e.status_code, e.detail)
 
-    if not fr:
+
+# ============================================================
+# REFINANCIAMIENTO (reusa refinanciar_core; alcance = fracc SANOS)
+# ============================================================
+
+class RefinanciarRequest(BaseModel):
+    monto_inicial: float
+    num_cuotas: int
+    deudas_adicionales_ids: List[int] = []
+    metodo_pago_inicial: str = "efectivo"
+    operacion_inicial: Optional[str] = None
+    monto_cuota_mensual: Optional[float] = None
+
+
+def _adicionales_exigibles(db, colegiado_id, solo_ids=None):
+    """Deudas del colegiado elegibles para foldear en un refinanciamiento:
+    vivas, con saldo, SIN fracc, pending/partial y — CLAVE — SOLO EXIGIBLES
+    (notificada/notif_tacita). Excluye no_notificada (no es cobrable aún)."""
+    q = db.query(Debt).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.fraccionamiento_id == None,  # noqa: E711
+        Debt.estado_gestion.in_(["vigente", "en_cobranza"]),
+        Debt.status.in_(["pending", "partial"]),
+        Debt.balance > 0,
+        Debt.estado_notificacion.in_(["notificada", "notif_tacita"]),
+    )
+    if solo_ids is not None:
+        q = q.filter(Debt.id.in_(solo_ids))
+    return q.order_by(Debt.periodo.asc().nullslast(), Debt.id.asc()).all()
+
+
+@router.get("/fraccionamientos/{fracc_id}/refinanciar-preview")
+async def refinanciar_preview(
+    fracc_id: int,
+    inicial: Optional[float] = Query(None),
+    cuotas: Optional[int] = Query(None),
+    adicionales: str = Query(""),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Read-only: alimenta el modal. Devuelve saldo del viejo, si es SANO, la lista
+    de deudas adicionales EXIGIBLES (checkboxes), y — si se pasan inicial+cuotas —
+    el plan (`_planificar_refinanciamiento`, sin escrituras) con total/mensual/adv 20%."""
+    from app.services.fraccionamiento_refinanciar_service import (
+        _planificar_refinanciamiento, _es_sano, RefinanciarError,
+    )
+    old = db.query(Fraccionamiento).filter(Fraccionamiento.id == fracc_id).first()
+    if not old:
         raise HTTPException(404, "Fraccionamiento no encontrado")
 
-    if fr.estado == "perdido":
-        raise HTTPException(
-            409, "Este fraccionamiento ya está marcado como perdido"
-        )
+    disponibles = [
+        {"id": d.id, "concept": d.concept, "periodo": d.periodo,
+         "balance": float(d.balance or 0)}
+        for d in _adicionales_exigibles(db, old.colegiado_id)
+    ]
 
-    if fr.estado == "cancelado":
-        raise HTTPException(
-            409,
-            "Este fraccionamiento está cancelado, no se puede marcar "
-            "como perdido"
-        )
-
-    originales = db.execute(text("""
-        SELECT id, amount, balance, status, estado_gestion
-        FROM debts
-        WHERE fraccionamiento_id_origen = :fid
-        ORDER BY id
-    """), {"fid": fracc_id}).fetchall()
-
-    cuotas = db.execute(text("""
-        SELECT id, amount, balance, status
-        FROM debts
-        WHERE fraccionamiento_id = :fid
-        ORDER BY id
-    """), {"fid": fracc_id}).fetchall()
-
-    pagos_a_cuotas = sum(
-        float(c.amount or 0) - float(c.balance or 0) for c in cuotas
-    )
-
-    user_id = current_member.user_id if current_member.user_id else current_member.id
-    ahora = datetime.now(PERU_TZ)
-    nota_restaurar = (
-        f"[FRACC-PERDIDO:user{user_id}] "
-        f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
-        f"restauración por marcar perdido fracc {fracc_id}. "
-        f"Motivo: {payload.motivo[:100]}"
-    )
-
-    originales_restauradas = []
-    for o in originales:
-        ya_plena = (
-            o.balance is not None
-            and o.amount is not None
-            and o.balance >= o.amount
-            and o.status != "paid"
-        )
-        if ya_plena:
-            continue
-        db.execute(text("""
-            UPDATE debts
-            SET balance = amount,
-                status = 'pending',
-                estado_gestion = 'vigente',
-                updated_at = NOW(),
-                notes = COALESCE(notes,'') || E'\n' || :nota
-            WHERE id = :did
-        """), {"did": o.id, "nota": nota_restaurar})
-        originales_restauradas.append(o.id)
-
-    aplicaciones_pago = []
-    if pagos_a_cuotas > 0:
-        saldo = pagos_a_cuotas
-        originales_orden = db.execute(text("""
-            SELECT id, amount, periodo
-            FROM debts
-            WHERE fraccionamiento_id_origen = :fid
-            ORDER BY periodo NULLS LAST, id
-        """), {"fid": fracc_id}).fetchall()
-
-        for o in originales_orden:
-            if saldo <= 0:
-                break
-            monto = float(o.amount or 0)
-            a_aplicar = min(saldo, monto)
-            nuevo_balance = monto - a_aplicar
-            if nuevo_balance <= 0.01:
-                nuevo_status = "paid"
-            elif a_aplicar > 0:
-                nuevo_status = "partial"
-            else:
-                nuevo_status = "pending"
-            nota_pago = (
-                f"[FRACC-PERDIDO-PAGO:user{user_id}] "
-                f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
-                f"aplicado S/{a_aplicar:.2f} de pagos previos al "
-                f"fracc {fracc_id}"
-            )
-            db.execute(text("""
-                UPDATE debts
-                SET balance = :nb,
-                    status = :ns,
-                    updated_at = NOW(),
-                    notes = COALESCE(notes,'') || E'\n' || :nota
-                WHERE id = :did
-            """), {
-                "nb": nuevo_balance,
-                "ns": nuevo_status,
-                "did": o.id,
-                "nota": nota_pago,
-            })
-            aplicaciones_pago.append({
-                "debt_id": o.id,
-                "aplicado": round(a_aplicar, 2),
-                "balance_final": round(nuevo_balance, 2),
-                "status_final": nuevo_status,
-            })
-            saldo -= a_aplicar
-
-    cuotas_canceladas = []
-    for c in cuotas:
-        db.execute(text("""
-            UPDATE debts
-            SET balance = 0,
-                status = 'cancelled',
-                estado_gestion = 'anulada',
-                updated_at = NOW(),
-                notes = COALESCE(notes,'') ||
-                        E'\n[FRACC-PERDIDO-CUOTA] cuota anulada por '
-                        'pérdida del fracc'
-            WHERE id = :did
-        """), {"did": c.id})
-        cuotas_canceladas.append(c.id)
-
-    db.execute(text("""
-        UPDATE fraccionamientos
-        SET estado = 'perdido',
-            fecha_perdida = NOW(),
-            motivo_perdida = :motivo,
-            updated_at = NOW()
-        WHERE id = :fid
-    """), {"motivo": payload.motivo, "fid": fracc_id})
-
-    db.commit()
-
-    logger.info(
-        "Fracc %s marcado como PERDIDO por user=%s: "
-        "originales_restauradas=%s, cuotas_canceladas=%s, "
-        "pagos_aplicados=%s",
-        fracc_id,
-        user_id,
-        originales_restauradas,
-        cuotas_canceladas,
-        len(aplicaciones_pago),
-    )
+    plan, plan_error = None, None
+    if inicial is not None and cuotas is not None:
+        ids = [int(x) for x in adicionales.split(",") if x.strip().lstrip("-").isdigit()]
+        try:
+            plan = _planificar_refinanciamiento(db, fracc_id, ids, float(inicial), int(cuotas))
+        except RefinanciarError as e:
+            plan_error = e.detail
 
     return {
-        "ok": True,
-        "fracc_id": fracc_id,
-        "originales_restauradas": originales_restauradas,
-        "cuotas_canceladas": cuotas_canceladas,
-        "aplicaciones_pago": aplicaciones_pago,
-        "pagos_a_cuotas_total": round(pagos_a_cuotas, 2),
+        "fracc_viejo_id": old.id,
+        "numero_solicitud": old.numero_solicitud,
+        "estado": old.estado,
+        "sano": _es_sano(old),
+        "old_saldo": round(float(old.saldo_pendiente or 0), 2),
+        "adicionales_disponibles": disponibles,
+        "plan": plan,
+        "plan_error": plan_error,
     }
+
+
+@router.post("/fraccionamientos/{fracc_id}/refinanciar")
+async def refinanciar(
+    fracc_id: int,
+    datos: RefinanciarRequest,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Ejecuta refinanciar_core (atómico). Guard de exigibilidad de las adicionales
+    en la capa router (sin tocar el core)."""
+    from app.services.fraccionamiento_refinanciar_service import (
+        refinanciar_core, RefinanciarError,
+    )
+    old = db.query(Fraccionamiento).filter(Fraccionamiento.id == fracc_id).first()
+    if not old:
+        raise HTTPException(404, "Fraccionamiento no encontrado")
+
+    if datos.deudas_adicionales_ids:
+        exig = {d.id for d in _adicionales_exigibles(
+            db, old.colegiado_id, solo_ids=datos.deudas_adicionales_ids)}
+        no_exig = set(datos.deudas_adicionales_ids) - exig
+        if no_exig:
+            raise HTTPException(
+                400,
+                f"Deudas no exigibles o no elegibles (¿no notificadas / ya fraccionadas?): "
+                f"{sorted(no_exig)}"
+            )
+
+    user_id = current_member.user_id if current_member.user_id else current_member.id
+    try:
+        return refinanciar_core(
+            db, fracc_id, datos.deudas_adicionales_ids, datos.monto_inicial,
+            datos.num_cuotas, user_id,
+            monto_cuota_mensual=datos.monto_cuota_mensual,
+            metodo_pago_inicial=datos.metodo_pago_inicial,
+            operacion_inicial=datos.operacion_inicial,
+        )
+    except RefinanciarError as e:
+        raise HTTPException(e.status_code, e.detail)
 
 
 # ============================================================
