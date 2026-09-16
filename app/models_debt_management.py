@@ -530,6 +530,11 @@ class Fraccionamiento(Base):
     motivo_perdida = Column(Text, nullable=True)
     # "2 cuotas consecutivas impagas (Oct y Nov 2025)"
 
+    # NOTA linaje refinanciamiento: la columna fraccionamientos.refinanciado_por_id
+    # existe en BD (sql/zClaude-refinanciado-por-id.sql) pero NO se mapea aquí a
+    # propósito: mapearla haría que TODA consulta a fraccionamientos la seleccione y
+    # rompa si el SQL no se corrió. refinanciar_core la escribe/lee por SQL crudo.
+
     # === SUSTENTO ===
     base_legal_id = Column(Integer, ForeignKey("bases_legales.id"), nullable=True)
     base_legal_referencia = Column(String(100), nullable=True)
