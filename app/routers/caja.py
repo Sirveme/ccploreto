@@ -1715,12 +1715,18 @@ def _calcular_totales_sesion(db: Session, organization_id: int, hora_apertura):
     """
     subq = (
         db.query(Comprobante.payment_id)
+        .join(Payment, Payment.id == Comprobante.payment_id)
         .filter(
             Comprobante.organization_id == organization_id,
             Comprobante.tipo.in_(["01", "03"]),
             Comprobante.status.in_(["accepted", "anulado"]),  # bruto: incluye anuladas (se restan aparte con las NC)
             Comprobante.payment_id.isnot(None),
             Comprobante.created_at >= hora_apertura,
+            # Fase 0 — solo lo que ENTRÓ por caja física (o contingencia). Excluye
+            # portal (bug B800) y externos (fecha pasada). El origen es el mecanismo;
+            # el cinturón payment_method<>'openpay' es la red si un openpay quedara sin etiquetar.
+            func.coalesce(Payment.origen, "caja_fisica").in_(["caja_fisica", "contingencia"]),
+            func.lower(func.coalesce(Payment.payment_method, "")) != "openpay",
         )
         .subquery()
     )

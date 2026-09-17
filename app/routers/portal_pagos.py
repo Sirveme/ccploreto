@@ -163,6 +163,7 @@ async def reportar_pago(
         pagador_nombre  = nombre_colegiado,
         status          = 'review',
         notes           = json.dumps(notas, ensure_ascii=False),
+        origen          = 'portal_openpay',   # autopago por el portal → NO entra al arqueo de caja
     )
     db.add(payment)
     db.flush()  # necesitamos payment.id antes del commit

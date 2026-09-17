@@ -177,11 +177,11 @@ async def openpay_iniciar_pago(
     result = db.execute(text("""
         INSERT INTO payments (
             organization_id, colegiado_id, member_id,
-            amount, status, payment_method, notes, created_at
+            amount, status, payment_method, notes, created_at, origen
         ) VALUES (
             :org, :cid, :mid,
             :amount, 'pendiente_openpay', 'openpay',
-            :notes, now()
+            :notes, now(), 'portal_openpay'
         ) RETURNING id
     """), {
         "org":    current_member.organization_id,
@@ -348,11 +348,11 @@ async def openpay_iniciar_pago_publico(
     result = db.execute(text("""
         INSERT INTO payments (
             organization_id, colegiado_id, member_id,
-            amount, status, payment_method, notes, created_at
+            amount, status, payment_method, notes, created_at, origen
         ) VALUES (
             :org, :cid, :mid,
             :amount, 'pendiente_openpay', 'openpay',
-            :notes, now()
+            :notes, now(), 'portal_openpay'
         ) RETURNING id
     """), {
         "org":    org["id"],
