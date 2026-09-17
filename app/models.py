@@ -410,6 +410,11 @@ class Payment(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # CANAL por el que entró el pago (Fase 0 Pagos Externos). Decide si va al arqueo:
+    # caja_fisica/contingencia SÍ; externo_comunicado/externo_eb01/portal_openpay NO.
+    # ⚠️ Requiere sql/zClaude-payments-origen.sql en PGAdmin ANTES del deploy.
+    origen = Column(String(24), default="caja_fisica")
+
     # Relaciones
     member = relationship("Member", foreign_keys=[member_id])
     colegiado = relationship("Colegiado", foreign_keys=[colegiado_id])
