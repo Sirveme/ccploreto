@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captura Pago Externo - CCPL</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0f1117; --bg-elevated:#181a20; --surface:#1e2028; --surface-2:#23262f;
+      --border:rgba(255,255,255,0.07); --text:#e8e8ed; --text-sec:#8b8d97; --text-dim:#565963;
+      --accent:#6366f1; --accent-soft:rgba(99,102,241,0.14);
+      --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --radius:10px;
+      --mono:'JetBrains Mono',monospace;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    a{color:inherit;}
+    .wrap{max-width:920px;margin:0 auto;padding:20px 16px 80px;}
+    /* header */
+    .top{display:flex;align-items:center;justify-content:space-between;
+      padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:22px;}
+    .brand{font-weight:700;color:var(--accent);letter-spacing:1px;font-size:15px;}
+    .top h1{font-size:16px;font-weight:600;}
+    .top .role{font-size:12px;color:var(--text-sec);font-family:var(--mono);}
+    /* stepper */
+    .steps{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;}
+    .step{flex:1;min-width:120px;display:flex;align-items:center;gap:8px;
+      padding:9px 11px;background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);font-size:12.5px;color:var(--text-sec);}
+    .step .n{width:20px;height:20px;border-radius:50%;background:var(--surface-2);
+      display:grid;place-items:center;font-family:var(--mono);font-size:11px;flex:none;}
+    .step.active{border-color:var(--accent);color:var(--text);}
+    .step.active .n{background:var(--accent);color:#fff;}
+    .step.done .n{background:var(--green);color:#08160c;}
+    /* cards / panels */
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:18px;margin-bottom:16px;display:none;}
+    .panel.show{display:block;}
+    .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;
+      color:var(--text-sec);margin-bottom:14px;font-weight:600;}
+    label{display:block;font-size:12px;color:var(--text-sec);margin:0 0 5px;}
+    input,select{width:100%;padding:10px 12px;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;}
+    input:focus,select:focus{outline:none;border-color:var(--accent);}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+    .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+    .field{margin-bottom:12px;}
+    .btn{padding:10px 18px;border-radius:8px;border:1px solid var(--border);
+      background:var(--surface-2);color:var(--text);font-size:13.5px;font-weight:600;
+      cursor:pointer;font-family:inherit;}
+    .btn:hover{border-color:var(--accent);}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .btn.primary:disabled{opacity:.45;cursor:not-allowed;}
+    .btn.ghost{background:transparent;}
+    .actions{display:flex;justify-content:space-between;gap:10px;margin-top:6px;}
+    .hint{font-size:12px;color:var(--text-dim);margin-top:6px;}
+    /* result list */
+    .found{border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-top:10px;
+      cursor:pointer;background:var(--bg);}
+    .found:hover{border-color:var(--accent);}
+    .found .nm{font-weight:600;}
+    .found .meta{font-size:12px;color:var(--text-sec);font-family:var(--mono);margin-top:2px;}
+    .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;
+      font-family:var(--mono);}
+    .pill.habil{background:rgba(34,197,94,.15);color:var(--green);}
+    .pill.inhabil{background:rgba(239,68,68,.15);color:var(--red);}
+    /* tipo cards */
+    .tipos{display:grid;gap:10px;}
+    .tipo{border:1px solid var(--border);border-radius:9px;padding:13px 14px;cursor:pointer;
+      background:var(--bg);}
+    .tipo:hover{border-color:var(--accent);}
+    .tipo.sel{border-color:var(--accent);background:var(--accent-soft);}
+    .tipo .t{font-weight:600;font-size:14px;}
+    .tipo .d{font-size:12px;color:var(--text-sec);margin-top:3px;font-family:var(--mono);}
+    /* deudas table */
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);}
+    th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);}
+    td.num,th.num{text-align:right;font-family:var(--mono);}
+    tr.na{opacity:.5;}
+    .imp-monto{width:90px;padding:5px 7px;font-family:var(--mono);text-align:right;}
+    /* preview */
+    .box{border:1px solid var(--border);border-radius:9px;padding:14px;margin-bottom:12px;background:var(--bg);}
+    .box h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-sec);margin-bottom:9px;}
+    .kv{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px dashed var(--border);}
+    .kv:last-child{border-bottom:none;}
+    .kv .k{color:var(--text-sec);}
+    .kv .v{font-family:var(--mono);}
+    .banner{border-radius:9px;padding:13px 15px;margin-bottom:14px;font-size:13.5px;font-weight:600;}
+    .banner.ok{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:var(--green);}
+    .banner.block{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:var(--red);}
+    .msg{font-size:13px;padding:8px 11px;border-radius:7px;margin-bottom:7px;}
+    .msg.block{background:rgba(239,68,68,.1);color:#fca5a5;border-left:3px solid var(--red);}
+    .msg.warn{background:rgba(245,158,11,.1);color:#fcd34d;border-left:3px solid var(--amber);}
+    .badge{font-size:11px;font-family:var(--mono);padding:2px 7px;border-radius:5px;background:var(--surface-2);}
+    .badge.arqueo{background:rgba(245,158,11,.15);color:var(--amber);}
+    .badge.no-arqueo{background:var(--surface-2);color:var(--text-dim);}
+    .ro-note{font-size:11.5px;color:var(--text-dim);text-align:center;margin-top:8px;font-style:italic;}
+    .hidden{display:none;}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <span class="brand">CCPL</span>
+      <h1 style="display:inline-block;margin-left:10px;">Captura de Pago Externo</h1>
+    </div>
+    <span class="role">rol: {{ user_role }} · captura → aprobación</span>
+  </div>
+
+  <div class="steps">
+    <div class="step active" data-s="1"><span class="n">1</span> Colegiado</div>
+    <div class="step" data-s="2"><span class="n">2</span> Tipo</div>
+    <div class="step" data-s="3"><span class="n">3</span> Comprobante</div>
+    <div class="step" data-s="4"><span class="n">4</span> Imputación</div>
+    <div class="step" data-s="5"><span class="n">5</span> Enviar</div>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="panel show" data-p="1">
+    <h2>1 · Identificar colegiado</h2>
+    <div class="field">
+      <label>DNI, matrícula o nombre</label>
+      <input id="q" placeholder="Ej: 05380421  ·  10-0407  ·  Vela Pacaya" autocomplete="off">
+      <div class="hint">Escribe y presiona Buscar. Confirma nombre y matrícula antes de continuar.</div>
+    </div>
+    <div class="actions"><span></span><button class="btn primary" id="btnBuscar">Buscar</button></div>
+    <div id="resultados"></div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="panel" data-p="2">
+    <h2>2 · Tipo de pago externo</h2>
+    <div class="tipos" id="tipos">
+      {% for k, v in tipos.items() %}
+      <div class="tipo" data-tipo="{{ k }}" data-arqueo="{{ 1 if v.en_arqueo else 0 }}" data-serie="{{ 1 if v.requiere_serie else 0 }}">
+        <div class="t">Tipo {{ k }} — {{ v.nombre }}</div>
+        <div class="d">origen={{ v.origen }} · {{ 'ENTRA a arqueo (requiere sesión abierta)' if v.en_arqueo else 'NO entra a arqueo' }} · {{ 'con comprobante EB01' if v.emite_comprobante else 'sin comprobante' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="actions">
+      <button class="btn ghost" data-back>← Atrás</button>
+      <button class="btn primary" id="btnTipo" disabled>Continuar</button>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="panel" data-p="3">
+    <h2>3 · Datos del comprobante y del pago</h2>
+    <div id="grpComprobante">
+      <div class="row-3">
+        <div><label>Serie</label><input id="serie" placeholder="EB01" autocomplete="off"></div>
+        <div><label>Número</label><input id="numero" type="number" placeholder="878"></div>
+        <div><label>Fecha comprobante</label><input id="fechaComp" type="date"></div>
+      </div>
+      <div id="serieAviso"></div>
+    </div>
+    <div class="row-3">
+      <div><label>Monto (S/)</label><input id="monto" type="number" step="0.01" placeholder="180.00"></div>
+      <div>
+        <label>Método de pago</label>
+        <select id="metodo">
+          <option value="Transferencia">Transferencia</option>
+          <option value="Yape">Yape</option>
+          <option value="Plin">Plin</option>
+          <option value="Efectivo">Efectivo</option>
+          <option value="Deposito">Depósito</option>
+        </select>
+      </div>
+      <div><label>N° operación</label><input id="operacion" placeholder="opcional" autocomplete="off"></div>
+    </div>
+    <div class="field"><label>Fecha real del pago</label><input id="fechaPago" type="date"></div>
+    <div class="actions">
+      <button class="btn ghost" data-back>← Atrás</button>
+      <button class="btn primary" id="btnComprobante">Continuar</button>
+    </div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="panel" data-p="4">
+    <h2>4 · Deuda(s) a imputar</h2>
+    <div class="hint" style="margin-bottom:10px;">Selecciona las deudas y, opcionalmente, el monto por deuda. Vacío = imputa el saldo completo.</div>
+    <table>
+      <thead><tr>
+        <th style="width:34px;"></th><th>Deuda</th><th class="num">Saldo</th>
+        <th>Exig.</th><th class="num">Imputar</th>
+      </tr></thead>
+      <tbody id="deudasBody"><tr><td colspan="5" style="color:var(--text-dim);">—</td></tr></tbody>
+    </table>
+    <div class="field" style="margin-top:14px;">
+      <label>Concepto / observación (opcional, para el admin)</label>
+      <input id="concepto" placeholder="Ej: EB01 emitida en SUNAT-SOL, colegiado avisó por WhatsApp" autocomplete="off">
+    </div>
+    <div class="actions">
+      <button class="btn ghost" data-back>← Atrás</button>
+      <button class="btn primary" id="btnAnalizar">Analizar (preview) →</button>
+    </div>
+    <div class="ro-note">El análisis es de solo lectura: no registra ni emite nada.</div>
+  </div>
+
+  <!-- PASO 5 -->
+  <div class="panel" data-p="5">
+    <h2>5 · Revisar y enviar solicitud</h2>
+    <div id="previewBox"></div>
+    <div class="actions">
+      <button class="btn ghost" data-back>← Atrás</button>
+      <button class="btn primary" id="btnEnviar" disabled>Enviar solicitud</button>
+    </div>
+    <div class="ro-note">La solicitud queda PENDIENTE de aprobación del administrador. Aquí no se crea ningún pago.</div>
+  </div>
+</div>
+
+<script>
+const S = { colegiado:null, tipo:null, tipoCfg:{arqueo:false,serie:false}, deudas:[], payload:null };
+const $ = s => document.querySelector(s);
+const money = n => 'S/ ' + Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function goto(step){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show', +p.dataset.p===step));
+  document.querySelectorAll('.step').forEach(s=>{
+    const n=+s.dataset.s;
+    s.classList.toggle('active', n===step);
+    s.classList.toggle('done', n<step);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{
+  const cur=+document.querySelector('.panel.show').dataset.p;
+  // saltar paso 3-comprobante si tipo no lo requiere: al ir atrás desde 4
+  let prev = cur-1;
+  goto(prev<1?1:prev);
+}));
+
+// PASO 1: buscar
+async function buscar(){
+  const q=$('#q').value.trim(); if(q.length<2) return;
+  const cont=$('#resultados'); cont.innerHTML='<div class="hint">Buscando…</div>';
+  try{
+    const r=await fetch('/api/pagos-externos/buscar-colegiado?q='+encodeURIComponent(q));
+    if(!r.ok){cont.innerHTML='<div class="msg block">Error '+r.status+' en la búsqueda.</div>';return;}
+    const data=await r.json();
+    if(!data.length){cont.innerHTML='<div class="hint">Sin resultados.</div>';return;}
+    cont.innerHTML=data.map(c=>`
+      <div class="found" data-id="${c.id}">
+        <div class="nm">${esc(c.apellidos_nombres)}</div>
+        <div class="meta">DNI ${esc(c.dni)} · ${esc(c.codigo_matricula)} ·
+          <span class="pill ${c.condicion==='habil'?'habil':'inhabil'}">${esc(c.condicion||'?')}</span></div>
+      </div>`).join('');
+    cont.querySelectorAll('.found').forEach(el=>el.addEventListener('click',()=>{
+      const c=data.find(x=>x.id==el.dataset.id);
+      S.colegiado=c; goto(2);
+    }));
+  }catch(e){cont.innerHTML='<div class="msg block">Fallo de red.</div>';}
+}
+$('#btnBuscar').addEventListener('click',buscar);
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')buscar();});
+
+// PASO 2: tipo
+document.querySelectorAll('.tipo').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tipo').forEach(x=>x.classList.remove('sel'));
+  t.classList.add('sel');
+  S.tipo=+t.dataset.tipo;
+  S.tipoCfg={arqueo:t.dataset.arqueo==='1', serie:t.dataset.serie==='1'};
+  $('#btnTipo').disabled=false;
+}));
+$('#btnTipo').addEventListener('click',()=>{
+  // mostrar/ocultar grupo comprobante según tipo
+  $('#grpComprobante').classList.toggle('hidden', !S.tipoCfg.serie);
+  goto(3);
+});
+
+// PASO 3: comprobante -> cargar deudas
+async function cargarDeudas(){
+  const body=$('#deudasBody'); body.innerHTML='<tr><td colspan="5" class="hint">Cargando…</td></tr>';
+  try{
+    const r=await fetch('/api/pagos-externos/deudas/'+S.colegiado.id);
+    const data=await r.json();
+    S.deudas=data.deudas||[];
+    if(!S.deudas.length){body.innerHTML='<tr><td colspan="5" class="hint">Sin deudas exigibles pendientes.</td></tr>';return;}
+    body.innerHTML=S.deudas.map(d=>`
+      <tr class="${d.exigible?'':'na'}">
+        <td><input type="checkbox" class="chk" data-id="${d.id}"></td>
+        <td>${esc(d.concept)}<br><span class="meta" style="font-size:11px;color:var(--text-dim)">${esc(d.period_label)} · #${d.id}</span></td>
+        <td class="num">${money(d.saldo)}</td>
+        <td>${d.exigible?'<span class="badge">sí</span>':'<span class="badge no-arqueo">no</span>'}</td>
+        <td class="num"><input class="imp-monto" data-id="${d.id}" type="number" step="0.01" placeholder="${d.saldo.toFixed(2)}"></td>
+      </tr>`).join('');
+  }catch(e){body.innerHTML='<tr><td colspan="5" class="msg block">Error al cargar deudas.</td></tr>';}
+}
+$('#btnComprobante').addEventListener('click',()=>{ goto(4); cargarDeudas(); });
+
+// PASO 4: analizar
+function imputacionesSel(){
+  const out=[];
+  document.querySelectorAll('.chk:checked').forEach(c=>{
+    const id=+c.dataset.id;
+    const inp=document.querySelector('.imp-monto[data-id="'+id+'"]');
+    const m=inp&&inp.value!==''?parseFloat(inp.value):null;
+    out.push({debt_id:id, monto:m});
+  });
+  return out;
+}
+// Códigos de CONCILIACIÓN (Fase 2): en la captura solo ADVIERTEN (dejan enviar).
+// El resto son 'malformados' y FRENAN. Debe coincidir con pago_externo_service.py.
+const CANDADO_CONCILIACION = new Set(['DUPLICADO_PAGO_SIS','MONTO_EXCEDE_DEUDA','DEUDA_SIN_SALDO']);
+
+function construirPayload(){
+  return {
+    colegiado_id:S.colegiado.id, tipo:S.tipo,
+    serie:$('#serie').value.trim()||null,
+    numero:$('#numero').value!==''?parseInt($('#numero').value):null,
+    fecha_comprobante:$('#fechaComp').value||null,
+    monto:parseFloat($('#monto').value||'0'),
+    metodo_pago:$('#metodo').value,
+    nro_operacion:$('#operacion').value.trim()||null,
+    fecha_pago:$('#fechaPago').value||null,
+    concepto:$('#concepto').value.trim()||null,
+    imputaciones:imputacionesSel(),
+  };
+}
+async function analizar(){
+  S.payload=construirPayload();
+  const box=$('#previewBox'); box.innerHTML='<div class="hint">Analizando…</div>'; goto(5);
+  try{
+    const r=await fetch('/api/pagos-externos/analizar',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(S.payload)});
+    const res=await r.json();
+    renderPreview(res);
+  }catch(e){box.innerHTML='<div class="msg block">Error de red al analizar.</div>';}
+}
+$('#btnAnalizar').addEventListener('click',analizar);
+
+// PASO 5: render preview + clasificación del candado (frena vs advierte)
+function renderPreview(res){
+  const box=$('#previewBox'); let h='';
+  // clasificar bloqueos: conciliación = ADVIERTE (deja enviar); resto = FRENA
+  const frena=[], adv=[];
+  (res.bloqueos||[]).forEach(b=>{(CANDADO_CONCILIACION.has(b.codigo)?adv:frena).push(b);});
+  S.puedeEnviar = frena.length===0;
+
+  if(frena.length){
+    h+='<div class="banner block">⛔ No se puede enviar — corrige los datos marcados.</div>';
+  }else if(adv.length){
+    h+='<div class="banner block" style="background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:var(--amber)">⚠ Posible duplicado — puedes enviar; el administrador lo revisará (Fase 2).</div>';
+  }else{
+    h+='<div class="banner ok">✔ Sin duplicados — listo para enviar como solicitud pendiente.</div>';
+  }
+  frena.forEach(b=>{h+='<div class="msg block"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>';});
+  adv.forEach(b=>{h+='<div class="msg warn"><b>'+esc(b.codigo)+' (advertencia):</b> '+esc(b.mensaje)+'</div>';});
+  (res.avisos||[]).forEach(a=>{h+='<div class="msg warn"><b>'+esc(a.codigo)+':</b> '+esc(a.mensaje)+'</div>';});
+
+  const p=res.preview;
+  if(p){
+    const c=res.colegiado||{};
+    h+='<div class="box"><h3>Colegiado</h3>'+
+       kv('Nombre',c.apellidos_nombres)+kv('DNI / Matrícula',(c.dni||'')+' · '+(c.codigo_matricula||''))+
+       kv('Condición actual',c.condicion)+'</div>';
+
+    const pm=p.payment;
+    h+='<div class="box"><h3>Payment que se crearía</h3>'+
+       kv('Origen',pm.origen)+kv('Monto',money(pm.amount))+
+       kv('Método',pm.payment_method||'—')+kv('N° operación',pm.operation_code||'—')+
+       kv('Fecha pago',pm.paid_at||'—')+kv('Estado',pm.status)+
+       kv('Marcador notes',pm.notes_marcador||'—')+
+       kv('Arqueo', p.en_arqueo?'<span class="badge arqueo">ENTRA (sesión abierta req.)</span>':'<span class="badge no-arqueo">NO entra</span>')+
+       '</div>';
+
+    if(p.comprobante){
+      const co=p.comprobante;
+      h+='<div class="box"><h3>Comprobante que se registraría</h3>'+
+         kv('Serie-Número',co.serie+'-'+co.numero)+kv('Tipo',co.tipo)+
+         kv('Status',co.status)+kv('Origen',co.origen)+'</div>';
+    }else{
+      h+='<div class="box"><h3>Comprobante</h3><div class="kv"><span class="k">—</span><span class="v">sin comprobante (tipo 2)</span></div></div>';
+    }
+
+    h+='<div class="box"><h3>Imputación</h3><table><thead><tr><th>Deuda</th><th class="num">Saldo</th><th class="num">Imputa</th><th class="num">Resulta</th></tr></thead><tbody>';
+    (p.imputaciones||[]).forEach(i=>{
+      h+='<tr><td>'+esc(i.concept)+' <span style="color:var(--text-dim)">#'+i.debt_id+'</span></td>'+
+         '<td class="num">'+money(i.saldo)+'</td><td class="num">'+money(i.monto_a_imputar)+'</td>'+
+         '<td class="num">'+money(i.saldo_resultante)+'</td></tr>';
+    });
+    h+='</tbody></table>'+kv('Total imputado',money(p.total_imputado))+'</div>';
+
+    const rh=p.reeval_habilidad||{};
+    h+='<div class="box"><h3>Re-evaluación de habilidad</h3>'+
+       kv('¿Impacta?',rh.impacta_habilidad?'Sí':'No')+
+       '<div class="kv"><span class="k">Detalle</span><span class="v" style="max-width:60%;text-align:right">'+esc(rh.detalle)+'</span></div></div>';
+  }
+  box.innerHTML=h;
+  $('#btnEnviar').disabled = !S.puedeEnviar;
+}
+function kv(k,v){return '<div class="kv"><span class="k">'+esc(k)+'</span><span class="v">'+(v||'—')+'</span></div>';}
+
+// PASO 5: enviar solicitud (crea pendiente; NO crea Payment)
+async function enviar(){
+  if(!S.payload || !S.puedeEnviar) return;
+  const btn=$('#btnEnviar'); btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    const r=await fetch('/api/pagos-externos/solicitar',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(S.payload)});
+    const res=await r.json();
+    if(!r.ok){
+      const det=(res&&res.detail)||{};
+      let m='<div class="banner block">⛔ No se pudo enviar.</div>';
+      (det.frena||[]).forEach(b=>{m+='<div class="msg block"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>';});
+      if(!det.frena) m+='<div class="msg block">'+esc(det.mensaje||('Error '+r.status))+'</div>';
+      $('#previewBox').innerHTML=m; btn.textContent='Enviar solicitud'; btn.disabled=false; return;
+    }
+    let h='<div class="banner ok">✔ Solicitud #'+res.solicitud_id+' creada — estado: '+esc(res.estado)+'.</div>'+
+      '<div class="box"><h3>Pendiente de aprobación</h3>'+
+      '<div class="kv"><span class="k">N° solicitud</span><span class="v">#'+res.solicitud_id+'</span></div>'+
+      '<div class="kv"><span class="k">Estado</span><span class="v">'+esc(res.estado)+'</span></div>'+
+      '<div class="kv"><span class="k">No se creó ningún pago</span><span class="v">correcto — el admin ejecuta al aprobar</span></div></div>';
+    (res.advertencias||[]).forEach(b=>{h+='<div class="msg warn"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+' (queda registrada para el admin)</div>';});
+    h+='<div class="ro-note">Puedes cerrar esta ventana o capturar otro pago.</div>';
+    $('#previewBox').innerHTML=h;
+    btn.textContent='Enviada ✓';
+  }catch(e){
+    $('#previewBox').innerHTML='<div class="msg block">Error de red al enviar.</div>';
+    btn.textContent='Enviar solicitud'; btn.disabled=false;
+  }
+}
+$('#btnEnviar').addEventListener('click',enviar);
+</script>
+</body>
+</html>
