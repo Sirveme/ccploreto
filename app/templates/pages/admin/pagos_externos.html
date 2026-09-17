@@ -1,0 +1,224 @@
+{% extends "base_admin.html" %}
+{% block title %}Pagos Externos — Resolución — CCPL{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --ccpl:#1e40af; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 14px 40px; }
+  .hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); border-radius:0 0 16px 16px; padding:22px 18px; margin:0 -14px 20px; color:#fff; }
+  .hero h1 { font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .back { color:#bfdbfe; text-decoration:none; font-size:13px; display:inline-flex; gap:6px; margin-bottom:8px; }
+  .sect { background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:16px; margin-bottom:18px; }
+  .sect h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#cbd5e1; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .card { background:#0b1220; border:1px solid #1e293b; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .card .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .card .mono { font-weight:700; color:#f8fafc; font-variant-numeric:tabular-nums; }
+  .card .meta { font-size:12px; color:#94a3b8; margin-top:2px; line-height:1.6; }
+  .card .arg { background:rgba(180,83,9,.1); border-left:3px solid #b45309; padding:8px 10px; border-radius:6px; margin-top:10px; font-size:13px; color:#fcd34d; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .tag.tipo { background:rgba(59,130,246,.15); color:#93c5fd; }
+  .tag.warn { background:rgba(245,158,11,.15); color:#fcd34d; }
+  .tag.origen { background:rgba(148,163,184,.12); color:#cbd5e1; font-family:ui-monospace,monospace; }
+  .acts { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .btn { padding:8px 14px; border-radius:8px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
+  .btn-ver { background:#334155; color:#e2e8f0; } .btn-no { background:#7f1d1d; color:#fff; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .detalle { margin-top:12px; border-top:1px dashed #1e293b; padding-top:12px; display:none; }
+  .detalle.show { display:block; }
+  .banner { border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:13px; font-weight:700; }
+  .banner.ok { background:rgba(21,128,61,.15); color:#86efac; border:1px solid rgba(21,128,61,.4); }
+  .banner.warn { background:rgba(245,158,11,.12); color:#fcd34d; border:1px solid rgba(245,158,11,.4); }
+  .banner.block { background:rgba(127,29,29,.2); color:#fca5a5; border:1px solid rgba(127,29,29,.5); }
+  .msg { font-size:12.5px; padding:7px 10px; border-radius:6px; margin-bottom:6px; }
+  .msg.warn { background:rgba(245,158,11,.1); color:#fcd34d; border-left:3px solid #f59e0b; }
+  .msg.block { background:rgba(127,29,29,.15); color:#fca5a5; border-left:3px solid #ef4444; }
+  .kv { display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; border-bottom:1px dashed #1e293b; }
+  .kv:last-child { border-bottom:none; } .kv .k { color:#94a3b8; } .kv .v { color:#e2e8f0; font-variant-numeric:tabular-nums; }
+  .rej { width:100%; margin-top:10px; background:#0b1220; border:1px solid #334155; color:#e2e8f0; border-radius:7px; padding:8px 10px; font-size:12px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:8px 8px; font-size:12.5px; text-align:left; border-bottom:1px solid #1e293b; color:#e2e8f0; }
+  th { color:#94a3b8; text-transform:uppercase; font-size:10px; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .empty { text-align:center; color:#64748b; padding:22px; }
+  .st { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .st.aprobada { background:rgba(21,128,61,.15); color:#86efac; }
+  .st.rechazada { background:rgba(127,29,29,.2); color:#fca5a5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="hero">
+    <a href="/admin" class="back"><i class="ph ph-arrow-left"></i> Volver a Admin</a>
+    <h1><i class="ph ph-hand-coins"></i> Pagos Externos · Resolución</h1>
+  </div>
+
+  <!-- Pendientes -->
+  <div class="sect">
+    <h2><i class="ph ph-hourglass-medium"></i> Solicitudes pendientes ({{ pendientes|length }})</h2>
+    {% if pendientes %}
+      {% for p in pendientes %}
+      <div class="card" id="sol-{{ p.id }}">
+        <div class="top">
+          <div>
+            <span class="mono">#{{ p.id }} · {{ p.comprobante }}</span>
+            <span class="tag tipo">Tipo {{ p.tipo }}</span>
+            <span class="tag origen">{{ p.origen }}</span>
+            {% if p.adv_captura %}<span class="tag warn" title="Advertencias al capturar">⚠ {{ p.adv_captura|length }}</span>{% endif %}
+            <div class="meta">
+              {{ p.colegiado }} · DNI {{ p.dni }} · Mat. {{ p.matricula }}<br>
+              {{ p.tipo_nombre }} · Monto <strong>S/ {{ '%.2f'|format(p.monto) }}</strong> · {{ p.metodo }} · {{ p.n_imputaciones }} deuda(s)<br>
+              Capturó: {{ p.solicitante }}{% if p.fecha %} · {{ p.fecha.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+            </div>
+          </div>
+        </div>
+        {% if p.concepto %}<div class="arg"><strong>Concepto:</strong> {{ p.concepto }}</div>{% endif %}
+        <div class="acts">
+          <button class="btn btn-ver" onclick="verDetalle({{ p.id }}, this)"><i class="ph ph-eye"></i> Ver detalle (preview en vivo)</button>
+          <button class="btn btn-no" onclick="rechazar({{ p.id }}, this)"><i class="ph ph-x"></i> Rechazar</button>
+        </div>
+        <input class="rej" id="nota-{{ p.id }}" placeholder="Nota de rechazo (opcional)">
+        <div class="detalle" id="det-{{ p.id }}"></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Sin solicitudes pendientes.</div>
+    {% endif %}
+  </div>
+
+  <!-- Historial -->
+  <div class="sect">
+    <h2><i class="ph ph-clock-counter-clockwise"></i> Historial (aprobadas / rechazadas)</h2>
+    {% if historial %}
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Comprobante</th><th>Colegiado</th><th class="num">Monto</th><th>Estado</th><th>Resolvió</th><th>Fecha</th><th>Nota</th>
+      </tr></thead>
+      <tbody>
+        {% for h in historial %}
+        <tr>
+          <td class="mono">#{{ h.id }}</td>
+          <td>{{ h.comprobante }}</td>
+          <td>{{ h.colegiado }}<br><span style="color:#64748b;">{{ h.dni }}</span></td>
+          <td class="num">S/ {{ '%.2f'|format(h.monto) }}</td>
+          <td><span class="st {{ h.estado }}">{{ h.estado }}</span></td>
+          <td>{{ h.resuelto_por }}</td>
+          <td>{{ h.resuelto_at.strftime('%d/%m/%Y %H:%M') if h.resuelto_at else '—' }}</td>
+          <td style="color:#94a3b8;">{{ h.nota }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty">Sin historial todavía.</div>
+    {% endif %}
+  </div>
+
+  {% include "partials/aportes_footer.html" ignore missing %}
+</div>
+
+<script>
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => 'S/ ' + Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function kv(k,v){return '<div class="kv"><span class="k">'+esc(k)+'</span><span class="v">'+(v==null||v===''?'—':v)+'</span></div>';}
+
+async function verDetalle(id, btn){
+  const box = document.getElementById('det-'+id);
+  if(box.classList.contains('show')){ box.classList.remove('show'); box.innerHTML=''; return; }
+  box.classList.add('show'); box.innerHTML='<div class="meta">Re-calculando preview en vivo…</div>';
+  try{
+    const r = await fetch('/api/pagos-externos/solicitud/'+id);
+    if(!r.ok){ box.innerHTML='<div class="msg block">Error '+r.status+' al cargar el detalle.</div>'; return; }
+    const d = await r.json();
+    box.innerHTML = renderDetalle(d);
+  }catch(e){ box.innerHTML='<div class="msg block">Error de red.</div>'; }
+}
+
+function renderDetalle(d){
+  const rec = d.recomputo || {}, an = rec.analisis || {}, p = an.preview || {};
+  const frena = rec.frena || [], adv = rec.advertencias || [], avisos = an.avisos || [];
+  let h = '';
+  if(frena.length){ h += '<div class="banner block">⛔ Malformada actualmente — no aprobable ni siquiera en Fase 2.</div>'; }
+  else if(adv.length){ h += '<div class="banner warn">⚠ Posible duplicado VIGENTE — requiere conciliación (Fase 2). La aprobación simple está BLOQUEADA.</div>'; }
+  else { h += '<div class="banner ok">✔ Sin duplicados en vivo — aprobable de forma simple.</div>'; }
+
+  frena.forEach(b=>{ h += '<div class="msg block"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>'; });
+  adv.forEach(b=>{ h += '<div class="msg warn"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>'; });
+  avisos.forEach(a=>{ h += '<div class="msg warn" style="opacity:.85"><b>'+esc(a.codigo)+':</b> '+esc(a.mensaje)+'</div>'; });
+
+  // comparación con lo capturado (snapshot)
+  const snap = (d.solicitud && d.solicitud.candado_snapshot) || {};
+  const advCap = (snap.advertencias || []).map(x=>x.codigo);
+  const advNow = adv.map(x=>x.codigo);
+  h += '<div style="margin-top:8px">'+
+       kv('Advertencias al capturar', advCap.length? advCap.join(', ') : 'ninguna')+
+       kv('Advertencias AHORA (en vivo)', advNow.length? advNow.join(', ') : 'ninguna')+'</div>';
+
+  if(p.payment){
+    h += '<div style="margin-top:8px">'+
+      kv('Origen del pago', esc(p.payment.origen))+
+      kv('Monto', money(p.payment.amount))+
+      kv('Método', esc(p.payment.payment_method||'—'))+
+      kv('Entra a arqueo', p.en_arqueo? 'SÍ (requiere sesión abierta)' : 'No')+'</div>';
+  }
+  if(p.comprobante){
+    h += '<div style="margin-top:8px">'+kv('Comprobante', esc(p.comprobante.serie+'-'+p.comprobante.numero+' ('+p.comprobante.status+')'))+'</div>';
+  }
+  if(p.imputaciones && p.imputaciones.length){
+    h += '<table style="margin-top:8px"><thead><tr><th>Deuda</th><th class="num">Saldo</th><th class="num">Imputa</th><th class="num">Resulta</th></tr></thead><tbody>';
+    p.imputaciones.forEach(i=>{
+      h += '<tr><td>'+esc(i.concept)+' <span style="color:#64748b">#'+i.debt_id+'</span></td>'+
+           '<td class="num">'+money(i.saldo)+'</td><td class="num">'+money(i.monto_a_imputar)+'</td>'+
+           '<td class="num">'+money(i.saldo_resultante)+'</td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  // Botón Aprobar: SOLO si puede_aprobar_simple; si no, aviso de Fase 2.
+  const id = d.solicitud && d.solicitud.id;
+  if(rec.puede_aprobar_simple){
+    h += '<div style="margin-top:12px"><button class="btn" style="background:#15803d;color:#fff" '+
+         'onclick="aprobar('+id+', this)"><i class="ph ph-check"></i> Aprobar y ejecutar</button></div>';
+  }else{
+    h += '<div class="msg block" style="margin-top:12px">Aprobación simple bloqueada — requiere conciliación (Fase 2). Puedes rechazar.</div>';
+  }
+  return h;
+}
+
+async function aprobar(id, btn){
+  btn.disabled = true; btn.textContent = 'Ejecutando…';
+  try{
+    const r = await fetch('/admin/pagos-externos/'+id+'/aprobar', {method:'POST'});
+    const d = await r.json().catch(()=>({}));
+    if(d.success){
+      if(window.Toast) Toast.show('Aprobada · pago #'+(d.payment&&d.payment.id)+(d.comprobante_id?(' · comp #'+d.comprobante_id):''), 'success');
+      const card = document.getElementById('sol-'+id); if(card) card.remove();
+      setTimeout(()=>location.reload(), 900);
+    }else{
+      if(window.Toast) Toast.show((d.detail||'No se pudo aprobar'), 'error');
+      btn.disabled=false; btn.innerHTML='<i class="ph ph-check"></i> Aprobar y ejecutar';
+    }
+  }catch(e){ if(window.Toast) Toast.show('Error de red','error'); btn.disabled=false; }
+}
+
+async function rechazar(id, btn){
+  const inp = document.getElementById('nota-'+id);
+  const nota = inp ? inp.value.trim() : '';
+  btn.disabled = true; btn.textContent = '...';
+  try{
+    const r = await fetch('/admin/pagos-externos/'+id+'/rechazar',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nota})});
+    const d = await r.json().catch(()=>({}));
+    if(d.success){
+      if(window.Toast) Toast.show('Solicitud rechazada', 'success');
+      const card = document.getElementById('sol-'+id); if(card) card.remove();
+      setTimeout(()=>location.reload(), 700);
+    }else{
+      if(window.Toast) Toast.show((d.detail||'No se pudo rechazar'), 'error');
+      btn.disabled=false; btn.innerHTML='<i class="ph ph-x"></i> Rechazar';
+    }
+  }catch(e){ if(window.Toast) Toast.show('Error de red','error'); btn.disabled=false; }
+}
+</script>
+{% endblock %}
