@@ -56,6 +56,7 @@ from app.routers.junta import router as router_junta
 from app.routers.anulaciones import router as router_anulaciones
 from app.routers.mesa_partes import router as router_mesa_partes
 from app.routers.secretaria import router as secretaria_router, page_router as secretaria_page_router
+from app.routers.pagos_externos import router as pagos_externos_router, page_router as pagos_externos_page_router
 from app.routers.openpay import router as openpay_router
 
 from app.routers.legal import router as legal_router
@@ -287,6 +288,8 @@ async def junta_jdccpp_guard(request: Request, call_next):
 app.include_router(router_mesa_partes)
 app.include_router(secretaria_router)
 app.include_router(secretaria_page_router)
+app.include_router(pagos_externos_router)          # Módulo Pagos Externos (Fase 1)
+app.include_router(pagos_externos_page_router)     # Módulo Pagos Externos (página)
 
 app.include_router(legal_router)
 

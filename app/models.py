@@ -1271,3 +1271,49 @@ class SolicitudAnulacion(Base):
     nc_comprobante_id      = Column(Integer, ForeignKey("comprobantes.id"), nullable=True)
     created_at             = Column(DateTime(timezone=True), server_default=func.now())
     updated_at             = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class SolicitudPagoExterno(Base):
+    """Módulo Pagos Externos (Fase 1): la Cajera CAPTURA, el Administrador EJECUTA.
+    Ciclo calcado de SolicitudAnulacion (pendiente|aprobada|rechazada).
+    ⚠️ Requiere la tabla `solicitud_pago_externo` (sql/zClaude-solicitud-pago-externo.sql)
+       corrida en PGAdmin ANTES de desplegar (la app no corre create_all)."""
+    __tablename__ = "solicitud_pago_externo"
+
+    id                     = Column(Integer, primary_key=True)
+    organization_id        = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    colegiado_id           = Column(Integer, ForeignKey("colegiados.id"), nullable=True)
+    tipo                   = Column(Integer, nullable=False)   # 1=EB01 pasado, 2=comunicado, 3=EB01 conting. hoy
+    origen                 = Column(String(24), nullable=False)  # externo_eb01|externo_comunicado|contingencia
+
+    # comprobante SUNAT capturado (tipo 1 y 3)
+    serie                  = Column(String(10), nullable=True)
+    numero                 = Column(Integer, nullable=True)
+    fecha_comprobante      = Column(Date, nullable=True)
+
+    # datos del pago
+    monto                  = Column(Numeric(12, 2), nullable=False)
+    metodo_pago            = Column(String(30), nullable=True)
+    nro_operacion          = Column(String(50), nullable=True)
+    fecha_pago             = Column(Date, nullable=True)
+
+    # intención de imputación capturada
+    imputaciones           = Column(JSONB, nullable=False, default=list)  # [{"debt_id":..,"monto":..}]
+    concepto               = Column(Text, nullable=True)
+    candado_snapshot       = Column(JSONB, nullable=True)  # advertencia PAGO_SIS al capturar (audit)
+
+    # workflow (idéntico a SolicitudAnulacion)
+    solicitante_member_id  = Column(Integer, nullable=True)
+    solicitante_nombre     = Column(String(200), nullable=True)
+    estado                 = Column(String(20), default="pendiente")  # pendiente|aprobada|rechazada
+    resuelto_por_member_id = Column(Integer, nullable=True)
+    resuelto_por_nombre    = Column(String(200), nullable=True)
+    resuelto_at            = Column(DateTime(timezone=True), nullable=True)
+    nota_resolucion        = Column(Text, nullable=True)
+
+    # resultado de la ejecución (se llenan al APROBAR)
+    payment_id             = Column(Integer, ForeignKey("payments.id"), nullable=True)
+    comprobante_id         = Column(Integer, ForeignKey("comprobantes.id"), nullable=True)
+
+    created_at             = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at             = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
