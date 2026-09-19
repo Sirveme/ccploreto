@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from app.database import get_db
 from app.models import Organization, Colegiado, Payment, Member
@@ -42,10 +42,22 @@ async def admin_home_page(
         "user": {"name": member.user.name if member.user else "Admin"},
         "organization": {"name": org["name"] if org else ""},
     }
+    # Contador de solicitudes de pago externo PENDIENTES (para la tarjeta). Tolerante:
+    # si la tabla no existiera aún, cae a 0 sin romper el panel.
+    pagos_ext_pendientes = 0
+    try:
+        pagos_ext_pendientes = db.execute(text(
+            "SELECT count(*) FROM solicitud_pago_externo "
+            "WHERE organization_id = :o AND estado = 'pendiente'"
+        ), {"o": member.organization_id}).scalar() or 0
+    except Exception:
+        pagos_ext_pendientes = 0
+
     return templates.TemplateResponse("pages/admin/home_admin.html", {
         "request": request,
         "user": user_ctx,
         "profiles": [],
+        "pagos_ext_pendientes": pagos_ext_pendientes,
     })
 
 
