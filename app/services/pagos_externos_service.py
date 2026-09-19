@@ -7,6 +7,7 @@ anti-duplicado (buscar_pagos_por_debt es la base del candado y del motor de Fase
 Se apoyan en Fase 0 (payments.origen ya desplegado).
 """
 import re
+from datetime import date as _dt_date
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -170,6 +171,195 @@ def avisos_pago_externo(db: Session, debt_ids, organization_id: int = 1) -> dict
                 "fecha": f,
             }
     return out
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FASE 2 — MOTOR DE CONCILIACIÓN (read-only, PROPONE; el operador decide)
+# Solo llegan aquí solicitudes que Fase 1 BLOQUEÓ (duplicado / exceso).
+# ══════════════════════════════════════════════════════════════════════════════
+def _norm_date(x):
+    """datetime/date/'YYYY-MM-DD' → date; None si no aplica."""
+    if x is None:
+        return None
+    try:
+        if hasattr(x, "year") and hasattr(x, "month") and hasattr(x, "day"):
+            return x.date() if hasattr(x, "hour") else x  # datetime→date, date→date
+        return _dt_date.fromisoformat(str(x)[:10])
+    except Exception:
+        return None
+
+
+def _autorizacion_desenlace(db, accion: str, monto=0, organization_id: int = 1) -> dict:
+    """Nivel de autorización del desenlace, CONFIGURABLE por parámetro (2d):
+      - NOTA_CREDITO → doble_firma si autorizaciones.requiere_doble_firma_anulacion; si no, simple.
+      - DEVOLUCION   → doble_firma si autorizaciones.requiere_doble_firma_devolucion; si no, simple.
+      - IMPUTAR/REIMPUTAR → siempre simple (movimiento interno).
+    Default (parámetro ausente) = simple (1 firma, el Administrador). SOTE nunca firma."""
+    from app.services.parametros_service import get_param
+    if accion == "NOTA_CREDITO":
+        doble = bool(get_param(db, "autorizaciones", "requiere_doble_firma_anulacion",
+                               org_id=organization_id, default=False))
+        return {"requiere": True, "nivel": ("doble_firma" if doble else "simple"),
+                "motivo": ("Anulación/NC: doble firma (configurada)" if doble
+                           else "Anulación/NC: un firmante (Administrador)")}
+    if accion == "DEVOLUCION":
+        doble = bool(get_param(db, "autorizaciones", "requiere_doble_firma_devolucion",
+                               org_id=organization_id, default=False))
+        return {"requiere": True, "nivel": ("doble_firma" if doble else "simple"),
+                "motivo": ("Devolución: doble firma (configurada)" if doble
+                           else "Devolución: un firmante (Administrador)")}
+    # imputar / reimputar → simple
+    return {"requiere": True, "nivel": "simple", "motivo": "Movimiento interno (un firmante)"}
+
+
+def segundo_firmante_rol(db, organization_id: int = 1) -> str:
+    """Rol configurado para la 2ª firma (nunca 'sote')."""
+    from app.services.parametros_service import get_param
+    rol = (get_param(db, "autorizaciones", "segundo_firmante_rol",
+                     org_id=organization_id, default="decano") or "decano").strip().lower()
+    return "decano" if rol == "sote" else rol   # blindaje: sote jamás
+
+
+def analizar_conciliacion(db: Session, solicitud, organization_id: int = 1) -> dict:
+    """PROPUESTA de conciliación (READ-ONLY) para una solicitud bloqueada.
+    `solicitud` puede ser una fila real o un objeto en memoria con los campos
+    (colegiado_id, tipo, serie, numero, monto, fecha_pago, fecha_comprobante, imputaciones).
+    El sistema PROPONE; el operador (Limber) CONFIRMA — él conoce los hechos reales.
+    """
+    imps = list(getattr(solicitud, "imputaciones", None) or [])
+    debt_ids = []
+    for i in imps:
+        try:
+            debt_ids.append(int(i.get("debt_id")))
+        except (TypeError, ValueError, AttributeError):
+            pass
+    saldos = _saldo_debts(db, debt_ids, organization_id)
+
+    # Fecha REAL del externo para decidir "posterior": prioriza fecha_comprobante
+    # (fecha de emisión del EB01 en SUNAT-SOL = fecha real del pago), NO la de registro.
+    # Fallback a fecha_pago si no hubiera fecha_comprobante.
+    fecha_ext = _norm_date(getattr(solicitud, "fecha_comprobante", None)
+                           or getattr(solicitud, "fecha_pago", None))
+    es_eb01_externo = int(getattr(solicitud, "tipo", 1) or 1) in (1, 3)
+    serie_ext = getattr(solicitud, "serie", None)
+    num_ext = getattr(solicitud, "numero", None)
+    comp_externo = f"{serie_ext}-{num_ext}" if serie_ext else "EB01 (sin nº)"
+
+    resultados = []
+    for imp in imps:
+        try:
+            did = int(imp.get("debt_id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        info = saldos.get(did)
+        if not info:
+            continue
+        monto_ext = round(float(imp.get("monto") or 0), 2)
+        pagos_sis = buscar_pagos_por_debt(db, [did], organization_id)
+        aplicado_sis = round(sum(float(p.get("monto_aplicado") or 0) for p in pagos_sis), 2)
+        pago_ref = pagos_sis[0] if pagos_sis else None
+        deuda_amount = round(float(info["amount"]), 2)
+
+        # clasificación
+        if info["saldo"] <= 0.01 and aplicado_sis > 0 and abs(monto_ext - aplicado_sis) <= 0.01:
+            tipo = "DUPLICADO_TOTAL"
+            monto_exceso = monto_ext
+        else:
+            tipo = "DUPLICADO_PARCIAL"
+            monto_exceso = round(max(aplicado_sis + monto_ext - deuda_amount, 0), 2)
+
+        # ¿quién es posterior? (por fecha; empate o externo ≥ sistema → revertir el externo)
+        fecha_sis = _norm_date(pago_ref.get("created_at")) if pago_ref else None
+        revert_externo = (fecha_ext is None or fecha_sis is None or fecha_ext >= fecha_sis)
+
+        if revert_externo:
+            conservar = {"que": "pago_sistema",
+                         "comprobante": (pago_ref.get("comprobante") if pago_ref else None),
+                         "payment_id": (pago_ref.get("payment_id") if pago_ref else None),
+                         "fecha": (pago_ref.get("created_at") if pago_ref else None),
+                         "monto": aplicado_sis}
+            revertir = {"que": ("externo_eb01" if es_eb01_externo else "externo"),
+                        "comprobante": comp_externo,
+                        "fecha": fecha_ext.isoformat() if fecha_ext else None,
+                        "monto": monto_ext, "es_externo_eb01": es_eb01_externo, "es_nuestro": False}
+            if tipo == "DUPLICADO_TOTAL":
+                accion = "DEVOLUCION"   # revertir el externo: devolver plata + anular EB01 en SOL
+            else:
+                accion = "IMPUTAR"      # parcial: imputar lo que cabe; exceso → devolución/reimputar
+        else:
+            # el pago del sistema es posterior → conservar el externo, revertir NUESTRO comprobante
+            conservar = {"que": "externo", "comprobante": comp_externo,
+                         "fecha": fecha_ext.isoformat() if fecha_ext else None, "monto": monto_ext}
+            revertir = {"que": "pago_sistema",
+                        "comprobante": (pago_ref.get("comprobante") if pago_ref else None),
+                        "payment_id": (pago_ref.get("payment_id") if pago_ref else None),
+                        "fecha": (pago_ref.get("created_at") if pago_ref else None),
+                        "monto": aplicado_sis, "es_externo_eb01": False, "es_nuestro": True}
+            accion = "NOTA_CREDITO"     # NC 07 sobre nuestro comprobante (paso autorizado aparte)
+
+        # ¿Qué comprobante sugiere ANULAR el motor? (para la advertencia tributaria)
+        if accion == "DEVOLUCION" and revert_externo and es_eb01_externo:
+            sugiere_anular = "EB01"     # anular en SUNAT-SOL (manual, 2 acciones)
+        elif accion == "NOTA_CREDITO":
+            sugiere_anular = "B400"     # anular nuestro comprobante vía NC 07
+        else:
+            sugiere_anular = None       # IMPUTAR/REIMPUTAR no anulan comprobante
+
+        # Advertencia de riesgo tributario: se dispara si el operador elige anular el
+        # comprobante DISTINTO al sugerido (el resultado neto NO es igual tributariamente).
+        advertencia_tributaria = None
+        if sugiere_anular == "EB01":
+            advertencia_tributaria = {
+                "target_riesgoso": "B400",
+                "mensaje": ("⚠️ Anular el B400 del sistema deja VIVO el EB01 en SUNAT. "
+                            "Si el EB01 no corresponde, quedará un comprobante incorrecto en el "
+                            "registro de ventas del Colegio (afecta IGV/renta declarada). El sistema "
+                            "sugiere anular el EB01 (SUNAT-SOL) por ser el posterior/duplicado. "
+                            "¿Confirmas anular el B400 igual?"),
+            }
+        elif sugiere_anular == "B400":
+            advertencia_tributaria = {
+                "target_riesgoso": "EB01",
+                "mensaje": ("⚠️ Anular el EB01 en SUNAT-SOL deja VIVO el B400 del sistema. "
+                            "El sistema sugiere anular el B400 (vía NC) por ser el cobro posterior/"
+                            "duplicado. Anular el EB01 (el pago real anterior) puede dejar el "
+                            "comprobante equivocado en ventas. Verifica cuál NO corresponde."),
+            }
+
+        resultados.append({
+            "debt_id": did, "concept": info["concept"], "period_label": info["period_label"],
+            "deuda_monto": deuda_amount, "deuda_saldo": info["saldo"],
+            "monto_externo": monto_ext, "aplicado_sistema": aplicado_sis,
+            "pagos_sistema": pagos_sis,
+            "tipo": tipo, "conservar": conservar, "revertir": revertir,
+            "accion_sugerida": accion, "monto_exceso": monto_exceso,
+            "requiere_anular_en_sol": bool(revert_externo and es_eb01_externo),
+            "sugiere_anular": sugiere_anular,
+            "advertencia_tributaria": advertencia_tributaria,
+            "autorizacion": _autorizacion_desenlace(db, accion, monto_exceso or monto_ext, organization_id),
+        })
+
+    # otras deudas pendientes del colegiado (candidatas para REIMPUTAR)
+    candidatas = []
+    colid = getattr(solicitud, "colegiado_id", None)
+    if colid:
+        rows = db.execute(text("""
+            SELECT id, concept, period_label, balance FROM debts
+            WHERE organization_id = :org AND colegiado_id = :c
+              AND status IN ('pending','partial') AND balance > 0
+              AND NOT (id = ANY(:excl))
+            ORDER BY periodo ASC LIMIT 20
+        """), {"org": organization_id, "c": colid, "excl": debt_ids or [0]}).fetchall()
+        candidatas = [{"debt_id": r.id, "concept": r.concept,
+                       "period_label": r.period_label, "saldo": float(r.balance or 0)}
+                      for r in rows]
+
+    return {
+        "solicitud_id": getattr(solicitud, "id", None),
+        "colegiado_id": colid,
+        "resultados": resultados,
+        "reimputar_candidatas": candidatas,
+    }
 
 
 def series_conocidas(db: Session, organization_id: int = 1) -> set:
