@@ -30,9 +30,13 @@ from app.services import pagos_externos_service as pex
 from app.services import pago_externo_service as pxw
 
 # CAPTURA (Anggie, /caja): cajero + admin + sote.
-# RESOLUCIÓN (admin, /admin/pagos-externos): admin + sote (espeja anulaciones).
+# RESOLUCIÓN — ver/rechazar (admin + sote; sote es soporte, puede ver/rechazar).
+# EJECUTAR DINERO (resolver/nc/devolución): admin + tesorero — SOTE JAMÁS firma dinero.
+# FIRMA 2 (doble firma): admin + tesorero + decano — nunca sote.
 ROLES_CAPTURA = ("cajero", "admin", "sote")
 ROLES_RESOLUCION = ("admin", "sote")
+ROLES_DINERO = ("admin", "tesorero")
+ROLES_FIRMA2 = ("admin", "tesorero", "decano")
 ORG_CCPL = 1
 
 router = APIRouter(prefix="/api/pagos-externos", tags=["PagosExternos"])
@@ -49,6 +53,54 @@ def require_resolucion(current_member: Member = Depends(get_current_member)):
     if current_member.role not in ROLES_RESOLUCION:
         raise HTTPException(status_code=403, detail="Acceso restringido (admin/sote)")
     return current_member
+
+
+def require_dinero(current_member: Member = Depends(get_current_member)):
+    """Ejecuta movimientos de dinero. SOTE excluido (soporte, no autoriza dinero)."""
+    if current_member.role not in ROLES_DINERO:
+        raise HTTPException(status_code=403, detail="Solo admin/tesorero ejecutan dinero (SOTE no)")
+    return current_member
+
+
+def require_firma2(current_member: Member = Depends(get_current_member)):
+    if current_member.role not in ROLES_FIRMA2:
+        raise HTTPException(status_code=403, detail="Segunda firma: admin/tesorero/decano (SOTE no)")
+    return current_member
+
+
+def _get_autorizacion(db, aut_id):
+    from app.models import SolicitudAutorizacion
+    sa = db.query(SolicitudAutorizacion).filter(
+        SolicitudAutorizacion.id == aut_id,
+        SolicitudAutorizacion.organization_id == ORG_CCPL,
+    ).first()
+    if not sa:
+        raise HTTPException(404, detail="Autorización no encontrada")
+    return sa
+
+
+def _ref_desde_motor(db, sol, desenlace):
+    """Deriva server-side el comprobante a revertir (para NC/devolución) desde el motor,
+    para que el frontend NO pase refs sensibles."""
+    prop = pex.analizar_conciliacion(db, sol, organization_id=ORG_CCPL)
+    r0 = (prop.get("resultados") or [{}])[0]
+    rev = r0.get("revertir") or {}
+    if desenlace == "NOTA_CREDITO":
+        pid = rev.get("payment_id")
+        monto_rev = round(float(rev.get("monto") or 0), 2)
+        # NC parcial si el pago cubre MÁS que este monto (p.ej. pago mixto S/360, NC S/180).
+        es_parcial = False
+        if pid:
+            pago_total = db.execute(text("SELECT amount FROM payments WHERE id = :p"),
+                                    {"p": pid}).scalar()
+            es_parcial = bool(pago_total is not None and round(float(pago_total), 2) > monto_rev + 0.01)
+        return {"anular_ref": {"payment_id": pid, "comprobante": rev.get("comprobante"),
+                               "monto": monto_rev, "es_parcial": es_parcial, "motivo_sunat": "01"}}
+    if desenlace == "DEVOLUCION":
+        return {"devolucion_ref": {"es_externo_eb01": bool(rev.get("es_externo_eb01", True)),
+                                   "comprobante": rev.get("comprobante"),
+                                   "monto": rev.get("monto")}}
+    return {}
 
 
 def _get_solicitud_pendiente(db, solicitud_id):
@@ -300,10 +352,11 @@ async def detalle_solicitud(
     """Detalle de la solicitud + PREVIEW RE-CALCULADO EN VIVO (no el snapshot viejo)."""
     sol = _get_solicitud_pendiente(db, solicitud_id)
     recomputo = pxw.recalcular_preview(db, sol, organization_id=ORG_CCPL)
-    return {
+    resp = {
         "solicitud": {
             "id": sol.id, "estado": sol.estado, "tipo": sol.tipo, "origen": sol.origen,
             "serie": sol.serie, "numero": sol.numero,
+            "fecha_comprobante": (sol.fecha_comprobante.isoformat() if sol.fecha_comprobante else None),
             "monto": float(sol.monto or 0), "metodo_pago": sol.metodo_pago,
             "nro_operacion": sol.nro_operacion,
             "concepto": sol.concepto, "imputaciones": sol.imputaciones or [],
@@ -312,6 +365,10 @@ async def detalle_solicitud(
         },
         "recomputo": recomputo,
     }
+    # Fase 2: si está bloqueada, adjunta la PROPUESTA de conciliación (read-only).
+    if not recomputo.get("puede_aprobar_simple"):
+        resp["conciliacion"] = pex.analizar_conciliacion(db, sol, organization_id=ORG_CCPL)
+    return resp
 
 
 @page_router.post("/admin/pagos-externos/{solicitud_id}/aprobar")
@@ -346,3 +403,94 @@ async def rechazar(
     nota = (data.get("nota") or "").strip()
     res = await pxw.rechazar_solicitud(db, sol, current_member, nota)
     return res
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FASE 2 — DESENLACES (4 endpoints). SOTE nunca ejecuta dinero.
+# ══════════════════════════════════════════════════════════════════════════════
+@page_router.post("/admin/pagos-externos/{solicitud_id}/resolver")
+async def resolver(
+    solicitud_id: int, request: Request,
+    db: Session = Depends(get_db), current_member: Member = Depends(require_dinero),
+):
+    """Elige el desenlace de conciliación.
+      IMPUTAR/REIMPUTAR → ejecuta en el acto (crea Payment + imputa).
+      NOTA_CREDITO/DEVOLUCION → crea la autorización (firma 1); NO ejecuta aún
+        (la NC se confirma en /ejecutar-nc; la devolución en /confirmar-devolucion)."""
+    sol = _get_solicitud_pendiente(db, solicitud_id)
+    if sol.estado != "pendiente":
+        raise HTTPException(400, detail=f"La solicitud ya está '{sol.estado}'")
+    data = await request.json()
+    desenlace = (data.get("desenlace") or "").upper()
+
+    if desenlace in ("IMPUTAR", "REIMPUTAR"):
+        res = await pxw.resolver_conciliacion(
+            db, sol, desenlace, current_member, organization_id=ORG_CCPL,
+            reimputar_debt_ids=data.get("reimputar_debt_ids") or [],
+            justificacion=data.get("justificacion") or "", commit=True)
+        return JSONResponse(res, status_code=(200 if res.get("success") else 400))
+
+    if desenlace in ("NOTA_CREDITO", "DEVOLUCION"):
+        adv = None
+        r0 = (pex.analizar_conciliacion(db, sol, ORG_CCPL).get("resultados") or [{}])[0]
+        # registrar advertencia tributaria si el operador va CONTRA la sugerencia
+        sug = r0.get("sugiere_anular")
+        elige_anular = "B400" if desenlace == "NOTA_CREDITO" else "EB01"
+        if sug and elige_anular != sug and r0.get("advertencia_tributaria"):
+            adv = r0["advertencia_tributaria"]
+        refs = _ref_desde_motor(db, sol, desenlace)
+        res = await pxw.crear_autorizacion(
+            db, sol=sol, desenlace=desenlace, actor=current_member, organization_id=ORG_CCPL,
+            justificacion=data.get("justificacion") or "", advertencia=adv,
+            anular_ref=refs.get("anular_ref"), devolucion_ref=refs.get("devolucion_ref"),
+            commit=True)
+        return JSONResponse(res, status_code=(200 if res.get("success") else 400))
+
+    raise HTTPException(400, detail="Desenlace inválido")
+
+
+@page_router.post("/admin/pagos-externos/autorizacion/{aut_id}/firmar-segunda")
+async def firmar_segunda_ep(
+    aut_id: int, request: Request,
+    db: Session = Depends(get_db), current_member: Member = Depends(require_firma2),
+):
+    """Segunda firma (solo si la doble firma está activa). SOTE rechazado por el guard."""
+    sa = _get_autorizacion(db, aut_id)
+    data = await request.json()
+    res = await pxw.firmar_segunda(db, sa, current_member,
+                                   respuesta=data.get("respuesta") or "",
+                                   aprobar=bool(data.get("aprobar", True)),
+                                   organization_id=ORG_CCPL, commit=True)
+    return JSONResponse(res, status_code=(200 if res.get("success") else 400))
+
+
+@page_router.post("/admin/pagos-externos/autorizacion/{aut_id}/ejecutar-nc")
+async def ejecutar_nc_ep(
+    aut_id: int, request: Request,
+    db: Session = Depends(get_db), current_member: Member = Depends(require_dinero),
+):
+    """Emite la NC (IRREVERSIBLE SUNAT). Requiere autorización 'autorizada' + confirmar=True."""
+    sa = _get_autorizacion(db, aut_id)
+    data = await request.json()
+    res = await pxw.ejecutar_nota_credito(
+        db, sa, current_member, confirmar=bool(data.get("confirmar", False)),
+        ejecutar_sunat=True, organization_id=ORG_CCPL, commit=True)
+    code = 200 if res.get("success") else (409 if res.get("bloqueado") or res.get("requiere_confirmacion") else 400)
+    return JSONResponse(res, status_code=code)
+
+
+@page_router.post("/admin/pagos-externos/autorizacion/{aut_id}/confirmar-devolucion")
+async def confirmar_devolucion_ep(
+    aut_id: int, request: Request,
+    db: Session = Depends(get_db), current_member: Member = Depends(require_dinero),
+):
+    """Tesorería confirma las acciones de la devolución (EB01: devolver plata + anular en SOL).
+    ejecutado=true solo cuando TODAS las acciones requeridas están confirmadas."""
+    sa = _get_autorizacion(db, aut_id)
+    data = await request.json()
+    res = await pxw.confirmar_ejecucion_devolucion(
+        db, sa, current_member,
+        devolver_plata=data.get("devolver_plata"), anular_eb01_sol=data.get("anular_eb01_sol"),
+        organization_id=ORG_CCPL, commit=True)
+    code = 200 if res.get("success") else (409 if res.get("bloqueado") else 400)
+    return JSONResponse(res, status_code=code)
