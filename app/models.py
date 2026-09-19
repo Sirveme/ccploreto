@@ -1317,3 +1317,40 @@ class SolicitudPagoExterno(Base):
 
     created_at             = Column(DateTime(timezone=True), server_default=func.now())
     updated_at             = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class SolicitudAutorizacion(Base):
+    """Autorización de operaciones sensibles (devolución / reimputación / anulación /
+    nota de crédito) con DOBLE FIRMA opcional. Mapea la tabla `solicitudes_autorizacion`
+    que YA EXISTE en la BD (0 filas) — sin DDL. Usada por la conciliación (Fase 2)."""
+    __tablename__ = "solicitudes_autorizacion"
+
+    id                   = Column(Integer, primary_key=True)
+    organization_id      = Column(Integer, nullable=False)
+    tipo                 = Column(String, nullable=False)   # imputacion|reimputacion|devolucion|nota_credito|anulacion
+    estado               = Column(String, default="pendiente")  # pendiente|autorizada|rechazada|ejecutada
+    monto                = Column(Numeric(12, 2), nullable=False)
+    moneda               = Column(String, default="PEN")
+    comprobante_id       = Column(Integer, nullable=True)
+    payment_id           = Column(Integer, nullable=True)
+    colegiado_id         = Column(Integer, nullable=True)
+    solicitante_id       = Column(Integer, nullable=False)
+    solicitante_nombre   = Column(String, nullable=True)
+    justificacion        = Column(Text, nullable=False)
+    documentos           = Column(JSONB, nullable=True)
+    autorizador_id       = Column(Integer, nullable=True)
+    autorizador_nombre   = Column(String, nullable=True)
+    respuesta            = Column(Text, nullable=True)
+    autorizado_at        = Column(DateTime(timezone=False), nullable=True)
+    requiere_doble_firma = Column(Boolean, default=False)
+    autorizador2_id      = Column(Integer, nullable=True)
+    autorizador2_nombre  = Column(String, nullable=True)
+    respuesta2           = Column(Text, nullable=True)
+    autorizado2_at       = Column(DateTime(timezone=False), nullable=True)
+    ip_solicitante       = Column(String, nullable=True)
+    ip_autorizador       = Column(String, nullable=True)
+    ejecutado            = Column(Boolean, default=False)
+    ejecutado_at         = Column(DateTime(timezone=False), nullable=True)
+    created_at           = Column(DateTime(timezone=False), nullable=True)
+    updated_at           = Column(DateTime(timezone=False), nullable=True)
+    expires_at           = Column(DateTime(timezone=False), nullable=True)
