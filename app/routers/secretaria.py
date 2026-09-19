@@ -62,6 +62,27 @@ def require_secretaria(current_member: Member = Depends(get_current_member)):
     return current_member
 
 
+def require_sote(current_member: Member = Depends(get_current_member)):
+    """Herramientas de migración/soporte (importadores masivos). Solo Duilio (SOTE)."""
+    if current_member.role != "sote":
+        raise HTTPException(status_code=403, detail="Solo SOTE (herramienta de migración/soporte)")
+    return current_member
+
+
+def require_gestion(current_member: Member = Depends(get_current_member)):
+    """Decisiones de gestión (condonar — zona Acuerdo 007). admin/tesorero/sote."""
+    if current_member.role not in ("admin", "tesorero", "sote"):
+        raise HTTPException(status_code=403, detail="Solo gestión (admin/tesorero) puede condonar")
+    return current_member
+
+
+def require_correccion(current_member: Member = Depends(get_current_member)):
+    """Correcciones de dinero (revertir pago / editar deuda-pago-fracc). admin/sote."""
+    if current_member.role not in ("admin", "sote"):
+        raise HTTPException(status_code=403, detail="Solo admin/sote pueden revertir/editar")
+    return current_member
+
+
 # ============================================================
 # SCHEMAS
 # ============================================================
@@ -821,7 +842,7 @@ async def condonar_deuda(
     datos: CondonarDeudaRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_gestion),
 ):
     """Condona una deuda. La marca como pagada con estado_gestion='condonada'."""
     ahora = datetime.now(PERU_TZ)
@@ -1749,7 +1770,7 @@ async def revertir_pago(
     pago_id: int,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_correccion),
 ):
     """Revierte un pago sin comprobante SUNAT: deudas vuelven a pendiente."""
     pago = db.query(Payment).filter(Payment.id == pago_id).first()
@@ -1917,7 +1938,7 @@ def _parsear_cuotas_de_descripcion(descripcion: str, fallback_total):
 @page_router.get("/secretaria/importar", response_class=HTMLResponse)
 async def pagina_importar(
     request: Request,
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     return templates.TemplateResponse("pages/secretaria_importar.html", {"request": request})
 
@@ -1926,7 +1947,7 @@ async def pagina_importar(
 async def importar_parsear(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """
     Lee el CSV (sep ';', encoding utf-8 o latin-1) y retorna las operaciones
@@ -2204,7 +2225,7 @@ _EJECUTORES = {
 async def importar_ejecutar(
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """
     Ejecuta las operaciones marcadas con ejecutar=True. Cada fila es
@@ -2341,7 +2362,7 @@ def _clasificar_detalle_deuda(detalle: str) -> dict:
 async def parsear_excel_fraccionamientos(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """
     Lee el Excel de fraccionamientos de Sandra y agrupa por (numero_fracc, matricula).
@@ -2479,7 +2500,7 @@ async def parsear_excel_fraccionamientos(
 async def ejecutar_excel_fraccionamientos(
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """Crea Fraccionamiento + FraccionamientoCuota por cada item ejecutar=True."""
     fraccionamientos = body.get("fraccionamientos") or []
@@ -2633,7 +2654,7 @@ async def ejecutar_excel_fraccionamientos(
 async def parsear_excel_deudas(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """Lee el Excel de deudas faltantes; clasifica cada fila por tipo."""
     import openpyxl as _xl
@@ -2738,7 +2759,7 @@ async def parsear_excel_deudas(
 async def ejecutar_excel_deudas(
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_sote),
 ):
     """Crea registros Debt para cada fila marcada ejecutar=True."""
     deudas = body.get("deudas") or []
@@ -2858,7 +2879,7 @@ async def editar_deuda(
     deuda_id: int,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_correccion),
 ):
     """Edita una deuda y registra el cambio en audit_logs."""
     deuda = db.query(Debt).filter(Debt.id == deuda_id).first()
@@ -2986,7 +3007,7 @@ async def editar_pago(
     pago_id: int,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_correccion),
 ):
     """Edita campos editables de un pago y registra el cambio en audit_log_finanzas."""
     pago = db.query(Payment).filter(Payment.id == pago_id).first()
@@ -3088,7 +3109,7 @@ async def editar_fraccionamiento(
     fracc_id: int,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_correccion),
 ):
     fracc = db.query(Fraccionamiento).filter(Fraccionamiento.id == fracc_id).first()
     if not fracc:
@@ -3146,7 +3167,7 @@ async def editar_cuota_fraccionamiento(
     cuota_id: int,
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(require_correccion),
 ):
     cuota = db.query(FraccionamientoCuota).filter(FraccionamientoCuota.id == cuota_id).first()
     if not cuota:
