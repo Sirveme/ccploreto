@@ -637,8 +637,28 @@ async function cargarDeudas(id) {
         const r = await fetch(`${API}/deudas/${id}`);
         const d = await r.json();
         deudasDisp = d.deudas || [];
+        avisosExt = {};
         renderDeudas();
     } catch (e) { toast('Error', 'err'); }
+    // Fase 3: aviso de pago externo. Va APARTE del cobro: si falla, el cobro sigue.
+    cargarAvisosExternos(id);
+}
+
+// Fase 3 — cruce de pagos externos (solicitud pendiente / pago registrado).
+// NUNCA lanza: su fallo no debe afectar el flujo de cobro.
+let avisosExt = {};
+function cargarAvisosExternos(id) {
+    fetch(`/caja/avisos-externos/${id}`)
+        .then(r => r.ok ? r.json() : {})
+        .then(a => { avisosExt = a || {}; renderDeudas(); })
+        .catch(() => { /* silencioso: el cobro no depende del aviso */ });
+}
+function avisoExtHtml(id) {
+    const av = avisosExt[id];
+    if (!av) return '';
+    const col = av.tipo === 'registrado' ? '#ef6b6b' : '#f59e0b';
+    const msg = (av.mensaje || '').replace(/"/g, '&quot;');
+    return `<div class="d-aviso-ext" style="font-size:11px;margin-top:3px;color:${col}" title="${msg}">⚠ ${av.corto}</div>`;
 }
 
 function renderDeudas() {
@@ -653,7 +673,7 @@ function renderDeudas() {
         <button class="btn-sel-all" onclick="selTodas()">Seleccionar todas (${deudasDisp.length})</button>
         ${deudasDisp.map(d => `<div class="deuda-row ${sel.includes(d.id) ? 'selected' : ''}" onclick="togDeuda(${d.id})">
             <div class="d-check">${sel.includes(d.id) ? '✓' : ''}</div>
-            <div class="d-info"><div class="d-concepto">${d.concepto}</div><div class="d-periodo">${d.periodo || ''} ${d.fecha_vencimiento ? '· Vence: ' + d.fecha_vencimiento : ''}</div></div>
+            <div class="d-info"><div class="d-concepto">${d.concepto}${avisosExt[d.id] ? ' ⚠' : ''}</div><div class="d-periodo">${d.periodo || ''} ${d.fecha_vencimiento ? '· Vence: ' + d.fecha_vencimiento : ''}</div>${avisoExtHtml(d.id)}</div>
             <div class="d-monto">S/ ${d.saldo.toFixed(2)}</div>
         </div>`).join('')}</div>`;
 }
@@ -4196,6 +4216,18 @@ const AltaRapida = (() => {
         e.target.value = e.target.value.replace(/\D/g, '');
         validar();
       });
+    });
+
+    // Autodisparo RENIEC al llegar al 8º dígito (mismo patrón que /caja; anti-rebote:
+    // no repite el mismo DNI). El botón "Consultar" y Enter quedan como respaldo.
+    let _ultimoDniAlta = '';
+    $('alta-dni')?.addEventListener('input', e => {
+      const v = e.target.value.trim();
+      if (v.length === 8) {
+        if (v !== _ultimoDniAlta) { _ultimoDniAlta = v; consultarReniec(); }
+      } else {
+        _ultimoDniAlta = '';   // si baja de 8, permite re-disparar al volver a 8
+      }
     });
 
     // Enter en DNI → consultar RENIEC
