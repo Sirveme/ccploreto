@@ -118,6 +118,27 @@
             </p>
         </a>
 
+        <!-- Tarjeta 6: Pagos Externos / Regularización -->
+        <a href="/admin/pagos-externos"
+           class="relative bg-gradient-to-br from-teal-600 to-teal-800 hover:from-teal-700 hover:to-teal-900
+                  rounded-2xl p-8 text-white transition-all duration-200
+                  transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                  flex flex-col items-center text-center gap-4">
+            {% if pagos_ext_pendientes and pagos_ext_pendientes > 0 %}
+            <span class="absolute top-4 right-4 bg-amber-400 text-slate-900 text-sm font-extrabold
+                         rounded-full min-w-[28px] h-7 px-2 flex items-center justify-center shadow-lg"
+                  title="{{ pagos_ext_pendientes }} solicitud(es) pendiente(s) de resolver">
+                {{ pagos_ext_pendientes }}
+            </span>
+            {% endif %}
+            <div class="text-6xl"><i class="ph ph-hand-coins"></i></div>
+            <h3 class="text-xl font-bold">Pagos Externos</h3>
+            <p class="text-sm opacity-90">
+                Revisa y resuelve los pagos hechos fuera del sistema (SUNAT directo, Yape) que la
+                cajera registró. Detecta duplicados y propone la solución.
+            </p>
+        </a>
+
     </div>
 
     <!-- Info footer -->
