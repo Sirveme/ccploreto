@@ -96,6 +96,82 @@ def buscar_pagos_por_debt(db: Session, debt_ids, organization_id: int = 1) -> li
     return out
 
 
+# Orígenes que marcan un pago como EXTERNO (no de caja/portal).
+_ORIGENES_EXTERNOS = ("externo_eb01", "externo_comunicado", "contingencia")
+
+
+def _fmt_fecha(dt):
+    try:
+        return dt.strftime("%d/%m/%Y") if dt else "?"
+    except Exception:
+        return "?"
+
+
+def _iso_a_ddmmyyyy(s):
+    """'2026-09-19' → '19/09/2026'. Tolera None/formatos raros."""
+    try:
+        y, m, d = str(s)[:10].split("-")
+        return f"{d}/{m}/{y}"
+    except Exception:
+        return str(s) if s else "?"
+
+
+def avisos_pago_externo(db: Session, debt_ids, organization_id: int = 1) -> dict:
+    """Fase 3 — AVISO AL COBRAR (read-only). Para las deudas que Anggie va a cobrar,
+    cruza contra pagos externos para prevenir el doble cobro. Devuelve
+    {debt_id: {tipo, corto, mensaje, fecha}} SOLO para las deudas con aviso.
+
+      tipo='pendiente'  → hay solicitud_pago_externo pendiente que imputa esa deuda.
+      tipo='registrado' → ya existe un Payment externo aplicado a esa deuda.
+    Precedencia: 'registrado' pisa a 'pendiente'. NO bloquea nada; solo informa.
+    """
+    ids = sorted({int(x) for x in (debt_ids or [])})
+    if not ids:
+        return {}
+    ids_set = set(ids)
+    out = {}
+
+    # (1) Solicitudes PENDIENTES cuyas imputaciones toquen estas deudas.
+    pend = db.execute(text("""
+        SELECT id, created_at, imputaciones
+        FROM solicitud_pago_externo
+        WHERE organization_id = :org AND estado = 'pendiente'
+    """), {"org": organization_id}).fetchall()
+    for s in pend:
+        for imp in (s.imputaciones or []):
+            try:
+                did = int(imp.get("debt_id"))
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if did in ids_set and did not in out:
+                f = _fmt_fecha(s.created_at)
+                out[did] = {
+                    "tipo": "pendiente",
+                    "corto": f"Pago externo pendiente (sol. #{s.id} del {f})",
+                    "mensaje": (f"Hay una solicitud de pago externo (#{s.id}) del {f} sobre "
+                                f"esta deuda, pendiente de resolver. Verifica antes de cobrar."),
+                    "fecha": f,
+                }
+
+    # (2) Pagos externos YA REGISTRADOS (reusa buscar_pagos_por_debt, filtra origen).
+    #     'registrado' tiene prioridad → sobrescribe a 'pendiente'.
+    for did in ids:
+        pagos = [p for p in buscar_pagos_por_debt(db, [did], organization_id)
+                 if (p.get("origen") or "") in _ORIGENES_EXTERNOS]
+        if pagos:
+            p0 = pagos[0]
+            f = _iso_a_ddmmyyyy(p0.get("paid_at") or p0.get("created_at"))
+            comp = p0.get("comprobante") or "sin comprobante"
+            out[did] = {
+                "tipo": "registrado",
+                "corto": f"Ya tiene pago externo aplicado ({f})",
+                "mensaje": (f"Esta deuda ya tiene un pago externo aplicado del {f} "
+                            f"({comp}). Verifica antes de volver a cobrar."),
+                "fecha": f,
+            }
+    return out
+
+
 def series_conocidas(db: Session, organization_id: int = 1) -> set:
     """Series ya usadas (para avisar 'serie nueva'). Read-only."""
     rows = db.execute(text("""
