@@ -184,6 +184,23 @@ async def analizar(
     return pex.analizar_pago_externo(db, payload, organization_id=1)
 
 
+# ── FASE 3: AVISO AL COBRAR (read-only, separado del cobro — nunca lo rompe) ──────
+@page_router.get("/caja/avisos-externos/{colegiado_id}")
+async def avisos_externos_caja(
+    colegiado_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_captura),
+):
+    """Devuelve {debt_id: aviso} para las deudas pendientes del colegiado que tengan
+    un pago externo (solicitud pendiente o Payment externo registrado). SOLO informa;
+    vive aparte de /caja/deudas para que un fallo aquí NO afecte el cobro."""
+    ids = [r[0] for r in db.query(Debt.id).filter(
+        Debt.colegiado_id == colegiado_id,
+        Debt.status.in_(["pending", "partial"]),
+    ).all()]
+    return pex.avisos_pago_externo(db, ids, organization_id=ORG_CCPL)
+
+
 # ── SOLICITAR (CAPTURA — crea solicitud pendiente; NO crea Payment) ──────────────
 @router.post("/solicitar")
 async def solicitar(
