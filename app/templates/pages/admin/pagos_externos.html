@@ -43,6 +43,29 @@
   .st { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
   .st.aprobada { background:rgba(21,128,61,.15); color:#86efac; }
   .st.rechazada { background:rgba(127,29,29,.2); color:#fca5a5; }
+  /* Fase 2 — conciliación */
+  .conc { margin-top:14px; border-top:2px solid #334155; padding-top:12px; }
+  .conc-h { font-size:13px; font-weight:800; color:#e2e8f0; margin-bottom:8px; display:flex; gap:8px; align-items:center; }
+  .conc-ctx { font-size:13px; color:#cbd5e1; line-height:1.6; background:#0b1220; border-left:3px solid #1e40af; padding:9px 11px; border-radius:6px; margin-bottom:12px; }
+  .conc-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; }
+  .conc-col { background:#0b1220; border:1px solid #1e293b; border-radius:9px; padding:10px; }
+  .conc-col h4 { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:#94a3b8; margin-bottom:6px; }
+  .conc-prop { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .conc-badge { font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; }
+  .conc-badge.keep { background:rgba(21,128,61,.18); color:#86efac; }
+  .conc-badge.rev { background:rgba(180,83,9,.18); color:#fcd34d; }
+  .conc-badge.act { background:rgba(59,130,246,.18); color:#93c5fd; }
+  .conc-badge.firm { background:rgba(168,85,247,.18); color:#d8b4fe; }
+  .conc-badge.sol { background:rgba(127,29,29,.25); color:#fca5a5; }
+  .conc-warn { font-size:12.5px; color:#fcd34d; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.4); border-radius:8px; padding:10px 12px; margin-bottom:10px; line-height:1.55; }
+  .conc-acts { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .conc-corr { position:relative; font-size:13px; color:#cbd5e1; border:1px solid #334155; border-radius:8px; padding:8px 12px; cursor:default; }
+  .conc-corr:hover .conc-menu { display:block; }
+  .conc-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#0b1220; border:1px solid #334155; border-radius:8px; padding:4px; z-index:5; min-width:180px; }
+  .conc-menu span { display:block; padding:7px 10px; font-size:12.5px; color:#cbd5e1; border-radius:6px; }
+  .conc-menu span:hover { background:#1e293b; }
+  .conc-reimp { font-size:12px; color:#94a3b8; margin-top:10px; }
+  .ro-note { font-size:11.5px; color:#64748b; font-style:italic; }
 </style>
 {% endblock %}
 
@@ -181,9 +204,181 @@ function renderDetalle(d){
     h += '<div style="margin-top:12px"><button class="btn" style="background:#15803d;color:#fff" '+
          'onclick="aprobar('+id+', this)"><i class="ph ph-check"></i> Aprobar y ejecutar</button></div>';
   }else{
-    h += '<div class="msg block" style="margin-top:12px">Aprobación simple bloqueada — requiere conciliación (Fase 2). Puedes rechazar.</div>';
+    // Fase 2: solicitud bloqueada → mostrar la pantalla de CONCILIACIÓN (read-only).
+    h += (d.conciliacion ? renderConciliacion(d) :
+      '<div class="msg block" style="margin-top:12px">Aprobación simple bloqueada — requiere conciliación (Fase 2).</div>');
   }
   return h;
+}
+
+// ── Fase 2 (2b): pantalla de conciliación auto-explicativa (READ-ONLY) ──────────
+function renderConciliacion(d){
+  const con = d.conciliacion || {}; const rs = con.resultados || [];
+  if(!rs.length) return '<div class="msg block" style="margin-top:12px">Sin datos de conciliación.</div>';
+  const sol = d.solicitud || {};
+  let h = '<div class="conc">';
+  h += '<div class="conc-h">⚖️ Conciliación — el sistema PROPONE, tú decides</div>';
+
+  rs.forEach(r=>{
+    const cons = r.conservar||{}, rev = r.revertir||{};
+    const dbtId = r.debt_id;
+    const compExt = (sol.serie? sol.serie+'-'+sol.numero : 'EB01');
+    const extObj = (cons.que==='externo') ? cons : rev;              // el externo (EB01)
+    const sisObj = (cons.que==='pago_sistema') ? cons : rev;         // el del sistema
+    const consComp = cons.comprobante || (cons.que==='externo'? compExt : 'pago del sistema');
+    const revComp  = rev.comprobante  || (rev.que==='externo'? compExt : 'pago del sistema');
+    // acción sugerida en lenguaje claro (no técnico)
+    let accionTexto;
+    if(r.accion_sugerida==='NOTA_CREDITO') accionTexto = 'anular el '+revComp+' emitiendo una Nota de Crédito';
+    else if(r.accion_sugerida==='DEVOLUCION') accionTexto = 'devolver el dinero y anular el '+revComp+' en SUNAT-SOL';
+    else accionTexto = 'imputar el pago a la deuda';
+    const accionCap = accionTexto.charAt(0).toUpperCase()+accionTexto.slice(1);
+
+    // (a) CONTEXTO en prosa
+    h += '<p class="conc-ctx">El pago externo <b>'+esc(compExt)+'</b> ('+esc(extObj.fecha||'?')+
+         ') y <b>'+esc(sisObj.comprobante||'pago del sistema')+'</b> ('+esc(sisObj.fecha||'?')+
+         ') cubren la MISMA deuda (<b>'+esc(r.concept)+' '+money(r.deuda_monto)+'</b>) = <b>'+
+         esc(r.tipo.replace('_',' ').toLowerCase())+'</b>. Como <b>'+esc(consComp)+'</b> es anterior '+
+         '(el pago real primero), el sistema sugiere <b>conservar el '+esc(consComp)+'</b> y <b>'+
+         esc(accionTexto)+'</b>.</p>';
+
+    // (b) TRES COLUMNAS
+    h += '<div class="conc-cols">';
+    h += '<div class="conc-col"><h4>Deuda</h4>'+kv('Concepto', esc(r.concept))+kv('Monto', money(r.deuda_monto))+kv('Saldo actual', money(r.deuda_saldo))+'</div>';
+    let ps = '';
+    (r.pagos_sistema||[]).forEach(p=>{ ps += kv(esc(p.comprobante||'—'), money(p.monto_aplicado)+' · '+esc(p.created_at||'')+' · '+esc(p.origen||'')); });
+    h += '<div class="conc-col"><h4>Pago(s) del sistema</h4>'+(ps||'<div class="kv"><span class="k">—</span><span class="v">ninguno</span></div>')+'</div>';
+    h += '<div class="conc-col"><h4>Pago externo capturado</h4>'+kv(esc(compExt), money(r.monto_externo))+kv('Fecha real', esc(sol.fecha_comprobante||extObj.fecha||'?'))+kv('Origen', esc(sol.origen||'externo'))+'</div>';
+    h += '</div>';
+
+    // (c) PROPUESTA (banner) — lenguaje claro
+    const aut = r.autorizacion||{};
+    h += '<div class="conc-prop">'+
+      '<div class="conc-badge keep">CONSERVAR: '+esc(consComp)+'</div>'+
+      '<div class="conc-badge act">'+esc(accionCap)+'</div>'+
+      '<div class="conc-badge firm">'+esc((aut.nivel||'').toUpperCase())+'</div>'+
+      (r.requiere_anular_en_sol? '<div class="conc-badge sol">Incluye anular en SUNAT-SOL (2 acciones)</div>':'')+
+      '</div>';
+
+    // (d) ADVERTENCIA TRIBUTARIA — OCULTA por defecto; aparece SOLO si el operador elige
+    //     un desenlace que CONTRADICE la sugerencia (anular el comprobante distinto).
+    if(r.advertencia_tributaria){
+      h += '<div class="conc-warn" id="conc-warn-'+dbtId+'" data-risky="'+esc(r.advertencia_tributaria.target_riesgoso||'')+'" style="display:none">'+
+           '<b>Riesgo tributario:</b> '+esc(r.advertencia_tributaria.mensaje)+'</div>';
+    }
+
+    // (e) BOTONES LIVE. Guardamos contexto por deuda para los handlers.
+    window.__conc = window.__conc || {};
+    window.__conc[dbtId] = {solId: (d.solicitud||{}).id, accion: r.accion_sugerida,
+                            sugiere_anular: r.sugiere_anular, revertir: r.revertir||{},
+                            candidatas: con.reimputar_candidatas||[]};
+    h += '<div class="conc-acts">'+
+      '<button class="btn" style="background:#15803d;color:#fff" onclick="elegirDesenlace('+dbtId+',\''+esc(r.accion_sugerida)+'\')">✓ Confirmar propuesta</button>'+
+      '<div class="conc-corr">Corregir desenlace ▾'+
+        '<div class="conc-menu">'+
+          '<span onclick="elegirDesenlace('+dbtId+',\'IMPUTAR\')" title="Aplicar el pago a esta deuda">Imputar</span>'+
+          '<span onclick="elegirDesenlace('+dbtId+',\'REIMPUTAR\')" title="Aplicar el pago a otra deuda pendiente del colegiado">Reimputar</span>'+
+          '<span onclick="elegirDesenlace('+dbtId+',\'DEVOLUCION\')" title="Devolver el dinero y anular el EB01 en SUNAT-SOL">Devolución</span>'+
+          '<span onclick="elegirDesenlace('+dbtId+',\'NOTA_CREDITO\')" title="Anular nuestro comprobante emitiendo una Nota de Crédito">Nota de crédito</span>'+
+        '</div></div>'+
+      '</div>';
+  });
+
+  if((con.reimputar_candidatas||[]).length){
+    h += '<div class="conc-reimp">Deudas candidatas para reimputar: '+
+      con.reimputar_candidatas.map(c=>esc(c.concept)+' ('+money(c.saldo)+')').join(' · ')+'</div>';
+  }
+  h += '<div class="ro-note" style="margin-top:8px">El sistema PROPONE; tú decides. NC y devolución piden confirmación explícita (irreversible ante SUNAT).</div>';
+  h += '</div>';
+  return h;
+}
+
+// ── Modal genérico de confirmación (dark) ───────────────────────────────────────
+function cerrarModal(){ const m=document.getElementById('conc-modal'); if(m) m.remove(); }
+function mostrarModal(titulo, cuerpoHtml, onConfirm, txtConfirm){
+  cerrarModal();
+  const wrap=document.createElement('div'); wrap.id='conc-modal';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999';
+  wrap.innerHTML='<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;max-width:520px;width:92%;padding:18px">'
+    +'<h3 style="color:#f8fafc;font-size:15px;margin-bottom:10px">'+titulo+'</h3>'
+    +'<div style="color:#cbd5e1;font-size:13px;line-height:1.6">'+cuerpoHtml+'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'
+    +'<button class="btn" style="background:#334155;color:#e2e8f0" onclick="cerrarModal()">Cancelar</button>'
+    +'<button class="btn" id="conc-modal-ok" style="background:#15803d;color:#fff">'+(txtConfirm||'Confirmar')+'</button>'
+    +'</div></div>';
+  document.body.appendChild(wrap);
+  document.getElementById('conc-modal-ok').addEventListener('click', async ()=>{
+    const b=document.getElementById('conc-modal-ok'); b.disabled=true; b.textContent='Procesando…';
+    try{ await onConfirm(); }catch(e){ if(window.Toast) Toast.show('Error de red','error'); cerrarModal(); }
+  });
+}
+function _err(d, resp){
+  const m=(d && (d.detail||d.mensaje)) || ('Error '+ (resp?resp.status:''));
+  if(window.Toast) Toast.show(typeof m==='string'?m:'No se pudo procesar','error');
+  cerrarModal();
+}
+async function _post(url, body){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const d=await r.json().catch(()=>({})); return {r,d};
+}
+
+// ── Elegir desenlace ────────────────────────────────────────────────────────────
+async function elegirDesenlace(dbtId, desenlace){
+  const ctx=(window.__conc||{})[dbtId]||{}; const solId=ctx.solId;
+  const rev=ctx.revertir||{}; const comp=rev.comprobante||'comprobante';
+  // advertencia si va contra la sugerencia
+  const eligeAnula = desenlace==='NOTA_CREDITO'?'B400':(desenlace==='DEVOLUCION'?'EB01':'');
+  if(eligeAnula && ctx.sugiere_anular && eligeAnula!==ctx.sugiere_anular) concSel(dbtId, eligeAnula);
+
+  if(desenlace==='IMPUTAR'){
+    mostrarModal('Imputar pago externo',
+      'Se aplicará el pago externo a esta deuda (crea el pago + comprobante EB01). ¿Confirmas?',
+      async ()=>{ const {r,d}=await _post('/admin/pagos-externos/'+solId+'/resolver',{desenlace:'IMPUTAR'});
+                  if(d.success){ if(window.Toast)Toast.show('Imputado','success'); setTimeout(()=>location.reload(),800);} else _err(d,r); },
+      'Imputar'); return;
+  }
+  if(desenlace==='REIMPUTAR'){
+    const cand=ctx.candidatas||[];
+    if(!cand.length){ if(window.Toast)Toast.show('Sin deudas candidatas para reimputar','error'); return; }
+    const opts=cand.map(c=>'<label style="display:block;margin:4px 0"><input type="checkbox" class="reimp-chk" value="'+c.debt_id+'"> '+esc(c.concept)+' ('+money(c.saldo)+')</label>').join('');
+    mostrarModal('Reimputar a otra(s) deuda(s)',
+      'Elige la(s) deuda(s) destino:<div style="margin-top:8px">'+opts+'</div>',
+      async ()=>{ const ids=[...document.querySelectorAll('.reimp-chk:checked')].map(x=>+x.value);
+                  if(!ids.length){ if(window.Toast)Toast.show('Selecciona al menos una deuda','error'); return; }
+                  const {r,d}=await _post('/admin/pagos-externos/'+solId+'/resolver',{desenlace:'REIMPUTAR',reimputar_debt_ids:ids});
+                  if(d.success){ if(window.Toast)Toast.show('Reimputado','success'); setTimeout(()=>location.reload(),800);} else _err(d,r); },
+      'Reimputar'); return;
+  }
+  if(desenlace==='NOTA_CREDITO'){
+    const advHtml = (eligeAnula!==ctx.sugiere_anular && document.getElementById('conc-warn-'+dbtId))
+      ? '<div class="conc-warn" style="margin-top:10px">'+document.getElementById('conc-warn-'+dbtId).innerHTML+'</div>' : '';
+    mostrarModal('Emitir Nota de Crédito — IRREVERSIBLE ante SUNAT',
+      '¿Confirmas emitir la NC del <b>'+esc(comp)+'</b>? Esto anula el comprobante en SUNAT y <b>no se puede deshacer</b>.'+advHtml,
+      async ()=>{
+        const p1=await _post('/admin/pagos-externos/'+solId+'/resolver',{desenlace:'NOTA_CREDITO'});
+        if(!p1.d.success || !p1.d.autorizacion_id){ _err(p1.d,p1.r); return; }
+        if(p1.d.falta_firma2){ if(window.Toast)Toast.show('Creada; requiere 2ª firma ('+p1.d.segundo_firmante_rol+')','success'); cerrarModal(); setTimeout(()=>location.reload(),1000); return; }
+        const p2=await _post('/admin/pagos-externos/autorizacion/'+p1.d.autorizacion_id+'/ejecutar-nc',{confirmar:true});
+        if(p2.d.success){ if(window.Toast)Toast.show('NC emitida '+(p2.d.nota_credito||''),'success'); setTimeout(()=>location.reload(),900);} else _err(p2.d,p2.r);
+      }, 'Sí, emitir la NC'); return;
+  }
+  if(desenlace==='DEVOLUCION'){
+    mostrarModal('Registrar obligación de devolución',
+      'Se registrará la obligación: <b>devolver el dinero</b> y (si es EB01) <b>anular el comprobante en SUNAT-SOL</b>. '
+      +'El sistema NO mueve plata — tesorería ejecuta fuera y confirma las 2 acciones. ¿Registrar?',
+      async ()=>{ const {r,d}=await _post('/admin/pagos-externos/'+solId+'/resolver',{desenlace:'DEVOLUCION'});
+                  if(d.success){ if(window.Toast)Toast.show('Obligación registrada (pendiente de tesorería)','success'); setTimeout(()=>location.reload(),900);} else _err(d,r); },
+      'Registrar obligación'); return;
+  }
+}
+
+// Advertencia tributaria condicional: se muestra SOLO si el desenlace elegido anula
+// el comprobante DISTINTO al sugerido (target_riesgoso). Seguir la sugerencia → oculta.
+function concSel(debtId, annulTarget){
+  const w = document.getElementById('conc-warn-'+debtId);
+  if(!w) return;
+  const risky = w.getAttribute('data-risky');
+  w.style.display = (annulTarget && annulTarget === risky) ? 'block' : 'none';
 }
 
 async function aprobar(id, btn){
