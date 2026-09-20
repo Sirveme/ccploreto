@@ -399,6 +399,8 @@ async def pagos_sin_verificar(
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(TZ_PERU).strftime("%d/%m/%Y %H:%M")
 
+    from app.utils.notas_pago import descripcion_legible as _dl, mapa_deudas_para_notas as _mn
+    _mapa = _mn(db, [p.notes for p in pagos])
     return {
         "pagos": [
             {
@@ -406,7 +408,7 @@ async def pagos_sin_verificar(
                 "monto": float(p.amount or 0),
                 "metodo": p.payment_method,
                 "fecha": _fmt(p.created_at),
-                "notas": (p.notes or "")[:80],
+                "notas": _dl(p.notes, _mapa),
             }
             for p in pagos
         ],

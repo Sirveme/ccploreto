@@ -1600,6 +1600,8 @@ async def ultimos_cobros(
         Payment.created_at >= inicio_dia,
     ).order_by(Payment.created_at.desc()).limit(limit).all()
 
+    from app.utils.notas_pago import descripcion_legible as _dl2, mapa_deudas_para_notas as _mn2
+    _mapa2 = _mn2(db, [p.notes for p in pagos])
     resultado = []
     for p in pagos:
         col = None
@@ -1611,7 +1613,7 @@ async def ultimos_cobros(
             "hora": a_lima(p.created_at, "%H:%M") or "",
             "colegiado": col.apellidos_nombres if col else "Público general",
             "matricula": col.codigo_matricula if col else None,
-            "concepto": p.notes or "",
+            "concepto": _dl2(p.notes, _mapa2),
             "monto": float(p.amount or 0),
             "metodo": p.payment_method or "efectivo",
             "referencia": p.operation_code,
@@ -2363,36 +2365,11 @@ async def egresos_sesion_actual(
 # ============================================================
 
 
-def _descripcion_legible(notes):
-    """Descripción legible del historial: decodifica CONCEPTOS_B64 (REUSA _parse_b64
-    del export) y oculta los marcadores técnicos [DEBT_IDS]/[CONCEPTOS_B64]. Cae con
-    gracia a la parte humana si no hay B64 decodificable."""
-    from app.services.export_comprobantes_dia import _parse_b64, _RE_B64, _RE_DEBT_IDS
-    if not notes:
-        return "Cobro"
-    items = _parse_b64(notes)
-    if items:
-        partes = []
-        for it in items:
-            nombre = (it.get("nombre") or "Concepto").strip()
-            try:
-                cant = int(it.get("cantidad") or 1)
-            except Exception:
-                cant = 1
-            mu = it.get("monto_unitario")
-            try:
-                monto = float(mu if mu is not None else (it.get("monto_total") or 0))
-            except Exception:
-                monto = 0.0
-            partes.append(("%s — %d x S/ %.2f" % (nombre, cant, monto)) if cant > 1
-                          else ("%s — S/ %.2f" % (nombre, monto)))
-        if partes:
-            return " · ".join(partes)
-    # Fallback: parte humana, sin los marcadores técnicos.
-    txt = (notes or "").replace("[CAJA] ", "")
-    txt = _RE_B64.sub("", txt)
-    txt = _RE_DEBT_IDS.sub("", txt)
-    return txt.strip() or "Cobro"
+def _descripcion_legible(notes, debts_por_id=None):
+    """Descripción legible (marcadores ocultos, resumen). Fuente única:
+    app.utils.notas_pago.descripcion_legible. Con debts_por_id resume por concepto+rango."""
+    from app.utils.notas_pago import descripcion_legible as _dl
+    return _dl(notes, debts_por_id)
 
 
 @router.get("/historial-cobros")
@@ -2424,6 +2401,9 @@ async def historial_cobros(
 
     cobros = query.order_by(Payment.reviewed_at.desc()).limit(200).all()
 
+    from app.utils.notas_pago import descripcion_legible as _desc_legible, mapa_deudas_para_notas as _mapa_notas
+    _mapa = _mapa_notas(db, [p.notes for p in cobros])
+
     operaciones = []
     for p in cobros:
         numero_comprobante = None
@@ -2444,8 +2424,7 @@ async def historial_cobros(
             "id": p.id,
             "amount": float(p.amount or 0),
             "metodo_pago": p.payment_method,
-            "notes": p.notes,
-            "descripcion_legible": _descripcion_legible(p.notes),
+            "descripcion_legible": _desc_legible(p.notes, _mapa),
             "reviewed_at": hora_peru.isoformat() if hora_peru else None,
             "numero_comprobante": numero_comprobante,
             "status": p.status,

@@ -30,6 +30,7 @@ from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
 from app.services.evaluar_habilidad import sincronizar_condicion
 from app.services.facturacion import FacturacionService
+from app.utils.notas_pago import descripcion_legible, mapa_deudas_para_notas
 
 logger = logging.getLogger(__name__)
 
@@ -1747,6 +1748,8 @@ async def listar_pagos_colegiado(
                 "status": c.status,
             }
 
+    mapa_deudas = mapa_deudas_para_notas(db, [p.notes for p in pagos])
+
     return {
         "pagos": [
             {
@@ -1756,7 +1759,9 @@ async def listar_pagos_colegiado(
                 "operation_code": p.operation_code,
                 "fecha": p.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if p.created_at else "",
                 "status": p.status,
-                "notes": p.notes,
+                "notes": p.notes,  # crudo (interno; NO mostrar — usar concepto_legible)
+                # concepto_legible: texto limpio para mostrar (marcadores ocultos, resumen completo).
+                "concepto_legible": descripcion_legible(p.notes, mapa_deudas),
                 "comprobante": comps_por_pago.get(p.id),
                 "tiene_comprobante": p.id in comps_por_pago,
             }
