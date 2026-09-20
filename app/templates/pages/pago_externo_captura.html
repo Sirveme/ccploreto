@@ -99,6 +99,13 @@
     .chip-match{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
       background:rgba(34,197,94,.16);color:#4ade80;margin-left:4px;}
     tr.match td{background:rgba(34,197,94,.05);}
+    /* detalle completo de conceptos (expandible; nunca oculta) */
+    details summary{cursor:pointer;color:var(--text);list-style:revert;}
+    details summary:hover{color:var(--accent);}
+    .det-box{margin-top:6px;padding-left:6px;border-left:2px solid var(--border);}
+    .det-item{font-size:12px;color:var(--text-sec);padding:2px 0;}
+    .det-per{color:var(--text-dim);}
+    .det-monto{color:var(--text);font-family:var(--mono);float:right;}
     /* deudas table */
     table{width:100%;border-collapse:collapse;font-size:13px;}
     th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);}
@@ -542,13 +549,29 @@ function renderPagos(q){
   if(!list.length){ body.innerHTML='<tr><td colspan="5" class="hint">Sin pagos que coincidan.</td></tr>'; return; }
   body.innerHTML=list.map(p=>{
     const comp=p.comprobante?esc(p.comprobante.numero_formato):'—';
-    const concepto=esc(p.concepto_legible||'—');
-    return '<tr><td>'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:280px">'+concepto+'</td></tr>';
+    const corto=esc(p.concepto_legible||'—');
+    const det=p.conceptos_detalle||[];
+    let concepto;
+    if(det.length>1){
+      const items=det.map(c=>'<div class="det-item">'+esc(c.concepto)+(c.period_label?(' <span class="det-per">'+esc(c.period_label)+'</span>'):'')+' <span class="det-monto">'+money(c.monto)+'</span></div>').join('');
+      concepto='<details><summary>'+corto+'</summary><div class="det-box">'+items+'</div></details>';
+    } else {
+      concepto=corto;
+    }
+    return '<tr><td style="white-space:nowrap">'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:320px">'+concepto+'</td></tr>';
   }).join('');
 }
-$('#btnVerPagos').addEventListener('click',verPagos);
-$('#pagosCerrar').addEventListener('click',()=>{$('#modalPagos').style.display='none';});
-$('#pagosFiltro').addEventListener('input',e=>renderPagos(e.target.value));
+// El modal está más abajo en el DOM: bindeamos tras DOMContentLoaded (si no, los
+// elementos aún no existen y el cierre no se enlaza → quedaba atrapado). 3 cierres: X, backdrop, ESC.
+function cerrarPagos(){ const m=document.getElementById('modalPagos'); if(m) m.style.display='none'; }
+document.addEventListener('DOMContentLoaded',function(){
+  const m=document.getElementById('modalPagos');
+  const bt=document.getElementById('btnVerPagos'); if(bt) bt.addEventListener('click',verPagos);
+  const cx=document.getElementById('pagosCerrar'); if(cx) cx.addEventListener('click',cerrarPagos);
+  const ff=document.getElementById('pagosFiltro'); if(ff) ff.addEventListener('input',e=>renderPagos(e.target.value));
+  if(m) m.addEventListener('click',e=>{ if(e.target===m) cerrarPagos(); });   // click en el backdrop
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && m && m.style.display!=='none') cerrarPagos(); });
+});
 </script>
 
 <!-- Modal: pagos del colegiado (red de seguridad, read-only) -->
