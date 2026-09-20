@@ -138,12 +138,20 @@ class AnalizarIn(BaseModel):
 @page_router.get("/caja/pago-externo", response_class=HTMLResponse)
 async def pagina_captura_pago_externo(
     request: Request,
+    db: Session = Depends(get_db),
     current_member: Member = Depends(require_captura),
 ):
+    # Catálogo de conceptos internos (para el selector del paso 2 — cruce por concepto_cobro_id).
+    conceptos = db.execute(text("""
+        SELECT id, codigo, nombre FROM conceptos_cobro
+        WHERE organization_id = :org AND activo = TRUE
+        ORDER BY orden, nombre
+    """), {"org": ORG_CCPL}).fetchall()
     return templates.TemplateResponse("pages/pago_externo_captura.html", {
         "request": request,
         "user_role": current_member.role,
         "tipos": pex.TIPOS_PAGO_EXTERNO,
+        "conceptos": [{"id": c.id, "codigo": c.codigo, "nombre": c.nombre} for c in conceptos],
     })
 
 
@@ -178,6 +186,22 @@ async def buscar_colegiado(
     return resultados
 
 
+# ── CRUCE INMEDIATO boleta ↔ deuda (antes de imputar) ────────────────────────────
+@router.get("/cruzar-boleta/{colegiado_id}")
+async def cruzar_boleta_ep(
+    colegiado_id: int,
+    concepto_cobro_id: Optional[int] = Query(None, description="ID del concepto interno elegido"),
+    periodo: str = Query("", description="Periodo (para conceptos por-periodo)"),
+    concepto: str = Query("", description="(fallback) concepto en texto"),
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_captura),
+):
+    """Read-only: al elegir el concepto interno, cruza contra las deudas del colegiado por
+    concepto_cobro_id (EXACTO). Veredicto: DUPLICADO / IMPUTAR / SIN_DEUDA."""
+    return pex.cruzar_boleta(db, colegiado_id, concepto_cobro_id=concepto_cobro_id,
+                             periodo=periodo, concepto=concepto, organization_id=ORG_CCPL)
+
+
 # ── DEUDAS EXIGIBLES ─────────────────────────────────────────────────────────────
 @router.get("/deudas/{colegiado_id}")
 async def obtener_deudas(
@@ -206,6 +230,7 @@ async def obtener_deudas(
             "saldo": float(d.balance or 0),
             "status": d.status,
             "debt_type": d.debt_type or "cuota_ordinaria",
+            "concepto_cobro_id": d.concepto_cobro_id,
             "estado_notificacion": d.estado_notificacion or "no_notificada",
             "exigible": (d.estado_notificacion or "no_notificada") != "no_notificada",
         })
