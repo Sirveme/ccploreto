@@ -99,18 +99,21 @@
     .chip-match{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
       background:rgba(34,197,94,.16);color:#4ade80;margin-left:4px;}
     tr.match td{background:rgba(34,197,94,.05);}
+    .pista-btn{font-size:11px;padding:3px 8px;white-space:nowrap;border:1px solid var(--border);border-radius:20px;}
+    .pista-btn.on{background:rgba(245,158,11,.16);color:#fcd34d;border-color:var(--amber);font-weight:700;}
+    tr.flag td{background:rgba(245,158,11,.08);}
     /* detalle completo de conceptos (expandible; nunca oculta) */
     details summary{cursor:pointer;color:var(--text);list-style:revert;}
     details summary:hover{color:var(--accent);}
     .det-box{margin-top:6px;padding-left:6px;border-left:2px solid var(--border);}
     .det-item{font-size:12px;color:var(--text-sec);padding:2px 0;}
     .det-per{color:var(--text-dim);}
-    .det-monto{color:var(--text);font-family:var(--mono);float:right;}
+    .det-monto{color:var(--text);font-family:var(--mono);float:right;white-space:nowrap;}
     /* deudas table */
     table{width:100%;border-collapse:collapse;font-size:13px;}
     th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);}
     th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);}
-    td.num,th.num{text-align:right;font-family:var(--mono);}
+    td.num,th.num{text-align:right;font-family:var(--mono);white-space:nowrap;min-width:92px;}
     tr.na{opacity:.5;}
     .imp-monto{width:90px;padding:5px 7px;font-family:var(--mono);text-align:right;}
     /* preview */
@@ -254,7 +257,7 @@
     <div id="previewBox"></div>
     <div class="actions">
       <button class="btn ghost" data-back>← Atrás</button>
-      <button class="btn primary" id="btnEnviar" disabled>Enviar solicitud</button>
+      <button class="btn primary" id="btnEnviar" disabled>Enviar al Administrador</button>
     </div>
     <div class="ro-note">La solicitud queda PENDIENTE de aprobación del administrador. Aquí no se crea ningún pago.</div>
   </div>
@@ -263,7 +266,8 @@
 <script>
 // Módulo de un solo caso: boleta EB01 ya emitida en SUNAT (origen='externo_eb01'). tipo=1 fijo.
 const S = { colegiado:null, tipo:1, deudas:[], payload:null,
-            verdicto:null, matched:null, imputacionesFijas:null, conceptoCobroId:'' };
+            verdicto:null, matched:null, imputacionesFijas:null, conceptoCobroId:'',
+            pistaDuplicado:null };
 const $ = s => document.querySelector(s);
 const money = n => 'S/ ' + Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -423,6 +427,10 @@ function construirConcepto(){
   let c='';
   if(ce.nombre||pb) c='Concepto: '+(ce.nombre||'')+(pb?(' '+pb):'');
   if(obs) c=(c?c+' — ':'')+obs;
+  // Pista de la cajera (SEÑALA, no resuelve): se adjunta para que el Admin la vea en la resolución.
+  if(S.pistaDuplicado){
+    c=(c?c+' — ':'')+'[PISTA CAJERA] posible duplicado del pago #'+S.pistaDuplicado.id+' ('+S.pistaDuplicado.label+')';
+  }
   return c||null;
 }
 async function analizar(){
@@ -437,62 +445,36 @@ async function analizar(){
 }
 $('#btnAnalizar').addEventListener('click',analizar);
 
-// PASO 5: render preview + clasificación del candado (frena vs advierte)
+// PASO 4: pantalla ENVIAR — SIMPLE para el cajero (sin jerga técnica).
+// El detalle técnico (origen, status, imputación, re-eval, códigos) vive en la
+// pantalla de RESOLUCIÓN del Admin (/admin/pagos-externos), no aquí.
 function renderPreview(res){
-  const box=$('#previewBox'); let h='';
-  // clasificar bloqueos: conciliación = ADVIERTE (deja enviar); resto = FRENA
+  const box=$('#previewBox');
   const frena=[], adv=[];
   (res.bloqueos||[]).forEach(b=>{(CANDADO_CONCILIACION.has(b.codigo)?adv:frena).push(b);});
   S.puedeEnviar = frena.length===0;
 
+  const c=res.colegiado||{}, p=res.preview||{}, pm=p.payment||{}, ce=conceptoElegido();
+  const comp = p.comprobante ? (p.comprobante.serie+'-'+p.comprobante.numero)
+             : (($('#serie').value.trim()||'EB01')+'-'+($('#numero').value.trim()||''));
+  const monto = (pm.amount!=null?pm.amount:parseFloat($('#monto').value||'0'));
+
+  let h='<div class="box"><h3>Vas a registrar este pago</h3>'+
+     kv('Colegiado', esc(c.apellidos_nombres || (S.colegiado&&S.colegiado.apellidos_nombres) || '—'))+
+     kv('Monto', money(monto))+
+     kv('Boleta', esc(comp))+
+     kv('Concepto', esc(ce.nombre || '(no elegido)'))+'</div>';
+
   if(frena.length){
-    h+='<div class="banner block">⛔ No se puede enviar — corrige los datos marcados.</div>';
+    h+='<div class="banner block">⛔ No se puede enviar: faltan datos o el comprobante ya está registrado. Vuelve al paso anterior y revisa.</div>';
   }else if(adv.length){
-    h+='<div class="banner block" style="background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:var(--amber)">⚠ Posible duplicado — puedes enviar; el administrador lo revisará (Fase 2).</div>';
+    h+='<div class="banner" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:var(--amber)">'+
+       '⚠️ El sistema detectó que <b>puede ser un pago duplicado</b>. Al enviar, va al <b>Administrador</b> para que lo revise y decida. Tú no imputas nada.</div>';
   }else{
-    h+='<div class="banner ok">✔ Sin duplicados — listo para enviar como solicitud pendiente.</div>';
+    h+='<div class="banner ok">✔ Listo. Se registra y queda <b>pendiente de aprobación</b> del Administrador.</div>';
   }
-  frena.forEach(b=>{h+='<div class="msg block"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>';});
-  adv.forEach(b=>{h+='<div class="msg warn"><b>'+esc(b.codigo)+' (advertencia):</b> '+esc(b.mensaje)+'</div>';});
-  (res.avisos||[]).forEach(a=>{h+='<div class="msg warn"><b>'+esc(a.codigo)+':</b> '+esc(a.mensaje)+'</div>';});
-
-  const p=res.preview;
-  if(p){
-    const c=res.colegiado||{};
-    h+='<div class="box"><h3>Colegiado</h3>'+
-       kv('Nombre',c.apellidos_nombres)+kv('DNI / Matrícula',(c.dni||'')+' · '+(c.codigo_matricula||''))+
-       kv('Condición actual',c.condicion)+'</div>';
-
-    const pm=p.payment;
-    h+='<div class="box"><h3>Payment que se crearía</h3>'+
-       kv('Origen',pm.origen)+kv('Monto',money(pm.amount))+
-       kv('Método',pm.payment_method||'—')+kv('N° operación',pm.operation_code||'—')+
-       kv('Fecha pago',pm.paid_at||'—')+kv('Estado',pm.status)+
-       kv('Marcador notes',pm.notes_marcador||'—')+
-       kv('Arqueo', p.en_arqueo?'<span class="badge arqueo">ENTRA (sesión abierta req.)</span>':'<span class="badge no-arqueo">NO entra</span>')+
-       '</div>';
-
-    if(p.comprobante){
-      const co=p.comprobante;
-      h+='<div class="box"><h3>Comprobante que se registraría</h3>'+
-         kv('Serie-Número',co.serie+'-'+co.numero)+kv('Tipo',co.tipo)+
-         kv('Status',co.status)+kv('Origen',co.origen)+'</div>';
-    }else{
-      h+='<div class="box"><h3>Comprobante</h3><div class="kv"><span class="k">—</span><span class="v">sin comprobante (tipo 2)</span></div></div>';
-    }
-
-    h+='<div class="box"><h3>Imputación</h3><table><thead><tr><th>Deuda</th><th class="num">Saldo</th><th class="num">Imputa</th><th class="num">Resulta</th></tr></thead><tbody>';
-    (p.imputaciones||[]).forEach(i=>{
-      h+='<tr><td>'+esc(i.concept)+' <span style="color:var(--text-dim)">#'+i.debt_id+'</span></td>'+
-         '<td class="num">'+money(i.saldo)+'</td><td class="num">'+money(i.monto_a_imputar)+'</td>'+
-         '<td class="num">'+money(i.saldo_resultante)+'</td></tr>';
-    });
-    h+='</tbody></table>'+kv('Total imputado',money(p.total_imputado))+'</div>';
-
-    const rh=p.reeval_habilidad||{};
-    h+='<div class="box"><h3>Re-evaluación de habilidad</h3>'+
-       kv('¿Impacta?',rh.impacta_habilidad?'Sí':'No')+
-       '<div class="kv"><span class="k">Detalle</span><span class="v" style="max-width:60%;text-align:right">'+esc(rh.detalle)+'</span></div></div>';
+  if(S.pistaDuplicado){
+    h+='<div class="msg warn">🚩 Señalaste como posible duplicado: <b>'+esc(S.pistaDuplicado.label)+'</b>. Se adjunta como <b>pista para el Administrador</b> (él decide).</div>';
   }
   box.innerHTML=h;
   $('#btnEnviar').disabled = !S.puedeEnviar;
@@ -512,7 +494,7 @@ async function enviar(){
       let m='<div class="banner block">⛔ No se pudo enviar.</div>';
       (det.frena||[]).forEach(b=>{m+='<div class="msg block"><b>'+esc(b.codigo)+':</b> '+esc(b.mensaje)+'</div>';});
       if(!det.frena) m+='<div class="msg block">'+esc(det.mensaje||('Error '+r.status))+'</div>';
-      $('#previewBox').innerHTML=m; btn.textContent='Enviar solicitud'; btn.disabled=false; return;
+      $('#previewBox').innerHTML=m; btn.textContent='Enviar al Administrador'; btn.disabled=false; return;
     }
     let h='<div class="banner ok">✔ Solicitud #'+res.solicitud_id+' creada — estado: '+esc(res.estado)+'.</div>'+
       '<div class="box"><h3>Pendiente de aprobación</h3>'+
@@ -525,7 +507,7 @@ async function enviar(){
     btn.textContent='Enviada ✓';
   }catch(e){
     $('#previewBox').innerHTML='<div class="msg block">Error de red al enviar.</div>';
-    btn.textContent='Enviar solicitud'; btn.disabled=false;
+    btn.textContent='Enviar al Administrador'; btn.disabled=false;
   }
 }
 $('#btnEnviar').addEventListener('click',enviar);
@@ -546,7 +528,7 @@ async function verPagos(){
 function renderPagos(q){
   const body=$('#pagosBody'); const f=_norm(q);
   const list=_pagosCol.filter(p=>!f || _norm((p.concepto_legible||'')+' '+(p.metodo_pago||'')+' '+((p.comprobante||{}).numero_formato||'')+' '+p.monto).includes(f));
-  if(!list.length){ body.innerHTML='<tr><td colspan="5" class="hint">Sin pagos que coincidan.</td></tr>'; return; }
+  if(!list.length){ body.innerHTML='<tr><td colspan="6" class="hint">Sin pagos que coincidan.</td></tr>'; return; }
   body.innerHTML=list.map(p=>{
     const comp=p.comprobante?esc(p.comprobante.numero_formato):'—';
     const corto=esc(p.concepto_legible||'—');
@@ -558,8 +540,18 @@ function renderPagos(q){
     } else {
       concepto=corto;
     }
-    return '<tr><td style="white-space:nowrap">'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:320px">'+concepto+'</td></tr>';
+    const marcado = S.pistaDuplicado && S.pistaDuplicado.id===p.id;
+    const label = (p.fecha||'')+' · '+money(p.monto)+' · '+comp;
+    const btnPista = '<button class="btn ghost pista-btn'+(marcado?' on':'')+'" type="button" '
+      +'onclick="marcarPista('+p.id+',\''+label.replace(/'/g,"")+'\')">'+(marcado?'🚩 señalado':'🚩 posible duplicado')+'</button>';
+    return '<tr class="'+(marcado?'flag':'')+'"><td style="white-space:nowrap">'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:300px">'+concepto+'</td><td>'+btnPista+'</td></tr>';
   }).join('');
+}
+// Anggie SEÑALA (pista para el Admin), NO resuelve. Toggle. Se adjunta a la solicitud.
+function marcarPista(id, label){
+  if(S.pistaDuplicado && S.pistaDuplicado.id===id){ S.pistaDuplicado=null; }
+  else { S.pistaDuplicado={id, label}; }
+  renderPagos($('#pagosFiltro') ? $('#pagosFiltro').value : '');
 }
 // El modal está más abajo en el DOM: bindeamos tras DOMContentLoaded (si no, los
 // elementos aún no existen y el cierre no se enlaza → quedaba atrapado). 3 cierres: X, backdrop, ESC.
@@ -581,11 +573,11 @@ document.addEventListener('DOMContentLoaded',function(){
       <h3 style="font-size:14px;font-weight:700;">Pagos del colegiado</h3>
       <button class="btn ghost" id="pagosCerrar" type="button">Cerrar ✕</button>
     </div>
-    <div class="hint" style="margin-bottom:8px;">Revisa si ya existe un pago similar (concepto, monto, fecha, comprobante). Red de seguridad — el criterio humano respalda al cruce automático.</div>
+    <div class="hint" style="margin-bottom:8px;">Revisa si ya existe un pago similar (concepto, monto, fecha, comprobante). Red de seguridad — el criterio humano respalda al cruce automático. Si crees que uno de estos pagos es el que se está duplicando, márcalo con <b>🚩 posible duplicado</b>: es solo una <b>pista para el Administrador</b> (él decide), no cierra ni resuelve nada.</div>
     <input id="pagosFiltro" placeholder="Filtrar por concepto, monto, método o comprobante…" autocomplete="off" style="margin-bottom:10px;">
     <table>
-      <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Método</th><th>Comprobante</th><th>Concepto</th></tr></thead>
-      <tbody id="pagosBody"><tr><td colspan="5" class="hint">—</td></tr></tbody>
+      <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Método</th><th>Comprobante</th><th>Concepto</th><th>Pista</th></tr></thead>
+      <tbody id="pagosBody"><tr><td colspan="6" class="hint">—</td></tr></tbody>
     </table>
   </div>
 </div>
