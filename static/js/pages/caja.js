@@ -1653,7 +1653,7 @@ function renderHistorial(data) {
     lista.innerHTML = ops.map(o => {
         const hora = o.reviewed_at ? new Date(o.reviewed_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : (o.hora || '--:--');
         const monto = o.amount || o.total || 0;
-        const desc = o.notes || o.descripcion || 'Cobro';
+        const desc = o.descripcion_legible || o.descripcion || o.notes || 'Cobro';
         const compNum = o.numero_comprobante || o.comprobante_numero || '';
         const compCorto = compNum;
         const esAnulado = o.status === 'anulado' || o.status === 'refunded';
