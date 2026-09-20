@@ -45,13 +45,30 @@ def mapa_deudas_para_notas(db, notes_list, organization_id=1):
     if not ids:
         return {}
     rows = db.execute(_text("""
-        SELECT d.id, d.concept, d.periodo, d.period_label,
+        SELECT d.id, d.concept, d.periodo, d.period_label, d.amount,
                COALESCE(cc.nombre_corto, cc.nombre) AS cc
         FROM debts d LEFT JOIN conceptos_cobro cc ON cc.id = d.concepto_cobro_id
         WHERE d.id = ANY(:ids)
     """), {"ids": list(ids)}).fetchall()
     return {r.id: {"cc": r.cc or r.concept, "periodo": r.periodo,
-                   "period_label": r.period_label, "concept": r.concept} for r in rows}
+                   "period_label": r.period_label, "concept": r.concept,
+                   "monto": float(r.amount or 0)} for r in rows}
+
+
+def conceptos_detalle(notes, debts_por_id=None):
+    """DETALLE COMPLETO (para expandir): [{concepto, period_label, monto}] por cada deuda
+    del pago. NUNCA oculta conceptos — la lista completa siempre disponible."""
+    out = []
+    if not debts_por_id:
+        return out
+    for did in debt_ids_de_notes(notes):
+        info = debts_por_id.get(did) or debts_por_id.get(str(did))
+        if not info:
+            continue
+        out.append({"concepto": info.get("concept") or info.get("cc") or "Concepto",
+                    "period_label": info.get("period_label") or "",
+                    "monto": float(info.get("monto") or 0)})
+    return out
 
 
 def debt_ids_de_notes(notes):
