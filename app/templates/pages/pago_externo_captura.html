@@ -538,11 +538,11 @@ async function verPagos(){
 }
 function renderPagos(q){
   const body=$('#pagosBody'); const f=_norm(q);
-  const list=_pagosCol.filter(p=>!f || _norm((p.notes||'')+' '+(p.metodo_pago||'')+' '+((p.comprobante||{}).numero_formato||'')+' '+p.monto).includes(f));
+  const list=_pagosCol.filter(p=>!f || _norm((p.concepto_legible||'')+' '+(p.metodo_pago||'')+' '+((p.comprobante||{}).numero_formato||'')+' '+p.monto).includes(f));
   if(!list.length){ body.innerHTML='<tr><td colspan="5" class="hint">Sin pagos que coincidan.</td></tr>'; return; }
   body.innerHTML=list.map(p=>{
     const comp=p.comprobante?esc(p.comprobante.numero_formato):'—';
-    const concepto=esc((p.notes||'').split('\n')[0]||'—');
+    const concepto=esc(p.concepto_legible||'—');
     return '<tr><td>'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:280px">'+concepto+'</td></tr>';
   }).join('');
 }
