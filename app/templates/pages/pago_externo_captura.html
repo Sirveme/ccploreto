@@ -23,6 +23,10 @@
     .brand{font-weight:700;color:var(--accent);letter-spacing:1px;font-size:15px;}
     .top h1{font-size:16px;font-weight:600;}
     .top .role{font-size:12px;color:var(--text-sec);font-family:var(--mono);}
+    /* intro explicativa (idioma del usuario) */
+    .intro{background:var(--surface);border:1px solid var(--border);border-left:4px solid #38bdf8;
+      border-radius:10px;padding:12px 15px;margin-bottom:18px;font-size:13px;color:var(--text-sec);line-height:1.55;}
+    .intro b{color:var(--text);}
     /* stepper */
     .steps{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;}
     .step{flex:1;min-width:120px;display:flex;align-items:center;gap:8px;
@@ -30,9 +34,12 @@
       border-radius:var(--radius);font-size:12.5px;color:var(--text-sec);}
     .step .n{width:20px;height:20px;border-radius:50%;background:var(--surface-2);
       display:grid;place-items:center;font-family:var(--mono);font-size:11px;flex:none;}
-    .step.active{border-color:var(--accent);color:var(--text);}
+    .step.active{border-color:var(--accent);color:var(--text);background:var(--accent-soft);
+      box-shadow:0 0 0 1px var(--accent) inset;font-weight:600;}
     .step.active .n{background:var(--accent);color:#fff;}
-    .step.done .n{background:var(--green);color:#08160c;}
+    .step.done{border-color:rgba(34,197,94,.35);color:var(--green);background:rgba(34,197,94,.06);}
+    .step.done .n{background:var(--green);color:#08160c;font-size:0;}
+    .step.done .n::before{content:'✓';font-size:12px;font-weight:700;}
     /* cards / panels */
     .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
       padding:18px;margin-bottom:16px;display:none;}
@@ -65,14 +72,33 @@
       font-family:var(--mono);}
     .pill.habil{background:rgba(34,197,94,.15);color:var(--green);}
     .pill.inhabil{background:rgba(239,68,68,.15);color:var(--red);}
-    /* tipo cards */
-    .tipos{display:grid;gap:10px;}
-    .tipo{border:1px solid var(--border);border-radius:9px;padding:13px 14px;cursor:pointer;
-      background:var(--bg);}
-    .tipo:hover{border-color:var(--accent);}
-    .tipo.sel{border-color:var(--accent);background:var(--accent-soft);}
-    .tipo .t{font-weight:600;font-size:14px;}
-    .tipo .d{font-size:12px;color:var(--text-sec);margin-top:3px;font-family:var(--mono);}
+    /* tipo cards — acento cálido por tipo (guía el ojo) */
+    .tipos{display:grid;gap:12px;}
+    .tipo{position:relative;border:1px solid var(--border);border-left:4px solid var(--tc,var(--border));
+      border-radius:10px;padding:14px 16px;cursor:pointer;background:var(--surface);transition:all .12s;}
+    .tipo:hover{border-color:var(--tc,var(--accent));border-left-color:var(--tc);transform:translateY(-1px);}
+    .tipo.sel{border-color:var(--tc);background:var(--tc-soft);box-shadow:0 0 0 1px var(--tc) inset;}
+    .tipo.t1{--tc:#38bdf8;--tc-soft:rgba(56,189,248,.10);}   /* sky  — trae su boleta */
+    .tipo.t2{--tc:#a78bfa;--tc-soft:rgba(167,139,250,.10);}  /* violet— avisó, sin boleta */
+    .tipo.t3{--tc:#fb923c;--tc-soft:rgba(251,146,60,.10);}   /* orange— contingencia hoy */
+    .tipo .t{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:9px;}
+    .tipo .tipo-ico{font-size:20px;line-height:1;filter:saturate(1.1);}
+    .tipo .d{font-size:12.5px;color:var(--text-sec);margin:6px 0 0 29px;line-height:1.5;}
+    .tipo-flags{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 0 29px;}
+    .flag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+    .flag-noarqueo{background:rgba(34,197,94,.14);color:#4ade80;}      /* verde: no toca tu caja */
+    .flag-arqueo{background:rgba(245,158,11,.16);color:#fbbf24;}        /* ámbar: entra a tu arqueo */
+    .flag-info{background:var(--surface-2);color:var(--text-sec);}
+    .tipo-tech{font-size:10.5px;color:var(--text-dim);font-family:var(--mono);margin:8px 0 0 29px;opacity:.7;}
+    /* imputación: referencia boleta + redirección */
+    .ref-boleta{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.3);border-radius:8px;
+      padding:9px 12px;margin-bottom:12px;font-size:13px;color:var(--text);}
+    .ref-boleta .rb-ico{margin-right:6px;}
+    .redir-note{margin-top:12px;font-size:12px;color:var(--text-sec);background:var(--surface-2);
+      border-left:3px solid var(--amber);border-radius:8px;padding:10px 12px;line-height:1.55;}
+    .chip-match{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
+      background:rgba(34,197,94,.16);color:#4ade80;margin-left:4px;}
+    tr.match td{background:rgba(34,197,94,.05);}
     /* deudas table */
     table{width:100%;border-collapse:collapse;font-size:13px;}
     th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);}
@@ -110,12 +136,17 @@
     <span class="role">rol: {{ user_role }} · captura → aprobación</span>
   </div>
 
+  <div class="intro">
+    Registra un pago del que el Colegio <b>ya emitió boleta por SUNAT</b> (fuera del sistema)
+    pero que <b>no está registrado aquí</b>. Lo registramos e imputamos a la deuda —
+    <b>no se emite otra boleta</b> (la boleta ya existe en SUNAT).
+  </div>
+
   <div class="steps">
     <div class="step active" data-s="1"><span class="n">1</span> Colegiado</div>
-    <div class="step" data-s="2"><span class="n">2</span> Tipo</div>
-    <div class="step" data-s="3"><span class="n">3</span> Comprobante</div>
-    <div class="step" data-s="4"><span class="n">4</span> Imputación</div>
-    <div class="step" data-s="5"><span class="n">5</span> Enviar</div>
+    <div class="step" data-s="2"><span class="n">2</span> Comprobante</div>
+    <div class="step" data-s="3"><span class="n">3</span> Imputación</div>
+    <div class="step" data-s="4"><span class="n">4</span> Enviar</div>
   </div>
 
   <!-- PASO 1 -->
@@ -132,31 +163,20 @@
 
   <!-- PASO 2 -->
   <div class="panel" data-p="2">
-    <h2>2 · Tipo de pago externo</h2>
-    <div class="tipos" id="tipos">
-      {% for k, v in tipos.items() %}
-      <div class="tipo" data-tipo="{{ k }}" data-arqueo="{{ 1 if v.en_arqueo else 0 }}" data-serie="{{ 1 if v.requiere_serie else 0 }}">
-        <div class="t">Tipo {{ k }} — {{ v.nombre }}</div>
-        <div class="d">origen={{ v.origen }} · {{ 'ENTRA a arqueo (requiere sesión abierta)' if v.en_arqueo else 'NO entra a arqueo' }} · {{ 'con comprobante EB01' if v.emite_comprobante else 'sin comprobante' }}</div>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="actions">
-      <button class="btn ghost" data-back>← Atrás</button>
-      <button class="btn primary" id="btnTipo" disabled>Continuar</button>
-    </div>
-  </div>
-
-  <!-- PASO 3 -->
-  <div class="panel" data-p="3">
-    <h2>3 · Datos del comprobante y del pago</h2>
+    <h2>2 · Datos de la boleta (EB01) y del pago</h2>
+    <div class="hint" style="margin:-6px 0 12px;">La boleta ya fue emitida en SUNAT. Copia sus datos tal cual figuran en SUNAT-SOL.</div>
     <div id="grpComprobante">
       <div class="row-3">
         <div><label>Serie</label><input id="serie" placeholder="EB01" autocomplete="off"></div>
         <div><label>Número</label><input id="numero" type="number" placeholder="878"></div>
-        <div><label>Fecha comprobante</label><input id="fechaComp" type="date"></div>
+        <div><label>Fecha de la boleta</label><input id="fechaComp" type="date"></div>
       </div>
       <div id="serieAviso"></div>
+      <div class="row" style="margin-top:12px;">
+        <div><label>Concepto que dice la boleta</label><input id="conceptoBoleta" placeholder="Ej: Cuota Ordinaria" autocomplete="off"></div>
+        <div><label>Periodo que dice la boleta</label><input id="periodoBoleta" placeholder="Ej: Febrero 2026" autocomplete="off"></div>
+      </div>
+      <div class="hint" style="margin-top:-4px;">Cópialos TAL CUAL figuran en la boleta (la realidad del comprobante). En el siguiente paso eliges la deuda que corresponde.</div>
     </div>
     <div class="row-3">
       <div><label>Monto (S/)</label><input id="monto" type="number" step="0.01" placeholder="180.00"></div>
@@ -179,10 +199,11 @@
     </div>
   </div>
 
-  <!-- PASO 4 -->
-  <div class="panel" data-p="4">
-    <h2>4 · Deuda(s) a imputar</h2>
-    <div class="hint" style="margin-bottom:10px;">Selecciona las deudas y, opcionalmente, el monto por deuda. Vacío = imputa el saldo completo.</div>
+  <!-- PASO 3 -->
+  <div class="panel" data-p="3">
+    <h2>3 · Imputar a la deuda</h2>
+    <div id="refBoleta" class="ref-boleta"></div>
+    <div class="hint" style="margin-bottom:10px;">Elige la deuda del <b>mismo concepto y periodo</b> de la boleta. La marcada con <span class="chip-match">≈ coincide</span> calza con lo que dice la boleta. Vacío en "Imputar" = salda todo.</div>
     <table>
       <thead><tr>
         <th style="width:34px;"></th><th>Deuda</th><th class="num">Saldo</th>
@@ -190,20 +211,25 @@
       </tr></thead>
       <tbody id="deudasBody"><tr><td colspan="5" style="color:var(--text-dim);">—</td></tr></tbody>
     </table>
+    <div class="redir-note">
+      ⤳ <b>¿El concepto/periodo de la boleta no corresponde a ninguna deuda?</b> (p. ej. la boleta dice "Marzo"
+      pero el colegiado debía "Febrero"). Elige igual la <b>deuda correcta que sí tiene saldo</b> — el pago se
+      redirige a esa. Si la deuda ya tuviera un pago, el sistema te avisará y el administrador lo concilia.
+    </div>
     <div class="field" style="margin-top:14px;">
-      <label>Concepto / observación (opcional, para el admin)</label>
-      <input id="concepto" placeholder="Ej: EB01 emitida en SUNAT-SOL, colegiado avisó por WhatsApp" autocomplete="off">
+      <label>Observación (opcional, para el admin)</label>
+      <input id="concepto" placeholder="Ej: colegiado avisó por WhatsApp; boleta dice Marzo pero debía Febrero" autocomplete="off">
     </div>
     <div class="actions">
       <button class="btn ghost" data-back>← Atrás</button>
       <button class="btn primary" id="btnAnalizar">Analizar (preview) →</button>
     </div>
-    <div class="ro-note">El análisis es de solo lectura: no registra ni emite nada.</div>
+    <div class="ro-note">El análisis cruza con los pagos existentes y AVISA si hay duplicado. Es de solo lectura: no registra ni emite nada.</div>
   </div>
 
-  <!-- PASO 5 -->
-  <div class="panel" data-p="5">
-    <h2>5 · Revisar y enviar solicitud</h2>
+  <!-- PASO 4 -->
+  <div class="panel" data-p="4">
+    <h2>4 · Revisar y enviar solicitud</h2>
     <div id="previewBox"></div>
     <div class="actions">
       <button class="btn ghost" data-back>← Atrás</button>
@@ -214,7 +240,8 @@
 </div>
 
 <script>
-const S = { colegiado:null, tipo:null, tipoCfg:{arqueo:false,serie:false}, deudas:[], payload:null };
+// Módulo de un solo caso: boleta EB01 ya emitida en SUNAT (origen='externo_eb01'). tipo=1 fijo.
+const S = { colegiado:null, tipo:1, deudas:[], payload:null };
 const $ = s => document.querySelector(s);
 const money = n => 'S/ ' + Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -230,9 +257,7 @@ function goto(step){
 }
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{
   const cur=+document.querySelector('.panel.show').dataset.p;
-  // saltar paso 3-comprobante si tipo no lo requiere: al ir atrás desde 4
-  let prev = cur-1;
-  goto(prev<1?1:prev);
+  goto(cur-1<1?1:cur-1);
 }));
 
 // PASO 1: buscar
@@ -259,41 +284,40 @@ async function buscar(){
 $('#btnBuscar').addEventListener('click',buscar);
 $('#q').addEventListener('keydown',e=>{if(e.key==='Enter')buscar();});
 
-// PASO 2: tipo
-document.querySelectorAll('.tipo').forEach(t=>t.addEventListener('click',()=>{
-  document.querySelectorAll('.tipo').forEach(x=>x.classList.remove('sel'));
-  t.classList.add('sel');
-  S.tipo=+t.dataset.tipo;
-  S.tipoCfg={arqueo:t.dataset.arqueo==='1', serie:t.dataset.serie==='1'};
-  $('#btnTipo').disabled=false;
-}));
-$('#btnTipo').addEventListener('click',()=>{
-  // mostrar/ocultar grupo comprobante según tipo
-  $('#grpComprobante').classList.toggle('hidden', !S.tipoCfg.serie);
-  goto(3);
-});
-
-// PASO 3: comprobante -> cargar deudas
+// PASO 2: comprobante -> cargar deudas
+function _norm(s){return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim();}
 async function cargarDeudas(){
+  // referencia: lo que dice la boleta (transcrito en el paso 2)
+  const cb=($('#conceptoBoleta').value||'').trim(), pb=($('#periodoBoleta').value||'').trim();
+  $('#refBoleta').innerHTML = (cb||pb)
+    ? ('<span class="rb-ico">📄</span> La boleta dice: <b>'+esc(cb||'—')+'</b>'+(pb?(' · <b>'+esc(pb)+'</b>'):''))
+    : '<span class="rb-ico">📄</span> (No copiaste el concepto/periodo de la boleta en el paso anterior.)';
   const body=$('#deudasBody'); body.innerHTML='<tr><td colspan="5" class="hint">Cargando…</td></tr>';
   try{
     const r=await fetch('/api/pagos-externos/deudas/'+S.colegiado.id);
     const data=await r.json();
     S.deudas=data.deudas||[];
     if(!S.deudas.length){body.innerHTML='<tr><td colspan="5" class="hint">Sin deudas exigibles pendientes.</td></tr>';return;}
-    body.innerHTML=S.deudas.map(d=>`
-      <tr class="${d.exigible?'':'na'}">
+    const nC=_norm(cb), nP=_norm(pb);
+    body.innerHTML=S.deudas.map(d=>{
+      const dC=_norm(d.concept), dP=_norm(d.period_label);
+      // Match ESTRICTO: requiere concepto Y periodo. Periodo EXACTO (discrimina el año:
+      // Febrero 2025 ≠ Febrero 2026) y el concepto de la boleta al inicio del de la deuda.
+      // Si algo no calza exacto → NO hay chip (mejor sin chip que uno equivocado).
+      const match = !!nC && !!nP && dP===nP && dC.startsWith(nC);
+      return `
+      <tr class="${d.exigible?'':'na'} ${match?'match':''}">
         <td><input type="checkbox" class="chk" data-id="${d.id}"></td>
-        <td>${esc(d.concept)}<br><span class="meta" style="font-size:11px;color:var(--text-dim)">${esc(d.period_label)} · #${d.id}</span></td>
+        <td>${esc(d.concept)} ${match?'<span class="chip-match">≈ coincide</span>':''}<br><span class="meta" style="font-size:11px;color:var(--text-dim)">${esc(d.period_label)} · #${d.id}</span></td>
         <td class="num">${money(d.saldo)}</td>
         <td>${d.exigible?'<span class="badge">sí</span>':'<span class="badge no-arqueo">no</span>'}</td>
         <td class="num"><input class="imp-monto" data-id="${d.id}" type="number" step="0.01" placeholder="${d.saldo.toFixed(2)}"></td>
-      </tr>`).join('');
+      </tr>`;}).join('');
   }catch(e){body.innerHTML='<tr><td colspan="5" class="msg block">Error al cargar deudas.</td></tr>';}
 }
-$('#btnComprobante').addEventListener('click',()=>{ goto(4); cargarDeudas(); });
+$('#btnComprobante').addEventListener('click',()=>{ goto(3); cargarDeudas(); });
 
-// PASO 4: analizar
+// PASO 3: analizar
 function imputacionesSel(){
   const out=[];
   document.querySelectorAll('.chk:checked').forEach(c=>{
@@ -310,7 +334,7 @@ const CANDADO_CONCILIACION = new Set(['DUPLICADO_PAGO_SIS','MONTO_EXCEDE_DEUDA',
 
 function construirPayload(){
   return {
-    colegiado_id:S.colegiado.id, tipo:S.tipo,
+    colegiado_id:S.colegiado.id, tipo:1,   // Caso único: EB01 ya emitida en SUNAT
     serie:$('#serie').value.trim()||null,
     numero:$('#numero').value!==''?parseInt($('#numero').value):null,
     fecha_comprobante:$('#fechaComp').value||null,
@@ -318,13 +342,22 @@ function construirPayload(){
     metodo_pago:$('#metodo').value,
     nro_operacion:$('#operacion').value.trim()||null,
     fecha_pago:$('#fechaPago').value||null,
-    concepto:$('#concepto').value.trim()||null,
+    concepto:construirConcepto(),
     imputaciones:imputacionesSel(),
   };
 }
+// El concepto guarda la transcripción de la boleta + la observación libre (para el admin).
+function construirConcepto(){
+  const cb=($('#conceptoBoleta').value||'').trim(), pb=($('#periodoBoleta').value||'').trim();
+  const obs=($('#concepto').value||'').trim();
+  let c='';
+  if(cb||pb) c='Boleta: '+(cb||'')+(pb?(' '+pb):'');
+  if(obs) c=(c?c+' — ':'')+obs;
+  return c||null;
+}
 async function analizar(){
   S.payload=construirPayload();
-  const box=$('#previewBox'); box.innerHTML='<div class="hint">Analizando…</div>'; goto(5);
+  const box=$('#previewBox'); box.innerHTML='<div class="hint">Analizando…</div>'; goto(4);
   try{
     const r=await fetch('/api/pagos-externos/analizar',{
       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(S.payload)});
