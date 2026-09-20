@@ -145,7 +145,7 @@ async def pagina_captura_pago_externo(
     conceptos = db.execute(text("""
         SELECT id, codigo, nombre FROM conceptos_cobro
         WHERE organization_id = :org AND activo = TRUE
-        ORDER BY orden, nombre
+        ORDER BY nombre
     """), {"org": ORG_CCPL}).fetchall()
     return templates.TemplateResponse("pages/pago_externo_captura.html", {
         "request": request,

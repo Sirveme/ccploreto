@@ -30,7 +30,7 @@ from app.routers.dashboard import get_current_member
 from app.utils.templates import templates
 from app.services.evaluar_habilidad import sincronizar_condicion
 from app.services.facturacion import FacturacionService
-from app.utils.notas_pago import descripcion_legible, mapa_deudas_para_notas
+from app.utils.notas_pago import descripcion_legible, mapa_deudas_para_notas, conceptos_detalle
 
 logger = logging.getLogger(__name__)
 
@@ -1760,8 +1760,9 @@ async def listar_pagos_colegiado(
                 "fecha": p.created_at.replace(tzinfo=timezone.utc).astimezone(PERU_TZ).strftime("%d/%m/%Y %H:%M") if p.created_at else "",
                 "status": p.status,
                 "notes": p.notes,  # crudo (interno; NO mostrar — usar concepto_legible)
-                # concepto_legible: texto limpio para mostrar (marcadores ocultos, resumen completo).
+                # concepto_legible: resumen para el vistazo · conceptos_detalle: lista COMPLETA (expandible).
                 "concepto_legible": descripcion_legible(p.notes, mapa_deudas),
+                "conceptos_detalle": conceptos_detalle(p.notes, mapa_deudas),
                 "comprobante": comps_por_pago.get(p.id),
                 "tiene_comprobante": p.id in comps_por_pago,
             }
