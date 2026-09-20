@@ -173,6 +173,81 @@ def avisos_pago_externo(db: Session, debt_ids, organization_id: int = 1) -> dict
     return out
 
 
+def _norm_txt(s):
+    return (s or "").strip().lower()
+
+
+def _deuda_dict(d):
+    return {"debt_id": d.id, "concept": d.concept, "period_label": d.period_label,
+            "amount": float(d.amount or 0), "saldo": float(d.balance or 0), "status": d.status}
+
+
+def _pago_existente_dict(db, debt_id, organization_id):
+    pagos = buscar_pagos_por_debt(db, [debt_id], organization_id)
+    if not pagos:
+        return None
+    p0 = pagos[0]
+    return {"fecha": _iso_a_ddmmyyyy(p0.get("paid_at") or p0.get("created_at")),
+            "monto": p0.get("monto"), "monto_aplicado": p0.get("monto_aplicado"),
+            "comprobante": p0.get("comprobante") or "sin comprobante", "origen": p0.get("origen")}
+
+
+def cruzar_boleta(db: Session, colegiado_id: int, concepto_cobro_id=None, periodo: str = "",
+                  concepto: str = "", organization_id: int = 1) -> dict:
+    """CAPTURA — cruce INMEDIATO contra las deudas del colegiado, ANTES de imputar. Read-only.
+    Preferentemente por `concepto_cobro_id` (EXACTO, del catálogo interno — resuelve el
+    'nombre raro' del Bingazo). Si no hay cc_id, cae al match por texto (periodo exacto +
+    concepto startswith). Veredicto:
+      DUPLICADO → deuda de ese concepto ya PAGADA (o con pago) → avisar, no imputar.
+      IMPUTAR   → una única deuda pendiente que calza → imputar a ella.
+      SIN_DEUDA → no calza / ambiguo (varias pendientes) / faltan datos → redirección/revisión.
+    """
+    nP = _norm_txt(periodo)
+    rows = db.execute(text("""
+        SELECT id, concept, period_label, amount, balance, status, estado_gestion, concepto_cobro_id
+        FROM debts WHERE organization_id = :org AND colegiado_id = :c
+    """), {"org": organization_id, "c": colegiado_id}).fetchall()
+
+    # 1) candidatos según cc_id (exacto) o, si no, por texto
+    def _vivo(d):
+        return (d.estado_gestion or "") not in ("anulada", "compensada")
+
+    cands = []
+    if concepto_cobro_id:
+        try:
+            cc = int(concepto_cobro_id)
+        except (TypeError, ValueError):
+            cc = None
+        if cc:
+            cands = [d for d in rows if d.concepto_cobro_id == cc and _vivo(d)]
+            if nP:  # si dio periodo, afina (concepto por-periodo: cuota ordinaria)
+                cands = [d for d in cands if _norm_txt(d.period_label) == nP]
+    else:
+        nC = _norm_txt(concepto)
+        if nC and nP:
+            cands = [d for d in rows if _vivo(d)
+                     and _norm_txt(d.period_label) == nP and _norm_txt(d.concept).startswith(nC)]
+
+    if not cands:
+        return {"verdicto": "SIN_DEUDA", "motivo": "no_calza_o_faltan_datos",
+                "deuda": None, "pago_existente": None}
+
+    pagados = [d for d in cands if d.status == "paid" or float(d.balance or 0) <= 0.01
+               or bool(buscar_pagos_por_debt(db, [d.id], organization_id))]
+    if pagados:
+        d0 = pagados[0]
+        return {"verdicto": "DUPLICADO", "deuda": _deuda_dict(d0),
+                "pago_existente": _pago_existente_dict(db, d0.id, organization_id)}
+
+    pendientes = [d for d in cands if d.status in ("pending", "partial")]
+    if len(pendientes) == 1:
+        return {"verdicto": "IMPUTAR", "deuda": _deuda_dict(pendientes[0]), "pago_existente": None}
+
+    # 0 pendientes o varias (ambiguo, p.ej. cuota ordinaria sin periodo) → revisión
+    return {"verdicto": "SIN_DEUDA", "motivo": "ambiguo_o_sin_pendiente",
+            "deuda": None, "pago_existente": None}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # FASE 2 — MOTOR DE CONCILIACIÓN (read-only, PROPONE; el operador decide)
 # Solo llegan aquí solicitudes que Fase 1 BLOQUEÓ (duplicado / exceso).
