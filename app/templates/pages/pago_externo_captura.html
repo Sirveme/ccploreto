@@ -173,10 +173,18 @@
       </div>
       <div id="serieAviso"></div>
       <div class="row" style="margin-top:12px;">
-        <div><label>Concepto que dice la boleta</label><input id="conceptoBoleta" placeholder="Ej: Cuota Ordinaria" autocomplete="off"></div>
-        <div><label>Periodo que dice la boleta</label><input id="periodoBoleta" placeholder="Ej: Febrero 2026" autocomplete="off"></div>
+        <div>
+          <label>Concepto (elige el del catálogo que corresponde a la boleta)</label>
+          <select id="conceptoCobroId">
+            <option value="">— elegir concepto —</option>
+            {% for c in conceptos %}
+            <option value="{{ c.id }}">{{ c.nombre }}{% if c.codigo %} ({{ c.codigo }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div><label>Periodo (si aplica, ej. cuota mensual)</label><input id="periodoBoleta" placeholder="Ej: Febrero 2026" autocomplete="off"></div>
       </div>
-      <div class="hint" style="margin-top:-4px;">Cópialos TAL CUAL figuran en la boleta (la realidad del comprobante). En el siguiente paso eliges la deuda que corresponde.</div>
+      <div class="hint" style="margin-top:-4px;">Mira la descripción de la boleta (ej. "BINGO 2026 CANCELADO") y elige el concepto interno que corresponde. El sistema cruza por concepto — exacto, sin ambigüedad de texto.</div>
     </div>
     <div class="row-3">
       <div><label>Monto (S/)</label><input id="monto" type="number" step="0.01" placeholder="180.00"></div>
@@ -203,18 +211,24 @@
   <div class="panel" data-p="3">
     <h2>3 · Imputar a la deuda</h2>
     <div id="refBoleta" class="ref-boleta"></div>
-    <div class="hint" style="margin-bottom:10px;">Elige la deuda del <b>mismo concepto y periodo</b> de la boleta. La marcada con <span class="chip-match">≈ coincide</span> calza con lo que dice la boleta. Vacío en "Imputar" = salda todo.</div>
-    <table>
-      <thead><tr>
-        <th style="width:34px;"></th><th>Deuda</th><th class="num">Saldo</th>
-        <th>Exig.</th><th class="num">Imputar</th>
-      </tr></thead>
-      <tbody id="deudasBody"><tr><td colspan="5" style="color:var(--text-dim);">—</td></tr></tbody>
-    </table>
-    <div class="redir-note">
-      ⤳ <b>¿El concepto/periodo de la boleta no corresponde a ninguna deuda?</b> (p. ej. la boleta dice "Marzo"
-      pero el colegiado debía "Febrero"). Elige igual la <b>deuda correcta que sí tiene saldo</b> — el pago se
-      redirige a esa. Si la deuda ya tuviera un pago, el sistema te avisará y el administrador lo concilia.
+    <div id="verdictoBox"></div>
+    <div style="margin:2px 0 12px;">
+      <button class="btn ghost" id="btnVerPagos" type="button" title="Red de seguridad: revisa manualmente si ya hay un pago similar">👁 Ver pagos del colegiado</button>
+    </div>
+    <div id="impArea">
+      <div class="hint" style="margin-bottom:10px;">Elige la deuda del <b>mismo concepto y periodo</b> de la boleta. La marcada con <span class="chip-match">≈ coincide</span> calza con lo que dice la boleta. Vacío en "Imputar" = salda todo.</div>
+      <table>
+        <thead><tr>
+          <th style="width:34px;"></th><th>Deuda</th><th class="num">Saldo</th>
+          <th>Exig.</th><th class="num">Imputar</th>
+        </tr></thead>
+        <tbody id="deudasBody"><tr><td colspan="5" style="color:var(--text-dim);">—</td></tr></tbody>
+      </table>
+      <div class="redir-note">
+        ⤳ <b>¿El concepto/periodo de la boleta no corresponde a ninguna deuda?</b> (p. ej. la boleta dice "Marzo"
+        pero el colegiado debía "Febrero"). Elige igual la <b>deuda correcta que sí tiene saldo</b> — el pago se
+        redirige a esa. Si la deuda ya tuviera un pago, el sistema te avisará y el administrador lo concilia.
+      </div>
     </div>
     <div class="field" style="margin-top:14px;">
       <label>Observación (opcional, para el admin)</label>
@@ -241,7 +255,8 @@
 
 <script>
 // Módulo de un solo caso: boleta EB01 ya emitida en SUNAT (origen='externo_eb01'). tipo=1 fijo.
-const S = { colegiado:null, tipo:1, deudas:[], payload:null };
+const S = { colegiado:null, tipo:1, deudas:[], payload:null,
+            verdicto:null, matched:null, imputacionesFijas:null, conceptoCobroId:'' };
 const $ = s => document.querySelector(s);
 const money = n => 'S/ ' + Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -286,28 +301,22 @@ $('#q').addEventListener('keydown',e=>{if(e.key==='Enter')buscar();});
 
 // PASO 2: comprobante -> cargar deudas
 function _norm(s){return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim();}
-async function cargarDeudas(){
-  // referencia: lo que dice la boleta (transcrito en el paso 2)
-  const cb=($('#conceptoBoleta').value||'').trim(), pb=($('#periodoBoleta').value||'').trim();
-  $('#refBoleta').innerHTML = (cb||pb)
-    ? ('<span class="rb-ico">📄</span> La boleta dice: <b>'+esc(cb||'—')+'</b>'+(pb?(' · <b>'+esc(pb)+'</b>'):''))
-    : '<span class="rb-ico">📄</span> (No copiaste el concepto/periodo de la boleta en el paso anterior.)';
+async function cargarDeudas(preCheckId){
+  const pb=($('#periodoBoleta').value||'').trim(); const nP=_norm(pb);
+  const ccId=S.conceptoCobroId?parseInt(S.conceptoCobroId):null;
   const body=$('#deudasBody'); body.innerHTML='<tr><td colspan="5" class="hint">Cargando…</td></tr>';
   try{
     const r=await fetch('/api/pagos-externos/deudas/'+S.colegiado.id);
     const data=await r.json();
     S.deudas=data.deudas||[];
     if(!S.deudas.length){body.innerHTML='<tr><td colspan="5" class="hint">Sin deudas exigibles pendientes.</td></tr>';return;}
-    const nC=_norm(cb), nP=_norm(pb);
     body.innerHTML=S.deudas.map(d=>{
-      const dC=_norm(d.concept), dP=_norm(d.period_label);
-      // Match ESTRICTO: requiere concepto Y periodo. Periodo EXACTO (discrimina el año:
-      // Febrero 2025 ≠ Febrero 2026) y el concepto de la boleta al inicio del de la deuda.
-      // Si algo no calza exacto → NO hay chip (mejor sin chip que uno equivocado).
-      const match = !!nC && !!nP && dP===nP && dC.startsWith(nC);
+      // Match EXACTO por concepto_cobro_id (+ periodo si se indicó). Sin cc_id → sin chip.
+      const match = !!ccId && d.concepto_cobro_id===ccId && (!nP || _norm(d.period_label)===nP);
+      const chk = (preCheckId && d.id===preCheckId) ? 'checked' : '';
       return `
       <tr class="${d.exigible?'':'na'} ${match?'match':''}">
-        <td><input type="checkbox" class="chk" data-id="${d.id}"></td>
+        <td><input type="checkbox" class="chk" data-id="${d.id}" ${chk}></td>
         <td>${esc(d.concept)} ${match?'<span class="chip-match">≈ coincide</span>':''}<br><span class="meta" style="font-size:11px;color:var(--text-dim)">${esc(d.period_label)} · #${d.id}</span></td>
         <td class="num">${money(d.saldo)}</td>
         <td>${d.exigible?'<span class="badge">sí</span>':'<span class="badge no-arqueo">no</span>'}</td>
@@ -315,10 +324,64 @@ async function cargarDeudas(){
       </tr>`;}).join('');
   }catch(e){body.innerHTML='<tr><td colspan="5" class="msg block">Error al cargar deudas.</td></tr>';}
 }
-$('#btnComprobante').addEventListener('click',()=>{ goto(3); cargarDeudas(); });
+$('#btnComprobante').addEventListener('click',()=>{ goto(3); cruzarBoleta(); });
+
+// PASO 3 (inicio): CRUZAR de inmediato la boleta contra las deudas del colegiado.
+function conceptoElegido(){
+  const sel=$('#conceptoCobroId'); const id=sel.value||'';
+  const nombre=id?sel.options[sel.selectedIndex].text:'';
+  return {id, nombre};
+}
+async function cruzarBoleta(){
+  S.verdicto=null; S.matched=null; S.imputacionesFijas=null;
+  const ce=conceptoElegido(), pb=($('#periodoBoleta').value||'').trim();
+  S.conceptoCobroId=ce.id;
+  $('#refBoleta').innerHTML = ce.id
+    ? ('<span class="rb-ico">📄</span> Concepto elegido: <b>'+esc(ce.nombre)+'</b>'+(pb?(' · <b>'+esc(pb)+'</b>'):''))
+    : '<span class="rb-ico">📄</span> (No elegiste el concepto en el paso anterior — se mostrarán todas las deudas.)';
+  const vb=$('#verdictoBox'); vb.innerHTML='<div class="hint">Cruzando con los pagos del colegiado…</div>';
+  $('#impArea').style.display='none';
+  try{
+    const url='/api/pagos-externos/cruzar-boleta/'+S.colegiado.id
+      +'?concepto_cobro_id='+encodeURIComponent(ce.id)+'&periodo='+encodeURIComponent(pb);
+    const r=await fetch(url); const d=await r.json();
+    S.verdicto=d.verdicto; S.matched=d.deuda||null;
+
+    if(d.verdicto==='DUPLICADO'){
+      const p=d.pago_existente||{};
+      vb.innerHTML='<div class="banner block">⚠️ Posible DUPLICADO — no hay deuda que imputar.<br>'
+        +'Ya hay un pago por <b>'+esc((d.deuda||{}).concept||ce.nombre)+'</b>'
+        +(p.fecha?(' del <b>'+esc(p.fecha)+'</b>'):'')
+        +(p.monto!=null?(' por <b>'+money(p.monto)+'</b>'):'')
+        +(p.comprobante?(' ('+esc(p.comprobante)+')'):'')
+        +'. Este comprobante EB01 parece duplicado.</div>'
+        +'<div class="hint">Al enviar, la solicitud va a <b>conciliación</b> — el administrador decide (devolver / anular). Tú no imputas nada.</div>';
+      // la solicitud referencia la deuda ya pagada (para que el admin la concilie)
+      S.imputacionesFijas=[{debt_id:(d.deuda||{}).debt_id, monto:parseFloat($('#monto').value||'0')||null}];
+      $('#impArea').style.display='none';
+      $('#btnAnalizar').textContent='Enviar a revisión →';
+    } else if(d.verdicto==='IMPUTAR'){
+      vb.innerHTML='<div class="banner ok">✔ La deuda <b>'+esc((d.deuda||{}).concept||'')+'</b> está '
+        +'<b>pendiente</b> (saldo '+money((d.deuda||{}).saldo)+'). Imputa el pago aquí.</div>';
+      $('#impArea').style.display='block';
+      $('#btnAnalizar').textContent='Analizar (preview) →';
+      await cargarDeudas((d.deuda||{}).debt_id);   // pre-marca la que calza
+    } else {
+      vb.innerHTML='<div class="msg warn">No encontramos una deuda pendiente que <b>calce</b> con '
+        +'<b>'+esc(ce.nombre||'(sin concepto)')+'</b>'+(pb?(' · <b>'+esc(pb)+'</b>'):'')
+        +'. Elige la <b>deuda correcta con saldo</b> (redirección) o revisa el concepto/periodo. '
+        +'También puedes <b>ver los pagos del colegiado</b> abajo.</div>';
+      $('#impArea').style.display='block';
+      $('#btnAnalizar').textContent='Analizar (preview) →';
+      await cargarDeudas(null);
+    }
+  }catch(e){ vb.innerHTML='<div class="msg block">Error al cruzar. Intenta de nuevo.</div>'; $('#impArea').style.display='block'; await cargarDeudas(null); }
+}
 
 // PASO 3: analizar
 function imputacionesSel(){
+  // DUPLICADO: imputación fija a la deuda ya pagada (para que el admin la concilie).
+  if(S.imputacionesFijas) return S.imputacionesFijas;
   const out=[];
   document.querySelectorAll('.chk:checked').forEach(c=>{
     const id=+c.dataset.id;
@@ -346,12 +409,12 @@ function construirPayload(){
     imputaciones:imputacionesSel(),
   };
 }
-// El concepto guarda la transcripción de la boleta + la observación libre (para el admin).
+// El concepto guarda el concepto elegido + periodo + la observación libre (para el admin).
 function construirConcepto(){
-  const cb=($('#conceptoBoleta').value||'').trim(), pb=($('#periodoBoleta').value||'').trim();
+  const ce=conceptoElegido(), pb=($('#periodoBoleta').value||'').trim();
   const obs=($('#concepto').value||'').trim();
   let c='';
-  if(cb||pb) c='Boleta: '+(cb||'')+(pb?(' '+pb):'');
+  if(ce.nombre||pb) c='Concepto: '+(ce.nombre||'')+(pb?(' '+pb):'');
   if(obs) c=(c?c+' — ':'')+obs;
   return c||null;
 }
@@ -459,6 +522,49 @@ async function enviar(){
   }
 }
 $('#btnEnviar').addEventListener('click',enviar);
+
+// ── Red de seguridad: ver/filtrar los pagos del colegiado (reusa /api/secretaria/pagos) ──
+let _pagosCol=[];
+async function verPagos(){
+  const m=$('#modalPagos'); const body=$('#pagosBody');
+  m.style.display='flex'; body.innerHTML='<tr><td colspan="5" class="hint">Cargando…</td></tr>';
+  $('#pagosFiltro').value='';
+  try{
+    const r=await fetch('/api/secretaria/pagos/'+S.colegiado.id);
+    const d=await r.json();
+    _pagosCol=d.pagos||[];
+    renderPagos('');
+  }catch(e){ body.innerHTML='<tr><td colspan="5" class="msg block">Error al cargar pagos.</td></tr>'; }
+}
+function renderPagos(q){
+  const body=$('#pagosBody'); const f=_norm(q);
+  const list=_pagosCol.filter(p=>!f || _norm((p.notes||'')+' '+(p.metodo_pago||'')+' '+((p.comprobante||{}).numero_formato||'')+' '+p.monto).includes(f));
+  if(!list.length){ body.innerHTML='<tr><td colspan="5" class="hint">Sin pagos que coincidan.</td></tr>'; return; }
+  body.innerHTML=list.map(p=>{
+    const comp=p.comprobante?esc(p.comprobante.numero_formato):'—';
+    const concepto=esc((p.notes||'').split('\n')[0]||'—');
+    return '<tr><td>'+esc(p.fecha)+'</td><td class="num">'+money(p.monto)+'</td><td>'+esc(p.metodo_pago||'—')+'</td><td>'+comp+'</td><td style="max-width:280px">'+concepto+'</td></tr>';
+  }).join('');
+}
+$('#btnVerPagos').addEventListener('click',verPagos);
+$('#pagosCerrar').addEventListener('click',()=>{$('#modalPagos').style.display='none';});
+$('#pagosFiltro').addEventListener('input',e=>renderPagos(e.target.value));
 </script>
+
+<!-- Modal: pagos del colegiado (red de seguridad, read-only) -->
+<div id="modalPagos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:760px;width:100%;max-height:82vh;overflow:auto;padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="font-size:14px;font-weight:700;">Pagos del colegiado</h3>
+      <button class="btn ghost" id="pagosCerrar" type="button">Cerrar ✕</button>
+    </div>
+    <div class="hint" style="margin-bottom:8px;">Revisa si ya existe un pago similar (concepto, monto, fecha, comprobante). Red de seguridad — el criterio humano respalda al cruce automático.</div>
+    <input id="pagosFiltro" placeholder="Filtrar por concepto, monto, método o comprobante…" autocomplete="off" style="margin-bottom:10px;">
+    <table>
+      <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Método</th><th>Comprobante</th><th>Concepto</th></tr></thead>
+      <tbody id="pagosBody"><tr><td colspan="5" class="hint">—</td></tr></tbody>
+    </table>
+  </div>
+</div>
 </body>
 </html>
