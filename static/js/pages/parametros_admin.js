@@ -30,16 +30,55 @@
   }
 
   // ── Carga inicial: secciones → selector ──
+  // Lista determinística: Fraccionamiento · Refinanciamiento (parámetros versionados)
+  // + Condiciones y Exoneraciones (bloque especial #secCondiciones). Dedupe defensivo.
   function poblarSecciones(secs) {
     var sel = document.getElementById("selSeccion");
     sel.innerHTML = "";
+    var vistos = {};
     (secs || []).forEach(function (s) {
+      if (!s || !s.seccion) return;
+      if (vistos[s.seccion]) return;                        // evita duplicados
+      if (s.seccion !== "fraccionamiento" && s.seccion !== "refinanciamiento") return;
+      vistos[s.seccion] = 1;
       var o = document.createElement("option");
       o.value = s.seccion; o.textContent = s.etiqueta || s.seccion;
       sel.appendChild(o);
     });
-    if (sel.options.length) { seccionActual = sel.value; cargarSeccion(seccionActual); }
-    sel.onchange = function () { seccionActual = sel.value; cargarSeccion(seccionActual); };
+    // asegura que ambas estén aunque la API no las devuelva
+    [["fraccionamiento", "Fraccionamiento de deuda"], ["refinanciamiento", "Refinanciamiento de deuda"]]
+      .forEach(function (p) {
+        if (!vistos[p[0]]) {
+          var o = document.createElement("option");
+          o.value = p[0]; o.textContent = p[1]; sel.appendChild(o); vistos[p[0]] = 1;
+        }
+      });
+    // sección especial (no es de parámetros versionados)
+    var oc = document.createElement("option");
+    oc.value = "condiciones"; oc.textContent = "Condiciones y Exoneraciones";
+    sel.appendChild(oc);
+
+    if (sel.options.length) { sel.value = "fraccionamiento"; aplicarSeccion(); }
+    sel.onchange = aplicarSeccion;
+  }
+
+  // Cambia el contenido visible según la sección elegida (arregla el "no cambia").
+  function aplicarSeccion() {
+    var sel = document.getElementById("selSeccion");
+    seccionActual = sel.value;
+    var esCond = (sel.value === "condiciones");
+    var sheet = document.querySelector(".px-sheet");
+    var nota = document.getElementById("pxNotaFijos");
+    var cond = document.getElementById("secCondiciones");
+    if (sheet) sheet.style.display = esCond ? "none" : "";
+    if (nota) nota.style.display = esCond ? "none" : "";
+    if (cond) cond.style.display = esCond ? "" : "none";
+    document.getElementById("secEtiqueta").textContent = "";
+    if (esCond) {
+      if (window.pxCargarCondiciones) window.pxCargarCondiciones();   // recarga fresca
+    } else {
+      cargarSeccion(seccionActual);
+    }
   }
 
   function cargarSecciones() {
