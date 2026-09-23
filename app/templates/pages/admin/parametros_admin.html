@@ -34,7 +34,7 @@
 <div class="fade-me-in flex flex-col h-full justify-start">
 
   <!-- Cabecera -->
-  <header class="flex justify-between items-center mb-4 shrink-0 pt-2">
+  <header class="flex justify-between items-center mb-4 shrink-0 pt-2 max-w-5xl mx-auto w-full">
     <div>
       <h2 class="text-2xl font-bold text-white flex items-center gap-2">
         <i class="ph ph-sliders-horizontal"></i> Parámetros del Sistema
@@ -49,7 +49,7 @@
   </header>
 
   <!-- Toolbar -->
-  <div class="flex items-center gap-3 mb-3">
+  <div class="flex items-center gap-3 mb-3 max-w-5xl mx-auto w-full">
     <label class="text-slate-300 text-sm">Sección:</label>
     <select id="selSeccion" class="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border border-slate-700">
       <!-- poblado por JS desde /api/admin/parametros (get_secciones) -->
@@ -58,7 +58,7 @@
   </div>
 
   <!-- Hoja Excel -->
-  <div class="px-sheet max-w-5xl">
+  <div class="px-sheet max-w-5xl mx-auto">
     <table class="px-tbl">
       <thead>
         <tr>
@@ -75,13 +75,13 @@
     </table>
   </div>
 
-  <div class="mt-3 text-slate-500 text-xs max-w-5xl">
+  <div id="pxNotaFijos" class="mt-3 text-slate-500 text-xs max-w-5xl mx-auto">
     Los parámetros en gris con 🔒 son informativos y no editables (aún no cableados a comportamiento).
   </div>
 
   <!-- ═══ CONDICIONES Y EXONERACIONES (presets) — solo lectura (Paso 4) ═══ -->
   <style>
-    .ce-wrap{max-width:64rem;margin-top:26px;}
+    .ce-wrap{max-width:64rem;margin:26px auto 0;}
     .ce-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;}
     .ce-top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px;}
     .ce-title{font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:8px;}
@@ -122,7 +122,7 @@
     .ce-val-td{width:22%;} .ce-art-td{width:26%;text-align:right;} .ce-lbl-td{width:52%;}
   </style>
 
-  <section class="ce-wrap" id="secCondiciones">
+  <section class="ce-wrap" id="secCondiciones" style="display:none;">
     <div class="ce-card">
       <div class="ce-top">
         <div class="ce-title"><i class="ph ph-shield-check"></i> Condiciones y Exoneraciones</div>
@@ -158,13 +158,21 @@
         '<option '+(p.activo?'selected':'')+'>'+esc(p.nombre)+(p.es_sistema?' (sistema)':' (propio)')+(p.activo?' — ACTIVO':'')+'</option>'
       ).join('');
       $('#ceSysBadge').style.display = d.activo.es_sistema ? '' : 'none';
+      // Badge sin ambigüedad: nombra el preset REALMENTE activo.
+      $('#ceActiveBadge').textContent = '● ACTIVO: ' + d.activo.nombre;
 
-      // diff vs Estatuto
+      // diff vs Estatuto (si el activo ES el Estatuto, no hay diff → "coincide")
+      const esActivoEstatuto = (d.activo.base_estatuto === 'RD 013-2020');
       if((d.diff||[]).length){
-        $('#ceDiff').innerHTML = '<div class="ce-diff">⚠ <b>'+d.diff.length+' valor'+(d.diff.length>1?'es':'')+' difiere'+(d.diff.length>1?'n':'')+
-          '</b> del preset “'+esc(d.estatuto_ref||'Estatuto')+'”: '+
+        $('#ceDiff').innerHTML = '<div class="ce-diff">⚠ El preset activo (<b>'+esc(d.activo.nombre)+'</b>) tiene <b>'+
+          d.diff.length+' valor'+(d.diff.length>1?'es':'')+' distinto'+(d.diff.length>1?'s':'')+
+          '</b> respecto al “'+esc(d.estatuto_ref||'Estatuto')+'”: '+
           d.diff.map(x => '<b>'+esc(x.etiqueta)+'</b> = '+esc(x.vigente)+' (Estatuto '+esc(x.articulo_ref||'')+' → '+esc(x.estatuto)+')').join(' · ')+'.</div>';
-      } else { $('#ceDiff').innerHTML = ''; }
+      } else {
+        $('#ceDiff').innerHTML = '<div class="ce-diff" style="background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4);color:#6ee7b7;">✓ '+
+          (esActivoEstatuto ? 'El preset activo <b>es</b> el Estatuto CCPL RD 013-2020.'
+                            : 'El preset activo <b>coincide</b> con el Estatuto CCPL RD 013-2020.')+'</div>';
+      }
 
       // grupos con color por grupo + tooltip literal
       $('#ceGrupos').innerHTML = (d.grupos||[]).map(g => {
@@ -220,12 +228,57 @@
       if(chip){ const t=chip.querySelector('.ce-tip'); if(t && t.style.display!=='block') posTip(chip); }
     });
     window.addEventListener('scroll', hideAll, true);
-    $('#ceCrear').addEventListener('click', ()=>{
-      alert('Crear preset propio: se habilita junto con la activación (Paso 5). Clonará el preset activo con un nombre libre.');
-    });
-    cargarCondiciones();
+    // exponer para que el selector de secciones recargue esta sección al mostrarla
+    window.pxCargarCondiciones = cargarCondiciones;
+
+    // ── Crear preset propio: modal dark de la casa (no alert nativo) ──
+    // El modal está en el DOM más abajo → enlazar tras DOMContentLoaded.
+    function bindCrear(){
+      const modal = document.getElementById('ceModalCrear'); if(!modal) return;
+      function abrir(){ $('#ceNombre').value=''; $('#ceCrearMsg').textContent=''; modal.style.display='flex'; setTimeout(()=>$('#ceNombre').focus(),50); }
+      function cerrar(){ modal.style.display='none'; }
+      async function confirmar(){
+        const nombre = $('#ceNombre').value.trim();
+        const msg = $('#ceCrearMsg');
+        if(nombre.length < 3){ msg.textContent='Escribe un nombre (mínimo 3 caracteres).'; return; }
+        const btn = $('#ceCrearOk'); btn.disabled=true; btn.textContent='Creando…';
+        try{
+          const r = await fetch('/api/admin/condiciones/crear', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre})});
+          const d = await r.json();
+          if(!r.ok){ msg.textContent=(d&&d.detail)||'No se pudo crear.'; btn.disabled=false; btn.textContent='Crear'; return; }
+          cerrar(); btn.disabled=false; btn.textContent='Crear';
+          cargarCondiciones();
+        }catch(e){ msg.textContent='Error de conexión.'; btn.disabled=false; btn.textContent='Crear'; }
+      }
+      const bt=document.getElementById('ceCrear'); if(bt) bt.addEventListener('click', abrir);
+      const bc=document.getElementById('ceCrearCancel'); if(bc) bc.addEventListener('click', cerrar);
+      const bo=document.getElementById('ceCrearOk'); if(bo) bo.addEventListener('click', confirmar);
+      modal.addEventListener('click', e=>{ if(e.target===modal) cerrar(); });
+      const nm=document.getElementById('ceNombre'); if(nm) nm.addEventListener('keydown', e=>{ if(e.key==='Enter') confirmar(); });
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindCrear);
+    else bindCrear();
   })();
   </script>
+
+  <!-- Modal: Crear preset propio (dark) -->
+  <div id="ceModalCrear" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:14px;max-width:460px;width:100%;padding:20px;">
+      <h3 style="margin:0 0 6px;color:#f1f5f9;font-size:16px;font-weight:700;">Crear preset propio</h3>
+      <p style="margin:0 0 14px;color:#94a3b8;font-size:13px;line-height:1.5;">
+        Se creará una copia del preset activo con tus valores, editable. No se activa: seguirá rigiendo el preset actual hasta que lo actives.
+      </p>
+      <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:6px;">Nombre del preset</label>
+      <input id="ceNombre" placeholder="Ej.: Política Consejo 2026" autocomplete="off"
+        style="width:100%;background:#0b1220;color:#e8edf5;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:14px;box-sizing:border-box;">
+      <div id="ceCrearMsg" style="color:#fca5a5;font-size:12.5px;margin-top:8px;min-height:16px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button id="ceCrearCancel" class="ce-btn ghost" type="button">Cancelar</button>
+        <button id="ceCrearOk" class="ce-btn" type="button">Crear</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL: Motivo del cambio -->
