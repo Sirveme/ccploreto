@@ -154,6 +154,25 @@ def obtener_monto_cuota(
     return cuot_ord.monto_base if cuot_ord else 20.0
 
 
+# FALLBACK del código (red de seguridad): condiciones SIN deuda computable.
+# La fuente viva es el preset activo (condiciones_service). Distinto — a propósito —
+# del set de EXENCIÓN DE GENERACIÓN de generador_deudas (este NO incluye baja/suspendido).
+_CONDICIONES_SIN_DEUDA_COMPUTABLE = ('fallecido', 'retirado', 'vitalicio')
+
+
+def _condiciones_sin_deuda_computable(db, organization_id) -> set:
+    """Set de condiciones exentas de deuda computable. Lee el preset activo; si falla,
+    cae a la tupla del código (comportamiento idéntico al histórico)."""
+    try:
+        from app.services.condiciones_service import get_condiciones
+        s = get_condiciones(db, organization_id).get("condiciones_sin_deuda_computable")
+        if s:
+            return set(s)
+    except Exception:
+        pass
+    return set(_CONDICIONES_SIN_DEUDA_COMPUTABLE)
+
+
 def calcular_deuda_cuotas(colegiado_id, organization_id, db, hasta=None):
     """
     Con la nueva arquitectura las cuotas ordinarias históricas YA ESTÁN en debts.
@@ -167,7 +186,7 @@ def calcular_deuda_cuotas(colegiado_id, organization_id, db, hasta=None):
         return {'error': 'Colegiado no encontrado'}
 
     condicion = getattr(colegiado, 'condicion', 'habil')
-    if condicion in ('fallecido', 'retirado', 'vitalicio'):
+    if condicion in _condiciones_sin_deuda_computable(db, organization_id):
         return {
             'periodos_pendientes': [],
             'total_cuotas_pendientes': 0,

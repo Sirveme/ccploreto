@@ -28,8 +28,23 @@ logger = logging.getLogger(__name__)
 MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-# Condiciones que excluyen al colegiado de generar deuda
+# Condiciones que excluyen al colegiado de generar deuda.
+# FALLBACK del código (red de seguridad): la fuente viva es el preset activo, leído
+# por _condiciones_excluir(). Este set se usa si el preset no está disponible.
 CONDICIONES_EXCLUIR = {'fallecido', 'retirado', 'vitalicio', 'baja', 'suspendido'}
+
+
+def _condiciones_excluir(db, organization_id) -> set:
+    """Conjunto de condiciones exentas de GENERACIÓN de cuota. Lee el preset activo
+    (condiciones_service); si falla, cae a la constante CONDICIONES_EXCLUIR."""
+    try:
+        from app.services.condiciones_service import get_condiciones
+        s = get_condiciones(db, organization_id).get("condiciones_exentas_generacion")
+        if s:
+            return set(s)
+    except Exception:
+        pass
+    return set(CONDICIONES_EXCLUIR)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -74,7 +89,7 @@ def generar_cuotas_ordinarias(
     # Todos los colegiados activos (no excluidos)
     colegiados = db.query(Colegiado).filter(
         Colegiado.organization_id == organization_id,
-        func.lower(Colegiado.condicion).notin_(CONDICIONES_EXCLUIR),
+        func.lower(Colegiado.condicion).notin_(_condiciones_excluir(db, organization_id)),
     ).all()
 
     generadas = 0
@@ -177,7 +192,7 @@ def generar_cuotas_ordinarias(
 
     colegiados_con_deuda = db.query(Colegiado).filter(
         Colegiado.organization_id == organization_id,
-        Colegiado.condicion.notin_(CONDICIONES_EXCLUIR),
+        Colegiado.condicion.notin_(_condiciones_excluir(db, organization_id)),
     ).all()
 
     cambios = 0
@@ -470,7 +485,7 @@ def generar_cuotas_para_colegiado_nuevo(
         resultado["detalle"].append({"motivo": "colegiado vacío"})
         return resultado
 
-    if (colegiado.condicion or "").lower() in CONDICIONES_EXCLUIR:
+    if (colegiado.condicion or "").lower() in _condiciones_excluir(db, organization_id):
         resultado["omitidas"] += 1
         resultado["detalle"].append({
             "matricula": colegiado.codigo_matricula,

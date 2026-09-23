@@ -80,10 +80,15 @@ class ResultadoHabilidad:
     umbral_retiro:      int
 
 
-def get_config_habilidad(org: dict) -> dict:
+def get_config_habilidad(org: dict, db=None) -> dict:
     """
     Lee la configuración de habilidad de la organización.
     org puede ser dict (request.state.org) o modelo Organization.
+
+    Fuente de los 5 umbrales (en orden de precedencia):
+      preset activo (condiciones_service, si se pasa `db`) → org.config → DEFAULTS_HABILIDAD.
+    `db` es opcional: sin él (o si el preset falla) se conserva EXACTAMENTE el
+    comportamiento histórico (org.config → DEFAULTS). Red de seguridad.
     """
     finanzas = {}
     if isinstance(org, dict):
@@ -105,7 +110,7 @@ def get_config_habilidad(org: dict) -> dict:
         except (TypeError, ValueError):
             return DEFAULTS_HABILIDAD[key]
 
-    return {
+    cfg = {
         "cuotas_para_inhabilitar":          _int("cuotas_para_inhabilitar"),
         "extraordinarias_para_inhabilitar": _int("extraordinarias_para_inhabilitar"),
         "multas_para_inhabilitar":          _int("multas_para_inhabilitar"),
@@ -113,11 +118,30 @@ def get_config_habilidad(org: dict) -> dict:
         "cuotas_para_retiro":               _int("cuotas_para_retiro"),
     }
 
+    # Overlay del PRESET activo (fuente única). Solo si hay db y org con id; ante
+    # cualquier fallo se queda con cfg (org.config/DEFAULTS). NO cambia la evaluación,
+    # solo de dónde salen los 5 umbrales.
+    org_id = org.get("id") if isinstance(org, dict) else getattr(org, "id", None)
+    if db is not None and org_id is not None:
+        try:
+            from app.services.condiciones_service import get_condiciones
+            cond = get_condiciones(db, org_id)
+            cfg["cuotas_para_inhabilitar"]          = max(1, int(cond["inhab_cuotas_ordinarias"]))
+            cfg["extraordinarias_para_inhabilitar"] = max(1, int(cond["inhab_extraordinaria"]))
+            cfg["multas_para_inhabilitar"]          = max(1, int(cond["inhab_multa"]))
+            cfg["fracc_cuotas_para_inhabilitar"]    = max(1, int(cond["inhab_fracc_cuotas"]))
+            cfg["cuotas_para_retiro"]               = max(1, int(cond["retiro_auto_meses"]))
+        except Exception:
+            pass
+
+    return cfg
+
 
 def evaluar_habilidad(
     deuda_info: dict,
     org: dict,
     colegiado=None,
+    db=None,
 ) -> ResultadoHabilidad:
     """
     Evalúa si un colegiado debe ser INHÁBIL o RETIRADO.
@@ -129,7 +153,7 @@ def evaluar_habilidad(
     Returns:
         ResultadoHabilidad
     """
-    cfg = get_config_habilidad(org)
+    cfg = get_config_habilidad(org, db)
 
     umbral_cuotas      = cfg["cuotas_para_inhabilitar"]
     umbral_extras      = cfg["extraordinarias_para_inhabilitar"]
@@ -290,7 +314,7 @@ def sincronizar_condicion(db, colegiado, org: dict) -> bool:
         return False
 
     deuda_info = calcular_deuda_total(db, colegiado.id)
-    resultado  = evaluar_habilidad(deuda_info, org, colegiado)
+    resultado  = evaluar_habilidad(deuda_info, org, colegiado, db=db)
 
     condicion_actual = getattr(colegiado, "condicion", "inhabil")
 

@@ -87,9 +87,17 @@ def detectar_candidatos_perdida(
     from app.services.generador_deudas import _contar_consecutivas_vencidas
 
     hoy = fecha_ref or _hoy_peru()
-    params = get_seccion(db, "fraccionamiento", organization_id)
-    umbral = int(params.get("cuotas_impagas_perdida") or 2)
-    auto = bool(params.get("perdida_automatica") or False)
+    # Lector conectado al preset de Condiciones (fuente única). Fallback: la ruta
+    # anterior (parametros_sistema) y, en último término, los defaults del código.
+    try:
+        from app.services.condiciones_service import get_condiciones
+        cond = get_condiciones(db, organization_id)
+        umbral = int(cond["perdida_fracc_consecutivas"])
+        auto = bool(cond["perdida_automatica"])
+    except Exception:
+        params = get_seccion(db, "fraccionamiento", organization_id)
+        umbral = int(params.get("cuotas_impagas_perdida") or 2)
+        auto = bool(params.get("perdida_automatica") or False)
 
     fraccs = db.query(Fraccionamiento).filter(
         Fraccionamiento.organization_id == organization_id,
@@ -111,6 +119,10 @@ def detectar_candidatos_perdida(
         if consecutivas < umbral:
             continue
         col = f.colegiado
+        # Marcador de CONTAMINACIÓN: cuota inicial impaga ⇒ el fracc nunca arrancó
+        # (batch mal formado). La vista lo separa de los candidatos reales y le oculta
+        # el botón de pérdida (requiere conciliación antes de decidir). Solo lectura.
+        cuota_inicial_pagada = bool(f.cuota_inicial_pagada)
         candidatos.append({
             "distinct_venc":        distinct_venc,
             "fraccionamiento_id":   f.id,
@@ -126,6 +138,8 @@ def detectar_candidatos_perdida(
             "cuotas_pagadas":       int(f.cuotas_pagadas or 0),
             "monto_cuota":          float(f.monto_cuota or 0),
             "saldo_pendiente":      float(f.saldo_pendiente or 0),
+            "cuota_inicial_pagada": cuota_inicial_pagada,
+            "contaminado":          not cuota_inicial_pagada,
         })
 
     candidatos.sort(key=lambda c: (-c["consecutivas_impagas"], -c["saldo_pendiente"]))
@@ -145,6 +159,7 @@ def detectar_candidatos_perdida(
             except FraccPerdidoError as e:
                 ejecutados.append({"fraccionamiento_id": c["fraccionamiento_id"], "error": e.detail})
 
+    total_contaminados = sum(1 for c in candidatos if c["contaminado"])
     return {
         "modo":               "AUTOMATICO" if auto else "MANUAL",
         "perdida_automatica": auto,
@@ -154,6 +169,8 @@ def detectar_candidatos_perdida(
         "total_activos":      len(fraccs),
         "total_operables":    total_operables,   # sanos evaluados (si solo_sanos)
         "total_candidatos":   len(candidatos),
+        "total_reales":       len(candidatos) - total_contaminados,   # cuota inicial pagada
+        "total_contaminados": total_contaminados,                     # cuota inicial impaga
         "candidatos":         candidatos,
         "ejecutados":         ejecutados,
     }
