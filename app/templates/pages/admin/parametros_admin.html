@@ -78,6 +78,154 @@
   <div class="mt-3 text-slate-500 text-xs max-w-5xl">
     Los parámetros en gris con 🔒 son informativos y no editables (aún no cableados a comportamiento).
   </div>
+
+  <!-- ═══ CONDICIONES Y EXONERACIONES (presets) — solo lectura (Paso 4) ═══ -->
+  <style>
+    .ce-wrap{max-width:64rem;margin-top:26px;}
+    .ce-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;}
+    .ce-top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    .ce-title{font-size:15px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:8px;}
+    .ce-sel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .ce-sel select{background:#0b1220;color:#e8edf5;border:1px solid #334155;border-radius:8px;padding:7px 11px;font-size:13px;}
+    .ce-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;font-family:ui-monospace,monospace;}
+    .ce-badge.sys{background:rgba(148,163,184,.16);color:#cbd5e1;}
+    .ce-badge.active{background:rgba(52,211,153,.18);color:#6ee7b7;}
+    .ce-btn{background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;}
+    .ce-btn.ghost{background:transparent;border:1px solid #334155;color:#cbd5e1;}
+    .ce-diff{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fcd34d;
+             border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;margin-bottom:16px;}
+    .ce-diff b{color:#fde68a;}
+    .ce-grp{margin-bottom:14px;border:1px solid #1e293b;border-radius:12px;overflow:hidden;}
+    .ce-grp-h{display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:12px;font-weight:800;
+              text-transform:uppercase;letter-spacing:.05em;background:rgba(255,255,255,.02);
+              border-left:4px solid var(--acc);color:var(--acc);}
+    .ce-tbl{width:100%;border-collapse:collapse;}
+    .ce-tbl td{padding:10px 14px;border-top:1px solid #1e293b;vertical-align:middle;}
+    .ce-lbl{color:#dbe4f0;font-size:13.5px;}
+    .ce-val{font-family:ui-monospace,monospace;font-weight:700;font-size:13.5px;color:#f8fafc;
+            background:#0b1220;border:1px solid #334155;border-radius:7px;padding:5px 11px;display:inline-block;min-width:44px;text-align:center;}
+    .ce-val.diff{border-color:#f59e0b;color:#fcd34d;background:rgba(245,158,11,.08);}
+    .ce-art{position:relative;display:inline-flex;align-items:center;gap:5px;cursor:help;
+            font-size:11px;font-family:ui-monospace,monospace;color:#93c5fd;background:rgba(59,130,246,.12);
+            border:1px solid rgba(59,130,246,.35);border-radius:20px;padding:2px 9px;user-select:none;}
+    .ce-art.pend{color:#fca5a5;background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.35);}
+    /* tooltip posicionado por JS con position:fixed → escapa cualquier overflow:hidden
+       (el .ce-grp recorta), va por encima de todo (z-index alto) y se voltea si no hay
+       espacio arriba. Nunca queda cortado por un encabezado. */
+    .ce-art .ce-tip{display:none;position:fixed;width:300px;max-width:78vw;
+            background:#0b1220;color:#e8edf5;border:1px solid #334155;border-radius:10px;padding:10px 12px;
+            font-family:inherit;font-size:12.5px;line-height:1.55;box-shadow:0 12px 34px rgba(0,0,0,.6);
+            z-index:99999;white-space:normal;text-align:left;pointer-events:none;}
+    .ce-art .ce-tip b{color:#93c5fd;display:block;margin-bottom:4px;}
+    .ce-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;
+             padding-top:12px;border-top:1px solid #1e293b;font-size:11px;color:#64748b;font-family:ui-monospace,monospace;}
+    .ce-val-td{width:22%;} .ce-art-td{width:26%;text-align:right;} .ce-lbl-td{width:52%;}
+  </style>
+
+  <section class="ce-wrap" id="secCondiciones">
+    <div class="ce-card">
+      <div class="ce-top">
+        <div class="ce-title"><i class="ph ph-shield-check"></i> Condiciones y Exoneraciones</div>
+        <div class="ce-sel">
+          <select id="ceSelPreset" title="Preset (la activación es el siguiente paso)"></select>
+          <span class="ce-badge active" id="ceActiveBadge">● ACTIVO</span>
+          <span class="ce-badge sys" id="ceSysBadge" style="display:none;">sistema · solo lectura</span>
+          <button class="ce-btn ghost" id="ceCrear">Crear preset propio</button>
+        </div>
+      </div>
+      <div id="ceDiff"></div>
+      <div id="ceGrupos"><div style="color:#64748b;font-size:13px;">Cargando…</div></div>
+      <div class="ce-foot" id="ceFoot"></div>
+    </div>
+  </section>
+
+  <script>
+  (function(){
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    async function cargarCondiciones(){
+      let d;
+      try{
+        const r = await fetch('/api/admin/condiciones');
+        d = await r.json();
+        if(!r.ok){ $('#ceGrupos').innerHTML = '<div style="color:#fca5a5;">'+esc((d&&d.detail)||'Error')+'</div>'; return; }
+      }catch(e){ $('#ceGrupos').innerHTML = '<div style="color:#fca5a5;">Error de conexión.</div>'; return; }
+      if(!d.activo){ $('#ceGrupos').innerHTML = '<div style="color:#64748b;">'+esc(d.aviso||'Sin presets.')+'</div>'; return; }
+
+      // selector
+      const sel = $('#ceSelPreset');
+      sel.innerHTML = (d.presets||[]).map(p =>
+        '<option '+(p.activo?'selected':'')+'>'+esc(p.nombre)+(p.es_sistema?' (sistema)':' (propio)')+(p.activo?' — ACTIVO':'')+'</option>'
+      ).join('');
+      $('#ceSysBadge').style.display = d.activo.es_sistema ? '' : 'none';
+
+      // diff vs Estatuto
+      if((d.diff||[]).length){
+        $('#ceDiff').innerHTML = '<div class="ce-diff">⚠ <b>'+d.diff.length+' valor'+(d.diff.length>1?'es':'')+' difiere'+(d.diff.length>1?'n':'')+
+          '</b> del preset “'+esc(d.estatuto_ref||'Estatuto')+'”: '+
+          d.diff.map(x => '<b>'+esc(x.etiqueta)+'</b> = '+esc(x.vigente)+' (Estatuto '+esc(x.articulo_ref||'')+' → '+esc(x.estatuto)+')').join(' · ')+'.</div>';
+      } else { $('#ceDiff').innerHTML = ''; }
+
+      // grupos con color por grupo + tooltip literal
+      $('#ceGrupos').innerHTML = (d.grupos||[]).map(g => {
+        const rows = g.items.map(it => {
+          const art = it.articulo_ref
+            ? ('<span class="ce-art'+(it.literal?'':' pend')+'" tabindex="0">'+esc(it.articulo_ref)+
+               '<span class="ce-tip"><b>'+esc(it.articulo_ref)+'</b>'+
+               (it.literal ? esc(it.literal) : 'Texto del Reglamento pendiente — por cargar.')+'</span></span>')
+            : '<span style="color:#475569;font-size:11px;">—</span>';
+          return '<tr>'+
+            '<td class="ce-lbl-td"><span class="ce-lbl">'+esc(it.etiqueta)+'</span></td>'+
+            '<td class="ce-val-td"><span class="ce-val'+(it.difiere?' diff':'')+'">'+esc(it.valor)+'</span></td>'+
+            '<td class="ce-art-td">'+art+'</td></tr>';
+        }).join('');
+        return '<div class="ce-grp" style="--acc:'+esc(g.color)+'">'+
+          '<div class="ce-grp-h">'+esc(g.grupo)+'</div>'+
+          '<table class="ce-tbl"><tbody>'+rows+'</tbody></table></div>';
+      }).join('');
+
+      // trazabilidad
+      const a = d.activo;
+      $('#ceFoot').innerHTML =
+        '<span>Preset activo: '+esc(a.nombre)+(a.es_sistema?' (sistema)':'')+'</span>'+
+        '<span>'+(a.activated_at ? ('Activado '+esc(a.activated_at.slice(0,16).replace("T"," "))) : 'Sin registro de activación')+
+        (a.created_at ? (' · Creado '+esc(a.created_at.slice(0,10))) : '')+'</span>';
+    }
+    // Tooltip: posicionado por JS (fixed) para que NUNCA quede cortado por un encabezado.
+    function posTip(chip){
+      const tip = chip.querySelector('.ce-tip'); if(!tip) return;
+      tip.style.display='block';
+      const r = chip.getBoundingClientRect();
+      const th = tip.offsetHeight, tw = tip.offsetWidth;
+      let top = r.top - th - 8;                 // arriba por defecto
+      if(top < 8) top = r.bottom + 8;           // sin espacio arriba → voltea abajo
+      let left = r.right - tw;                  // alineado a la derecha del chip
+      if(left < 8) left = 8;
+      if(left + tw > window.innerWidth - 8) left = window.innerWidth - 8 - tw;
+      tip.style.top = top + 'px'; tip.style.left = left + 'px';
+    }
+    function hideTip(chip){ const t = chip.querySelector('.ce-tip'); if(t) t.style.display='none'; }
+    function hideAll(){ document.querySelectorAll('#secCondiciones .ce-tip').forEach(t=>t.style.display='none'); }
+    const secCond = document.getElementById('secCondiciones');
+    if(secCond){
+      secCond.addEventListener('mouseover', e=>{ const c=e.target.closest('.ce-art'); if(c) posTip(c); });
+      secCond.addEventListener('mouseout',  e=>{ const c=e.target.closest('.ce-art'); if(c) hideTip(c); });
+      secCond.addEventListener('focusin',   e=>{ const c=e.target.closest('.ce-art'); if(c) posTip(c); });
+      secCond.addEventListener('focusout',  e=>{ const c=e.target.closest('.ce-art'); if(c) hideTip(c); });
+    }
+    // touch: clic alterna (y reposiciona)
+    document.addEventListener('click', e=>{
+      const chip = e.target.closest && e.target.closest('.ce-art');
+      hideAll();
+      if(chip){ const t=chip.querySelector('.ce-tip'); if(t && t.style.display!=='block') posTip(chip); }
+    });
+    window.addEventListener('scroll', hideAll, true);
+    $('#ceCrear').addEventListener('click', ()=>{
+      alert('Crear preset propio: se habilita junto con la activación (Paso 5). Clonará el preset activo con un nombre libre.');
+    });
+    cargarCondiciones();
+  })();
+  </script>
 </div>
 
 <!-- MODAL: Motivo del cambio -->
