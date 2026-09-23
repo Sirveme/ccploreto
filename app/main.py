@@ -26,6 +26,7 @@ from app.routers.public import router, router_landing
 from app.routers.admin_config_router import router as admin_config_router
 from app.routers.admin_views import router as admin_views_router
 from app.routers.parametros_admin import router as parametros_admin_router
+from app.routers.condiciones_admin import router as condiciones_admin_router
 from app.routers import router_certificados
 from app.routers import api_publico
 from app.routers.caja import (
@@ -226,6 +227,7 @@ app.include_router(consulta.router)
 app.include_router(admin_config_router)
 app.include_router(admin_views_router)
 app.include_router(parametros_admin_router)
+app.include_router(condiciones_admin_router)   # Presets de Condiciones/Exoneraciones (lectura, Paso 4)
 app.include_router(pagos_colegiado.router)
 app.include_router(router_certificados.router)
 app.include_router(api_publico.router)
