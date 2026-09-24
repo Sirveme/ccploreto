@@ -224,9 +224,20 @@ def generar_excel(db: Session, periodo_id: int, show_footer: bool = False, org_i
         from app.data.habiles_julio_2026 import HABILES_JULIO_2026, NOTA_RECONSTRUCCION
         filas_h = HABILES_JULIO_2026
         nota_recon = NOTA_RECONSTRUCCION
+    elif periodo.anio == 2026 and periodo.mes == 8:
+        from app.data.habiles_agosto_2026 import HABILES_AGOSTO_2026, NOTA_RECONSTRUCCION
+        filas_h = HABILES_AGOSTO_2026
+        nota_recon = NOTA_RECONSTRUCCION
     else:
         filas_h = []
-        nota_recon = "Foto nominal no disponible para este periodo (no se congeló al cierre)."
+        _ch = periodo.cantidad_habiles or 0
+        nota_recon = (
+            f"Conteo de hábiles: {_ch} — correcto y registrado. "
+            f"El DETALLE NOMINAL (la lista de los {_ch} hábiles) no está disponible para este periodo: "
+            f"no se congeló porque el periodo no se cerró y el recálculo diario solo guardaba el conteo, "
+            f"no el nominal. Esto no afecta el monto a depositar. "
+            f"Los NUEVOS del periodo sí están detallados en la hoja «Detalle Nuevos»."
+        )
 
     ws_h["A1"] = f"Hábiles — {periodo_label}"
     ws_h["A1"].font = Font(bold=True, size=13)
@@ -236,7 +247,7 @@ def generar_excel(db: Session, periodo_id: int, show_footer: bool = False, org_i
         ws_h["A2"].font = Font(italic=True, size=9, color="B00000")
         ws_h["A2"].alignment = Alignment(wrap_text=True, vertical="top")
         ws_h.merge_cells("A2:D2")
-        ws_h.row_dimensions[2].height = 44
+        ws_h.row_dimensions[2].height = 66
         hrow = 4
     heads_h = ["N°", "Matrícula", "Apellidos y Nombres", "Condición"]
     for c, htxt in enumerate(heads_h, 1):
