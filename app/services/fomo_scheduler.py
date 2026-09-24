@@ -84,14 +84,25 @@ def recalcular_aportes_diario():
 
 
 def cerrar_aportes_diario():
-    """Cron diario 01:30: cierra periodos vencidos por calendario (inmutables)."""
+    """Cron diario 01:30: (1) CIERRE PROVISIONAL automático del mes que terminó
+    (congela la foto — nominal — para que NUNCA se pierda), y (2) alerta de vencidos.
+    El provisional va ANTES del recálculo de las 02:00: una vez 'cerrado', el
+    recálculo lo salta y la cifra deja de derivar."""
     from app.database import SessionLocal
-    from app.services.aportes_junta_service import cerrar_periodos_vencidos
+    from app.services.aportes_junta_service import (
+        cerrar_provisional_vencidos, cerrar_periodos_vencidos,
+    )
     db = SessionLocal()
+    try:
+        r = cerrar_provisional_vencidos(db, organizacion_id=1)   # ← salva septiembre el 1-OCT
+        if r.get("cerrado"):
+            logger.info(f"[aportes] Provisional automático: {r['cerrado']}")
+    except Exception as e:
+        logger.error(f"[aportes] Error en cierre provisional automático: {e}")
     try:
         cerrar_periodos_vencidos(db)
     except Exception as e:
-        logger.error(f"[aportes] Error cerrando periodos: {e}")
+        logger.error(f"[aportes] Error alertando periodos vencidos: {e}")
     finally:
         db.close()
 

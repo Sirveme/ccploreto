@@ -367,6 +367,45 @@ def cerrar_periodos_vencidos(db: Session) -> int:
     return alertados
 
 
+# Régimen de doble cierre: solo auto-cerrar meses DE ESTE PUNTO EN ADELANTE.
+# Julio (2026-07) y agosto (2026-08) quedan como casos históricos (reconstrucción);
+# NUNCA se auto-cierran (su nominal en vivo daría cifras derivadas, no la foto real).
+REGIMEN_DOBLE_CIERRE_DESDE = (2026, 9)
+
+
+def cerrar_provisional_vencidos(db: Session, organizacion_id: int = 1,
+                                fecha_ref: date | None = None, commit: bool = True) -> dict:
+    """Disparador AUTOMÁTICO del cierre PROVISIONAL: congela la foto del mes que
+    acaba de terminar (el mes ANTERIOR a fecha_ref) si sigue 'abierto'.
+
+    - Solo el mes inmediatamente anterior (no barre meses viejos → agosto queda intacto).
+    - Solo períodos >= REGIMEN_DOBLE_CIERRE_DESDE (protege julio/agosto históricos).
+    - IDEMPOTENTE: si ya está cerrado (provisional/definitivo/histórico), no hace nada.
+    - Reutiliza cerrar_periodo_manual(modo='provisional', actor='SISTEMA').
+    """
+    hoy = fecha_ref or _hoy_peru()
+    py, pm = (hoy.year - 1, 12) if hoy.month == 1 else (hoy.year, hoy.month - 1)
+    if (py, pm) < REGIMEN_DOBLE_CIERRE_DESDE:
+        return {"cerrado": None, "motivo": f"mes anterior {py}-{pm:02d} fuera del régimen (no auto-cierre)"}
+
+    per = db.execute(text("""
+        SELECT id FROM aporte_periodos
+        WHERE organizacion_id = :org AND anio = :a AND mes = :m AND estado = 'abierto'
+    """), {"org": organizacion_id, "a": py, "m": pm}).fetchone()
+    if not per:
+        return {"cerrado": None, "motivo": f"{py}-{pm:02d} ya cerrado o inexistente (idempotente)"}
+
+    try:
+        res = cerrar_periodo_manual(db, per.id, user_id=None, modo="provisional",
+                                    actor="SISTEMA", commit=commit)
+        logger.info(f"[aportes] Cierre PROVISIONAL automático {py}-{pm:02d}: "
+                    f"{res['cantidad_habiles']} hábiles congelados.")
+        return {"cerrado": {"periodo_id": per.id, "anio": py, "mes": pm, **res}}
+    except ValueError as e:
+        logger.error(f"[aportes] No se pudo cerrar provisional {py}-{pm:02d}: {e}")
+        return {"cerrado": None, "error": str(e), "periodo_id": per.id}
+
+
 # ════════════════════════════════════════════════════════════════
 # ETAPA DEL PERIODO (B2) — una sola etapa derivada, sin columna 'pagado'
 # ════════════════════════════════════════════════════════════════
@@ -491,8 +530,20 @@ _CAUSAS_ALERTA = ("pago_fuera", "pago_incompleto", "transeunte_con_origen", "otr
 
 
 def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
-                          causas: dict | None = None, organizacion_id: int = 1) -> dict:
-    """Cierra un periodo abierto de forma MANUAL (Opción M). Orden:
+                          causas: dict | None = None, organizacion_id: int = 1,
+                          modo: str = "definitivo", actor: str | None = None,
+                          commit: bool = True) -> dict:
+    """Cierra un periodo (doble cierre). `modo`:
+      • 'provisional' — foto de seguridad AUTOMÁTICA (SISTEMA) el 1er día del mes
+        siguiente. NO exige causales (freeze de seguridad); congela el nominal y deja
+        estado='cerrado', tipo_cierre='provisional'. Re-congelable mientras siga provisional.
+      • 'definitivo' — confirmación del Admin para la Junta. Exige causales (B5) y deja
+        tipo_cierre='definitivo' (inmutable).
+    estado queda en 'cerrado' en ambos (compat con todos los lectores == 'cerrado' y con
+    el cron que salta cerrados). `actor` = quién (str); por defecto str(user_id).
+    `commit=False` para centinela (no persiste).
+
+    Orden:
       1) valida periodo abierto,
       2) exige causal para CADA alerta de nuevo-sin-pago (B5) y las resuelve,
       3) recalcula totales con el criterio único de hábil,
@@ -505,6 +556,9 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
     Lanza ValueError con mensaje si algo impide cerrar (el router lo traduce a 400).
     """
     causas = causas or {}
+    if modo not in ("provisional", "definitivo"):
+        raise ValueError("modo inválido (provisional|definitivo)")
+    actor = actor or str(user_id)
 
     per = db.execute(text("""
         SELECT ap.*, org.junta_id
@@ -514,8 +568,15 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
     """), {"pid": periodo_id, "org": organizacion_id}).fetchone()
     if not per:
         raise ValueError("Periodo no encontrado")
-    if (per.estado or "").lower() == "cerrado":
-        raise ValueError("El periodo ya está cerrado (inmutable)")
+    _est = (per.estado or "").lower()
+    _tipo = (getattr(per, "tipo_cierre", None) or "").lower()
+    if _tipo == "definitivo":
+        raise ValueError("El periodo ya está cerrado en DEFINITIVO (inmutable)")
+    if modo == "provisional" and _est == "cerrado" and _tipo != "provisional":
+        # 'cerrado' histórico sin subtipo (julio): no re-provisionalizar
+        raise ValueError("El periodo ya está cerrado (histórico); no se puede provisionalizar")
+    # Permitido: provisional desde 'abierto' o re-congelar provisional; definitivo desde
+    # 'abierto' o desde provisional.
 
     cfg = db.execute(text("""
         SELECT * FROM junta_config_aporte
@@ -527,27 +588,30 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
         raise ValueError("Sin configuración de aporte vigente")
 
     # 2) Resolver TODAS las alertas de nuevo-sin-pago con causal (B5).
-    alertas = db.execute(text("""
-        SELECT id FROM aporte_periodo_alerta
-        WHERE aporte_periodo_id = :pid AND tipo = 'colegiado_sin_pago' AND resuelto = FALSE
-    """), {"pid": periodo_id}).fetchall()
-    faltan = [a.id for a in alertas if str(a.id) not in {str(k) for k in causas}]
-    if faltan:
-        raise ValueError(f"Faltan causales para {len(faltan)} alerta(s) de nuevos sin pago")
+    #    Solo en DEFINITIVO (confirmación humana). El provisional es un freeze de
+    #    seguridad automático: NO exige causales; las alertas quedan para el definitivo.
+    if modo == "definitivo":
+        alertas = db.execute(text("""
+            SELECT id FROM aporte_periodo_alerta
+            WHERE aporte_periodo_id = :pid AND tipo = 'colegiado_sin_pago' AND resuelto = FALSE
+        """), {"pid": periodo_id}).fetchall()
+        faltan = [a.id for a in alertas if str(a.id) not in {str(k) for k in causas}]
+        if faltan:
+            raise ValueError(f"Faltan causales para {len(faltan)} alerta(s) de nuevos sin pago")
 
-    for a in alertas:
-        c = causas.get(str(a.id)) or causas.get(a.id) or {}
-        causa = (c.get("causa") or "").strip()
-        detalle = (c.get("detalle") or "").strip() or None
-        if causa not in _CAUSAS_ALERTA:
-            raise ValueError(f"Causal inválida para la alerta {a.id}")
-        db.execute(text("""
-            UPDATE aporte_periodo_alerta SET
-                resuelto = TRUE, resuelto_at = NOW(),
-                causa_resolucion = :causa, causa_detalle = :detalle,
-                resuelto_por_user_id = :uid
-            WHERE id = :aid
-        """), {"causa": causa, "detalle": detalle, "uid": user_id, "aid": a.id})
+        for a in alertas:
+            c = causas.get(str(a.id)) or causas.get(a.id) or {}
+            causa = (c.get("causa") or "").strip()
+            detalle = (c.get("detalle") or "").strip() or None
+            if causa not in _CAUSAS_ALERTA:
+                raise ValueError(f"Causal inválida para la alerta {a.id}")
+            db.execute(text("""
+                UPDATE aporte_periodo_alerta SET
+                    resuelto = TRUE, resuelto_at = NOW(),
+                    causa_resolucion = :causa, causa_detalle = :detalle,
+                    resuelto_por_user_id = :uid
+                WHERE id = :aid
+            """), {"causa": causa, "detalle": detalle, "uid": user_id, "aid": a.id})
 
     # 3) Recalcular totales con el criterio único.
     _, ultimo_dia = monthrange(per.anio, per.mes)
@@ -631,7 +695,11 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
         UPDATE aporte_periodos SET
             cantidad_nuevos = :cn, monto_nuevos = :mn,
             cantidad_habiles = :ch, monto_habiles = :mh, monto_total = :mt,
-            estado = 'cerrado', cerrado_en = NOW(), cerrado_por = :uid,
+            estado = 'cerrado', tipo_cierre = :modo, cerrado_en = NOW(), cerrado_por = :uid,
+            cerrado_provisional_en  = CASE WHEN :modo='provisional' THEN NOW()   ELSE cerrado_provisional_en  END,
+            cerrado_provisional_por = CASE WHEN :modo='provisional' THEN :actor  ELSE cerrado_provisional_por END,
+            cerrado_definitivo_en   = CASE WHEN :modo='definitivo'  THEN NOW()   ELSE cerrado_definitivo_en   END,
+            cerrado_definitivo_por  = CASE WHEN :modo='definitivo'  THEN :actor  ELSE cerrado_definitivo_por  END,
             uit_aplicada = :uit, monto_por_nuevo_aplicado = :mpn, monto_por_habil_aplicado = :mph,
             pct_nuevo_aplicado = :pn, pct_habil_aplicado = :ph, base_cuota_aplicada = :bc,
             detalle_habiles_disponible = TRUE,
@@ -640,27 +708,30 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
         WHERE id = :pid
     """), {
         "cn": cn, "mn": mn, "ch": ch, "mh": mh, "mt": monto_total,
-        "uid": str(user_id), "uit": cfg.base_uit,
+        "uid": str(user_id), "modo": modo, "actor": actor, "uit": cfg.base_uit,
         "mpn": cfg.monto_por_nuevo, "mph": cfg.monto_por_habil,
         "pn": cfg.pct_sobre_uit_nuevo, "ph": cfg.pct_sobre_cuota_habil,
         "bc": cfg.base_cuota_ordinaria, "fcorte": fin_mes, "pid": periodo_id,
     })
 
-    # 6) Log: acuse de revisión previa + cierre manual.
+    # 6) Log del cierre (evento según modo). El acuse de revisión previa solo en definitivo.
+    if modo == "definitivo":
+        db.execute(text("""
+            INSERT INTO aporte_periodo_log (
+                aporte_periodo_id, cantidad_nuevos, monto_nuevos, cantidad_habiles,
+                monto_habiles, monto_total, evento, detalle
+            ) VALUES (:pid, :cn, :mn, :ch, :mh, :mt, 'revision_previa_acuse', :det)
+        """), {"pid": periodo_id, "cn": cn, "mn": mn, "ch": ch, "mh": mh, "mt": monto_total,
+               "det": f"Revisión previa acusada por user_id={user_id}"})
+    _evento = "cierre_provisional_auto" if modo == "provisional" else "cierre_definitivo_manual"
     db.execute(text("""
         INSERT INTO aporte_periodo_log (
             aporte_periodo_id, cantidad_nuevos, monto_nuevos, cantidad_habiles,
             monto_habiles, monto_total, evento, detalle
-        ) VALUES (:pid, :cn, :mn, :ch, :mh, :mt, 'revision_previa_acuse', :det)
+        ) VALUES (:pid, :cn, :mn, :ch, :mh, :mt, :evento, :det)
     """), {"pid": periodo_id, "cn": cn, "mn": mn, "ch": ch, "mh": mh, "mt": monto_total,
-           "det": f"Revisión previa acusada por user_id={user_id}"})
-    db.execute(text("""
-        INSERT INTO aporte_periodo_log (
-            aporte_periodo_id, cantidad_nuevos, monto_nuevos, cantidad_habiles,
-            monto_habiles, monto_total, evento, detalle
-        ) VALUES (:pid, :cn, :mn, :ch, :mh, :mt, 'cierre_manual', :det)
-    """), {"pid": periodo_id, "cn": cn, "mn": mn, "ch": ch, "mh": mh, "mt": monto_total,
-           "det": (f"Cierre manual {per.anio}-{per.mes:02d} por user_id={user_id}: "
+           "evento": _evento,
+           "det": (f"Cierre {modo} {per.anio}-{per.mes:02d} por {actor}: "
                    f"{ch} hábiles + {cn} nuevos, nominal congelado")})
 
     # Resolver también la alerta de vencimiento si existía.
@@ -670,6 +741,7 @@ def cerrar_periodo_manual(db: Session, periodo_id: int, user_id: int,
         WHERE aporte_periodo_id = :pid AND tipo = 'cierre_vencido' AND resuelto = FALSE
     """), {"pid": periodo_id, "uid": user_id})
 
-    db.commit()
-    return {"periodo_id": periodo_id, "cantidad_habiles": ch, "cantidad_nuevos": cn,
-            "monto_total": monto_total}
+    if commit:
+        db.commit()
+    return {"periodo_id": periodo_id, "modo": modo, "tipo_cierre": modo,
+            "cantidad_habiles": ch, "cantidad_nuevos": cn, "monto_total": monto_total}
