@@ -1692,6 +1692,20 @@ async def abrir_caja(
     db.commit()
     db.refresh(sesion)
 
+    # Hook doble-cierre de aportes: al abrir caja (respaldo del cron del 1er día),
+    # congela la foto PROVISIONAL del mes que terminó si aún no se hizo. Idempotente,
+    # en sesión propia y silencioso: jamás afecta la apertura de caja.
+    try:
+        from app.database import SessionLocal as _SL
+        from app.services.aportes_junta_service import cerrar_provisional_vencidos
+        _db2 = _SL()
+        try:
+            cerrar_provisional_vencidos(_db2, organizacion_id=org.id)
+        finally:
+            _db2.close()
+    except Exception:
+        pass
+
     return {
         "success": True,
         "mensaje": f"Caja abierta en {centro.nombre} con S/ {datos.monto_apertura:.2f}",

@@ -387,6 +387,25 @@ async def aportes_cerrar(
     return JSONResponse({"ok": True, "result": result})
 
 
+# ── Cierre PROVISIONAL manual (respaldo por si el cron/hook falla el 1er día) ──
+# Congela la foto (conteo + NOMINAL) sin exigir causales; NO es el cierre definitivo.
+# Lo puede disparar el Admin (Limber) o SOTE (Duilio) — require_aportes.
+@router.post("/periodo/{periodo_id}/cerrar-provisional")
+async def aportes_cerrar_provisional(
+    periodo_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_aportes),
+):
+    from app.services.aportes_junta_service import cerrar_periodo_manual
+    actor = (current_member.user.name if getattr(current_member, "user", None) else None) or current_member.role
+    try:
+        result = cerrar_periodo_manual(db, periodo_id, current_member.user_id,
+                                       organizacion_id=ORG_CCPL, modo="provisional", actor=actor)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "result": result})
+
+
 # ════════════════════════════════════════════════════════════════
 # HELPERS (Incremento 2)
 # ════════════════════════════════════════════════════════════════
