@@ -138,6 +138,13 @@ def generar_cuotas_fracc_en_debts(
             "notes":    notes_val,
         }).fetchone()
         debt_id = row[0]
+        # zClaude-FIXFRACC (parte a): enlace cuota -> deuda espejo al CREAR.
+        # Antes quedaba NULL -> el modal mostraba "·sin enlace" y el cobro no podia
+        # resolver la cuota del plan al pagar la espejo. (debt_id NO esta mapeado en
+        # el ORM FraccionamientoCuota -> SQL crudo.)
+        db.execute(text(
+            "UPDATE fraccionamiento_cuotas SET debt_id = :d WHERE id = :cid"
+        ), {"d": debt_id, "cid": c.id})
         creadas.append({
             "debt_id":   debt_id,
             "num_cuota": c.numero_cuota,
