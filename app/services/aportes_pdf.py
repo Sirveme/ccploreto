@@ -206,6 +206,39 @@ def generar_excel(db: Session, periodo_id: int, show_footer: bool = False, org_i
     ws1["A8"].font = bold; ws1["B8"].font = bold
     ws1.column_dimensions["A"].width = 34; ws1.column_dimensions["B"].width = 18
 
+    # ── AVISO DE NATURALEZA DEL REPORTE (según estado del período) ────────────
+    # Evita tomar como oficial un número que aún se mueve. El cron recalcula solo el
+    # período EN CURSO (abierto del mes actual) → ese es PRELIMINAR. Cerrado = foto
+    # congelada (firme). Período pasado abierto (caso histórico julio/agosto) = cifra
+    # oficial registrada con detalle reconstruido.
+    _est = (periodo.estado or "").lower()
+    _tipo = (getattr(periodo, "tipo_cierre", None) or "").lower()
+    _hoy = datetime.now(TZ_PERU).date()
+    _es_actual = (periodo.anio == _hoy.year and periodo.mes == _hoy.month)
+    if _est == "cerrado" and _tipo == "definitivo":
+        _avtxt = "REPORTE OFICIAL DEFINITIVO — período cerrado y confirmado por el Administrador. Cifras firmes (foto congelada)."
+        _avbg, _avfg = "1E7A46", "FFFFFF"           # verde
+    elif _est == "cerrado" and _tipo == "provisional":
+        _avtxt = "OFICIAL (provisional) — foto congelada automáticamente; cifras firmes, pendiente de confirmación del Administrador."
+        _avbg, _avfg = "1E3A5F", "FFFFFF"           # azul
+    elif _est == "cerrado":
+        _avtxt = "Período cerrado — cifras firmes."
+        _avbg, _avfg = "1E3A5F", "FFFFFF"           # azul
+    elif _es_actual:
+        _avtxt = ("PRELIMINAR — período ABIERTO, cifras SUJETAS A CAMBIO hasta el cierre. "
+                  "Para revisión, NO para depósito oficial.")
+        _avbg, _avfg = "B45309", "FFFFFF"           # ámbar/advertencia
+    else:
+        _avtxt = ("Cifra oficial registrada; detalle nominal RECONSTRUIDO (el período no se cerró con foto). "
+                  "Ver nota en la hoja «Hábiles».")
+        _avbg, _avfg = "475569", "FFFFFF"           # gris
+    ws1.merge_cells("A2:B2")
+    ws1["A2"] = _avtxt
+    ws1["A2"].font = Font(bold=True, size=10, color=_avfg)
+    ws1["A2"].fill = PatternFill("solid", fgColor=_avbg)
+    ws1["A2"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws1.row_dimensions[2].height = 42
+
     # ── Hoja "Hábiles" (posición 2: Resumen, Hábiles, Detalle Nuevos, Metadata) ──
     # Fuente por prioridad: (1) foto REAL congelada en aporte_detalle_habiles
     # (agosto en adelante); (2) julio 2026 → reconstrucción histórica ÚNICA por

@@ -67,10 +67,10 @@ _CLAVES_FRACCIONAMIENTO = (
     "documentar_acuerdo",
     "habilidad_temporal",
     "dias_gracia",
-    # extras operativos (alerta de pérdida) — no vienen de CONFIG_DEFECTO pero
-    # pertenecen a la sección; incluirlos hace a la tabla la única fuente.
-    "cuotas_impagas_perdida",
-    "perdida_automatica",
+    # NOTA: los umbrales de PÉRDIDA (cuotas_impagas_perdida, perdida_automatica) YA NO
+    # viven aquí. Fuente única = el preset de "Condiciones y Exoneraciones"
+    # (condiciones_service); el lector fraccionamiento_perdida_service lo prefiere.
+    # Se quitaron de esta sección para no exponer valores editables-pero-ignorados.
 )
 
 
