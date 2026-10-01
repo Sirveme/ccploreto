@@ -56,10 +56,19 @@ def leer_seccion(
 
     secs = {s["seccion"]: s for s in PS.get_secciones(db, solo_activas=False)}
     etiqueta = secs.get(seccion, {}).get("etiqueta", seccion)
+    detalle = PS.get_seccion_detalle(db, seccion, org_id=ORG_ID_LECTURA)
+    nota = None
+    if seccion == "fraccionamiento":
+        # Los umbrales de PÉRDIDA se gestionan en el preset de Condiciones (fuente única).
+        # Se ocultan aquí para no mostrar valores editables-pero-ignorados por el lector.
+        _ocultar = {"cuotas_impagas_perdida", "perdida_automatica"}
+        detalle = [p for p in detalle if p.get("clave") not in _ocultar]
+        nota = "Los umbrales de pérdida de fraccionamiento se configuran en «Condiciones y Exoneraciones»."
     return {
         "seccion": seccion,
         "etiqueta": etiqueta,
-        "parametros": PS.get_seccion_detalle(db, seccion, org_id=ORG_ID_LECTURA),
+        "parametros": detalle,
+        "nota": nota,
     }
 
 
