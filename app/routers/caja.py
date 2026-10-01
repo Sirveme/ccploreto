@@ -889,6 +889,61 @@ async def registrar_cobro(
             """), {"pid": payment.id, "m": md.metodo.lower(),
                    "mo": md.monto, "oc": (md.referencia or None)})
 
+    # ── zClaude-FIXFRACC (partes b+c): SINCRONIZAR el PLAN de fraccionamiento ──
+    # Bug histórico: al cobrar una cuota de fracc, /cobrar pagaba la DEUDA ESPEJO
+    # (debt_type='fraccionamiento') pero NO sincronizaba fraccionamiento_cuotas /
+    # saldo_pendiente / cuota_inicial_pagada / habilidad → cuota "·sin enlace",
+    # saldo stale, colegiado no habilitado (y constancia sin emitir). Aquí se cierra
+    # el circuito, ANTES del bloque de certificado para que la inicial habilite y la
+    # constancia salga hábil. Aditivo, idempotente (skip si la cuota ya está pagada).
+    import re as _re_fx
+    from app.services.fraccionamiento_service import (
+        pagar_cuota_fraccionamiento as _pagar_cuota_fx,
+    )
+    _pago_inicial_fracc = False
+    for _dp in deudas_a_pagar:
+        _d = _dp["deuda"]
+        if getattr(_d, "debt_type", None) != "fraccionamiento" or not getattr(_d, "fraccionamiento_id", None):
+            continue
+        _aplicar = float(_dp["aplicar"])
+        _saldo_previo = float(_dp["saldo_previo"])
+        if (_saldo_previo - _aplicar) > 0.01:
+            continue  # solo sincroniza en pago COMPLETO de la cuota
+        _m = _re_fx.search(r"num:(\d+)", _d.notes or "")
+        if not _m:
+            continue
+        _ncuota = int(_m.group(1))
+        _cuota = db.query(FraccionamientoCuota).filter(
+            FraccionamientoCuota.fraccionamiento_id == _d.fraccionamiento_id,
+            FraccionamientoCuota.numero_cuota == _ncuota,
+        ).first()
+        if not _cuota or _cuota.pagada:
+            continue
+        _fr = db.query(Fraccionamiento).filter(Fraccionamiento.id == _d.fraccionamiento_id).first()
+        if not _fr or _fr.estado != "activo":
+            continue
+        _pagar_cuota_fx(
+            db=db, fraccionamiento_id=_d.fraccionamiento_id, numero_cuota=_ncuota,
+            monto=_aplicar, metodo_pago=_pm,
+            operador_nota=f"[CAJA #{payment.id}] sync cuota fracc (FIXFRACC)",
+            payment_obj=payment,
+        )
+        # enlace cuota -> deuda espejo (debt_id no mapeado en ORM -> SQL crudo)
+        db.execute(text("UPDATE fraccionamiento_cuotas SET debt_id=:d WHERE id=:cid"),
+                   {"d": _d.id, "cid": _cuota.id})
+        if _ncuota == 0:
+            _pago_inicial_fracc = True
+
+    # Habilitación por CONCESIÓN del inicial (el motor no rehabilita con fracc activo;
+    # mismo criterio que refinanciar_core). Solo al pagar la cuota 0.
+    if _pago_inicial_fracc and colegiado is not None and \
+       colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
+        _fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        colegiado.condicion = "habil"
+        colegiado.habilidad_vence = _fin_mes
+        colegiado.fecha_actualizacion_condicion = ahora
+    db.flush()
+
     # ── Si el cobro incluye Constancia de Habilidad, emitir certificado
     #    para que la vigencia se registre y refleje en boleta/observaciones. ──
     incluye_const_hab = any(
