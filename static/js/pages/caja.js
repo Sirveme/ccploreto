@@ -2173,7 +2173,7 @@ function renderSituacion(data) {
             </div>
             <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.5">
                 Deuda total: <strong style="color:#e2e8f0">S/ ${total.toFixed(2)}</strong> ·
-                Inicial mínima: <strong style="color:#e2e8f0">S/ ${(total * 0.20).toFixed(2)}</strong>
+                Inicial sugerida (20%): <strong style="color:#e2e8f0">S/ ${(total * 0.20).toFixed(2)}</strong> <span style="color:#64748b">· monto libre</span>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
                 <div>
@@ -2181,7 +2181,7 @@ function renderSituacion(data) {
                         Cuota inicial (S/)
                     </label>
                     <input type="number" id="sit-fracc-ini" 
-                           min="${(total * 0.20).toFixed(2)}" step="10"
+                           min="0" step="10"
                            value="${(total * 0.20).toFixed(2)}"
                            oninput="calcSitFracc(${total})"
                            style="width:100%;padding:8px 10px;background:rgba(15,23,42,.6);
@@ -2560,7 +2560,7 @@ function _renderModal(data) {
                 </div>
                 <div style="font-size:11px;color:#94a3b8;margin-bottom:16px">
                     Deuda total: <strong style="color:#e2e8f0">S/ ${total.toFixed(2)}</strong> ·
-                    Inicial mínima (20%): <strong style="color:#e2e8f0">S/ ${(total*.2).toFixed(2)}</strong>
+                    Inicial sugerida (20%): <strong style="color:#e2e8f0">S/ ${(total*.2).toFixed(2)}</strong> <span style="color:#64748b">· monto libre</span>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -2623,7 +2623,7 @@ function _renderModal(data) {
                             letter-spacing:1px;margin-bottom:10px">Condiciones del plan</div>
                 ${[
                     ['✅','Deuda mínima: S/ 250'],
-                    ['📌','Cuota inicial mínima: 20% de la deuda total'],
+                    ['📌','Cuota inicial SUGERIDA: 20% de la deuda (monto libre, no obligatorio)'],
                     ['📌','Cuota mensual mínima: S/ 100'],
                     ['📌','Máximo 12 cuotas mensuales'],
                     ['⭐','Al pagar la inicial: habilidad inmediata'],
@@ -3369,8 +3369,9 @@ function _agregarFraccAlCarrito() {
     const total = _modalSit.total;
     const col = _modalSit.colegiado;
 
+    // Inicial de monto LIBRE (decisión Duilio): el 20% es SOLO SUGERENCIA, NUNCA bloquea.
     if (ini < total * 0.20) {
-        toast('Cuota inicial insuficiente — mínimo 20%', 'err'); return;
+        toast(`Inicial bajo el sugerido (20% = S/ ${(total * 0.20).toFixed(2)}) — se registra igual`, 'warn');
     }
 
     const cuota = (total - ini) / n;
@@ -3864,7 +3865,7 @@ function _renderFraccSelector(deudas) {
                     <strong id="frac-total-seleccionado" style="color:#e2e8f0;font-size:14px">S/ 0.00</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
-                    <span style="color:#94a3b8">Inicial mínimo (20%):</span>
+                    <span style="color:#94a3b8">Inicial sugerida (20%, libre):</span>
                     <strong id="frac-inicial-minimo" style="color:#94a3b8">S/ 0.00</strong>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12px">
@@ -3943,6 +3944,7 @@ function _recalcFraccSel() {
     const MONTO_MIN  = (_P.monto_minimo != null) ? Number(_P.monto_minimo) : 250;
     const CUOTA_MIN  = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
     const MAX_CUOTAS = (_P.max_cuotas   != null) ? Number(_P.max_cuotas)   : 12;
+    // Inicial de monto LIBRE (decisión Duilio): el 20% es SOLO SUGERENCIA, NUNCA bloquea.
 
     const minimo = Math.ceil(seleccionado * 0.20 * 100) / 100;
     const inpIni = document.getElementById('frac-inicial-actual');
@@ -3968,7 +3970,10 @@ function _recalcFraccSel() {
 
     if (seleccionado <= 0)               return setWarn('Selecciona al menos un concepto.');
     if (seleccionado < MONTO_MIN)        return setErr(`Deuda mínima para fraccionar: S/ ${MONTO_MIN.toFixed(2)} (actual: S/ ${seleccionado.toFixed(2)}).`);
-    if (inicial + 0.009 < minimo)        return setErr(`El inicial debe ser al menos S/ ${minimo.toFixed(2)} (20%).`);
+    let _warn20 = '';
+    if (inicial + 0.009 < minimo) {
+        _warn20 = `⚠ Inicial bajo el sugerido (20% = S/ ${minimo.toFixed(2)}) — se registra igual. `;
+    }
     if (inicial >= seleccionado)         return setWarn('El inicial cubre el total. Cobra directamente en lugar de fraccionar.');
     if (numCuotas < 2 || numCuotas > MAX_CUOTAS) return setErr(`El número de cuotas debe estar entre 2 y ${MAX_CUOTAS}.`);
 
@@ -3976,8 +3981,8 @@ function _recalcFraccSel() {
     if (mensual < CUOTA_MIN) return setErr(`Cuota mensual S/ ${mensual.toFixed(2)} < S/ ${CUOTA_MIN.toFixed(2)}. Reduce el N° de cuotas o aumenta el inicial.`);
 
     btn.disabled = false;
-    msg.textContent = `Cuota mensual estimada: S/ ${mensual.toFixed(2)}`;
-    msg.style.color = '#4ade80';
+    msg.textContent = _warn20 + `Cuota mensual estimada: S/ ${mensual.toFixed(2)}`;
+    msg.style.color = _warn20 ? '#f9c64a' : '#4ade80';
 }
 
 /* ══════════════════════════════════════════════════════════════════
