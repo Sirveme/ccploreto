@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 # resuelve Postgres correctamente por el offset.
 TZ_PERU = timezone(timedelta(hours=-5))
 
+
+def _hoy_peru() -> date:
+    """Fecha de HOY en zona Perú (UTC-5). FIX: el cron de cierre provisional
+    llamaba _hoy_peru() sin que estuviera definido en este módulo -> NameError
+    ('name _hoy_peru is not defined'), reventando cerrar_provisional_vencidos el
+    1er día del mes. (La ejecución manual pasaba fecha_ref, por eso no fallaba.)"""
+    return datetime.now(TZ_PERU).date()
+
+
 # ── CRITERIO ÚNICO DE HÁBIL APORTANTE (Fase 1) ──────────────────────────────
 # Única fuente de verdad. Reemplaza el criterio antiguo (que exigía
 # habilidad_vence >= corte y por tanto excluía a los NULL). Usar SIEMPRE con el

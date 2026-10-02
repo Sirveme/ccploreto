@@ -126,16 +126,9 @@ def crear_fraccionamiento(
     deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct = \
         _resolver_parametros_fracc(db, colegiado.organization_id)
 
-    # Regla 20%-no-bloquea (Decano): ¿el inicial bajo el mínimo BLOQUEA o solo
-    # advierte? Se lee aparte para NO cambiar la aridad de _resolver_parametros_fracc
-    # (usada también por portal_colegiado). Default FALSE = NO bloquea (proceder + constancia).
-    try:
-        inicial_bloquea = bool(parametros_service.get_param(
-            db, "fraccionamiento", "inicial_minima_bloquea",
-            colegiado.organization_id, default=False,
-        ))
-    except Exception:
-        inicial_bloquea = False
+    # Inicial de monto LIBRE (decisión Duilio/Decano): la inicial NUNCA bloquea.
+    # El parámetro inicial_minima_bloquea quedó obsoleto como bloqueo (el % es solo
+    # sugerencia); ya no se lee aquí. Ver bloque de validación de inicial más abajo.
 
     if not (2 <= n_cuotas <= max_cuotas):
         raise HTTPException(
@@ -186,24 +179,18 @@ def crear_fraccionamiento(
             f"La deuda (S/ {total:.2f}) es menor al mínimo de S/ {deuda_min:.2f}"
         )
 
-    # ── Validar cuota inicial (regla 20%-no-bloquea del Decano) ──
-    # El % es REFERENCIA. Con inicial_minima_bloquea=FALSE (default) NO se bloquea:
-    # se procede con cualquier inicial y se deja CONSTANCIA de la excepción; nunca
-    # dar al colegiado la percepción de que no le quieren recibir el pago.
-    minimo_inicial = round(total * cuota_inicial_pct, 2)
+    # ── Cuota inicial de monto LIBRE (decisión Duilio/Decano) ──
+    # El % es SOLO SUGERENCIA; la inicial NUNCA bloquea (ni por hardcode ni por el
+    # parámetro inicial_minima_bloquea). Los montos son siempre distintos (cada
+    # colegiado paga lo que puede). Si el inicial está bajo el sugerido, se registra
+    # igual y se deja CONSTANCIA (DebtAction 'nota'), nunca se rechaza.
+    minimo_inicial = round(total * cuota_inicial_pct, 2)   # sugerido (informativo)
     advertencia_inicial = None
     if monto_cuota_inicial < minimo_inicial - 0.009:
-        if inicial_bloquea:
-            raise HTTPException(
-                400,
-                f"La cuota inicial mínima es S/ {minimo_inicial:.2f} "
-                f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f})"
-            )
         advertencia_inicial = (
-            f"Cuota inicial S/ {monto_cuota_inicial:.2f} por debajo del mínimo de "
-            f"referencia S/ {minimo_inicial:.2f} "
-            f"({int(cuota_inicial_pct * 100)}% de S/ {total:.2f}). "
-            f"Procede por excepción (inicial_minima_bloquea=FALSE)."
+            f"Cuota inicial S/ {monto_cuota_inicial:.2f} por debajo del SUGERIDO "
+            f"S/ {minimo_inicial:.2f} ({int(cuota_inicial_pct * 100)}%). "
+            f"Inicial de monto libre: se registra igual."
         )
     if monto_cuota_inicial >= total:
         raise HTTPException(
