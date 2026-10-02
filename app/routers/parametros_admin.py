@@ -61,9 +61,13 @@ def leer_seccion(
     if seccion == "fraccionamiento":
         # Los umbrales de PÉRDIDA se gestionan en el preset de Condiciones (fuente única).
         # Se ocultan aquí para no mostrar valores editables-pero-ignorados por el lector.
-        _ocultar = {"cuotas_impagas_perdida", "perdida_automatica"}
+        # inicial_minima_bloquea quedó OBSOLETO: la cuota inicial es de monto LIBRE
+        # (el % es solo sugerencia, nunca bloquea). Se oculta para que no se toque por caso.
+        _ocultar = {"cuotas_impagas_perdida", "perdida_automatica", "inicial_minima_bloquea"}
         detalle = [p for p in detalle if p.get("clave") not in _ocultar]
-        nota = "Los umbrales de pérdida de fraccionamiento se configuran en «Condiciones y Exoneraciones»."
+        nota = ("La cuota inicial es de MONTO LIBRE: el % de inicial es solo una SUGERENCIA "
+                "informativa y nunca bloquea (no hay que cambiar la tasa por caso). "
+                "Los umbrales de pérdida se configuran en «Condiciones y Exoneraciones».")
     return {
         "seccion": seccion,
         "etiqueta": etiqueta,
