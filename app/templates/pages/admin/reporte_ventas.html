@@ -11,8 +11,9 @@
     --accent:#a78bfa; --ok:#4ade80; --warn:#f9c64a; --bad:#f87171; --cyan:#38bdf8;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:1200px;margin:0 auto;padding:18px}
+  html{background:var(--bg);width:100%}
+  body{margin:0;width:100%;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{width:100%;max-width:1280px;margin:0 auto;padding:18px}
   h1{font-size:19px;margin:0 0 2px} .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
   .filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
@@ -24,8 +25,11 @@
   .kpi{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}
   .kpi .l{font-size:11px;color:var(--muted)} .kpi .v{font-size:22px;font-weight:800;margin-top:2px}
   .kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  #detector{overflow-x:auto}
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border)}
+  .tblwrap table,#detector table{min-width:520px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
   th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
   td.r,th.r{text-align:right} .mono{font-variant-numeric:tabular-nums}
   .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
@@ -147,16 +151,16 @@ function render(d){
   const pm=d.por_metodo; let mh='<table><tr><th>Método</th><th class="r">Cant.</th><th class="r">Total</th></tr>';
   for(const k of Object.keys(pm)) mh+=`<tr><td>${k}</td><td class="r">${pm[k].cantidad}</td><td class="r mono">${S(pm[k].total)}</td></tr>`;
   mh+='</table>';
-  if(d.mixto_referencia&&d.mixto_referencia.operaciones) mh+=`<div class="pill" style="margin-top:8px">ℹ ${d.mixto_referencia.nota}</div>`;
-  document.getElementById('p-metodo').innerHTML=mh;
+  let mnota = (d.mixto_referencia&&d.mixto_referencia.operaciones) ? `<div class="pill" style="margin-top:8px">ℹ ${d.mixto_referencia.nota}</div>` : '';
+  document.getElementById('p-metodo').innerHTML='<div class="tblwrap">'+mh+'</div>'+mnota;
   // Por concepto
   const pc=d.por_concepto; let ch='<table><tr><th>Concepto</th><th class="r">Total</th></tr>';
   for(const k of Object.keys(pc)) ch+=`<tr><td>${k}</td><td class="r mono">${S(pc[k])}</td></tr>`;
-  document.getElementById('p-concepto').innerHTML=ch+'</table>';
+  document.getElementById('p-concepto').innerHTML='<div class="tblwrap">'+ch+'</table></div>';
   // Por día
   const pd=d.por_dia; let dh='<table><tr><th>Día</th><th class="r">Ops</th><th class="r">Recaudado</th></tr>';
   for(const k of Object.keys(pd)) dh+=`<tr><td class="mono">${k}</td><td class="r">${pd[k].ops}</td><td class="r mono">${S(pd[k].recaudado)}</td></tr>`;
-  document.getElementById('p-dia').innerHTML=dh+'</table>';
+  document.getElementById('p-dia').innerHTML='<div class="tblwrap">'+dh+'</table></div>';
   // Puente
   const b=d.puente_conciliacion;
   document.getElementById('p-puente').innerHTML=`<div class="bridge">
@@ -169,10 +173,11 @@ function render(d){
   // Detalle
   const det2=d.detalle; let th='<table><tr><th>Fecha</th><th>Hora</th><th>Colegiado</th><th>Concepto(s)</th><th>Método</th><th>Comprob.</th><th>Origen</th><th class="r">Monto</th></tr>';
   th+=det2.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.hora}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.conceptos}</td><td>${x.metodo}</td><td><span class="badge ${x.tiene_comprobante?'b-si':'b-no'}">${x.tiene_comprobante?'sí':'no'}</span></td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('');
-  document.getElementById('p-detalle').innerHTML=th+'</table>'+`<div class="pill" style="margin-top:6px">${det2.length} operación(es).</div>`;
+  document.getElementById('p-detalle').innerHTML='<div class="tblwrap">'+th+'</table></div>'+`<div class="pill" style="margin-top:6px">${det2.length} operación(es).</div>`;
 }
-// Autocarga si hay datos precargados (vista estática/demo); si no, espera "Buscar".
+// Autocarga: datos precargados (vista estática/demo) o, en la app, el mes actual al abrir.
 if(window.__PRECARGA){render(window.__PRECARGA);}
+else{try{cargar();}catch(e){}}
 </script>
 </body>
 </html>
