@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporte de Ventas por Rango · CCPL</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#172033; --border:#334155;
+    --ink:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
+    --accent:#a78bfa; --ok:#4ade80; --warn:#f9c64a; --bad:#f87171; --cyan:#38bdf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px}
+  h1{font-size:19px;margin:0 0 2px} .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+  .filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+  .f label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+  input,select{background:var(--panel2);border:1px solid var(--border);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:13px}
+  button{background:var(--accent);color:#1a1033;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:13px}
+  button:hover{filter:brightness(1.08)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .kpi .l{font-size:11px;color:var(--muted)} .kpi .v{font-size:22px;font-weight:800;margin-top:2px}
+  .kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+  td.r,th.r{text-align:right} .mono{font-variant-numeric:tabular-nums}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{background:var(--panel2);border:1px solid var(--border);color:var(--muted);padding:6px 13px;border-radius:999px;cursor:pointer;font-size:12px}
+  .tab.on{background:var(--accent);color:#1a1033;font-weight:700;border-color:var(--accent)}
+  .pane{display:none} .pane.on{display:block}
+  .bridge{font-variant-numeric:tabular-nums;max-width:430px}
+  .bridge .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border)}
+  .bridge .row.tot{border-bottom:0;border-top:2px solid var(--border);margin-top:4px;padding-top:7px;font-weight:800}
+  .det-alert{border:1px solid var(--bad);background:rgba(248,113,113,.08)}
+  .det-ok{border:1px solid var(--ok);background:rgba(74,222,128,.07)}
+  .badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px}
+  .b-no{background:rgba(248,113,113,.18);color:#fecaca} .b-si{background:rgba(74,222,128,.16);color:#bbf7d0}
+  .b-sincdr{background:rgba(249,198,74,.16);color:#fde68a}
+  .pill{color:var(--faint);font-size:11px}
+  .muted{color:var(--muted)}
+  @media(max-width:640px){.filtros{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reporte de Ventas por Rango</h1>
+  <div class="sub">Colegio de Contadores Públicos de Loreto · solo lectura</div>
+
+  <div class="card">
+    <div class="filtros">
+      <div class="f"><label>Desde</label><input type="date" id="desde"></div>
+      <div class="f"><label>Hasta</label><input type="date" id="hasta"></div>
+      <div class="f"><label>Método</label><select id="metodo">
+        <option value="todos">Todos</option><option>efectivo</option><option>tarjeta</option>
+        <option>transferencia</option><option>yape</option><option>plin</option><option>deposito</option><option>mixto</option></select></div>
+      <div class="f"><label>Concepto</label><select id="concepto">
+        <option value="todos">Todos</option><option>cuotas</option><option>extraordinarias</option>
+        <option>multas</option><option>fraccionamiento</option><option>constancias</option>
+        <option>derechos</option><option>eventos</option><option>mercaderia</option><option>otros</option></select></div>
+      <div class="f"><label>Origen</label><select id="origen">
+        <option value="todos">Todos</option><option value="caja_fisica">Caja física</option>
+        <option value="externo_comunicado">Externo comunicado</option><option value="portal_openpay">Portal OpenPay</option></select></div>
+      <div class="f"><button onclick="cargar()">Buscar</button></div>
+    </div>
+  </div>
+
+  <div id="estado" class="muted" style="padding:6px 2px"></div>
+  <div id="salida" style="display:none">
+    <!-- KPIs -->
+    <div class="card"><div class="kpis" id="kpis"></div></div>
+    <!-- Detector -->
+    <div class="card" id="detector"></div>
+    <!-- Puente + desgloses -->
+    <div class="card">
+      <div class="tabs">
+        <div class="tab on" data-p="metodo" onclick="tab('metodo')">Por método</div>
+        <div class="tab" data-p="concepto" onclick="tab('concepto')">Por concepto</div>
+        <div class="tab" data-p="dia" onclick="tab('dia')">Por día</div>
+        <div class="tab" data-p="puente" onclick="tab('puente')">Conciliación</div>
+        <div class="tab" data-p="detalle" onclick="tab('detalle')">Detalle</div>
+      </div>
+      <div class="pane on" id="p-metodo"></div>
+      <div class="pane" id="p-concepto"></div>
+      <div class="pane" id="p-dia"></div>
+      <div class="pane" id="p-puente"></div>
+      <div class="pane" id="p-detalle"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S=n=>'S/ '+(Number(n||0)).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function hoyISO(d){return d.toISOString().slice(0,10)}
+(function initFechas(){
+  const h=new Date(); const d=new Date(h.getFullYear(),h.getMonth(),1);
+  document.getElementById('desde').value=hoyISO(d);
+  document.getElementById('hasta').value=hoyISO(h);
+})();
+function tab(p){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.p===p));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('on',x.id==='p-'+p));
+}
+async function cargar(){
+  const q=new URLSearchParams({desde:desde.value,hasta:hasta.value,metodo:metodo.value,concepto:concepto.value,origen:origen.value});
+  document.getElementById('estado').textContent='Consultando…';
+  document.getElementById('salida').style.display='none';
+  try{
+    const r=await fetch('/api/reportes/ventas?'+q.toString(),{credentials:'same-origin'});
+    if(!r.ok){document.getElementById('estado').textContent='Error '+r.status+': '+(await r.text()).slice(0,200);return;}
+    render(await r.json());
+  }catch(e){document.getElementById('estado').textContent='Error de red: '+e;}
+}
+function render(d){
+  window.__REP=d;
+  document.getElementById('estado').textContent='';
+  document.getElementById('salida').style.display='block';
+  const vb=d.vista_b, det=d.detector;
+  const hayAnom = !det.cuadra;
+  // KPIs
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi ok"><div class="l">Total recaudado (Vista A)</div><div class="v mono">${S(d.totales.total_recaudado)}</div></div>
+    <div class="kpi"><div class="l">Facturado neto (Vista B = boletas − NC)</div><div class="v mono">${S(vb.neto)}</div></div>
+    <div class="kpi ${(Math.abs(det.diferencia_A_menos_Bneto)>=0.01||hayAnom)?'bad':'ok'}">
+       <div class="l">Diferencia A − B</div><div class="v mono">${S(det.diferencia_A_menos_Bneto)}</div></div>
+    <div class="kpi"><div class="l">Operaciones / Boletas / NC</div><div class="v">${d.totales.n_operaciones} / ${vb.n_boletas} / ${vb.n_nc}</div></div>`;
+  // Detector
+  const dc=document.getElementById('detector');
+  if(!hayAnom){
+    dc.className='card det-ok';
+    dc.innerHTML='<strong style="color:var(--ok)">✓ Sin anomalías</strong> <span class="muted">— cada pago tiene su comprobante y cada comprobante su pago vigente. Diferencia 0.</span>';
+  }else{
+    const psc=det.pagos_sin_comprobante, csp=det.comprobantes_sin_pago;
+    let h='<strong style="color:var(--bad)">⚠ Descuadres detectados</strong> <span class="muted">(aunque el dinero netee, hay anomalías estructurales)</span>';
+    h+=`<div style="margin:8px 0 4px"><b>Pagos sin comprobante:</b> ${psc.cantidad} (${S(psc.monto)})</div>`;
+    if(psc.cantidad){h+='<table><tr><th>Fecha</th><th>Colegiado</th><th>Método</th><th>Origen</th><th class="r">Monto</th></tr>'+
+      psc.lista.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.metodo}</td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('')+'</table>';}
+    h+=`<div style="margin:10px 0 4px"><b>Comprobantes sin pago vigente:</b> ${csp.cantidad} (${S(csp.monto)}) <span class="muted">— incluye boletas rechazadas/reemitidas (patrón Sosa/Ríos)</span></div>`;
+    if(csp.cantidad){h+='<table><tr><th>Comprobante</th><th>Cliente</th><th>Estado SUNAT</th><th>Pago</th><th class="r">Monto</th></tr>'+
+      csp.lista.map(x=>`<tr><td class="mono">${x.serie_numero}</td><td>${x.cliente||''}</td><td><span class="badge b-no">${x.estado_sunat}</span></td><td>${x.pago_status}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('')+'</table>';}
+    dc.className='card det-alert'; dc.innerHTML=h;
+  }
+  // Por método (+ mixto_referencia)
+  const pm=d.por_metodo; let mh='<table><tr><th>Método</th><th class="r">Cant.</th><th class="r">Total</th></tr>';
+  for(const k of Object.keys(pm)) mh+=`<tr><td>${k}</td><td class="r">${pm[k].cantidad}</td><td class="r mono">${S(pm[k].total)}</td></tr>`;
+  mh+='</table>';
+  if(d.mixto_referencia&&d.mixto_referencia.operaciones) mh+=`<div class="pill" style="margin-top:8px">ℹ ${d.mixto_referencia.nota}</div>`;
+  document.getElementById('p-metodo').innerHTML=mh;
+  // Por concepto
+  const pc=d.por_concepto; let ch='<table><tr><th>Concepto</th><th class="r">Total</th></tr>';
+  for(const k of Object.keys(pc)) ch+=`<tr><td>${k}</td><td class="r mono">${S(pc[k])}</td></tr>`;
+  document.getElementById('p-concepto').innerHTML=ch+'</table>';
+  // Por día
+  const pd=d.por_dia; let dh='<table><tr><th>Día</th><th class="r">Ops</th><th class="r">Recaudado</th></tr>';
+  for(const k of Object.keys(pd)) dh+=`<tr><td class="mono">${k}</td><td class="r">${pd[k].ops}</td><td class="r mono">${S(pd[k].recaudado)}</td></tr>`;
+  document.getElementById('p-dia').innerHTML=dh+'</table>';
+  // Puente
+  const b=d.puente_conciliacion;
+  document.getElementById('p-puente').innerHTML=`<div class="bridge">
+    <div class="row"><span>Total Vista A (todo)</span><span class="mono">${S(b.total_vista_a)}</span></div>
+    <div class="row"><span>− Externo comunicado</span><span class="mono">${S(b.menos_externo_comunicado)}</span></div>
+    <div class="row"><span>− Portal OpenPay</span><span class="mono">${S(b.menos_portal_openpay)}</span></div>
+    <div class="row"><span>− Pagos sin comprobante</span><span class="mono">${S(b.menos_sin_comprobante)}</span></div>
+    <div class="row tot"><span>= Recaudación caja física</span><span class="mono">${S(b.recaudacion_caja_fisica)}</span></div>
+    <div class="pill" style="margin-top:6px">Debe igualar la suma de los cierres de caja del rango.</div></div>`;
+  // Detalle
+  const det2=d.detalle; let th='<table><tr><th>Fecha</th><th>Hora</th><th>Colegiado</th><th>Concepto(s)</th><th>Método</th><th>Comprob.</th><th>Origen</th><th class="r">Monto</th></tr>';
+  th+=det2.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.hora}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.conceptos}</td><td>${x.metodo}</td><td><span class="badge ${x.tiene_comprobante?'b-si':'b-no'}">${x.tiene_comprobante?'sí':'no'}</span></td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('');
+  document.getElementById('p-detalle').innerHTML=th+'</table>'+`<div class="pill" style="margin-top:6px">${det2.length} operación(es).</div>`;
+}
+// Autocarga si hay datos precargados (vista estática/demo); si no, espera "Buscar".
+if(window.__PRECARGA){render(window.__PRECARGA);}
+</script>
+</body>
+</html>
