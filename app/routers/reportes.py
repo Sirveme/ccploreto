@@ -406,3 +406,102 @@ async def exportar_dia(
 ):
     """Redirige al export de reporte-caja/excel"""
     return await reporte_caja_excel(fecha, None, db)
+
+# ══════════════════════════════════════════════════════════
+# REPORTE DE VENTAS POR RANGO (módulo piloto Consultas/Reportes)
+# Fuente única: reporte_ventas_service.generar_reporte_ventas.
+# 100% LECTURA. Rol: admin + secretaría (D5); sote = mantenedor.
+# ══════════════════════════════════════════════════════════
+from datetime import date as _date_vr
+from app.routers.dashboard import get_current_member as _gcm_vr
+from app.models import Member as _Member_vr
+from app.services.reporte_ventas_service import generar_reporte_ventas as _gen_ventas
+
+
+@router.get("/ventas")
+async def reporte_ventas_rango(
+    desde: str,
+    hasta: str,
+    metodo: Optional[str] = None,
+    concepto: Optional[str] = None,
+    origen: Optional[str] = None,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Reporte de ventas por rango (Vista A + Vista B + detector). JSON para pantalla."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    try:
+        d = _date_vr.fromisoformat(desde)
+        h = _date_vr.fromisoformat(hasta)
+    except ValueError:
+        raise HTTPException(400, "Fechas inválidas (formato YYYY-MM-DD)")
+    if h < d:
+        raise HTTPException(400, "'hasta' debe ser mayor o igual que 'desde'")
+    if (h - d).days > 366:
+        raise HTTPException(400, "Rango máximo 366 días")
+    return _gen_ventas(db, d, h,
+                       {"metodo": metodo, "concepto": concepto, "origen": origen},
+                       member.organization_id)
+
+
+@router.get("/ventas.xlsx")
+async def reporte_ventas_xlsx(
+    desde: str,
+    hasta: str,
+    metodo: Optional[str] = None,
+    concepto: Optional[str] = None,
+    origen: Optional[str] = None,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Descarga Excel del reporte de ventas por rango (mismos filtros/guard). 100% lectura."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    try:
+        d = _date_vr.fromisoformat(desde); h = _date_vr.fromisoformat(hasta)
+    except ValueError:
+        raise HTTPException(400, "Fechas inválidas (formato YYYY-MM-DD)")
+    if h < d:
+        raise HTTPException(400, "'hasta' debe ser mayor o igual que 'desde'")
+    if (h - d).days > 366:
+        raise HTTPException(400, "Rango máximo 366 días")
+    from app.services.reporte_ventas_service import generar_excel_ventas
+    from fastapi.responses import Response
+    xls = generar_excel_ventas(db, d, h, {"metodo": metodo, "concepto": concepto, "origen": origen},
+                               member.organization_id)
+    fname = f"reporte_ventas_{desde}_a_{hasta}.xlsx"
+    return Response(content=xls,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/ventas.pdf")
+async def reporte_ventas_pdf(
+    desde: str,
+    hasta: str,
+    metodo: Optional[str] = None,
+    concepto: Optional[str] = None,
+    origen: Optional[str] = None,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Descarga PDF del reporte de ventas por rango (mismos filtros/guard). 100% lectura."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    try:
+        d = _date_vr.fromisoformat(desde); h = _date_vr.fromisoformat(hasta)
+    except ValueError:
+        raise HTTPException(400, "Fechas inválidas (formato YYYY-MM-DD)")
+    if h < d:
+        raise HTTPException(400, "'hasta' debe ser mayor o igual que 'desde'")
+    if (h - d).days > 366:
+        raise HTTPException(400, "Rango máximo 366 días")
+    from app.services.reporte_ventas_service import generar_pdf_ventas
+    from fastapi.responses import Response
+    uname = getattr(getattr(member, "user", None), "name", None) or "-"
+    pdf = generar_pdf_ventas(db, d, h, {"metodo": metodo, "concepto": concepto, "origen": origen},
+                             member.organization_id, usuario=uname)
+    fname = f"reporte_ventas_{desde}_a_{hasta}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{fname}"'})

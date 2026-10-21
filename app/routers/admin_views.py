@@ -77,6 +77,22 @@ async def admin_parametros_page(
     })
 
 
+@router.get("/admin/reportes/ventas", response_class=HTMLResponse)
+async def admin_reporte_ventas_page(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Reporte de Ventas por Rango (módulo piloto Consultas/Reportes). 100% lectura.
+    Rol: admin + secretaría (D5); sote = mantenedor. NO cajero (ya tiene su reporte del día)."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    return templates.TemplateResponse("pages/admin/reporte_ventas.html", {
+        "request": request,
+        "role": member.role,
+    })
+
+
 @router.get("/admin/config", response_class=HTMLResponse)
 async def admin_config_page(
     request: Request,
