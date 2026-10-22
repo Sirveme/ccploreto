@@ -462,10 +462,7 @@ async def admin_comprobantes(request: Request, db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.id == 1).first()
     return templates.TemplateResponse("admin_comprobantes.html", {"request": request, "org": org})
 
-# Ruta del template
-@app.get("/admin/reportes")
-async def admin_reportes(request: Request):
-    return templates.TemplateResponse("pages/reportes.html", {"request": request})
+# /admin/reportes y /admin/reportes/clasico viven en admin_views.py (con guard de rol).
 
 
 @app.get("/tesoreria")
