@@ -544,7 +544,7 @@ def generar_excel_ventas(db: Session, desde: date, hasta: date,
         ("Total recaudado", t["total_recaudado"]),
         ("N° operaciones", t["n_operaciones"]),
         ("Alcance", "100% lectura — sin efectos secundarios"),
-        ("Sistema", "CCPL · Perú Sistemas Pro"),
+        ("Sistema", "Colegio de Contadores Públicos de Loreto"),
     ]
     for i, (k, v) in enumerate(meta, start=1):
         ws.cell(i, 1, k).font = BOLD; ws.cell(i, 2, v)
@@ -578,7 +578,7 @@ def generar_pdf_ventas(db: Session, desde: date, hasta: date,
     def _footer(canvas, doc):
         canvas.saveState()
         canvas.setFont("Helvetica", 7); canvas.setFillColor(colors.grey)
-        canvas.drawString(16 * mm, 9 * mm, "Generado por el sistema del CCPL - Peru Sistemas Pro")
+        canvas.drawString(16 * mm, 9 * mm, "Colegio de Contadores Publicos de Loreto")
         canvas.drawRightString(A4[0] - 16 * mm, 9 * mm, f"Pagina {doc.page}")
         canvas.restoreState()
 
