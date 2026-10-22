@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes · CCPL</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#172033; --border:#334155;
+    --ink:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
+    --accent:#a78bfa; --ok:#4ade80; --warn:#f9c64a; --cyan:#38bdf8;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg);width:100%}
+  body{margin:0;width:100%;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{width:100%;max-width:1200px;margin:0 auto;padding-block:22px;
+        padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+  h1{font-size:22px;margin:0}
+  .brand{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .sec{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin:18px 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .card.dev{opacity:.62}
+  .card .ic{font-size:22px}
+  .card h3{margin:0;font-size:15px}
+  .card p{margin:0;color:var(--muted);font-size:12.5px;flex:1}
+  .badge{align-self:flex-start;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.3px}
+  .b-ok{background:rgba(74,222,128,.16);color:#bbf7d0}
+  .b-dev{background:rgba(249,198,74,.15);color:#fde68a}
+  .salidas{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .salidas a{font-size:12px;text-decoration:none;color:var(--ink);background:var(--panel2);border:1px solid var(--border);
+             border-radius:8px;padding:5px 10px;transition:border-color .15s}
+  .salidas a:hover{border-color:var(--accent);color:#fff}
+  .salidas a.disabled{color:var(--faint);pointer-events:none;border-style:dashed}
+  .open{margin-top:2px;align-self:flex-start;text-decoration:none;color:#1a1033;background:var(--accent);
+        border-radius:8px;padding:6px 14px;font-weight:700;font-size:12.5px}
+  .open:hover{filter:brightness(1.08)}
+  .foot{color:var(--faint);font-size:11px;margin-top:26px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Consultas, Reportes y Descargas</h1>
+    <span class="brand">CCPL · Perú Sistemas Pro</span>
+  </div>
+  <div class="sub">Centro de reportes del Colegio. Elige un dominio. Cada reporte funcional ofrece <b>Consulta</b> (pantalla), <b>Reporte</b> (PDF) y <b>Descarga</b> (Excel).</div>
+
+  <div class="sec">Disponibles</div>
+  <div class="grid">
+
+    <div class="card">
+      <div class="ic">💵</div>
+      <span class="badge b-ok">Funcional</span>
+      <h3>Ventas e Ingresos</h3>
+      <p>Recaudación por rango de fechas: KPIs, desgloses por método, concepto y día, y detalle operación por operación.</p>
+      <div class="salidas">
+        <a href="/admin/reportes/ventas">Consulta</a>
+        <a href="/api/reportes/ventas.pdf?desde=INICIO&hasta=HOY" id="lnk-pdf">Reporte (PDF)</a>
+        <a href="/api/reportes/ventas.xlsx?desde=INICIO&hasta=HOY" id="lnk-xls">Descarga (Excel)</a>
+      </div>
+      <a class="open" href="/admin/reportes/ventas">Abrir ventas →</a>
+    </div>
+
+    <div class="card">
+      <div class="ic">🧾</div>
+      <span class="badge b-ok">Funcional</span>
+      <h3>Caja / Arqueo</h3>
+      <p>Reporte de caja y cierre del día (pantalla clásica: Reporte de Caja y Registro de Ventas 14.1 SUNAT).</p>
+      <a class="open" href="/admin/reportes/clasico">Abrir caja →</a>
+    </div>
+
+    <div class="card">
+      <div class="ic">📅</div>
+      <span class="badge b-ok">Funcional</span>
+      <h3>Resumen Mensual</h3>
+      <p>Resumen de ingresos por mes (pantalla clásica, pestaña Resumen Mensual).</p>
+      <a class="open" href="/admin/reportes/clasico">Abrir resumen →</a>
+    </div>
+
+  </div>
+
+  <div class="sec">En desarrollo</div>
+  <div class="grid">
+    <div class="card dev"><div class="ic">👥</div><span class="badge b-dev">En desarrollo</span><h3>Colegiados</h3><p>Padrón, condición, habilidad. Próximamente.</p></div>
+    <div class="card dev"><div class="ic">📑</div><span class="badge b-dev">En desarrollo</span><h3>Fraccionamientos</h3><p>Planes, cuotas y estado. Próximamente.</p></div>
+    <div class="card dev"><div class="ic">🏦</div><span class="badge b-dev">En desarrollo</span><h3>Aportes Junta</h3><p>Aportes a la JDCCPP por período. Próximamente.</p></div>
+    <div class="card dev"><div class="ic">📄</div><span class="badge b-dev">En desarrollo</span><h3>Comprobantes</h3><p>Boletas, facturas y notas de crédito SUNAT. Próximamente.</p></div>
+    <div class="card dev"><div class="ic">📤</div><span class="badge b-dev">En desarrollo</span><h3>Egresos</h3><p>Salidas de caja y gastos. Próximamente.</p></div>
+    <div class="card dev"><div class="ic">🗳️</div><span class="badge b-dev">En desarrollo</span><h3>Asambleas</h3><p>Asistencia, justificaciones y multas. Próximamente.</p></div>
+  </div>
+
+  <div class="foot">Centro de reportes · 100% lectura · CCPL — Perú Sistemas Pro</div>
+</div>
+<script>
+  // Fija los enlaces de descarga del dominio Ventas al mes actual (1 → hoy).
+  (function(){
+    const h=new Date(), iso=d=>d.toISOString().slice(0,10);
+    const ini=iso(new Date(h.getFullYear(),h.getMonth(),1)), hoy=iso(h);
+    for(const id of ['lnk-pdf','lnk-xls']){
+      const a=document.getElementById(id);
+      if(a) a.href=a.getAttribute('href').replace('INICIO',ini).replace('HOY',hoy);
+    }
+  })();
+</script>
+</body>
+</html>

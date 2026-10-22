@@ -76,8 +76,6 @@
   <div id="salida" style="display:none">
     <!-- KPIs -->
     <div class="card"><div class="kpis" id="kpis"></div></div>
-    <!-- Detector -->
-    <div class="card" id="detector"></div>
     <!-- Puente + desgloses -->
     <div class="card">
       <div class="tabs">
@@ -122,31 +120,10 @@ function render(d){
   window.__REP=d;
   document.getElementById('estado').textContent='';
   document.getElementById('salida').style.display='block';
-  const vb=d.vista_b, det=d.detector;
-  const hayAnom = !det.cuadra;
-  // KPIs
+  // KPIs (reporte limpio: solo recaudación del arqueo)
   document.getElementById('kpis').innerHTML=`
-    <div class="kpi ok"><div class="l">Total recaudado (Vista A)</div><div class="v mono">${S(d.totales.total_recaudado)}</div></div>
-    <div class="kpi"><div class="l">Facturado neto (Vista B = boletas − NC)</div><div class="v mono">${S(vb.neto)}</div></div>
-    <div class="kpi ${(Math.abs(det.diferencia_A_menos_Bneto)>=0.01||hayAnom)?'bad':'ok'}">
-       <div class="l">Diferencia A − B</div><div class="v mono">${S(det.diferencia_A_menos_Bneto)}</div></div>
-    <div class="kpi"><div class="l">Operaciones / Boletas / NC</div><div class="v">${d.totales.n_operaciones} / ${vb.n_boletas} / ${vb.n_nc}</div></div>`;
-  // Detector
-  const dc=document.getElementById('detector');
-  if(!hayAnom){
-    dc.className='card det-ok';
-    dc.innerHTML='<strong style="color:var(--ok)">✓ Sin anomalías</strong> <span class="muted">— cada pago tiene su comprobante y cada comprobante su pago vigente. Diferencia 0.</span>';
-  }else{
-    const psc=det.pagos_sin_comprobante, csp=det.comprobantes_sin_pago;
-    let h='<strong style="color:var(--bad)">⚠ Descuadres detectados</strong> <span class="muted">(aunque el dinero netee, hay anomalías estructurales)</span>';
-    h+=`<div style="margin:8px 0 4px"><b>Pagos sin comprobante:</b> ${psc.cantidad} (${S(psc.monto)})</div>`;
-    if(psc.cantidad){h+='<table><tr><th>Fecha</th><th>Colegiado</th><th>Método</th><th>Origen</th><th class="r">Monto</th></tr>'+
-      psc.lista.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.metodo}</td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('')+'</table>';}
-    h+=`<div style="margin:10px 0 4px"><b>Comprobantes sin pago vigente:</b> ${csp.cantidad} (${S(csp.monto)}) <span class="muted">— incluye boletas rechazadas/reemitidas (patrón Sosa/Ríos)</span></div>`;
-    if(csp.cantidad){h+='<table><tr><th>Comprobante</th><th>Cliente</th><th>Estado SUNAT</th><th>Pago</th><th class="r">Monto</th></tr>'+
-      csp.lista.map(x=>`<tr><td class="mono">${x.serie_numero}</td><td>${x.cliente||''}</td><td><span class="badge b-no">${x.estado_sunat}</span></td><td>${x.pago_status}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('')+'</table>';}
-    dc.className='card det-alert'; dc.innerHTML=h;
-  }
+    <div class="kpi ok"><div class="l">Total recaudado</div><div class="v mono">${S(d.totales.total_recaudado)}</div></div>
+    <div class="kpi"><div class="l">N° de operaciones</div><div class="v">${d.totales.n_operaciones}</div></div>`;
   // Por método (+ mixto_referencia)
   const pm=d.por_metodo; let mh='<table><tr><th>Método</th><th class="r">Cant.</th><th class="r">Total</th></tr>';
   for(const k of Object.keys(pm)) mh+=`<tr><td>${k}</td><td class="r">${pm[k].cantidad}</td><td class="r mono">${S(pm[k].total)}</td></tr>`;
@@ -171,8 +148,8 @@ function render(d){
     <div class="row tot"><span>= Recaudación caja física</span><span class="mono">${S(b.recaudacion_caja_fisica)}</span></div>
     <div class="pill" style="margin-top:6px">Debe igualar la suma de los cierres de caja del rango.</div></div>`;
   // Detalle
-  const det2=d.detalle; let th='<table><tr><th>Fecha</th><th>Hora</th><th>Colegiado</th><th>Concepto(s)</th><th>Método</th><th>Comprob.</th><th>Origen</th><th class="r">Monto</th></tr>';
-  th+=det2.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.hora}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.conceptos}</td><td>${x.metodo}</td><td><span class="badge ${x.tiene_comprobante?'b-si':'b-no'}">${x.tiene_comprobante?'sí':'no'}</span></td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('');
+  const det2=d.detalle; let th='<table><tr><th>Fecha</th><th>Hora</th><th>Colegiado</th><th>Concepto(s)</th><th>Método</th><th>Comprobante</th><th>Estado</th><th>Origen</th><th class="r">Monto</th></tr>';
+  th+=det2.map(x=>`<tr><td class="mono">${x.fecha}</td><td>${x.hora}</td><td>${x.colegiado||''} <span class="pill">${x.matricula||''}</span></td><td>${x.conceptos}</td><td>${x.metodo}</td><td class="mono">${x.comprobante||'—'}</td><td>${x.estado_sunat||'—'}</td><td>${x.origen}</td><td class="r mono">${S(x.monto)}</td></tr>`).join('');
   document.getElementById('p-detalle').innerHTML='<div class="tblwrap">'+th+'</table></div>'+`<div class="pill" style="margin-top:6px">${det2.length} operación(es).</div>`;
 }
 // Autocarga: datos precargados (vista estática/demo) o, en la app, el mes actual al abrir.
