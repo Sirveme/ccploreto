@@ -3,100 +3,208 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reportes · CCPL</title>
+<title>Centro de Reportes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&display=swap">
 <style>
+  /* Layout: hero a todo el ancho + categorías; cada categoría = encabezado + rejilla de dominios. */
   :root{
-    --bg:#0f172a; --panel:#1e293b; --panel2:#172033; --border:#334155;
-    --ink:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
-    --accent:#a78bfa; --ok:#4ade80; --warn:#f9c64a; --cyan:#38bdf8;
+    --bg:#0a1120; --panel:#111c30; --panel2:#0d1627; --border:#22304a;
+    --ink:#eaf1fb; --muted:#9fb0c7; --faint:#6b7a93;
+    --accent:#a78bfa;
+    --display:'Sora',system-ui,Segoe UI,sans-serif;
+    --body:system-ui,Segoe UI,Roboto,sans-serif;
     color-scheme:dark;
   }
   *{box-sizing:border-box}
   html{background:var(--bg);width:100%}
-  body{margin:0;width:100%;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
-  .wrap{width:100%;max-width:1200px;margin:0 auto;padding-block:22px;
-        padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-  .top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-  h1{font-size:22px;margin:0}
-  .brand{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
-  .sec{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin:18px 0 10px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
-  .card.dev{opacity:.62}
-  .card .ic{font-size:22px}
-  .card h3{margin:0;font-size:15px}
-  .card p{margin:0;color:var(--muted);font-size:12.5px;flex:1}
-  .badge{align-self:flex-start;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.3px}
-  .b-ok{background:rgba(74,222,128,.16);color:#bbf7d0}
-  .b-dev{background:rgba(249,198,74,.15);color:#fde68a}
-  .salidas{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-  .salidas a{font-size:12px;text-decoration:none;color:var(--ink);background:var(--panel2);border:1px solid var(--border);
-             border-radius:8px;padding:5px 10px;transition:border-color .15s}
-  .salidas a:hover{border-color:var(--accent);color:#fff}
-  .salidas a.disabled{color:var(--faint);pointer-events:none;border-style:dashed}
-  .open{margin-top:2px;align-self:flex-start;text-decoration:none;color:#1a1033;background:var(--accent);
-        border-radius:8px;padding:6px 14px;font-weight:700;font-size:12.5px}
-  .open:hover{filter:brightness(1.08)}
-  .foot{color:var(--faint);font-size:11px;margin-top:26px;text-align:center}
+  body{margin:0;width:100%;min-height:100vh;background:
+        radial-gradient(1100px 520px at 12% -8%, rgba(56,189,248,.10), transparent 60%),
+        radial-gradient(900px 480px at 92% -2%, rgba(167,139,250,.12), transparent 55%),
+        var(--bg);
+       color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  .wrap{width:100%;max-width:1200px;margin:0 auto;padding-block:30px 44px;
+        padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+
+  /* Hero */
+  .hero{margin-bottom:30px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.16em;
+           text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(167,139,250,.18)}
+  h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5.2vw,52px);line-height:1.04;margin:0;
+     letter-spacing:-.02em;text-wrap:balance;
+     background:linear-gradient(180deg,#ffffff,#b9c7dc);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{margin:14px 0 0;font-size:clamp(15px,2vw,19px);color:var(--muted);max-width:60ch;line-height:1.5}
+  .lede b{color:var(--ink);font-weight:600}
+
+  /* Encabezado de categoría */
+  .cat{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+       color:var(--faint);margin:30px 0 14px;display:flex;align-items:center;gap:12px}
+  .cat .pin{width:9px;height:9px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px -2px var(--accent)}
+  .cat::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:16px}
+
+  /* Tarjeta de dominio (es un DIV; los enlaces viven DENTRO — nunca anchors anidados) */
+  .card{position:relative;overflow:hidden;background:
+          linear-gradient(180deg, color-mix(in srgb, var(--c,#8aa) 10%, var(--panel)) 0%, var(--panel) 46%);
+        border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0;
+        transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+        animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+  .card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--c),transparent)}
+  .card.func:hover{transform:translateY(-6px);border-color:color-mix(in srgb,var(--c) 55%, var(--border));
+              box-shadow:0 18px 40px -18px rgba(0,0,0,.7), 0 0 0 1px color-mix(in srgb,var(--c) 30%, transparent)}
+  .card.func:hover .icon{transform:scale(1.07)}
+  .icon{width:50px;height:50px;border-radius:13px;display:grid;place-items:center;font-size:25px;
+        background:color-mix(in srgb,var(--c) 16%, var(--panel2));
+        border:1px solid color-mix(in srgb,var(--c) 32%, var(--border));
+        box-shadow:0 0 22px -6px color-mix(in srgb,var(--c) 55%, transparent);transition:transform .22s ease}
+  .badge{position:absolute;top:15px;right:15px;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:3px 10px;border-radius:999px}
+  .b-ok{color:#bbf7d0;background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.3)}
+  .b-dev{color:#dcc6ff;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);display:inline-flex;align-items:center;gap:6px}
+  .b-dev .pulse{width:6px;height:6px;border-radius:50%;background:#c4b5fd;animation:pulse 1.8s ease-in-out infinite}
+  h3{font-family:var(--display);font-weight:700;font-size:19px;margin:2px 0 0;letter-spacing:-.01em}
+  .card p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.48;flex:1}
+
+  /* Salidas: botones claros en fila (envuelven en móvil), NO barra suelta */
+  .salidas{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .salidas a{flex:0 0 auto;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--ink);
+             background:color-mix(in srgb,var(--c) 10%, var(--panel2));
+             border:1px solid color-mix(in srgb,var(--c) 26%, var(--border));
+             border-radius:9px;padding:7px 12px;line-height:1;transition:background .15s,border-color .15s}
+  .salidas a:hover{background:color-mix(in srgb,var(--c) 24%, var(--panel2));border-color:var(--c)}
+  .open{margin-top:4px;align-self:flex-start;text-decoration:none;font-family:var(--display);font-weight:700;font-size:13px;
+        color:#0a1120;background:var(--c);border-radius:10px;padding:8px 15px;display:inline-flex;align-items:center;gap:7px;
+        transition:filter .15s, gap .2s}
+  .open:hover{filter:brightness(1.08);gap:11px}
+  .soon{margin-top:4px;align-self:flex-start;font-size:12.5px;color:var(--faint);font-style:italic}
+
+  .foot{color:var(--faint);font-size:12px;margin-top:36px;text-align:center;font-family:var(--display);letter-spacing:.02em}
+
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes pulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+  @media (prefers-reduced-motion: reduce){ .card{animation:none} .card.func:hover{transform:none} .b-dev .pulse{animation:none} .open:hover{gap:7px} }
+  @media(max-width:540px){ .wrap{padding-block:22px 32px} h1{font-size:30px} }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <h1>Consultas, Reportes y Descargas</h1>
-    <span class="brand">CCPL · Perú Sistemas Pro</span>
-  </div>
-  <div class="sub">Centro de reportes del Colegio. Elige un dominio. Cada reporte funcional ofrece <b>Consulta</b> (pantalla), <b>Reporte</b> (PDF) y <b>Descarga</b> (Excel).</div>
 
-  <div class="sec">Disponibles</div>
+  <div class="hero">
+    <span class="eyebrow"><span class="dot"></span>Colegio de Contadores Públicos de Loreto</span>
+    <h1>Centro de Reportes</h1>
+    <p class="lede">Todo el movimiento del Colegio en un solo lugar. <b>Consultas, reportes y descargas</b> por dominio —
+       cada uno con su vista en pantalla, su PDF y su Excel.</p>
+  </div>
+
+  <!-- ══ MOVIMIENTO / CAJA ══ -->
+  <div class="cat"><span class="pin" style="background:#34d399;box-shadow:0 0 12px -2px #34d399"></span>Movimiento / Caja</div>
   <div class="grid">
 
-    <div class="card">
-      <div class="ic">💵</div>
+    <div class="card func" style="--c:#34d399">
       <span class="badge b-ok">Funcional</span>
+      <div class="icon">💵</div>
       <h3>Ventas e Ingresos</h3>
-      <p>Recaudación por rango de fechas: KPIs, desgloses por método, concepto y día, y detalle operación por operación.</p>
+      <p>Recaudación por rango de fechas: totales, desgloses por método, concepto y día, y el detalle operación por operación.</p>
       <div class="salidas">
         <a href="/admin/reportes/ventas">Consulta</a>
-        <a href="/api/reportes/ventas.pdf?desde=INICIO&hasta=HOY" id="lnk-pdf">Reporte (PDF)</a>
-        <a href="/api/reportes/ventas.xlsx?desde=INICIO&hasta=HOY" id="lnk-xls">Descarga (Excel)</a>
+        <a href="/api/reportes/ventas.pdf?desde=INICIO&hasta=HOY" id="lnk-pdf">Reporte PDF</a>
+        <a href="/api/reportes/ventas.xlsx?desde=INICIO&hasta=HOY" id="lnk-xls">Descarga Excel</a>
       </div>
-      <a class="open" href="/admin/reportes/ventas">Abrir ventas →</a>
+      <a class="open" href="/admin/reportes/ventas">Abrir dominio →</a>
     </div>
 
-    <div class="card">
-      <div class="ic">🧾</div>
+    <div class="card func" style="--c:#fbbf24">
       <span class="badge b-ok">Funcional</span>
+      <div class="icon">🧾</div>
       <h3>Caja / Arqueo</h3>
-      <p>Reporte de caja y cierre del día (pantalla clásica: Reporte de Caja y Registro de Ventas 14.1 SUNAT).</p>
-      <a class="open" href="/admin/reportes/clasico">Abrir caja →</a>
+      <p>Reporte de caja y cierre del día, más el Registro de Ventas 14.1 de SUNAT. Pantalla clásica con sus pestañas.</p>
+      <a class="open" href="/admin/reportes/clasico">Abrir dominio →</a>
     </div>
 
-    <div class="card">
-      <div class="ic">📅</div>
-      <span class="badge b-ok">Funcional</span>
-      <h3>Resumen Mensual</h3>
-      <p>Resumen de ingresos por mes (pantalla clásica, pestaña Resumen Mensual).</p>
-      <a class="open" href="/admin/reportes/clasico">Abrir resumen →</a>
+    <div class="card" style="--c:#38bdf8">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">📄</div>
+      <h3>Comprobantes</h3>
+      <p>Boletas, facturas y notas de crédito emitidas a SUNAT, con su estado real.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
+    <div class="card" style="--c:#fb923c">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">📤</div>
+      <h3>Egresos</h3>
+      <p>Salidas de caja, gastos y liquidaciones del Colegio.</p>
+      <span class="soon">Próximamente</span>
     </div>
 
   </div>
 
-  <div class="sec">En desarrollo</div>
+  <!-- ══ PERSONAS ══ -->
+  <div class="cat"><span class="pin" style="background:#60a5fa;box-shadow:0 0 12px -2px #60a5fa"></span>Personas</div>
   <div class="grid">
-    <div class="card dev"><div class="ic">👥</div><span class="badge b-dev">En desarrollo</span><h3>Colegiados</h3><p>Padrón, condición, habilidad. Próximamente.</p></div>
-    <div class="card dev"><div class="ic">📑</div><span class="badge b-dev">En desarrollo</span><h3>Fraccionamientos</h3><p>Planes, cuotas y estado. Próximamente.</p></div>
-    <div class="card dev"><div class="ic">🏦</div><span class="badge b-dev">En desarrollo</span><h3>Aportes Junta</h3><p>Aportes a la JDCCPP por período. Próximamente.</p></div>
-    <div class="card dev"><div class="ic">📄</div><span class="badge b-dev">En desarrollo</span><h3>Comprobantes</h3><p>Boletas, facturas y notas de crédito SUNAT. Próximamente.</p></div>
-    <div class="card dev"><div class="ic">📤</div><span class="badge b-dev">En desarrollo</span><h3>Egresos</h3><p>Salidas de caja y gastos. Próximamente.</p></div>
-    <div class="card dev"><div class="ic">🗳️</div><span class="badge b-dev">En desarrollo</span><h3>Asambleas</h3><p>Asistencia, justificaciones y multas. Próximamente.</p></div>
+
+    <div class="card" style="--c:#60a5fa">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">👥</div>
+      <h3>Colegiados</h3>
+      <p>Padrón, condición y habilidad de los colegiados.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
+    <div class="card" style="--c:#a78bfa">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">🗳️</div>
+      <h3>Asambleas</h3>
+      <p>Asistencia, justificaciones y multas por asamblea.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
   </div>
 
-  <div class="foot">Centro de reportes · 100% lectura · CCPL — Perú Sistemas Pro</div>
+  <!-- ══ FINANZAS / GESTIÓN ══ -->
+  <div class="cat"><span class="pin" style="background:#38bdf8;box-shadow:0 0 12px -2px #38bdf8"></span>Finanzas / Gestión</div>
+  <div class="grid">
+
+    <div class="card" style="--c:#f87171">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">📊</div>
+      <h3>Deudas y Deudores</h3>
+      <p>Deuda vigente por colegiado y por concepto, con antigüedad.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
+    <div class="card" style="--c:#2dd4bf">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">📑</div>
+      <h3>Fraccionamientos</h3>
+      <p>Planes, cuotas y estado de los fraccionamientos.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
+    <div class="card" style="--c:#f472b6">
+      <span class="badge b-dev"><span class="pulse"></span>En desarrollo</span>
+      <div class="icon">🏦</div>
+      <h3>Aportes Junta</h3>
+      <p>Aportes a la JDCCPP por período, con su detalle.</p>
+      <span class="soon">Próximamente</span>
+    </div>
+
+    <div class="card func" style="--c:#38bdf8">
+      <span class="badge b-ok">Funcional</span>
+      <div class="icon">📅</div>
+      <h3>Resumen Mensual</h3>
+      <p>Resumen de ingresos por mes, para la mirada de gestión.</p>
+      <a class="open" href="/admin/reportes/clasico">Abrir dominio →</a>
+    </div>
+
+  </div>
+
+  <div class="foot">Centro de Reportes · 100% lectura · Colegio de Contadores Públicos de Loreto</div>
 </div>
 <script>
-  // Fija los enlaces de descarga del dominio Ventas al mes actual (1 → hoy).
+  // Fija los enlaces de descarga del dominio Ventas al mes actual (1 → hoy). (Presentación; no cambia lógica.)
   (function(){
     const h=new Date(), iso=d=>d.toISOString().slice(0,10);
     const ini=iso(new Date(h.getFullYear(),h.getMonth(),1)), hoy=iso(h);
@@ -104,6 +212,7 @@
       const a=document.getElementById(id);
       if(a) a.href=a.getAttribute('href').replace('INICIO',ini).replace('HOY',hoy);
     }
+    document.querySelectorAll('.card').forEach((c,i)=>{ c.style.animationDelay=(i*55)+'ms'; });
   })();
 </script>
 </body>

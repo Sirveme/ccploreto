@@ -26,11 +26,13 @@
   .kpi .l{font-size:11px;color:var(--muted)} .kpi .v{font-size:22px;font-weight:800;margin-top:2px}
   .kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
   .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
-  #detector{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  .tblwrap table,#detector table{min-width:520px}
-  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
-  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+  /* Estilo "Excel de la casa": encabezado azul oscuro, planilla con zebra. */
+  table{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--border)}
+  .tblwrap table{min-width:520px}
+  th,td{text-align:left;padding:7px 10px;border:1px solid var(--border);white-space:nowrap}
+  th{background:#1e3a5f;color:#fff;font-weight:700;font-size:11.5px;letter-spacing:.2px}
+  tbody tr:nth-child(even) td{background:rgba(255,255,255,.035)}
+  tbody tr:hover td{background:rgba(56,189,248,.08)}
   td.r,th.r{text-align:right} .mono{font-variant-numeric:tabular-nums}
   .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
   .tab{background:var(--panel2);border:1px solid var(--border);color:var(--muted);padding:6px 13px;border-radius:999px;cursor:pointer;font-size:12px}
