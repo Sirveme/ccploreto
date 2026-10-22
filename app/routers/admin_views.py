@@ -77,6 +77,36 @@ async def admin_parametros_page(
     })
 
 
+@router.get("/admin/reportes", response_class=HTMLResponse)
+async def admin_reportes_techo(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Techo del Mega Módulo de Consultas/Reportes/Descargas (landing por dominios).
+    Rol: admin + secretaría; sote = mantenedor."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    return templates.TemplateResponse("pages/admin/reportes_techo.html", {"request": request})
+
+
+@router.get("/admin/reportes/clasico", response_class=HTMLResponse)
+async def admin_reportes_clasico(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Pantalla clásica (Registro de Ventas 14.1 SUNAT / Reporte de Caja / Resumen Mensual).
+    Se conserva tal cual; se llega desde el techo. Se pasa org para el título correcto."""
+    if member.role not in ("admin", "secretaria", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    org = getattr(request.state, "org", None)
+    return templates.TemplateResponse("pages/reportes.html", {
+        "request": request,
+        "user": {"organization": {"name": (org or {}).get("name", "CCPL")}} if org else None,
+    })
+
+
 @router.get("/admin/reportes/ventas", response_class=HTMLResponse)
 async def admin_reporte_ventas_page(
     request: Request,
