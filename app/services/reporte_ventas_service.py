@@ -46,6 +46,15 @@ ORIGEN_PORTAL = "portal_openpay"
 
 _RE_B64 = re.compile(r"\[CONCEPTOS_B64:([A-Za-z0-9+/=]+)\]")
 
+# Estado de comprobante SIMPLE para las vistas (sin "sin CDR confirmado").
+_MAP_ESTADO = {"accepted": "Aceptado", "anulado": "Anulado",
+               "rejected": "Rechazado", "pending": "Pendiente"}
+
+
+def _estado_simple(status: str | None) -> str:
+    s = (status or "").lower()
+    return _MAP_ESTADO.get(s, (status or "—").capitalize() if status else "—")
+
 # Mapa debt_type -> categoría de reporte (cuando no hay concepto_cobro_id).
 _DEBTTYPE_CAT = {
     "cuota_ordinaria": "cuotas",
@@ -279,11 +288,9 @@ def generar_reporte_ventas(db: Session, desde: date, hasta: date,
 
         if p.cmp_serie:
             comp_sn = f"{p.cmp_serie}-{p.cmp_numero}"
-            sin_cdr = (p.cmp_code is None or str(p.cmp_code).strip() == "")
-            estado_sunat = (p.cmp_status or "?") + (" (sin CDR confirmado)"
-                            if sin_cdr and p.cmp_status != "anulado" else "")
+            estado_sunat = _estado_simple(p.cmp_status)
         else:
-            comp_sn, estado_sunat = "—", "sin comprobante"
+            comp_sn, estado_sunat = "—", "—"
         detalle.append({
             "fecha": dkey, "hora": p.created_at.astimezone(PERU_TZ).strftime("%H:%M"),
             "matricula": p.codigo_matricula, "colegiado": p.apellidos_nombres or "Público general",
@@ -355,9 +362,8 @@ def _generar_vista_b(db: Session, ini_utc, fin_utc, organization_id: int) -> dic
     boletas, notas = [], []
     tot_boletas = tot_nc = 0.0
     for r in rows:
-        est = r.status or "?"
+        estado_sunat = _estado_simple(r.status)
         sin_cdr = (r.sunat_response_code is None or str(r.sunat_response_code).strip() == "")
-        estado_sunat = est + (" (sin CDR confirmado)" if sin_cdr and est != "anulado" else "")
         item = {"id": r.id, "serie_numero": f"{r.serie}-{r.numero}", "tipo": r.tipo,
                 "total": round(float(r.total or 0), 2), "estado_sunat": estado_sunat,
                 "sin_cdr_confirmado": bool(sin_cdr), "payment_id": r.payment_id,
@@ -410,8 +416,7 @@ def _detectar_descuadres(db: Session, ini_utc, fin_utc, organization_id: int,
     """), {"org": organization_id, "ini": ini_utc, "fin": fin_utc}).fetchall()
 
     def _estado(r):
-        sin = (r.sunat_response_code is None or str(r.sunat_response_code).strip() == "")
-        return (r.status or "?") + (" (sin CDR confirmado)" if sin and r.status != "anulado" else "")
+        return _estado_simple(r.status)
 
     l_pagos = [{"payment_id": r.id, "fecha": r.created_at.astimezone(PERU_TZ).strftime("%Y-%m-%d %H:%M"),
                 "colegiado": r.apellidos_nombres or "Público general", "matricula": r.codigo_matricula,
@@ -465,21 +470,14 @@ def generar_excel_ventas(db: Session, desde: date, hasta: date,
     ws = wb.active; ws.title = "Resumen"
     ws["A1"] = f"Reporte de Ventas · {rep['rango']['desde']} a {rep['rango']['hasta']}"
     ws["A1"].font = Font(bold=True, size=14)
-    t = rep["totales"]; vb = rep["vista_b"]; det = rep["detector"]; b = rep["puente_conciliacion"]
+    t = rep["totales"]; b = rep["puente_conciliacion"]
     kpis = [
-        ("Total recaudado (Vista A)", t["total_recaudado"]),
-        ("Total facturado neto (Vista B = boletas − NC)", vb["neto"]),
-        ("Diferencia A − B", det["diferencia_A_menos_Bneto"]),
+        ("Total recaudado", t["total_recaudado"]),
         ("N° operaciones", t["n_operaciones"]),
-        ("N° boletas / N° NC", f"{vb['n_boletas']} / {vb['n_nc']}"),
-        ("¿Cuadra (sin anomalías)?", "Sí" if det["cuadra"] else "NO — ver hoja Anomalías"),
     ]
     for i, (k, v) in enumerate(kpis, start=3):
         ws[f"A{i}"] = k; ws[f"B{i}"] = v; ws[f"A{i}"].font = BOLD
-    if not det["cuadra"]:
-        ws["B5"].fill = ROJO; ws["B5"].font = WB_
-        ws["B8"].fill = ROJO; ws["B8"].font = WB_
-    r0 = 11
+    r0 = 7
     ws[f"A{r0}"] = "PUENTE DE CONCILIACIÓN"; ws[f"A{r0}"].font = BOLD
     puente = [
         ("Total Vista A (todo)", b["total_vista_a"]),
@@ -533,30 +531,8 @@ def generar_excel_ventas(db: Session, desde: date, hasta: date,
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
 
-    # ── Anomalías (HOJA DEDICADA — lo más valioso para auditoría) ──
-    ws = wb.create_sheet("Anomalías")
-    ws["A1"] = "DETECTOR DE DESCUADRES"; ws["A1"].font = Font(bold=True, size=13)
-    ws["A2"] = f"Diferencia Vista A − Vista B neto: S/ {det['diferencia_A_menos_Bneto']:.2f}"
-    ws["A2"].font = BOLD
-    psc = det["pagos_sin_comprobante"]; csp = det["comprobantes_sin_pago"]
-    r = 4
-    ws.cell(r, 1, f"PAGOS SIN COMPROBANTE — {psc['cantidad']} (S/ {psc['monto']:.2f}): entró dinero, no hay boleta").font = BOLD
-    r += 1
-    _hdr(ws, r, ["Fecha", "Matrícula", "Colegiado", "DNI", "Método", "Origen", "Monto S/"], ROJO)
-    r += 1
-    for x in psc["lista"]:
-        ws.cell(r, 1, x["fecha"]); ws.cell(r, 2, x["matricula"]); ws.cell(r, 3, x["colegiado"])
-        ws.cell(r, 4, x["dni"]); ws.cell(r, 5, x["metodo"]); ws.cell(r, 6, x["origen"]); ws.cell(r, 7, x["monto"]); r += 1
-    r += 1
-    ws.cell(r, 1, f"COMPROBANTES SIN PAGO VIGENTE — {csp['cantidad']} (S/ {csp['monto']:.2f}): boleta sin pago approved (rechazadas/reemitidas, patrón Sosa/Ríos)").font = BOLD
-    r += 1
-    _hdr(ws, r, ["Comprobante", "Cliente", "Estado SUNAT", "Pago", "Monto S/"], ROJO)
-    r += 1
-    for x in csp["lista"]:
-        ws.cell(r, 1, x["serie_numero"]); ws.cell(r, 2, x["cliente"]); ws.cell(r, 3, x["estado_sunat"])
-        ws.cell(r, 4, x["pago_status"]); ws.cell(r, 5, x["monto"]); r += 1
-    for col, w in zip("ABCDEFG", [22, 30, 28, 14, 14, 18, 12]):
-        ws.column_dimensions[col].width = w
+    # (Reporte limpio: la hoja de Anomalías/detector se omite a propósito.
+    #  La lógica del detector sigue en el servicio; se reubicará en otra vista.)
 
     # ── Metadata ──
     ws = wb.create_sheet("Metadata")
@@ -565,9 +541,8 @@ def generar_excel_ventas(db: Session, desde: date, hasta: date,
         ("Rango", f"{rep['rango']['desde']} a {rep['rango']['hasta']}"),
         ("Generado", rep["generado"]),
         ("Filtros", str(filtros or {"metodo": "todos", "concepto": "todos", "origen": "todos"})),
-        ("Total recaudado (Vista A)", t["total_recaudado"]),
-        ("Facturado neto (Vista B)", vb["neto"]),
-        ("Operaciones / Boletas / NC", f"{t['n_operaciones']} / {vb['n_boletas']} / {vb['n_nc']}"),
+        ("Total recaudado", t["total_recaudado"]),
+        ("N° operaciones", t["n_operaciones"]),
         ("Alcance", "100% lectura — sin efectos secundarios"),
         ("Sistema", "CCPL · Perú Sistemas Pro"),
     ]
@@ -638,17 +613,12 @@ def generar_pdf_ventas(db: Session, desde: date, hasta: date,
         f"Generado: {_now.strftime('%d/%m/%Y %H:%M')} &middot; Usuario: {usuario}", SMALL))
     el.append(Spacer(1, 7 * mm))
 
-    difcolor = ROJO if (abs(det["diferencia_A_menos_Bneto"]) >= 0.01 or not det["cuadra"]) else VERDE
-    tot = [["Total recaudado (Vista A)", _S(t["total_recaudado"])],
-           ["Total facturado neto (Vista B = boletas - NC)", _S(vb["neto"])],
-           ["Diferencia A - B", _S(det["diferencia_A_menos_Bneto"])],
-           [f"Operaciones: {t['n_operaciones']}   Boletas: {vb['n_boletas']}   NC: {vb['n_nc']}", ""]]
+    tot = [["Total recaudado", _S(t["total_recaudado"])],
+           [f"Operaciones: {t['n_operaciones']}", ""]]
     tt = Table(tot, colWidths=[120 * mm, 50 * mm])
     tt.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 10), ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
-        ("TEXTCOLOR", (1, 2), (1, 2), difcolor), ("FONTNAME", (1, 2), (1, 2), "Helvetica-Bold"),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#cbd5e1")),
+        ("FONTSIZE", (0, 0), (-1, -1), 11), ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"), ("FONTNAME", (1, 0), (1, 0), "Helvetica-Bold"),
         ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
     el.append(tt); el.append(Spacer(1, 6 * mm))
 
@@ -682,34 +652,8 @@ def generar_pdf_ventas(db: Session, desde: date, hasta: date,
                                                  for k, v in rep["por_dia"].items()]
     el.append(_tbl(dd, [50 * mm, 40 * mm, 40 * mm])); el.append(Spacer(1, 6 * mm))
 
-    el.append(Paragraph("DETECTOR DE DESCUADRES", HD))
-    if det["cuadra"]:
-        el.append(Paragraph("<b>Sin anomalias</b> - cada pago tiene su comprobante y cada comprobante su pago vigente. Diferencia 0.",
-                            ParagraphStyle("ok", parent=st["Normal"], textColor=VERDE, fontSize=10)))
-    else:
-        psc = det["pagos_sin_comprobante"]; csp = det["comprobantes_sin_pago"]
-        el.append(Paragraph(f"<b>Pagos sin comprobante: {psc['cantidad']} ({_S(psc['monto'])})</b> - entro dinero, no hay boleta",
-                            ParagraphStyle("a1", parent=st["Normal"], textColor=ROJO, fontSize=9.5)))
-        if psc["cantidad"]:
-            lim = psc["lista"][:40]
-            d1 = [["Fecha", "Colegiado", "Metodo", "Origen", "Monto"]] + \
-                 [[x["fecha"], (x["colegiado"] or "")[:34], x["metodo"], x["origen"], _S(x["monto"])] for x in lim]
-            el.append(_tbl(d1, [32 * mm, 58 * mm, 24 * mm, 32 * mm, 24 * mm]))
-            if len(psc["lista"]) > 40:
-                el.append(Paragraph(f"...y {len(psc['lista'])-40} mas - ver Excel.", SMALL))
-        el.append(Spacer(1, 3 * mm))
-        el.append(Paragraph(f"<b>Comprobantes sin pago vigente: {csp['cantidad']} ({_S(csp['monto'])})</b> - boleta rechazada/reemitida (patron Sosa/Rios)",
-                            ParagraphStyle("a2", parent=st["Normal"], textColor=ROJO, fontSize=9.5)))
-        if csp["cantidad"]:
-            lim = csp["lista"][:40]
-            _cell = ParagraphStyle("cell", parent=st["Normal"], fontSize=8, leading=9.5)
-            d2 = [["Comprobante", "Cliente", "Estado SUNAT", "Pago", "Monto"]] + \
-                 [[x["serie_numero"], Paragraph((x["cliente"] or "")[:34], _cell),
-                   Paragraph(x["estado_sunat"], _cell), x["pago_status"], _S(x["monto"])] for x in lim]
-            el.append(_tbl(d2, [26 * mm, 44 * mm, 42 * mm, 20 * mm, 24 * mm]))
-            if len(csp["lista"]) > 40:
-                el.append(Paragraph(f"...y {len(csp['lista'])-40} mas - ver Excel.", SMALL))
-    el.append(Spacer(1, 6 * mm))
+    # (Reporte limpio: la sección de anomalías/detector se omite a propósito aquí.
+    #  La lógica del detector sigue viva en el servicio; se reubicará en otra vista.)
     el.append(Paragraph("El detalle operacion por operacion no se incluye en el PDF. Ver el Excel para el detalle completo.",
                         ParagraphStyle("nota", parent=st["Normal"], fontSize=9, textColor=colors.grey)))
 
