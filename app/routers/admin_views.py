@@ -84,9 +84,13 @@ async def admin_reportes_techo(
     db: Session = Depends(get_db),
 ):
     """Techo del Mega Módulo de Consultas/Reportes/Descargas (landing por dominios).
-    Rol: admin + secretaría; sote = mantenedor."""
-    if member.role not in ("admin", "secretaria", "sote"):
-        raise HTTPException(403, "Acceso restringido a administración/secretaría")
+    Rol (1-A): admin + secretaría + directivos (decano, tesorero); sote = mantenedor.
+    NO incluye cajero ni emisor_carnes. Abrir la PUERTA del techo no cambia el guard
+    interno de cada reporte: Ventas sigue admin+secretaría, clásico igual, Aportes con
+    su propio guard (admin/decano/tesorero/sote). Un rol sin permiso al reporte ve la
+    tarjeta pero recibe el 403 normal al abrirlo (no un error feo del sistema)."""
+    if member.role not in ("admin", "secretaria", "decano", "tesorero", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
     return templates.TemplateResponse("pages/admin/reportes_techo.html", {"request": request})
 
 
@@ -118,6 +122,23 @@ async def admin_reporte_ventas_page(
     if member.role not in ("admin", "secretaria", "sote"):
         raise HTTPException(403, "Acceso restringido a administración/secretaría")
     return templates.TemplateResponse("pages/admin/reporte_ventas.html", {
+        "request": request,
+        "role": member.role,
+    })
+
+
+@router.get("/admin/reportes/colegiados", response_class=HTMLResponse)
+async def admin_reporte_colegiados_page(
+    request: Request,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """Dominio Colegiados — padrón vivo (composición + lista filtrable + export). 100% lectura.
+    Guard = el del techo: admin + secretaría + directivos (decano, tesorero); sote = mantenedor.
+    Independiente de Aportes Junta; no toca la condición de nadie."""
+    if member.role not in ("admin", "secretaria", "decano", "tesorero", "sote"):
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    return templates.TemplateResponse("pages/admin/reporte_colegiados.html", {
         "request": request,
         "role": member.role,
     })

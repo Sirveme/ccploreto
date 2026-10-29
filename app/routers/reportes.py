@@ -505,3 +505,67 @@ async def reporte_ventas_pdf(
     fname = f"reporte_ventas_{desde}_a_{hasta}.pdf"
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{fname}"'})
+
+
+# ══════════════════════════════════════════════════════════
+# DOMINIO COLEGIADOS — padrón vivo (composición + lista filtrable + export).
+# Pedido del Consejo (vía Limber). INDEPENDIENTE de Aportes Junta. 100% LECTURA.
+# Guard = el del techo: admin + secretaría + directivos (decano, tesorero) + sote.
+# NO toca la condición de nadie; solo consulta y exporta.
+# ══════════════════════════════════════════════════════════
+_ROLES_COLEGIADOS = ("admin", "secretaria", "decano", "tesorero", "sote")
+
+
+@router.get("/colegiados")
+async def reporte_colegiados(
+    condicion: Optional[str] = None,
+    q: Optional[str] = None,
+    page: int = 1,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Padrón: composición por estado + listado filtrado (JSON para pantalla)."""
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from app.services.colegiados_padron_service import generar_padron
+    return generar_padron(db, {"condicion": condicion, "q": q}, member.organization_id, page=page)
+
+
+@router.get("/colegiados.xlsx")
+async def reporte_colegiados_xlsx(
+    condicion: Optional[str] = None,
+    q: Optional[str] = None,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Descarga Excel del padrón filtrado (estilo casa). Respeta el filtro activo. 100% lectura."""
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from app.services.colegiados_padron_service import generar_excel_padron
+    from fastapi.responses import Response
+    xls = generar_excel_padron(db, {"condicion": condicion, "q": q}, member.organization_id)
+    etq = (condicion or "todos").lower()
+    fname = f"padron_colegiados_{etq}.xlsx"
+    return Response(content=xls,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/colegiados.pdf")
+async def reporte_colegiados_pdf(
+    condicion: Optional[str] = None,
+    q: Optional[str] = None,
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    """Descarga PDF del padrón filtrado, con composición y encabezado CCPL. 100% lectura."""
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from app.services.colegiados_padron_service import generar_pdf_padron
+    from fastapi.responses import Response
+    uname = getattr(getattr(member, "user", None), "name", None) or "-"
+    pdf = generar_pdf_padron(db, {"condicion": condicion, "q": q}, member.organization_id, usuario=uname)
+    etq = (condicion or "todos").lower()
+    fname = f"padron_colegiados_{etq}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{fname}"'})
