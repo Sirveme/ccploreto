@@ -80,6 +80,11 @@
                     <button class="hdr-menu-item" onclick="toggleMenu(); window.BingazoPanel && window.BingazoPanel.mostrarActivacion()">🎯 Activar Bingazo</button>
                     <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item" onclick="location.href='/asamblea/mesa'">🗳️ Mesa de asamblea</button>
+                    {% if member_role == 'tesorero' %}
+                    <div class="hdr-menu-sep"></div>
+                    <!-- Reportes: solo tesorero (directivo). El cajero NO ve esto (techo cerrado a cajero). -->
+                    <button class="hdr-menu-item" onclick="location.href='/admin/reportes'">📈 Reportes</button>
+                    {% endif %}
                     <div class="hdr-menu-sep"></div>
                     <button class="hdr-menu-item danger" onclick="cerrarSesionUsuario()">🚪 Cerrar sesión</button>
                 </div>
