@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Padrón de Colegiados · CCPL</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#172033; --border:#334155;
+    --ink:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
+    --accent:#a78bfa; --ok:#4ade80; --warn:#f9c64a; --bad:#f87171; --cyan:#38bdf8;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg);width:100%}
+  body{margin:0;width:100%;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{width:100%;max-width:1280px;margin:0 auto;padding:18px}
+  h1{font-size:19px;margin:0 0 2px} .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+  .seclabel{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+
+  /* Composición: fila de tarjetas por estado + total */
+  .comp{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .cchip{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;
+         transition:border-color .15s,transform .15s;position:relative}
+  .cchip:hover{transform:translateY(-2px)}
+  .cchip .l{font-size:11px;color:var(--muted)}
+  .cchip .v{font-size:22px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+  .cchip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .cchip[data-k="habil"] .v{color:var(--ok)} .cchip[data-k="inhabil"] .v{color:var(--bad)}
+  .cchip[data-k="vitalicio"] .v{color:var(--cyan)} .cchip.total{background:#0b1b33;border-color:#1e3a5f}
+  .cchip.total .v{color:#fff}
+  .pdnote{font-size:11.5px;color:var(--muted);margin-top:10px}
+  .pdnote b{color:var(--ink)}
+  .alert-sc{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;
+            background:rgba(248,113,113,.16);color:#fecaca;border:1px solid rgba(248,113,113,.4)}
+  .ok-sc{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:11.5px;
+         background:rgba(74,222,128,.14);color:#bbf7d0;border:1px solid rgba(74,222,128,.3)}
+
+  /* Filtros */
+  .filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+  .f label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+  input,select{background:var(--panel2);border:1px solid var(--border);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:13px}
+  input{min-width:240px}
+  button{background:var(--accent);color:#1a1033;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:13px}
+  button:hover{filter:brightness(1.08)}
+  .dl-group{margin-left:auto;display:flex;gap:6px}
+  .dl{border:1px solid var(--border);background:var(--panel2);color:var(--ink);border-radius:999px;
+      padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .dl:hover{filter:brightness(1.12)}
+  .dl-xls{border-color:rgba(74,222,128,.45);color:#bbf7d0}
+  .dl-xls:hover{background:rgba(74,222,128,.12)}
+  .dl-pdf{border-color:rgba(248,113,113,.45);color:#fecaca}
+  .dl-pdf:hover{background:rgba(248,113,113,.12)}
+  @media(max-width:640px){.dl-group{margin-left:0;width:100%}.filtros{flex-direction:column;align-items:stretch}input{min-width:0}}
+
+  /* Tabla — "Excel de la casa" */
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  table{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--border)}
+  .tblwrap table{min-width:720px}
+  th,td{text-align:left;padding:7px 10px;border:1px solid var(--border);white-space:nowrap}
+  th{background:#1e3a5f;color:#fff;font-weight:700;font-size:11.5px;letter-spacing:.2px}
+  tbody tr:nth-child(even) td{background:rgba(255,255,255,.035)}
+  tbody tr:hover td{background:rgba(56,189,248,.08)}
+  .mono{font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:999px;font-size:10.5px;
+       background:rgba(167,139,250,.18);color:#e9d5ff;border:1px solid rgba(167,139,250,.34)}
+  .cond-habil{color:#bbf7d0} .cond-inhabil{color:#fecaca} .cond-vitalicio{color:#bae6fd}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}
+  .pager button{background:var(--panel2);color:var(--ink);border:1px solid var(--border);padding:6px 12px;font-weight:600}
+  .pager button:disabled{opacity:.4;cursor:default}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Padrón de Colegiados</h1>
+  <div class="sub">Colegio de Contadores Públicos de Loreto · padrón vivo · 100% lectura · independiente de Aportes Junta</div>
+
+  <!-- COMPOSICIÓN -->
+  <div class="card">
+    <div class="seclabel">Composición del padrón</div>
+    <div class="comp" id="comp"></div>
+    <div id="compNota"></div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="card">
+    <div class="filtros">
+      <div class="f"><label>Condición</label>
+        <select id="condicion">
+          <option value="todos">Todos</option>
+          <option value="habil">Hábiles</option>
+          <option value="inhabil">Inhábiles</option>
+          <option value="vitalicio">Vitalicios</option>
+          <option value="past_decano">Past Decano</option>
+          <option value="fallecido">Fallecidos</option>
+          <option value="retirado">Retirados</option>
+          <option value="suspendido">Suspendidos</option>
+        </select></div>
+      <div class="f"><label>Buscar (matrícula / DNI / nombre)</label><input type="text" id="q" placeholder="Ej. 10-1234, 44556677, PÉREZ…"></div>
+      <div class="f"><button onclick="buscar()">Buscar</button></div>
+      <div class="dl-group">
+        <button type="button" class="dl dl-xls" onclick="descargar('xlsx')" title="Descargar Excel con el filtro activo">⬇ Descargar Excel</button>
+        <button type="button" class="dl dl-pdf" onclick="descargar('pdf')" title="Descargar PDF con el filtro activo">⬇ Descargar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="estado" class="muted" style="padding:4px 2px"></div>
+
+  <!-- TABLA -->
+  <div class="card" id="salida" style="display:none">
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>Matrícula</th><th>Apellidos y Nombres</th><th>DNI</th><th>Condición</th><th>Fecha colegiatura</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="prev" onclick="irPagina(-1)">← Anterior</button>
+      <span id="pagInfo"></span>
+      <button id="next" onclick="irPagina(1)">Siguiente →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let PAGE = 1;
+const el = id => document.getElementById(id);
+function filtros(){ return {condicion: el('condicion').value, q: el('q').value.trim()}; }
+function qs(extra){
+  const f = filtros();
+  const p = new URLSearchParams({condicion:f.condicion, q:f.q});
+  if(extra) for(const k in extra) p.set(k, extra[k]);
+  return p.toString();
+}
+function descargar(fmt){
+  // Respeta el filtro activo (condición + búsqueda). Nueva pestaña.
+  window.open('/api/reportes/colegiados.'+fmt+'?'+qs(), '_blank');
+}
+function buscar(){ PAGE = 1; cargar(); }
+function irPagina(d){ PAGE = Math.max(1, PAGE + d); cargar(); }
+
+async function cargar(){
+  el('estado').textContent = 'Consultando…';
+  try{
+    const r = await fetch('/api/reportes/colegiados?'+qs({page:PAGE}), {credentials:'same-origin'});
+    if(!r.ok){ el('estado').textContent = 'Error '+r.status+': '+(await r.text()).slice(0,200); return; }
+    render(await r.json());
+  }catch(e){ el('estado').textContent = 'Error de red: '+e; }
+}
+
+function render(d){
+  el('estado').textContent = '';
+  el('salida').style.display = 'block';
+  // Composición
+  const c = d.composicion;
+  let h = '';
+  for(const b of c.buckets){
+    const on = (d.filtro.condicion === b.key) ? ' on' : '';
+    h += `<div class="cchip${on}" data-k="${b.key}" onclick="filtrarPor('${b.key}')">
+            <div class="l">${b.label}</div><div class="v">${b.n.toLocaleString('es-PE')}</div></div>`;
+  }
+  h += `<div class="cchip total" onclick="filtrarPor('todos')"><div class="l">TOTAL PADRÓN</div>
+          <div class="v">${c.total.toLocaleString('es-PE')}</div></div>`;
+  el('comp').innerHTML = h;
+  // Nota Past Decano + cuadre
+  let nota = `<div class="pdnote">De los cuales <b>${c.past_decano}</b> Past Decano
+              <span class="muted">(subconjunto de Hábiles — no se suma al total)</span>.</div>`;
+  if(c.cuadra){
+    nota += `<span class="ok-sc">✓ Cuadra: la suma de estados = ${c.total.toLocaleString('es-PE')} (padrón completo, 0 sin clasificar)</span>`;
+  }else{
+    if(c.sin_clasificar) nota += `<span class="alert-sc">⚠ ${c.sin_clasificar} sin clasificar</span> `;
+    if(c.otros && c.otros.length) nota += `<span class="alert-sc">⚠ condiciones raras: ${c.otros.map(o=>o.condicion+' ('+o.n+')').join(', ')}</span>`;
+  }
+  el('compNota').innerHTML = nota;
+  // Tabla
+  const cls = {habil:'cond-habil', inhabil:'cond-inhabil', vitalicio:'cond-vitalicio'};
+  el('tbody').innerHTML = d.rows.map(r => `<tr>
+      <td class="mono">${r.matricula||'—'}</td>
+      <td>${r.apellidos_nombres||''}</td>
+      <td class="mono">${r.dni||'—'}</td>
+      <td class="${cls[r.condicion]||''}">${r.condicion_label}${r.past_decano?'<span class="tag">Past Decano</span>':''}</td>
+      <td class="mono">${r.fecha_colegiatura||'—'}</td>
+    </tr>`).join('') || `<tr><td colspan="5" class="muted" style="text-align:center">Sin resultados para el filtro.</td></tr>`;
+  // Paginación
+  const pg = d.pagina;
+  PAGE = pg.page;
+  el('pagInfo').textContent = `${pg.total.toLocaleString('es-PE')} colegiado(s) · página ${pg.page} de ${pg.pages}`;
+  el('prev').disabled = pg.page <= 1;
+  el('next').disabled = pg.page >= pg.pages;
+}
+
+function filtrarPor(key){ el('condicion').value = key; buscar(); }
+
+document.addEventListener('DOMContentLoaded', cargar);
+</script>
+</body>
+</html>
