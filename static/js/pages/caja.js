@@ -2190,13 +2190,13 @@ function renderSituacion(data) {
                 </div>
                 <div>
                     <label style="font-size:10px;color:#64748b;display:block;margin-bottom:4px">
-                        N° cuotas (máx. 12)
+                        N° cuotas (máx. <span id="sit-fracc-maxlbl">${_fraccMaxCuotas()}</span>)
                     </label>
                     <select id="sit-fracc-n" onchange="calcSitFracc(${total})"
                             style="width:100%;padding:8px 10px;background:rgba(15,23,42,.6);
                                    border:1px solid rgba(99,102,241,.3);border-radius:8px;
                                    color:#fff;font-size:13px">
-                        ${[2,3,4,6,8,10,12].map(n => `<option value="${n}">${n} cuotas</option>`).join('')}
+                        ${_fraccNumOpts('cuotas')}
                     </select>
                 </div>
             </div>
@@ -2278,18 +2278,21 @@ function calcSitFracc(total) {
     const res = document.getElementById('sit-fracc-result');
     if (!res) return;
 
-    const minIni = total * 0.20;
-    if (ini < minIni) {
-        res.innerHTML = `<span style="color:#f59e0b">⚠ Mínimo S/ ${minIni.toFixed(2)}</span>`;
-        return;
-    }
+    _ensureFraccParams();
+    const _P = _fraccParams || {};
+    const CUOTA_MIN = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
+    const minIni = total * 0.20;   // SUGERENCIA (zona congelada — NO tocar)
     const saldo = total - ini;
     const cuota = saldo / n;
-    if (cuota < 100) {
-        res.innerHTML = `<span style="color:#f59e0b">⚠ Cuota mensual mínima S/ 100 — reduce el número de cuotas</span>`;
+    if (cuota < CUOTA_MIN) {
+        res.innerHTML = `<span style="color:#f59e0b">⚠ Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</span>`;
         return;
     }
-    res.innerHTML = `
+    // Inicial de monto LIBRE: si está bajo el sugerido, advertencia suave pero el plan SE MUESTRA igual.
+    const _warnIni = (ini < minIni)
+        ? `<div style="color:#f59e0b;font-size:11px;text-align:center;margin-bottom:4px">⚠ Inicial bajo el sugerido (S/ ${minIni.toFixed(2)}) — se registra igual.</div>`
+        : '';
+    res.innerHTML = _warnIni + `
         <div style="background:rgba(99,102,241,.08);border-radius:8px;padding:10px;text-align:left;margin-top:6px">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
                 <div>
@@ -2584,7 +2587,7 @@ function _renderModal(data) {
                             style="width:100%;padding:10px 12px;background:#1e2535;
                                    border:1px solid rgba(99,102,241,.3);border-radius:10px;
                                    color:#fff;font-size:14px;font-family:inherit">
-                            ${[2,3,4,6,8,10,12].map(n=>`<option value="${n}">${n} cuotas mensuales</option>`).join('')}
+                            ${_fraccNumOpts('cuotas mensuales')}
                         </select>
                     </div>
                 </div>
@@ -2905,19 +2908,21 @@ function _calcSim(total) {
     const res = document.getElementById('msim-result');
     if (!res) return;
 
-    const minIni = total * 0.20;
-    if (ini < minIni) {
-        res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
-            ⚠ Mínimo S/ ${minIni.toFixed(2)}</div>`;
-        return;
-    }
+    _ensureFraccParams();
+    const _P = _fraccParams || {};
+    const CUOTA_MIN = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
+    const minIni = total * 0.20;   // SUGERENCIA (zona congelada — NO tocar)
     const saldo = total - ini;
     const cuota = saldo / n;
-    if (cuota < 100) {
+    if (cuota < CUOTA_MIN) {
         res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
-            ⚠ Cuota mínima S/ 100 — reduce el número de cuotas</div>`;
+            ⚠ Cuota mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</div>`;
         return;
     }
+    // Inicial de monto LIBRE: advertencia suave, el plan SE MUESTRA igual.
+    const _warnIni = (ini < minIni)
+        ? `<div style="color:#f59e0b;font-size:11px;text-align:center;margin-bottom:4px">⚠ Inicial bajo el sugerido (S/ ${minIni.toFixed(2)}) — se registra igual.</div>`
+        : '';
 
     // Generar cronograma
     const hoy = new Date();
@@ -2928,7 +2933,7 @@ function _calcSim(total) {
         cuotas.push({ num: i, fecha: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: cuota });
     }
 
-    res.innerHTML = `
+    res.innerHTML = _warnIni + `
         <div style="background:rgba(99,102,241,.08);border-radius:10px;overflow:hidden">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;
                         padding:14px;border-bottom:1px solid rgba(255,255,255,.06)">
@@ -3374,9 +3379,11 @@ function _agregarFraccAlCarrito() {
         toast(`Inicial bajo el sugerido (20% = S/ ${(total * 0.20).toFixed(2)}) — se registra igual`, 'warn');
     }
 
+    _ensureFraccParams();
+    const CUOTA_MIN = ((_fraccParams || {}).cuota_minima != null) ? Number(_fraccParams.cuota_minima) : 100;
     const cuota = (total - ini) / n;
-    if (cuota < 100) {
-        toast('Cuota mensual mínima S/ 100 — reduce el número de cuotas', 'err'); return;
+    if (cuota < CUOTA_MIN) {
+        toast(`Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas`, 'err'); return;
     }
 
     // Calcular fechas de vencimiento
@@ -3927,7 +3934,35 @@ function _ensureFraccParams() {
         .finally(() => {
             _fraccParamsLoading = false;
             try { _recalcFraccSel(); } catch (e) {}   // re-render con los valores ya cargados
+            // Re-render de los simuladores con los parámetros ya cargados (selects + cálculo).
+            try { _refreshFraccNumSelects(); } catch (e) {}
+            try { const a = document.getElementById('sit-fracc-n'); if (a) a.dispatchEvent(new Event('change')); } catch (e) {}
+            try { const b = document.getElementById('msim-n'); if (b) b.dispatchEvent(new Event('input')); } catch (e) {}
         });
+}
+
+// Opciones del <select> de cuotas: la lista EXISTENTE filtrada por max_cuotas de BD
+// (no inventa opciones nuevas; solo recorta hacia abajo si el Colegio bajara el máximo).
+function _fraccMaxCuotas() {
+    const _P = _fraccParams || {};
+    return (_P.max_cuotas != null) ? Number(_P.max_cuotas) : 12;
+}
+function _fraccNumOpts(label) {
+    const mx = _fraccMaxCuotas();
+    return [2, 3, 4, 6, 8, 10, 12].filter(n => n <= mx)
+        .map(n => `<option value="${n}">${n} ${label}</option>`).join('');
+}
+function _refreshFraccNumSelects() {
+    [['sit-fracc-n', 'cuotas'], ['msim-n', 'cuotas mensuales']].forEach(([id, label]) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = _fraccNumOpts(label);
+        if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+    });
+    // Label dinámico del máximo de cuotas (mismo max_cuotas de BD).
+    const _lbl = document.getElementById('sit-fracc-maxlbl');
+    if (_lbl) _lbl.textContent = _fraccMaxCuotas();
 }
 
 function _recalcFraccSel() {
