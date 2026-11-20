@@ -2391,6 +2391,14 @@ function cerrarModalInhabil() {
 function _renderModal(data) {
     const { colegiado: col, deudas, total, califica_fraccionamiento, plan_activo, campana } = data;
 
+    // Pisos vigentes (tabla) para los textos informativos de este modal. Fallback a literales.
+    // Solo DISPLAY — el bloqueo real de creación vive en _recalcFraccSel (selector de deudas).
+    _ensureFraccParams();
+    const _Pm = _fraccParams || {};
+    const MONTO_MIN_D  = (_Pm.monto_minimo != null) ? Number(_Pm.monto_minimo) : 250;
+    const CUOTA_MIN_D  = (_Pm.cuota_minima != null) ? Number(_Pm.cuota_minima) : 100;
+    const MAX_CUOTAS_D = (_Pm.max_cuotas   != null) ? Number(_Pm.max_cuotas)   : 12;
+
     // Agrupar deudas por año
     const grupos = {};
     deudas.forEach(d => {
@@ -2611,7 +2619,7 @@ function _renderModal(data) {
             </div>` : `
             <div style="text-align:center;padding:30px;color:#64748b">
                 <div style="font-size:32px;margin-bottom:8px">⚠️</div>
-                <div style="font-size:13px">Deuda mínima para fraccionar: S/ 250</div>
+                <div style="font-size:13px">Deuda mínima para fraccionar: S/ ${MONTO_MIN_D.toFixed(2)}</div>
                 <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
             </div>`}
             </div>
@@ -2625,10 +2633,10 @@ function _renderModal(data) {
                 <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:10px">Condiciones del plan</div>
                 ${[
-                    ['✅','Deuda mínima: S/ 250'],
+                    ['✅',`Deuda mínima: S/ ${MONTO_MIN_D.toFixed(2)}`],
                     ['📌','Cuota inicial SUGERIDA: 20% de la deuda (monto libre, no obligatorio)'],
-                    ['📌','Cuota mensual mínima: S/ 100'],
-                    ['📌','Máximo 12 cuotas mensuales'],
+                    ['📌',`Cuota mensual mínima: S/ ${CUOTA_MIN_D.toFixed(2)}`],
+                    ['📌',`Máximo ${MAX_CUOTAS_D} cuotas mensuales`],
                     ['⭐','Al pagar la inicial: habilidad inmediata'],
                     ['⚠️','2 cuotas impagas consecutivas: pérdida del plan'],
                 ].map(([ico,txt])=>`
@@ -3888,7 +3896,7 @@ function _renderFraccSelector(deudas) {
                 </div>
                 <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12px">
                     <label for="frac-num-cuotas" style="color:#94a3b8">N° de cuotas:</label>
-                    <input type="number" id="frac-num-cuotas" min="2" max="12" value="6"
+                    <input type="number" id="frac-num-cuotas" min="2" max="${_fraccMaxCuotas()}" value="6"
                         style="width:70px;padding:6px 10px;background:#1e2535;
                                border:1px solid rgba(124,58,237,.3);border-radius:8px;
                                color:#fff;font-size:13px;font-weight:700;font-family:inherit;text-align:right">
@@ -3949,7 +3957,10 @@ function _fraccMaxCuotas() {
 }
 function _fraccNumOpts(label) {
     const mx = _fraccMaxCuotas();
-    return [2, 3, 4, 6, 8, 10, 12].filter(n => n <= mx)
+    // Lista base + tramos largos; se recorta al max_cuotas de BD y siempre incluye el máximo.
+    const _ops = [2, 3, 4, 6, 8, 10, 12, 15, 18, 20, 24, 30, 36, 48].filter(n => n <= mx);
+    if (mx >= 2 && !_ops.includes(mx)) _ops.push(mx);
+    return _ops
         .map(n => `<option value="${n}">${n} ${label}</option>`).join('');
 }
 function _refreshFraccNumSelects() {
@@ -3963,6 +3974,8 @@ function _refreshFraccNumSelects() {
     // Label dinámico del máximo de cuotas (mismo max_cuotas de BD).
     const _lbl = document.getElementById('sit-fracc-maxlbl');
     if (_lbl) _lbl.textContent = _fraccMaxCuotas();
+    const _inpN = document.getElementById('frac-num-cuotas');
+    if (_inpN) _inpN.max = _fraccMaxCuotas();
 }
 
 function _recalcFraccSel() {
@@ -4404,5 +4417,3 @@ async function _fraccionarSeleccionado() {
         }
     };
 })();
-
-
