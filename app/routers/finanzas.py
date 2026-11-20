@@ -541,7 +541,9 @@ async def situacion_colegiado_caja(
         )
         .first()
     )
-    califica_fracc = (total >= 250.0) and (plan_activo is None)
+    from app.services.fraccionamiento_service import _resolver_parametros_fracc
+    _deuda_min, _c_min, _c_max, _pct = _resolver_parametros_fracc(db, col.organization_id)
+    califica_fracc = (total >= _deuda_min) and (plan_activo is None)
 
     # Campaña activa
     hoy = dt_date.today()
