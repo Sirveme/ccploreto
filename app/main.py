@@ -107,6 +107,40 @@ app = FastAPI(title="Multi-Tenant SaaS", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+# --- "Sin acceso" con el diseño del sistema (en vez de JSON crudo) ---
+# Solo cambia la respuesta de un 403 cuando quien pide es una PERSONA navegando una
+# página (GET, acepta HTML, no es /api ni HTMX). Todo lo demás — redirecciones de
+# sesión (302), 401, 404, y cualquier 403 de API — sigue exactamente igual.
+from starlette.exceptions import HTTPException as _StarletteHTTPException
+from fastapi.exception_handlers import http_exception_handler as _http_exception_handler
+
+
+@app.exception_handler(_StarletteHTTPException)
+async def _sin_acceso_handler(request: Request, exc: _StarletteHTTPException):
+    es_pagina = (
+        exc.status_code == 403
+        and request.method == "GET"
+        and "text/html" in (request.headers.get("accept") or "")
+        and not request.url.path.startswith("/api/")
+        and not request.headers.get("hx-request")
+    )
+    if not es_pagina:
+        return await _http_exception_handler(request, exc)
+    try:
+        from app.utils.paneles import panel_de_rol, rol_de_la_sesion
+        from app.utils.templates import templates as _tpl
+        url, etiqueta = panel_de_rol(rol_de_la_sesion(request))
+        org = getattr(request.state, "org", None) or {}
+        return _tpl.TemplateResponse("pages/errors/sin_acceso.html", {
+            "request": request,
+            "detalle": str(exc.detail) if isinstance(exc.detail, str) else "Tu rol no puede ver esta sección.",
+            "panel_url": url, "panel_etiqueta": etiqueta,
+            "org_nombre": org.get("name") or "Colegio",
+        }, status_code=403)
+    except Exception:
+        return await _http_exception_handler(request, exc)
+
+
 # --- MIDDLEWARE INTELIGENTE (Redis + DB) ---
 @app.middleware("http")
 async def tenant_middleware(request: Request, call_next):
@@ -292,6 +326,10 @@ app.include_router(secretaria_router)
 app.include_router(secretaria_page_router)
 app.include_router(pagos_externos_router)          # Módulo Pagos Externos (Fase 1)
 app.include_router(pagos_externos_page_router)     # Módulo Pagos Externos (página)
+# Conciliación de deuda por acta con firmas (requiere sql/zClaude-conciliacion.sql)
+from app.routers.conciliacion_deuda import router as conciliacion_deuda_router, page_router as conciliacion_deuda_page_router
+app.include_router(conciliacion_deuda_router)
+app.include_router(conciliacion_deuda_page_router)
 
 app.include_router(legal_router)
 
