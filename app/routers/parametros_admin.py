@@ -23,6 +23,12 @@ router = APIRouter(prefix="/api/admin/parametros", tags=["parametros"])
 # Lectura resuelve override→global usando este org; escritura va a la fila global (None).
 ORG_ID_LECTURA = 1
 
+# Secciones que existen en la base pero que NINGÚN código lee: se ocultan del panel
+# para que nadie edite un valor creyendo que cambia algo. Sus filas no se borran.
+SECCIONES_OCULTAS = {
+    "refinanciamiento": "El refinanciamiento usa los parámetros de Fraccionamiento.",
+}
+
 
 def require_admin(current_member: Member = Depends(get_current_member)) -> Member:
     """Gate de escritura/historial. TEMPORAL durante el desarrollo del módulo:
@@ -56,6 +62,10 @@ def leer_seccion(
 
     secs = {s["seccion"]: s for s in PS.get_secciones(db, solo_activas=False)}
     etiqueta = secs.get(seccion, {}).get("etiqueta", seccion)
+    if seccion in SECCIONES_OCULTAS:
+        # Los datos siguen en la base; solo no se muestran ni se editan desde el panel.
+        return {"seccion": seccion, "etiqueta": etiqueta, "parametros": [],
+                "oculta": True, "nota": SECCIONES_OCULTAS[seccion]}
     detalle = PS.get_seccion_detalle(db, seccion, org_id=ORG_ID_LECTURA)
     nota = None
     if seccion == "fraccionamiento":
@@ -94,6 +104,8 @@ def guardar_parametro(
 
     if not seccion or not clave:
         raise HTTPException(400, "Faltan 'seccion' o 'clave'")
+    if seccion in SECCIONES_OCULTAS:
+        raise HTTPException(400, SECCIONES_OCULTAS[seccion] + " Edita esos valores en la sección Fraccionamiento.")
 
     # Conciliación de deuda: firmas 1/2/3 y roles válidos (nunca sote), coherentes entre sí.
     if seccion == "conciliacion":

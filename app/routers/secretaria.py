@@ -497,7 +497,21 @@ async def registrar_pago(
     operador_dni = ""
     if current_member and current_member.user:
         operador_dni = getattr(current_member.user, "public_id", "") or ""
+    # ── Fecha de pago escrita por quien registra (antes se recibía y se ignoraba) ──
+    # Se guarda en payments.paid_at y en la nota. created_at sigue siendo el momento
+    # del REGISTRO (no se retrocede: es la huella de cuándo se digitó).
+    fecha_pago_real = None
+    if pago.fecha_pago and str(pago.fecha_pago).strip():
+        try:
+            fecha_pago_real = datetime.strptime(str(pago.fecha_pago).strip()[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(400, detail="Fecha de pago inválida (usar AAAA-MM-DD)")
+        if fecha_pago_real > ahora.date():
+            raise HTTPException(400, detail="La fecha de pago no puede ser futura")
+
     nota_payment = f"[SECRETARIA] DNI:{operador_dni} {ahora.strftime('%d/%m/%Y %H:%M')} - {descripcion_pago}"
+    if fecha_pago_real and fecha_pago_real != ahora.date():
+        nota_payment += f" | Fecha de pago: {fecha_pago_real.strftime('%d/%m/%Y')}"
     if pago.nro_operacion:
         nota_payment += f" | Op: {pago.nro_operacion}"
     if pago.nota:
@@ -517,9 +531,17 @@ async def registrar_pago(
         notes=nota_payment,
         status="approved",
         reviewed_at=ahora,
+        reviewed_by=current_member.id,   # quién registró el pago (members.id)
     )
     db.add(payment)
     db.flush()
+    # Fecha de pago real (columna payments.paid_at, no mapeada en el ORM). Si no se
+    # escribió fecha, es la del registro.
+    _paid_at = (datetime.combine(fecha_pago_real, datetime.min.time())
+                if fecha_pago_real else ahora.replace(tzinfo=None))
+    db.execute(text("UPDATE payments SET paid_at = :f WHERE id = :p"), {"f": _paid_at, "p": payment.id})
+
+    _saldos_antes = {d.id: float(d.balance or d.amount or 0) for d in deudas}
 
     # ── MARCAR DEUDAS COMO PAGADAS (o parcial si aplica) ──
     if es_pago_parcial:
@@ -541,6 +563,28 @@ async def registrar_pago(
             deuda.updated_by = current_member.user_id
             deuda.notes = (deuda.notes or "") + f"\n[SECRETARIA:{operador_dni}] Pagado {ahora.strftime('%d/%m/%Y %H:%M')}"
             deuda.notes = deuda.notes.strip()
+
+    # ── Registro de auditoría (misma transacción que el pago) ──
+    await log_audit_finanzas(
+        db,
+        organization_id=org.id,
+        accion="registrar_pago_secretaria",
+        entidad_tipo="payments",
+        entidad_id=payment.id,
+        current_user=current_member,
+        cambios={
+            "deudas": [{"id": d.id, "saldo_antes": _saldos_antes.get(d.id),
+                        "saldo_despues": float(d.balance or 0), "estado": d.status} for d in deudas],
+            "metodo_pago": pago.metodo_pago,
+            "nro_operacion": pago.nro_operacion,
+            "fecha_pago": fecha_pago_real.isoformat() if fecha_pago_real else ahora.date().isoformat(),
+            "parcial": bool(es_pago_parcial),
+            "con_comprobante": bool(pago.emitir_comprobante),
+        },
+        motivo=(pago.nota or "Pago registrado desde Secretaría")[:300],
+        colegiado_id=pago.colegiado_id,
+        monto=float(total),
+    )
 
     db.commit()
 
@@ -1766,10 +1810,19 @@ async def listar_pagos_colegiado(
 
     mapa_deudas = mapa_deudas_para_notas(db, [p.notes for p in pagos])
 
+    # Fecha de pago (payments.paid_at, no mapeada en el ORM): la que escribió quien
+    # registró. La lista sigue ORDENADA y fechada por registro (created_at).
+    fechas_pago = {}
+    if pagos_ids:
+        for fila in db.execute(text("SELECT id, paid_at FROM payments WHERE id = ANY(:ids) AND paid_at IS NOT NULL"),
+                               {"ids": pagos_ids}):
+            fechas_pago[fila.id] = fila.paid_at.strftime("%d/%m/%Y")
+
     return {
         "pagos": [
             {
                 "id": p.id,
+                "fecha_pago": fechas_pago.get(p.id),
                 "monto": float(p.amount or 0),
                 "metodo_pago": p.payment_method,
                 "operation_code": p.operation_code,
