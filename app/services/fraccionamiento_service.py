@@ -337,6 +337,12 @@ def crear_fraccionamiento(
         ))
         db.flush()
 
+    # La marca 'tiene fraccionamiento' se enciende al crear el plan (antes quedaba
+    # apagada hasta el primer pago). Idempotente.
+    from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+    db.flush()
+    refrescar_flag_fraccionamiento(db, colegiado.id)
+
     # commit=False: el llamador (p.ej. refinanciar_core) orquesta varios pasos en
     # UNA transacción y commitea al final. Default True conserva el comportamiento.
     if commit:
@@ -385,6 +391,152 @@ def crear_fraccionamiento(
     )
 
 
+MARCA_PLAN_COMPLETADO = "[PLAN-COMPLETADO fracc:%d]"
+
+
+def _guardar_habilidad_previa(db: Session, cuota_id: int, colegiado_id: int) -> None:
+    """Guarda en la cuota la condición y el vencimiento de habilidad que el colegiado
+    tenía ANTES de pagarla. Nunca lanza: si faltan las columnas, no guarda nada."""
+    from sqlalchemy import text as _text
+    try:
+        with db.begin_nested():
+            db.execute(_text("""
+                UPDATE fraccionamiento_cuotas fc
+                SET habilidad_vence_previa = c.habilidad_vence, condicion_previa = c.condicion
+                FROM colegiados c WHERE fc.id = :cuota AND c.id = :col
+            """), {"cuota": cuota_id, "col": colegiado_id})
+    except Exception as exc:  # columnas aún no creadas
+        logger.warning("habilidad previa no guardada (¿falta sql/zClaude-cuota-habilidad-previa.sql?): %s",
+                       str(exc)[:120])
+
+
+def revertir_cuotas_por_pago(db: Session, payment_id: int, etiqueta: str = "") -> List[dict]:
+    """Deshace en el PLAN lo que un pago anulado (NC) o revertido había pagado.
+
+    Por cada cuota pagada con ese pago, en un plan activo o completado:
+      - la cuota vuelve a impaga; baja el contador; el saldo del plan recupera el monto;
+      - si era la inicial, el plan deja de tenerla por pagada;
+      - su deuda espejo vuelve a pendiente;
+      - si el plan estaba 'completado', vuelve a 'activo' y se reabren las deudas
+        originales que se habían cerrado al completarlo.
+    NO toca la habilidad (ver aplicar_habilidad_tras_reversion) y NO hace commit.
+    Devuelve una fila por cuota revertida, con la habilidad previa guardada (si existe).
+    """
+    from sqlalchemy import text as _text
+    filas = db.execute(_text("""
+        SELECT fc.id, fc.numero_cuota, fc.monto, fc.fraccionamiento_id, fc.debt_id,
+               f.estado, f.colegiado_id
+        FROM fraccionamiento_cuotas fc JOIN fraccionamientos f ON f.id = fc.fraccionamiento_id
+        WHERE fc.payment_id = :p AND fc.pagada = TRUE AND f.estado IN ('activo', 'completado')
+        ORDER BY fc.numero_cuota
+        FOR UPDATE OF fc, f
+    """), {"p": payment_id}).fetchall()
+    revertidas = []
+    for c in filas:
+        previa = {"hay": False, "vence": None, "condicion": None}
+        try:
+            with db.begin_nested():
+                r = db.execute(_text("""SELECT habilidad_vence_previa, condicion_previa
+                                        FROM fraccionamiento_cuotas WHERE id = :c"""), {"c": c.id}).fetchone()
+                if r and r.condicion_previa is not None:
+                    previa = {"hay": True, "vence": r.habilidad_vence_previa, "condicion": r.condicion_previa}
+                db.execute(_text("""UPDATE fraccionamiento_cuotas
+                                    SET habilidad_vence_previa = NULL, condicion_previa = NULL WHERE id = :c"""), {"c": c.id})
+        except Exception:
+            pass  # sin columnas: se usará el respaldo calculado
+        db.execute(_text("""UPDATE fraccionamiento_cuotas
+                            SET pagada = FALSE, fecha_pago = NULL, payment_id = NULL WHERE id = :c"""), {"c": c.id})
+        if c.debt_id:
+            db.execute(_text("""
+                UPDATE debts SET status = 'pending', balance = amount, updated_at = NOW(),
+                       notes = coalesce(notes || E'\\n', '') || :n
+                WHERE id = :d AND debt_type = 'fraccionamiento'
+            """), {"d": c.debt_id, "n": "[CUOTA-REVERTIDA pago:%d] %s" % (payment_id, etiqueta)})
+        if c.estado == "completado":
+            db.execute(_text("""
+                UPDATE debts SET status = 'pending', balance = amount, updated_at = NOW(),
+                       notes = coalesce(notes || E'\\n', '') || '[PLAN-REABIERTO]'
+                WHERE fraccionamiento_id = :f AND status = 'paid' AND notes LIKE :marca
+            """), {"f": c.fraccionamiento_id, "marca": "%" + (MARCA_PLAN_COMPLETADO % c.fraccionamiento_id) + "%"})
+        db.execute(_text("""
+            UPDATE fraccionamientos
+            SET estado = 'activo',
+                cuotas_pagadas = GREATEST(coalesce(cuotas_pagadas, 0) - 1, 0),
+                saldo_pendiente = coalesce(saldo_pendiente, 0) + :m,
+                cuota_inicial_pagada = CASE WHEN :n = 0 THEN FALSE ELSE cuota_inicial_pagada END
+            WHERE id = :f
+        """), {"m": float(c.monto), "n": c.numero_cuota, "f": c.fraccionamiento_id})
+        # próxima cuota = la impaga de menor número
+        db.execute(_text("""
+            UPDATE fraccionamientos f
+            SET proxima_cuota_numero = x.numero_cuota, proxima_cuota_fecha = x.fecha_vencimiento
+            FROM (SELECT numero_cuota, fecha_vencimiento FROM fraccionamiento_cuotas
+                  WHERE fraccionamiento_id = :f AND pagada = FALSE ORDER BY numero_cuota LIMIT 1) x
+            WHERE f.id = :f
+        """), {"f": c.fraccionamiento_id})
+        revertidas.append({"cuota_id": c.id, "numero_cuota": c.numero_cuota, "monto": float(c.monto),
+                           "fraccionamiento_id": c.fraccionamiento_id, "colegiado_id": c.colegiado_id,
+                           "previa": previa})
+    if revertidas:
+        db.flush()
+        db.expire_all()
+        from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+        refrescar_flag_fraccionamiento(db, revertidas[0]["colegiado_id"])
+        db.flush()
+        logger.info("Pago #%s: %d cuota(s) de plan revertida(s) %s", payment_id, len(revertidas),
+                    [r["numero_cuota"] for r in revertidas])
+    return revertidas
+
+
+def aplicar_habilidad_tras_reversion(db: Session, colegiado, revertidas: List[dict], org: dict) -> str:
+    """Habilidad después de revertir cuotas de un plan. NO hace commit.
+
+    - Si se revirtió la INICIAL: se retira la habilidad (inhábil, sin vencimiento).
+    - Si fue otra cuota: se restaura el vencimiento que el colegiado tenía antes de
+      ese pago y luego se re-evalúa con la regla vigente (motor oficial).
+    Devuelve un texto corto con lo que hizo.
+    """
+    if not revertidas or colegiado is None:
+        return ""
+    if getattr(colegiado, "condicion", "") in ("vitalicio", "fallecido", "retirado"):
+        return "condición %s: no se toca" % colegiado.condicion
+    ahora = datetime.now(timezone(timedelta(hours=-5)))
+    if any(r["numero_cuota"] == 0 for r in revertidas):
+        colegiado.condicion = "inhabil"
+        colegiado.habilidad_vence = None
+        colegiado.motivo_inhabilidad = "Anulación del pago de la cuota inicial del fraccionamiento"
+        colegiado.fecha_actualizacion_condicion = ahora
+        db.flush()
+        return "inicial anulada: habilidad retirada"
+
+    primera = min(revertidas, key=lambda r: r["numero_cuota"])
+    if primera["previa"]["hay"]:
+        colegiado.habilidad_vence = primera["previa"]["vence"]
+        if primera["previa"]["condicion"] in ("habil", "inhabil"):
+            colegiado.condicion = primera["previa"]["condicion"]
+        origen = "guardado"
+    else:
+        # Pago anterior a la columna: se reconstruye desde lo que sigue pagado en el plan.
+        from sqlalchemy import text as _text
+        r = db.execute(_text("""
+            SELECT max(habilidad_hasta) FILTER (WHERE numero_cuota >= 1) hh,
+                   max(fecha_pago) FILTER (WHERE numero_cuota = 0) ini
+            FROM fraccionamiento_cuotas WHERE fraccionamiento_id = :f AND pagada = TRUE
+        """), {"f": primera["fraccionamiento_id"]}).fetchone()
+        vence = r.hh if r else None
+        if vence is None and r and r.ini:
+            vence = (r.ini.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        colegiado.habilidad_vence = (datetime.combine(vence, datetime.min.time()).replace(tzinfo=timezone(timedelta(hours=-5)))
+                                     if vence else None)
+        origen = "reconstruido"
+    colegiado.fecha_actualizacion_condicion = ahora
+    db.flush()
+    from app.services.evaluar_habilidad import sincronizar_condicion
+    sincronizar_condicion(db, colegiado, org or {})
+    db.flush()
+    return "vencimiento anterior restaurado (%s) y condición re-evaluada: %s" % (origen, colegiado.condicion)
+
+
 def pagar_cuota_fraccionamiento(
     db: Session,
     fraccionamiento_id: int,
@@ -419,11 +571,25 @@ def pagar_cuota_fraccionamiento(
     if cuota.pagada:
         raise HTTPException(400, f"La cuota {numero_cuota} ya está pagada")
 
+    # Foto de la habilidad ANTES de este pago: si luego se anula (NC / reversión), se
+    # restaura este vencimiento. Columnas de sql/zClaude-cuota-habilidad-previa.sql
+    # (no mapeadas en el ORM). En savepoint: si el SQL aún no se corrió, el cobro sigue.
+    _guardar_habilidad_previa(db, cuota.id, fracc.colegiado_id)
+
     hoy = dt_date.today()
     cuota.pagada = True
     cuota.fecha_pago = hoy
     if payment_obj is not None and getattr(payment_obj, "id", None):
         cuota.payment_id = payment_obj.id
+
+    # La deuda ESPEJO de la cuota queda pagada en el mismo acto, venga el pago de
+    # Caja, de Secretaría o de un refinanciamiento (debt_id no está en el ORM).
+    from sqlalchemy import text as _text
+    db.execute(_text("""
+        UPDATE debts SET status = 'paid', balance = 0, updated_at = NOW()
+        WHERE id = (SELECT debt_id FROM fraccionamiento_cuotas WHERE id = :c)
+          AND status IN ('pending', 'partial')
+    """), {"c": cuota.id})
 
     # Actualizar contadores del plan
     fracc.cuotas_pagadas = (fracc.cuotas_pagadas or 0) + 1
@@ -433,7 +599,10 @@ def pagar_cuota_fraccionamiento(
     if es_inicial:
         fracc.cuota_inicial_pagada = True
 
-    # Próxima cuota pendiente
+    # Próxima cuota pendiente. La sesión NO hace autoflush (app/database.py): sin este
+    # flush la consulta aún ve impaga la cuota recién pagada, se encuentra a sí misma
+    # y el plan nunca pasa a 'completado'.
+    db.flush()
     proxima = db.query(FraccionamientoCuota).filter(
         FraccionamientoCuota.fraccionamiento_id == fraccionamiento_id,
         FraccionamientoCuota.pagada == False,  # noqa: E712
@@ -444,11 +613,22 @@ def pagar_cuota_fraccionamiento(
         fracc.proxima_cuota_fecha = proxima.fecha_vencimiento
     else:
         fracc.estado = "completado"
+        fracc.saldo_pendiente = 0.0
         fracc.proxima_cuota_numero = None
         fracc.proxima_cuota_fecha = None
+        # Las deudas ORIGINALES que absorbió el plan quedan saldadas con él (si no,
+        # siguen 'pendientes' y Caja las vuelve a ofrecer). La marca permite reabrirlas
+        # si se anula el pago de la última cuota.
+        db.execute(_text("""
+            UPDATE debts SET status = 'paid', balance = 0, updated_at = NOW(),
+                   notes = coalesce(notes || E'\\n', '') || :marca
+            WHERE fraccionamiento_id = :f AND debt_type <> 'fraccionamiento'
+              AND estado_gestion = 'fraccionada' AND status IN ('pending', 'partial')
+        """), {"f": fracc.id, "marca": MARCA_PLAN_COMPLETADO % fracc.id})
 
     # (b) sincronizar flag con la existencia de fracc activo (idempotente).
     from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+    db.flush()   # el cambio de estado debe estar en la BD: refrescar_flag consulta sin autoflush
     refrescar_flag_fraccionamiento(db, fracc.colegiado_id)
 
     db.flush()

@@ -24,14 +24,19 @@ from app.models_debt_management import (
 logger = logging.getLogger(__name__)
 
 
-def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> dict:
+def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin",
+                 aprobado_por_member_id: int | None = None) -> dict:
     """
     Aprueba un pago e imputa a deudas pendientes (FIFO).
 
     Args:
         db:           Sesión de base de datos
         payment_id:   ID del pago a aprobar
-        aprobado_por: "admin" | "auto_realtime" | "auto_conciliacion"
+        aprobado_por: "admin" | "auto_realtime" | "auto_conciliacion" (etiqueta para
+                      la respuesta y el log; NO se guarda en la BD)
+        aprobado_por_member_id: id del miembro que aprueba. Es lo que se guarda en
+                      payments.reviewed_by (entero, FK a members). None = aprobación
+                      automática (el banco confirmó), sin persona.
 
     Returns:
         dict con: success, mensaje, saldo_a_favor, cambio_habilidad, certificado
@@ -52,7 +57,7 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin") -> d
     # ── Aprobar ───────────────────────────────────────────────────────────────
     pago.status      = "approved"
     pago.reviewed_at = datetime.now(timezone.utc)
-    pago.reviewed_by = aprobado_por
+    pago.reviewed_by = aprobado_por_member_id
 
     # ── Imputar a deudas FIFO (por due_date asc, luego created_at asc) ───────
     deudas = (

@@ -98,6 +98,11 @@ async def ejecutar_anulacion(db: Session, payment, motivo_codigo: str, motivo_te
                     comprobante_serie_numero=comp_sn,
                 )
             deudas_revertidas = len(deudas_restauradas_ids)
+            # Cuotas de plan cubiertas por el pago anulado: vuelven atrás con su saldo
+            # y su deuda espejo. ⚠️ ESPEJO: mismo bloque en caja.py::anular_cobro.
+            from app.services.fraccionamiento_service import revertir_cuotas_por_pago
+            _cuotas_fx_revertidas = revertir_cuotas_por_pago(db, payment.id, etiqueta=f"anulación {comp_sn}")
+            deudas_revertidas += len(_cuotas_fx_revertidas)
             if mensajes_restauracion:
                 logger.info("Anulación pago=%s comp=%s: restauradas=%s, omitidas=%s",
                             payment.id, comp_sn, deudas_restauradas_ids, deudas_omitidas_ids)
@@ -148,7 +153,12 @@ async def ejecutar_anulacion(db: Session, payment, motivo_codigo: str, motivo_te
                 from app.services.evaluar_habilidad import sincronizar_condicion
                 _col_hab = db.query(Colegiado).filter(Colegiado.id == payment.colegiado_id).first()
                 if _col_hab is not None:
-                    sincronizar_condicion(db, _col_hab, {"id": payment.organization_id, "config": {}})
+                    _org_hab = {"id": payment.organization_id, "config": {}}
+                    if locals().get("_cuotas_fx_revertidas"):
+                        from app.services.fraccionamiento_service import aplicar_habilidad_tras_reversion
+                        aplicar_habilidad_tras_reversion(db, _col_hab, _cuotas_fx_revertidas, _org_hab)
+                    else:
+                        sincronizar_condicion(db, _col_hab, _org_hab)
                     db.commit()
         except Exception as _e_hab:
             try:

@@ -9,7 +9,9 @@ from apscheduler.triggers.cron import CronTrigger
 import logging
 
 logger = logging.getLogger(__name__)
-scheduler = AsyncIOScheduler()
+# Hora de Lima explícita: sin esto las tareas "a las 01:30" corren según el reloj
+# del servidor (UTC = 20:30 de Lima del día anterior).
+scheduler = AsyncIOScheduler(timezone="America/Lima")
 
 
 def iniciar_scheduler():
