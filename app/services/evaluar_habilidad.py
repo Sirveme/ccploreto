@@ -298,43 +298,6 @@ def debe_mostrar_portal_inactivo(
 #print(EVALUAR_HABILIDAD_NUEVO)
 
 
-# ── CRITERIO ÚNICO: ¿a qué planes se les aplica la regla de cuotas vencidas? ──
-# Solo a los planes ESCALONADOS: los que tienen sus cuotas con MÁS DE UNA fecha de
-# vencimiento distinta (un cronograma real, mes a mes). Es el mismo marcador de "plan
-# sano" que usan Pérdida y Refinanciamiento.
-# Quedan FUERA los planes del lote migrado desde las fichas en Excel: se cargaron con
-# todas las cuotas en una sola fecha y con saldos sin revisar. Contarles "cuotas
-# vencidas" inhabilitaría a decenas de colegiados por un dato no confiable; entran a
-# la regla recién cuando se concilian (al refinanciarlos nace un plan escalonado).
-# Cualquier cambio de este criterio se hace AQUÍ y solo aquí.
-SQL_PLAN_ESCALONADO = """(
-    SELECT count(DISTINCT q.fecha_vencimiento) FROM fraccionamiento_cuotas q
-    WHERE q.fraccionamiento_id = f.id) > 1"""
-
-
-def cuotas_plan_vencidas(db, colegiado_id: int):
-    """Cuotas vencidas e impagas del plan ACTIVO y ESCALONADO del colegiado, contadas
-    en vivo (fecha de Lima). Devuelve None si no tiene un plan al que aplique la regla
-    (sin plan activo, o plan del lote migrado: ver SQL_PLAN_ESCALONADO). Nunca lanza."""
-    from datetime import datetime, timedelta, timezone
-    from sqlalchemy import text
-    try:
-        hoy = datetime.now(timezone(timedelta(hours=-5))).date()
-        fila = db.execute(text("""
-            SELECT count(DISTINCT f.id) AS planes,
-                   count(c.id) FILTER (WHERE NOT coalesce(c.pagada, FALSE) AND c.fecha_vencimiento < :hoy) AS vencidas
-            FROM fraccionamientos f
-            LEFT JOIN fraccionamiento_cuotas c ON c.fraccionamiento_id = f.id
-            WHERE f.colegiado_id = :col AND f.estado = 'activo' AND """ + SQL_PLAN_ESCALONADO + """
-        """), {"col": colegiado_id, "hoy": hoy}).fetchone()
-        if not fila or not fila.planes:
-            return None
-        return int(fila.vencidas or 0)
-    except Exception as exc:
-        logger.warning(f"cuotas_plan_vencidas: #{colegiado_id} no se pudo contar: {exc}")
-        return None
-
-
 def sincronizar_condicion(db, colegiado, org: dict) -> bool:
     """
     Evalúa la deuda actual y actualiza colegiado.condicion en BD si corresponde.
@@ -354,25 +317,6 @@ def sincronizar_condicion(db, colegiado, org: dict) -> bool:
     resultado  = evaluar_habilidad(deuda_info, org, colegiado, db=db)
 
     condicion_actual = getattr(colegiado, "condicion", "inhabil")
-
-    # ── Regla de PLAN ACTIVO (autorizada por Duilio el 21-nov-2026, solo local) ──
-    # Con plan activo, el colegiado pasa a INHÁBIL cuando tiene N o más cuotas del
-    # plan vencidas e impagas. N = preset activo (inhab_fracc_cuotas; hoy 3).
-    # Se cuenta EN VIVO desde fraccionamiento_cuotas: no depende del contador
-    # fraccionamientos.cuotas_atrasadas ni de la marca colegiados.tiene_fraccionamiento.
-    vencidas_plan = cuotas_plan_vencidas(db, colegiado.id)
-    if vencidas_plan is not None and vencidas_plan >= resultado.umbral_fracc_atrasadas:
-        if condicion_actual == "habil":
-            colegiado.condicion          = "inhabil"
-            colegiado.motivo_inhabilidad = (
-                f"Fraccionamiento con {vencidas_plan} cuotas vencidas impagas "
-                f"(límite: {resultado.umbral_fracc_atrasadas})"
-            )
-            logger.info(
-                f"sincronizar_condicion: #{colegiado.id} → INHÁBIL | plan con {vencidas_plan} cuotas vencidas"
-            )
-            return True
-        return False   # ya no está hábil: con el plan así de atrasado, tampoco se rehabilita
 
     if resultado.debe_inhabilitar and condicion_actual == "habil":
         # Solo inhabilitar si NO tiene fraccionamiento activo
