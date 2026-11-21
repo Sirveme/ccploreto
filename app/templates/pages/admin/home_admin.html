@@ -162,11 +162,41 @@
             <h3 class="text-xl font-bold">Secretaría / Colegiados</h3>
             <p class="text-sm opacity-90">
                 Buscar colegiado, ver deudas y pagos, registrar pagos, crear y gestionar
-                fraccionamientos (pérdida, refinanciamiento) y cuotas.
+                fraccionamientos (refinanciamiento) y cuotas.
+            </p>
+        </a>
+
+        <!-- Tarjeta 8: Actas de conciliación (con el número pendiente de MI firma) -->
+        <a href="/conciliacion-deuda/actas"
+           class="bg-gradient-to-br from-violet-600 to-violet-800 hover:from-violet-700 hover:to-violet-900
+                  rounded-2xl p-8 text-white transition-all duration-200
+                  transform hover:scale-105 hover:shadow-2xl cursor-pointer
+                  flex flex-col items-center text-center gap-4 relative">
+            <span id="actasPendientesBadge"
+                  style="display:none;position:absolute;top:14px;right:14px;min-width:28px;height:28px;padding:0 8px;
+                         border-radius:999px;background:#fbbf24;color:#1f2937;font-weight:800;font-size:14px;
+                         align-items:center;justify-content:center;"></span>
+            <div class="text-6xl"><i class="ph ph-signature"></i></div>
+            <h3 class="text-xl font-bold">Actas de conciliación</h3>
+            <p class="text-sm opacity-90" id="actasPendientesTexto">
+                Revisa y firma las actas que fijan la deuda de un colegiado.
             </p>
         </a>
 
     </div>
+    <script>
+    // Número de actas que esperan MI firma (si mi rol no firma, la tarjeta queda sin número).
+    fetch('/api/conciliacion-deuda/config', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.puedo_firmar) return;
+        var n = d.pendientes_mi_firma || 0, b = document.getElementById('actasPendientesBadge');
+        if (n > 0) { b.textContent = n; b.style.display = 'inline-flex'; }
+        document.getElementById('actasPendientesTexto').textContent = n > 0
+          ? (n === 1 ? 'Hay 1 acta esperando tu firma.' : 'Hay ' + n + ' actas esperando tu firma.')
+          : 'No hay actas esperando tu firma.';
+      }).catch(function () {});
+    </script>
 
     <!-- Info footer -->
     <div class="mt-12 text-center text-sm text-slate-400 max-w-3xl mx-auto">
