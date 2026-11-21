@@ -377,7 +377,16 @@ async def comprar_publico(
                 status_code=400,
             )
 
-        cantidad = int(item_req.get("cantidad", 1))
+        try:
+            cantidad = int(item_req.get("cantidad", 1))
+        except (TypeError, ValueError):
+            cantidad = 0
+        if cantidad < 1:
+            # Una cantidad 0 o negativa aumentaría el stock y daría totales negativos.
+            return JSONResponse(
+                {"error": f"Cantidad no válida para {concepto.nombre}"},
+                status_code=400,
+            )
 
         if concepto.maneja_stock:
             if (concepto.stock_actual or 0) < cantidad:
@@ -425,60 +434,12 @@ async def comprar_publico(
     db.add(payment)
     db.flush()
 
-    # ── Emitir CPE vía Facturalo serie B800/F800 ──────────────
+    # ── Sin emisión ni aprobación en la ruta pública ──────────
+    # SEGURIDAD: con Yape/Plin/Transferencia nadie ha verificado el dinero todavía.
+    # La compra queda en revisión (status="review") y el comprobante B800/F800 se
+    # emite cuando una persona con sesión y rol valide el pago. Con tarjeta queda
+    # "pending" y es OpenPay quien confirma y dispara la emisión.
     cpe_info = None
-    if metodo_pago == "tarjeta":
-        # Para tarjeta OpenPay aprueba y luego emite — no emitir aquí
-        pass
-    else:
-        # Para Yape/Plin/Transferencia — emitir al registrar (status review)
-        # El CCPL decidirá si emitir antes o después de validar
-        try:
-            from app.services.facturacion import FacturacionService
-
-            facturacion = FacturacionService(db, org.id)
-            if facturacion.esta_configurado():
-                tipo_cpe = "01" if tipo_comp == "factura" else "03"
-
-                # Datos del cliente
-                if tipo_comp == "factura" and factura_data.get("ruc"):
-                    datos_cliente = {
-                        "tipo_doc":  "6",
-                        "num_doc":   factura_data["ruc"],
-                        "nombre":    factura_data.get("razon_social", ""),
-                        "direccion": factura_data.get("direccion", ""),
-                    }
-                else:
-                    datos_cliente = {
-                        "tipo_doc": "1",
-                        "num_doc":  comprador.get("dni", "00000000"),
-                        "nombre":   comprador.get("nombre", "CLIENTE VARIOS"),
-                    }
-
-                # Ajustar items para Facturalo (descripción + formato)
-                items_cpe = [{
-                    "descripcion":         i["nombre"],
-                    "cantidad":            i["cantidad"],
-                    "unidad_medida":       "NIU",
-                    "precio_unitario":     i["monto_unitario"],
-                    "tipo_afectacion_igv": "20",
-                } for i in items_procesados]
-
-                resultado = await facturacion.emitir_comprobante_por_pago(
-                    payment_id           = payment.id,
-                    tipo                 = tipo_cpe,
-                    sede_id              = "8",    # ← B800 / F800
-                    forma_pago           = metodo_pago or "contado",
-                    forzar_datos_cliente = datos_cliente,
-                )
-
-                if resultado.get("success"):
-                    cpe_info = resultado
-                    payment.status = "approved"  # pago con comprobante = aprobado
-
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"[Tienda] Error CPE: {e}")
 
     db.commit()
 

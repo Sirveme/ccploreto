@@ -715,7 +715,8 @@ async def actualizar_condicion(
             except ValueError:
                 raise HTTPException(400, detail="Formato de fecha inválido (usar YYYY-MM-DD)")
         else:
-            colegiado.habilidad_vence = datetime(2026, 12, 31, tzinfo=PERU_TZ)
+            # 31 de diciembre del año en curso (antes: 2026 fijo).
+            colegiado.habilidad_vence = datetime(ahora.year, 12, 31, tzinfo=PERU_TZ)
         colegiado.motivo_inhabilidad = None
     elif datos.condicion in ("fallecido", "vitalicio"):
         # Sin caducidad. No tocar deudas.
@@ -1398,6 +1399,21 @@ async def marcar_fracc_perdido(
     4. Cancela cuotas del fracc (status='cancelled').
     5. Cambia estado del fracc a 'perdido' con fecha y motivo.
     """
+    # Pérdida APAGADA por defecto (decisión del Colegio). Reversible: se habilita con
+    # el parámetro fraccionamiento.perdida_habilitada = TRUE en parametros_sistema.
+    # Sin la fila (o ante cualquier fallo de lectura) queda deshabilitada.
+    from app.services import parametros_service as _PS
+    try:
+        _perdida_on = bool(_PS.get_param(db, "fraccionamiento", "perdida_habilitada", default=False))
+    except Exception:
+        _perdida_on = False
+    if not _perdida_on:
+        raise HTTPException(
+            409,
+            "La pérdida de fraccionamiento está deshabilitada por decisión del Colegio. "
+            "Use Refinanciar o registre el pago."
+        )
+
     # Lógica extraída a servicio reutilizable (mismo comportamiento). El endpoint
     # solo deriva el user_id y traduce el error de dominio a HTTPException.
     from app.services.fraccionamiento_perdida_service import (

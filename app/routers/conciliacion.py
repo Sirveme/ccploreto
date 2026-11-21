@@ -42,13 +42,28 @@ from app.models import (
     NotificacionBancaria,
     CuentaReceptora,
     Payment,
+    Colegiado,
+    Member,
 )
+from app.utils.sesion_api import sesion_api, exigir_roles
 
 logger = logging.getLogger(__name__)
 
 TZ_PERU = timezone(timedelta(hours=-5))
 
-router = APIRouter(prefix="/api/conciliacion", tags=["conciliacion"])
+# SEGURIDAD: todo /api/conciliacion exige sesión (401 sin cookie válida).
+router = APIRouter(
+    prefix="/api/conciliacion",
+    tags=["conciliacion"],
+    dependencies=[Depends(sesion_api)],
+)
+
+# Rutas que mueven o validan dinero: admin y tesorero (sote NO firma dinero).
+_DINERO = Depends(exigir_roles("admin", "tesorero"))
+# Consulta y configuración de la conciliación: admin, tesorero y sote.
+_GESTION = Depends(exigir_roles("admin", "tesorero", "sote"))
+# En verificar-pago, roles que pueden consultar un pago que no es suyo.
+_ROLES_VERIFICAN_AJENO = ("cajero", "admin", "tesorero")
 
 
 # ══════════════════════════════════════════════════════════
@@ -91,7 +106,7 @@ def _org_id(request: Request = None) -> int:
 # DASHBOARD / RESUMEN
 # ══════════════════════════════════════════════════════════
 
-@router.get("/resumen")
+@router.get("/resumen", dependencies=[_GESTION])
 async def resumen_conciliacion(db: Session = Depends(get_db)):
     """Stats para el dashboard del tesorero."""
     org = _org_id()
@@ -135,7 +150,7 @@ async def resumen_conciliacion(db: Session = Depends(get_db)):
 # NOTIFICACIONES
 # ══════════════════════════════════════════════════════════
 
-@router.get("/notificaciones")
+@router.get("/notificaciones", dependencies=[_GESTION])
 async def listar_notificaciones(
     estado: Optional[str] = None,
     banco: Optional[str] = None,
@@ -194,7 +209,7 @@ async def listar_notificaciones(
 # SINCRONIZAR (manual — leer Gmail y guardar en tabla)
 # ══════════════════════════════════════════════════════════
 
-@router.post("/sincronizar")
+@router.post("/sincronizar", dependencies=[_DINERO])
 async def sincronizar_emails(
     horas: int = Query(24, ge=1, le=168),
     db: Session = Depends(get_db),
@@ -224,7 +239,7 @@ async def sincronizar_emails(
 # CONCILIACIÓN MANUAL
 # ══════════════════════════════════════════════════════════
 
-@router.post("/manual")
+@router.post("/manual", dependencies=[_DINERO])
 async def conciliar_manual(
     notificacion_id: int,
     payment_id: int,
@@ -246,7 +261,7 @@ async def conciliar_manual(
     return {"success": True, "message": "Conciliado manualmente"}
 
 
-@router.post("/ignorar")
+@router.post("/ignorar", dependencies=[_DINERO])
 async def ignorar_notificacion(
     notificacion_id: int,
     observacion: str = "",
@@ -276,6 +291,7 @@ async def verificar_pago(
     metodo: str,
     payment_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    member: Member = Depends(sesion_api),
 ):
     """
     Verifica si existe una notificación bancaria que coincida.
@@ -287,6 +303,21 @@ async def verificar_pago(
     - Últimos 15 minutos
     - No conciliada previamente con otro pago
     """
+    # SEGURIDAD: un colegiado solo puede verificar (y con ello aprobar) un pago SUYO.
+    # El enlace pago → sesión es payments.member_id, o payments.colegiado_id →
+    # colegiados.member_id (los pagos del portal casi nunca traen member_id).
+    if payment_id and member.role not in _ROLES_VERIFICAN_AJENO:
+        _pago = db.query(Payment).filter(Payment.id == payment_id).first()
+        _es_suyo = False
+        if _pago:
+            if _pago.member_id is not None and _pago.member_id == member.id:
+                _es_suyo = True
+            elif _pago.colegiado_id:
+                _col = db.query(Colegiado).filter(Colegiado.id == _pago.colegiado_id).first()
+                _es_suyo = bool(_col and _col.member_id == member.id)
+        if not _es_suyo:
+            raise HTTPException(403, detail="Ese pago no corresponde a tu sesión")
+
     org = _org_id()
     ahora_utc = datetime.now(timezone.utc)
     ventana = ahora_utc - timedelta(minutes=15)
@@ -349,7 +380,7 @@ async def verificar_pago(
     }
 
 
-@router.get("/verificar-pago/status/{payment_id}")
+@router.get("/verificar-pago/status/{payment_id}", dependencies=[_GESTION])
 async def status_verificacion(payment_id: int, db: Session = Depends(get_db)):
     """Consulta si un pago específico ya fue verificado."""
     notif = db.query(NotificacionBancaria).filter(
@@ -373,7 +404,7 @@ async def status_verificacion(payment_id: int, db: Session = Depends(get_db)):
 # PAGOS SIN VERIFICAR
 # ══════════════════════════════════════════════════════════
 
-@router.get("/pagos-sin-verificar")
+@router.get("/pagos-sin-verificar", dependencies=[_GESTION])
 async def pagos_sin_verificar(
     dias: int = Query(7, ge=1, le=90),
     db: Session = Depends(get_db),
@@ -452,7 +483,7 @@ async def listar_cuentas(
     }
 
 
-@router.post("/cuentas")
+@router.post("/cuentas", dependencies=[_GESTION])
 async def crear_cuenta(datos: CuentaReceptoraCreate, db: Session = Depends(get_db)):
     """Crea nueva cuenta receptora."""
     cuenta = CuentaReceptora(
@@ -472,7 +503,7 @@ async def crear_cuenta(datos: CuentaReceptoraCreate, db: Session = Depends(get_d
     return {"success": True, "id": cuenta.id, "message": f"Cuenta '{datos.nombre}' creada"}
 
 
-@router.put("/cuentas/{cuenta_id}")
+@router.put("/cuentas/{cuenta_id}", dependencies=[_GESTION])
 async def actualizar_cuenta(
     cuenta_id: int,
     datos: CuentaReceptoraUpdate,
@@ -493,7 +524,7 @@ async def actualizar_cuenta(
     return {"success": True, "message": f"Cuenta '{cuenta.nombre}' actualizada"}
 
 
-@router.delete("/cuentas/{cuenta_id}")
+@router.delete("/cuentas/{cuenta_id}", dependencies=[_GESTION])
 async def desactivar_cuenta(cuenta_id: int, db: Session = Depends(get_db)):
     """Desactiva cuenta (no elimina, mantiene historial)."""
     org = _org_id()
@@ -511,7 +542,7 @@ async def desactivar_cuenta(cuenta_id: int, db: Session = Depends(get_db)):
 
 
 
-@router.get("/email/status")
+@router.get("/email/status", dependencies=[_GESTION])
 async def email_status():
     """Estado de conexión del email."""
     from app.services.imap_service import ImapService
@@ -537,7 +568,7 @@ async def email_status():
     }
 
 
-@router.post("/email/probar")
+@router.post("/email/probar", dependencies=[_GESTION])
 async def probar_email(
     server: str,
     port: int = 993,
@@ -552,7 +583,7 @@ async def probar_email(
     return resultado
 
 
-@router.post("/email/configurar")
+@router.post("/email/configurar", dependencies=[_GESTION])
 async def configurar_email(
     server: str,
     user: str,

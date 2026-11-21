@@ -18,7 +18,21 @@ from app.models import Organization, Member, Colegiado, Payment
 from app.models_debt_management import Debt
 # from app.utils.gcs import upload_to_gcs  # Si usas Google Cloud Storage
 
+from app.utils.sesion_api import exigir_roles
+
 router = APIRouter(prefix="/api/admin", tags=["admin-config"])
+
+# Configuración del colegio: solo admin y sote.
+_ADMIN = exigir_roles("admin", "sote")
+
+# Archivos que sube la pantalla /admin/config (admin-config.html: uploadFile('...')).
+_TIPOS_UPLOAD = ("logo", "logo_cert", "firma_decano", "firma_secretario")
+_EXT_POR_CONTENT_TYPE = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
 
 
 # ============================================================
@@ -160,7 +174,8 @@ async def get_config(
 @router.post("/config")
 async def save_config(
     data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _m: Member = Depends(_ADMIN),
 ):
     """
     Guarda configuración de una sección específica.
@@ -209,18 +224,24 @@ async def save_config(
 async def upload_file(
     file: UploadFile = File(...),
     tipo: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _m: Member = Depends(_ADMIN),
 ):
     """
     Sube archivos de configuración (logos, firmas).
     Almacena en GCS o sistema de archivos local.
     """
-    
+
     org_id = 1  # TODO: obtener de la sesión
-    
-    # Validar tipo de archivo
-    allowed_types = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
-    if file.content_type not in allowed_types:
+
+    # `tipo` forma parte del nombre del archivo: solo valores conocidos
+    # (evita escribir fuera de la carpeta con "../").
+    if tipo not in _TIPOS_UPLOAD:
+        raise HTTPException(status_code=400, detail="Tipo no permitido")
+
+    # Validar tipo de archivo (400 si no es una imagen permitida)
+    extension = _EXT_POR_CONTENT_TYPE.get(file.content_type)
+    if not extension:
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
     
     # Validar tamaño (max 2MB)
@@ -228,8 +249,8 @@ async def upload_file(
     if len(contents) > 2 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Archivo muy grande (max 2MB)")
     
-    # Generar nombre único
-    extension = file.filename.split('.')[-1] if '.' in file.filename else 'png'
+    # Generar nombre único (la extensión sale del content-type validado,
+    # no del nombre que manda el navegador)
     filename = f"org_{org_id}/{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}"
     
     # Subir a GCS (o guardar localmente)

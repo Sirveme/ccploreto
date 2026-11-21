@@ -24,6 +24,7 @@ from app.services.deuda_cuotas_service import calcular_deuda_total as _svc_deuda
 from app.services.evaluar_habilidad import evaluar_habilidad
 
 from app.services.push_service import enviar_push_por_tipo
+from app.utils.sesion_api import exigir_roles
 
 import io
 from fastapi.responses import StreamingResponse
@@ -276,114 +277,11 @@ async def registrar_pago(
     db.add(nuevo_pago)
     db.flush()
     
-    # Verificar si el colegio acepta pagos sin validación
-    certificado_auto = False
-    #print(f"DEBUG PAGO: org_id={org['id']}")
-    try:
-        org_config = db.execute(
-            text("SELECT config FROM organizations WHERE id = :oid"),
-            {"oid": org["id"]}
-        ).fetchone()
-        #print(f"DEBUG CONFIG: {type(org_config.config) if org_config else 'NONE'}")
-        if org_config and org_config.config:
-            config = org_config.config if isinstance(org_config.config, dict) else json.loads(org_config.config)
-            certificado_auto = config.get("finanzas", {}).get("validacion_automatica", False)
-            #print(f"DEBUG AUTO: {certificado_auto}")
-    except Exception as e:
-        print(f"⚠️ Error leyendo config: {e}")
-    
-    certificado_info = None
-    
-    if certificado_auto:
-        # Modo automático: aprobar pago + emitir constancia de inmediato
-        nuevo_pago.status = "approved"
-        nuevo_pago.reviewed_at = datetime.now(timezone.utc)
-        
-        # Imputar a deudas (FIFO)
-        deudas = db.query(Debt).filter(
-            Debt.colegiado_id == colegiado_id,
-            Debt.status.in_(["pending", "partial"])
-        ).order_by(Debt.due_date.asc(), Debt.created_at.asc()).all()
-        
-        monto_restante = nuevo_pago.amount
-        for deuda in deudas:
-            if monto_restante <= 0:
-                break
-            if monto_restante >= deuda.balance:
-                monto_restante -= deuda.balance
-                deuda.balance = 0
-                deuda.status = "paid"
-            else:
-                deuda.balance -= monto_restante
-                deuda.status = "partial"
-                monto_restante = 0
-        
-        # Actualizar condición si quedó al día
-        deudas_pendientes = db.query(Debt).filter(
-            Debt.colegiado_id == colegiado_id,
-            Debt.status.in_(["pending", "partial"])
-        ).count()
-        
-        if deudas_pendientes == 0:
-            colegiado_obj = db.query(Colegiado).filter(Colegiado.id == colegiado_id).first()
-            if colegiado_obj and colegiado_obj.condicion == "inhabil":
-                colegiado_obj.condicion = "habil"
-                colegiado_obj.fecha_actualizacion_condicion = datetime.now(timezone.utc)
-        
-        db.flush()
-        
-        # ============================================
-        # CERTIFICADO: Solo si lo solicitó
-        # ============================================
-        certificado_info = None
-        if requiere_certificado == "1":
-            try:
-                certificado_info = emitir_certificado_automatico(
-                    db=db,
-                    colegiado_id=colegiado_id,
-                    payment_id=nuevo_pago.id,
-                    ip_origen=request.client.host if request.client else None
-                )
-            except Exception as e:
-                print(f"⚠️ Error emitiendo certificado automático: {e}")
-        
-        # ============================================
-        # COMPROBANTE: Según tipo seleccionado
-        # ============================================
-        comprobante_info = None
-        if tipo_comprobante in ["boleta", "factura"]:
-            try:
-                from app.services.facturacion import FacturacionService
-                service = FacturacionService(db, org["id"])
-                
-                if service.esta_configurado():
-                    tipo_doc = "01" if tipo_comprobante == "factura" else "03"
-                    
-                    # Si es factura, forzar datos de empresa
-                    forzar_datos = None
-                    if tipo_comprobante == "factura" and ruc_factura:
-                        forzar_datos = {
-                            "tipo_doc": "6",  # RUC
-                            "num_doc": ruc_factura,
-                            "nombre": razon_social or "CLIENTE",
-                            "direccion": None,
-                            "email": None
-                        }
-                    
-                    resultado = await service.emitir_comprobante_por_pago(
-                        nuevo_pago.id, 
-                        tipo=tipo_doc,
-                        forzar_datos_cliente=forzar_datos
-                    )
-                    
-                    if resultado.get("success"):
-                        comprobante_info = resultado
-                        print(f"✅ Comprobante emitido: {resultado.get('pdf_url')}")
-                    else:
-                        print(f"⚠️ Error comprobante: {resultado.get('error')}")
-            except Exception as e:
-                print(f"⚠️ Error emitiendo comprobante: {e}")
-
+    # SEGURIDAD: una ruta pública NUNCA aprueba. El pago queda siempre en
+    # revisión (status="review") hasta que lo valide una persona con sesión y rol.
+    # Se retiró la rama organizations.config.finanzas.validacion_automatica, que
+    # aprobaba, imputaba deudas, cambiaba la habilidad y emitía comprobante sin
+    # verificar el dinero.
     
     db.commit()
     
@@ -397,91 +295,6 @@ async def registrar_pago(
         })
     except:
         pass
-    
-    # ============================================
-    # RESPUESTAS SEGÚN MODO
-    # ============================================
-    
-    if certificado_auto:
-        # Construir respuesta con documentos generados
-        docs_html = ""
-        
-        # Certificado
-        if certificado_info and certificado_info.get("emitido"):
-            codigo = certificado_info["codigo"]
-            vigencia = certificado_info["vigencia_hasta"]
-            docs_html += f'''
-                <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: #22c55e; font-weight: 600; margin: 0 0 5px 0;">📜 Constancia de Habilidad</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">Código: {codigo}</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">Vigente hasta: {vigencia}</p>
-                    <a href="/api/certificados/descargar/{codigo}" target="_blank"
-                       style="display: inline-block; background: #22c55e; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">
-                        📥 DESCARGAR PDF
-                    </a>
-                </div>
-            '''
-        elif requiere_certificado == "1":
-            docs_html += f'''
-                <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: #eab308; font-weight: 600; margin: 0 0 5px 0;">⚠️ Constancia no emitida</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">
-                        {certificado_info.get("error", "Aún tienes deuda pendiente") if certificado_info else "Debes estar al día para obtener constancia"}
-                    </p>
-                </div>
-            '''
-        
-        #comprobante_uuid = comprobante_info.get("external_id", "")
-        # Comprobante
-        if comprobante_info and comprobante_info.get("success"):
-            tipo_nombre = "Factura" if tipo_comprobante == "factura" else "Boleta"
-            pdf_url = comprobante_info.get("pdf_url", "")
-            
-            # Extraer UUID de la URL
-            comprobante_uuid = ""
-            if pdf_url and "/comprobantes/" in pdf_url:
-                import re
-                match = re.search(r'/comprobantes/([^/]+)/pdf', pdf_url)
-                comprobante_uuid = match.group(1) if match else ""
-            
-            docs_html += f'''
-                <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: #3b82f6; font-weight: 600; margin: 0 0 5px 0;">📄 {tipo_nombre} Electrónica</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0 0 8px 0;">
-                        {comprobante_info.get("serie", "")}-{comprobante_info.get("numero", "")}
-                    </p>
-                    {f'<a href="/pagos/comprobante/{comprobante_uuid}/pdf" target="_blank" style="display: inline-block; background: #3b82f6; color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none;">📥 DESCARGAR PDF</a>' if comprobante_uuid else '<p style="color: #888; font-size: 11px;">PDF no disponible</p>'}
-                </div>
-            '''
-
-        elif tipo_comprobante == "recibo":
-            docs_html += f'''
-                <div style="background: rgba(107,114,128,0.1); border: 1px solid rgba(107,114,128,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                    <p style="color: var(--texto-gris, #888); font-weight: 600; margin: 0 0 5px 0;">🧾 Recibo Interno</p>
-                    <p style="color: var(--texto-gris, #888); font-size: 12px; margin: 0;">
-                        Se emitirá recibo de pago interno.
-                    </p>
-                </div>
-            '''
-        
-        return HTMLResponse(f'''
-            <div style="text-align: center; padding: 15px 0;">
-                <div style="width: 50px; height: 50px; margin: 0 auto 12px; background: rgba(34, 197, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <svg width="25" height="25" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                </div>
-                <h3 style="color: #22c55e; font-size: 16px; font-weight: 700; margin-bottom: 5px;">¡Pago Aprobado!</h3>
-                <p style="color: var(--texto-gris, #888); font-size: 13px; margin-bottom: 15px;">
-                    S/ {monto:.2f} procesado correctamente
-                </p>
-                {docs_html}
-                <button onclick="document.getElementById('modal-pago-rapido')?.classList.remove('active'); document.body.style.overflow='';" 
-                        style="margin-top: 10px; background: rgba(255,255,255,0.1); color: #888; border: none; padding: 10px 25px; border-radius: 20px; font-size: 12px; cursor: pointer;">
-                    CERRAR
-                </button>
-            </div>
-        ''')
     
     # Modo con validación manual (default)
     return HTMLResponse(f'''
@@ -1128,11 +941,11 @@ async def validar_pago_colegiado(
     pago_id: int,
     accion: str = Form(...),
     motivo: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _m=Depends(exigir_roles("admin", "tesorero")),
 ):
-    """Valida o rechaza un pago de colegiado."""
-    # TODO: Verificar que es admin
-    
+    """Valida o rechaza un pago de colegiado. Exige sesión y rol (admin, tesorero)."""
+
     pago = db.query(Payment).filter(Payment.id == pago_id).first()
     if not pago:
         raise HTTPException(status_code=404, detail="Pago no encontrado")

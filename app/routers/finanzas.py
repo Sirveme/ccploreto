@@ -24,6 +24,10 @@ from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
 from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamiento
 from app.routers.dashboard import get_current_member  # igual que en finance.py
+from app.utils.sesion_api import exigir_roles
+
+# Aprueban dinero: admin y tesorero (sote NO firma dinero).
+_APRUEBA_DINERO = exigir_roles("admin", "tesorero")
 
 router = APIRouter(prefix="/api/finanzas", tags=["finanzas"])
 router_views = APIRouter(prefix="/finanzas", tags=["finanzas-views"])
@@ -153,8 +157,9 @@ async def resolver_autorizacion(
     accion: str,
     request: Request,
     db: Session = Depends(get_db),
+    _m: Member = Depends(_APRUEBA_DINERO),
 ):
-    """Aprobar o rechazar una solicitud."""
+    """Aprobar o rechazar una solicitud. Exige sesión y rol (admin, tesorero)."""
     if accion not in ("aprobar", "rechazar"):
         raise HTTPException(400, "Acción debe ser 'aprobar' o 'rechazar'")
 
@@ -226,6 +231,7 @@ async def simular_fraccion(
 async def crear_fraccionamiento(
     data: FraccionamientoRequest,
     db: Session = Depends(get_db),
+    _m: Member = Depends(_APRUEBA_DINERO),
 ):
     """
     Crea un fraccionamiento: valida, genera cuotas, reemplaza deuda original.
@@ -339,7 +345,11 @@ async def obtener_config(db: Session = Depends(get_db)):
 
 
 @router.post("/config")
-async def guardar_config(request: Request, db: Session = Depends(get_db)):
+async def guardar_config(
+    request: Request,
+    db: Session = Depends(get_db),
+    _m: Member = Depends(exigir_roles("admin", "sote")),
+):
     """Guarda configuración financiera."""
     body = await request.json()
     org = db.query(Organization).filter(Organization.id == _org_id()).first()

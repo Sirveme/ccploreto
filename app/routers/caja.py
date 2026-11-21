@@ -674,12 +674,18 @@ async def listar_categorias(db: Session = Depends(get_db)):
 async def registrar_cobro(
     cobro: RegistrarCobroRequest,
     db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
 ):
     """
     Registra un cobro presencial.
     1. Valida items  2. Crea Payment  3. Marca deudas pagadas
     4. Actualiza stock  5. Emite comprobante vía facturalo.pro
     """
+    # Seguridad: el cobro exige sesión y rol de caja. Roles = los que registraron
+    # cobros en los últimos 90 días (cajero, admin) + sote.
+    if member.role not in ("cajero", "admin", "sote"):
+        raise HTTPException(403, detail="Acceso restringido: tu rol no puede registrar cobros")
+
     ahora = datetime.now(PERU_TZ)
 
     org = db.query(Organization).first()
@@ -2334,8 +2340,13 @@ async def liquidar_egreso(
     egreso_id: int,
     datos: LiquidarEgresoRequest,
     db: Session = Depends(get_db),
+    member: Member = Depends(get_current_member),
 ):
     """Liquida un egreso: factura recibida + vuelto."""
+    # Seguridad: misma lista de roles que /cobrar.
+    if member.role not in ("cajero", "admin", "sote"):
+        raise HTTPException(403, detail="Acceso restringido: tu rol no puede liquidar egresos")
+
     from app.models import EgresoCaja
 
     ahora = datetime.now(PERU_TZ)
@@ -2730,6 +2741,23 @@ async def anular_cobro(
             payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
 
         db.commit()
+
+        # ── Re-evaluar habilidad DESPUÉS de confirmar la anulación (total o parcial) ──
+        # Transacción propia: un fallo aquí NUNCA afecta la anulación ya commiteada.
+        # ⚠️ ESPEJO: mismo bloque en anulacion_service.ejecutar_anulacion.
+        try:
+            if payment.colegiado_id:
+                from app.services.evaluar_habilidad import sincronizar_condicion
+                _col_hab = db.query(Colegiado).filter(Colegiado.id == payment.colegiado_id).first()
+                if _col_hab is not None:
+                    sincronizar_condicion(db, _col_hab, {"id": payment.organization_id, "config": {}})
+                    db.commit()
+        except Exception as _e_hab:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            logger.warning(f"Re-evaluación de habilidad tras anular pago #{payment_id} falló: {_e_hab}")
 
         return {
             "success": True,
