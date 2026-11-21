@@ -216,23 +216,62 @@ def marcar_fracc_perdido_core(
             "Este fraccionamiento está cancelado, no se puede marcar como perdido"
         )
 
+    # Solo se pierde un plan ACTIVO (un plan completado o refinanciado ya cerró su ciclo).
+    if fr.estado != "activo":
+        raise FraccPerdidoError(409, f"Este fraccionamiento está {fr.estado}; solo se puede declarar pérdida de un plan activo")
+
+    # ── ENLACE DE LAS DEUDAS (corrección del defecto) ──────────────────────────
+    # Hay dos generaciones de planes:
+    #   · flujo ACTUAL (crear_fraccionamiento): las deudas ORIGINALES quedan con
+    #     fraccionamiento_id = plan y gestión 'fraccionada'; las deudas ESPEJO de
+    #     cada cuota también llevan fraccionamiento_id = plan, con debt_type
+    #     'fraccionamiento'.
+    #   · flujo ANTIGUO: las originales llevaban fraccionamiento_id_origen = plan.
+    # Antes solo se miraba fraccionamiento_id_origen: en un plan actual no encontraba
+    # originales (no restauraba nada) y además trataba TODAS las deudas con
+    # fraccionamiento_id como cuotas y las anulaba: la deuda desaparecía.
     originales = db.execute(text("""
-        SELECT id, amount, balance, status, estado_gestion
+        SELECT id, amount, balance, status, estado_gestion, periodo,
+               (fraccionamiento_id_origen = :fid) AS enlace_antiguo
         FROM debts
-        WHERE fraccionamiento_id_origen = :fid
-        ORDER BY id
+        WHERE (fraccionamiento_id_origen = :fid)
+           OR (fraccionamiento_id = :fid AND coalesce(debt_type, '') <> 'fraccionamiento'
+               AND estado_gestion = 'fraccionada')
+        ORDER BY periodo NULLS LAST, id
+        FOR UPDATE
     """), {"fid": fracc_id}).fetchall()
 
     cuotas = db.execute(text("""
         SELECT id, amount, balance, status
         FROM debts
-        WHERE fraccionamiento_id = :fid
+        WHERE fraccionamiento_id = :fid AND debt_type = 'fraccionamiento'
         ORDER BY id
+        FOR UPDATE
     """), {"fid": fracc_id}).fetchall()
 
-    pagos_a_cuotas = sum(
-        float(c.amount or 0) - float(c.balance or 0) for c in cuotas
-    )
+    if not originales:
+        # Plan sin deudas originales enlazadas (lote migrado): no hay qué restaurar.
+        # Declarar la pérdida borraría el saldo del plan sin devolver la deuda.
+        raise FraccPerdidoError(
+            409,
+            "Este fraccionamiento no tiene sus deudas originales enlazadas (plan del lote migrado). "
+            "No se puede declarar la pérdida sin antes conciliar la deuda del colegiado."
+        )
+
+    # Lo pagado al plan = cuotas marcadas pagadas (incluida la inicial) + abonos
+    # parciales a deudas espejo de cuotas aún impagas. La tabla de cuotas es la fuente:
+    # en planes antiguos las cuotas no tienen deuda espejo.
+    pagado_cuotas = db.execute(text("""
+        SELECT coalesce(sum(monto), 0) FROM fraccionamiento_cuotas
+        WHERE fraccionamiento_id = :fid AND pagada = TRUE
+    """), {"fid": fracc_id}).scalar() or 0
+    abonos_parciales = db.execute(text("""
+        SELECT coalesce(sum(d.amount - d.balance), 0)
+        FROM fraccionamiento_cuotas c JOIN debts d ON d.id = c.debt_id
+        WHERE c.fraccionamiento_id = :fid AND NOT coalesce(c.pagada, FALSE)
+          AND d.status = 'partial' AND d.balance < d.amount
+    """), {"fid": fracc_id}).scalar() or 0
+    pagos_a_cuotas = round(float(pagado_cuotas) + float(abonos_parciales), 2)
 
     ahora = datetime.now(PERU_TZ)
     nota_restaurar = (
@@ -242,76 +281,69 @@ def marcar_fracc_perdido_core(
         f"Motivo: {motivo[:100]}"
     )
 
+    # 1) Restaurar las originales: vuelven a ser deuda exigible ('vigente').
+    #    · enlace antiguo: saldo completo (comportamiento histórico);
+    #    · flujo actual: CONSERVAN su saldo (fraccionar no lo tocó; si una estaba
+    #      a medio pagar antes del plan, sigue a medio pagar).
+    #    El enlace pasa a fraccionamiento_id_origen (queda la huella de qué plan fue).
     originales_restauradas = []
+    saldos = {}
     for o in originales:
-        ya_plena = (
-            o.balance is not None
-            and o.amount is not None
-            and o.balance >= o.amount
-            and o.status != "paid"
-        )
-        if ya_plena:
-            continue
+        if o.enlace_antiguo:
+            saldo_o = float(o.amount or 0)
+        else:
+            saldo_o = float(o.balance if o.balance is not None else (o.amount or 0))
+        saldos[o.id] = round(saldo_o, 2)
         db.execute(text("""
             UPDATE debts
-            SET balance = amount,
-                status = 'pending',
+            SET balance = :saldo,
+                status = CASE WHEN :saldo <= 0.005 THEN 'paid'
+                              WHEN :saldo < amount - 0.005 THEN 'partial' ELSE 'pending' END,
                 estado_gestion = 'vigente',
+                fraccionamiento_id_origen = :fid,
+                fraccionamiento_id = NULL,
                 updated_at = NOW(),
                 notes = COALESCE(notes,'') || E'\n' || :nota
             WHERE id = :did
-        """), {"did": o.id, "nota": nota_restaurar})
+        """), {"did": o.id, "saldo": saldos[o.id], "fid": fracc_id, "nota": nota_restaurar})
         originales_restauradas.append(o.id)
 
+    # 2) Reimputar lo pagado al plan, de la deuda más antigua a la más nueva.
     aplicaciones_pago = []
-    if pagos_a_cuotas > 0:
-        saldo = pagos_a_cuotas
-        originales_orden = db.execute(text("""
-            SELECT id, amount, periodo
-            FROM debts
-            WHERE fraccionamiento_id_origen = :fid
-            ORDER BY periodo NULLS LAST, id
-        """), {"fid": fracc_id}).fetchall()
+    saldo = pagos_a_cuotas
+    for o in originales:
+        if saldo <= 0.005:
+            break
+        disponible = saldos[o.id]
+        if disponible <= 0.005:
+            continue
+        a_aplicar = round(min(saldo, disponible), 2)
+        nuevo_balance = round(disponible - a_aplicar, 2)
+        nuevo_status = "paid" if nuevo_balance <= 0.01 else "partial"
+        nota_pago = (
+            f"[FRACC-PERDIDO-PAGO:user{user_id}] "
+            f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
+            f"aplicado S/{a_aplicar:.2f} de pagos previos al "
+            f"fracc {fracc_id}"
+        )
+        db.execute(text("""
+            UPDATE debts
+            SET balance = :nb,
+                status = :ns,
+                updated_at = NOW(),
+                notes = COALESCE(notes,'') || E'\n' || :nota
+            WHERE id = :did
+        """), {"nb": max(nuevo_balance, 0), "ns": nuevo_status, "did": o.id, "nota": nota_pago})
+        aplicaciones_pago.append({
+            "debt_id": o.id,
+            "aplicado": a_aplicar,
+            "balance_final": max(nuevo_balance, 0),
+            "status_final": nuevo_status,
+        })
+        saldo = round(saldo - a_aplicar, 2)
+    sobrante = round(max(saldo, 0), 2)   # pagó más de lo que debía en las originales (raro): queda informado
 
-        for o in originales_orden:
-            if saldo <= 0:
-                break
-            monto = float(o.amount or 0)
-            a_aplicar = min(saldo, monto)
-            nuevo_balance = monto - a_aplicar
-            if nuevo_balance <= 0.01:
-                nuevo_status = "paid"
-            elif a_aplicar > 0:
-                nuevo_status = "partial"
-            else:
-                nuevo_status = "pending"
-            nota_pago = (
-                f"[FRACC-PERDIDO-PAGO:user{user_id}] "
-                f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
-                f"aplicado S/{a_aplicar:.2f} de pagos previos al "
-                f"fracc {fracc_id}"
-            )
-            db.execute(text("""
-                UPDATE debts
-                SET balance = :nb,
-                    status = :ns,
-                    updated_at = NOW(),
-                    notes = COALESCE(notes,'') || E'\n' || :nota
-                WHERE id = :did
-            """), {
-                "nb": nuevo_balance,
-                "ns": nuevo_status,
-                "did": o.id,
-                "nota": nota_pago,
-            })
-            aplicaciones_pago.append({
-                "debt_id": o.id,
-                "aplicado": round(a_aplicar, 2),
-                "balance_final": round(nuevo_balance, 2),
-                "status_final": nuevo_status,
-            })
-            saldo -= a_aplicar
-
+    # 3) Anular SOLO las deudas espejo de las cuotas (no las originales).
     cuotas_canceladas = []
     for c in cuotas:
         db.execute(text("""
@@ -330,6 +362,7 @@ def marcar_fracc_perdido_core(
     db.execute(text("""
         UPDATE fraccionamientos
         SET estado = 'perdido',
+            saldo_pendiente = 0,
             fecha_perdida = NOW(),
             motivo_perdida = :motivo,
             updated_at = NOW()
@@ -394,5 +427,6 @@ def marcar_fracc_perdido_core(
         "cuotas_canceladas": cuotas_canceladas,
         "aplicaciones_pago": aplicaciones_pago,
         "pagos_a_cuotas_total": round(pagos_a_cuotas, 2),
+        "pago_sobrante_sin_imputar": sobrante,
         "reevaluacion_habilidad": reevaluacion_habilidad,
     }
