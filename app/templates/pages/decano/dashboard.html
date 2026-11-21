@@ -218,17 +218,16 @@
     <div style="color:var(--dec-muted);font-size:12px;font-style:italic;margin-bottom:24px;">Cargando indicadores...</div>
   </div>
 
-  <div class="dev-notice">
-    ℹ Este panel ejecutivo está en desarrollo. Próximamente incluirá gráficas de recaudación mensual,
-    comparativo de habilitaciones por período, alertas financieras automáticas y exportación de reportes.
-  </div>
-
   <div class="dec-section">
     <!-- Accesos rápidos -->
     <div class="dec-panel">
       <div class="dec-panel-header">Accesos Rápidos</div>
       <div class="dec-panel-body" style="display:flex;flex-wrap:wrap;gap:8px;">
+        <a href="/conciliacion-deuda/actas" class="access-btn" id="accesoActas">✍ Actas de conciliación<span
+           id="accesoActasN" style="display:none;margin-left:8px;padding:1px 8px;border-radius:999px;
+           background:var(--dec-gold);color:#1a1200;font-weight:800;font-size:12px;"></span></a>
         <a href="/finanzas/dashboard" class="access-btn">📊 Finanzas</a>
+        <a href="/admin/reportes" class="access-btn">📈 Reportes</a>
         <a href="/caja" class="access-btn">💰 Caja</a>
         <a href="/admin" class="access-btn">⚙ Administración</a>
         <a href="/directorio" class="access-btn">📋 Directorio</a>
@@ -277,6 +276,14 @@
 <input type="hidden" id="dec-com-segmento" value="todos">
 
 <script>
+// Actas de conciliación que esperan la firma del Decano.
+fetch('/api/conciliacion-deuda/config', { credentials: 'same-origin' })
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (d) {
+    var n = d && d.puedo_firmar ? (d.pendientes_mi_firma || 0) : 0, s = document.getElementById('accesoActasN');
+    if (s && n > 0) { s.textContent = n; s.style.display = 'inline-block'; s.title = n + ' pendiente(s) de tu firma'; }
+  }).catch(function () {});
+
 function decSelTipo(p, btn) {
     document.getElementById('dec-com-prioridad').value = p;
     document.querySelectorAll('.dec-tipo-btn').forEach(b => {
