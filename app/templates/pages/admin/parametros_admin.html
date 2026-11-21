@@ -4,31 +4,36 @@
 
 {% block content %}
 <style>
-  /* Estilo Excel: hoja blanca sobre el panel oscuro, líneas interiores tenues */
-  .px-sheet { background:#ffffff; color:#1f2937; border-radius:12px; overflow:hidden;
+  /* Dark de la casa (igual que .ce-*): superficies #0f172a/#0b1220, texto claro. */
+  .px-sheet { background:#0f172a; color:#e2e8f0; border:1px solid #1e293b; border-radius:12px; overflow:hidden;
               box-shadow:0 6px 24px rgba(0,0,0,.35); }
   .px-tbl { width:100%; border-collapse:collapse; font-size:13px; }
-  .px-tbl th, .px-tbl td { padding:8px 12px; border:1px solid #edf0f3; text-align:left; vertical-align:middle; }
-  .px-tbl thead th { background:#f8fafc; color:#475569; font-weight:600; font-size:11px;
-                     text-transform:uppercase; letter-spacing:.03em; border-color:#e5e9ee; }
-  .px-tbl tbody tr:hover { background:#fcfdff; }
-  .px-grp td { background:#f1f5f9; color:#64748b; font-weight:600; font-size:11px;
+  .px-tbl th, .px-tbl td { padding:9px 12px; border:1px solid #1e293b; text-align:left; vertical-align:middle; }
+  .px-tbl td { color:#dbe4f0; }
+  .px-tbl thead th { background:#0b1220; color:#94a3b8; font-weight:600; font-size:11px;
+                     text-transform:uppercase; letter-spacing:.03em; border-color:#1e293b; }
+  .px-tbl tbody tr:hover { background:rgba(255,255,255,.03); }
+  .px-grp td { background:rgba(255,255,255,.03); color:#94a3b8; font-weight:700; font-size:11px;
                text-transform:uppercase; letter-spacing:.03em; }
-  .px-in { width:120px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; }
-  .px-in:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.15); }
-  .px-ro { color:#94a3b8; }               /* valor no editable */
-  .px-lock { color:#94a3b8; font-size:12px; }
-  .px-desc { color:#94a3b8; font-size:11px; }
-  .px-btn { padding:5px 12px; border:0; border-radius:6px; font-size:12px; cursor:pointer; }
-  .px-btn-save { background:#2563eb; color:#fff; }
-  .px-btn-save[disabled] { background:#cbd5e1; cursor:not-allowed; }
-  .px-btn-hist { background:#eef2f7; color:#475569; }
-  .px-unit { color:#64748b; font-size:12px; }
-  .px-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; padding:20px; }
-  .px-card { background:#fff; color:#1f2937; max-width:640px; margin:48px auto; padding:22px; border-radius:14px; }
-  .px-warn { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:10px 12px;
+  .px-in { width:120px; padding:6px 9px; background:#0b1220; color:#e8edf5; border:1px solid #334155; border-radius:6px; font-size:13px; }
+  .px-in:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.25); }
+  .px-ro { color:#64748b; }               /* valor no editable */
+  .px-lock { color:#64748b; font-size:12px; }
+  .px-desc { color:#64748b; font-size:11px; }
+  .px-btn { padding:6px 12px; border:0; border-radius:6px; font-size:12px; cursor:pointer; }
+  .px-btn-save { background:#1d4ed8; color:#fff; }
+  .px-btn-save[disabled] { background:#334155; color:#94a3b8; cursor:not-allowed; }
+  .px-btn-hist { background:#1e293b; color:#cbd5e1; }
+  .px-unit { color:#94a3b8; font-size:12px; }
+  .px-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:9999; padding:20px; }
+  .px-card { background:#0f172a; color:#e2e8f0; border:1px solid #334155; max-width:640px; margin:48px auto; padding:22px; border-radius:14px; }
+  .px-warn { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.4); color:#fca5a5; padding:10px 12px;
              border-radius:8px; font-size:13px; margin-bottom:12px; }
   .px-modal .px-tbl td, .px-modal .px-tbl th { font-size:12px; }
+  .px-modal .px-sheet { box-shadow:none; }
+  /* nota de sección (Fraccionamiento → dónde viven los umbrales de pérdida) */
+  .px-nota-seccion { background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.3); color:#93c5fd;
+             border-radius:10px; padding:9px 12px; font-size:12.5px; line-height:1.5; margin:10px auto 0; max-width:64rem; }
 </style>
 
 <div class="fade-me-in flex flex-col h-full justify-start">
@@ -74,6 +79,8 @@
       </tbody>
     </table>
   </div>
+
+  <div id="pxNotaSeccion" class="px-nota-seccion" style="display:none;"></div>
 
   <div id="pxNotaFijos" class="mt-3 text-slate-500 text-xs max-w-5xl mx-auto">
     Los parámetros en gris con 🔒 son informativos y no editables (aún no cableados a comportamiento).
@@ -284,23 +291,23 @@
 <!-- MODAL: Motivo del cambio -->
 <div id="modalMotivo" class="px-modal">
   <div class="px-card">
-    <h3 style="margin-top:0; color:#1e3a8a; display:flex; align-items:center; gap:8px;">
+    <h3 style="margin-top:0; color:#e2e8f0; display:flex; align-items:center; gap:8px;">
       <i class="ph ph-note-pencil"></i> Guardar cambio de parámetro
     </h3>
-    <div id="motivoResumen" style="color:#475569; font-size:14px; margin-bottom:10px;"></div>
+    <div id="motivoResumen" style="color:#94a3b8; font-size:14px; margin-bottom:10px;"></div>
     <div id="motivoWarn" class="px-warn" style="display:none;"></div>
-    <label style="display:block; font-size:13px; color:#374151; margin-bottom:6px;">
+    <label style="display:block; font-size:13px; color:#cbd5e1; margin-bottom:6px;">
       Motivo del cambio (para el registro)
     </label>
     <textarea id="motivoTexto" rows="3" placeholder="Ej.: Acuerdo de Consejo N°..., fecha..."
-      style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
+      style="width:100%; padding:10px; background:#0b1220; color:#e8edf5; border:1px solid #334155; border-radius:8px; font-size:13px; box-sizing:border-box;"></textarea>
     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
       <button onclick="pxCerrarMotivo()"
-        style="background:#e5e7eb; color:#374151; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        style="background:#1e293b; color:#cbd5e1; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
         Cancelar
       </button>
       <button id="btnConfirmarMotivo" onclick="pxConfirmarGuardado()"
-        style="background:#2563eb; color:#fff; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        style="background:#1d4ed8; color:#fff; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
         Guardar versión
       </button>
     </div>
@@ -310,10 +317,10 @@
 <!-- MODAL: Historial -->
 <div id="modalHistorial" class="px-modal">
   <div class="px-card">
-    <h3 style="margin-top:0; color:#1e3a8a; display:flex; align-items:center; gap:8px;">
+    <h3 style="margin-top:0; color:#e2e8f0; display:flex; align-items:center; gap:8px;">
       <i class="ph ph-clock-counter-clockwise"></i> <span id="histTitulo">Historial</span>
     </h3>
-    <div class="px-sheet" style="box-shadow:none; border:1px solid #edf0f3;">
+    <div class="px-sheet" style="box-shadow:none;">
       <table class="px-tbl">
         <thead>
           <tr><th>Vigencia</th><th>Valor</th><th>Origen</th><th>Cambió</th><th>Motivo</th></tr>
@@ -323,7 +330,7 @@
     </div>
     <div style="display:flex; justify-content:flex-end; margin-top:14px;">
       <button onclick="pxCerrarHistorial()"
-        style="background:#e5e7eb; color:#374151; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
+        style="background:#1e293b; color:#cbd5e1; padding:9px 18px; border-radius:8px; border:0; cursor:pointer;">
         Cerrar
       </button>
     </div>
