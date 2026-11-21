@@ -136,7 +136,27 @@ async def ejecutar_anulacion(db: Session, payment, motivo_codigo: str, motivo_te
         else:
             payment.status = "anulado"
             payment.notes = (payment.notes or "") + f"\n[ANULADO] {motivo_full}"
+        _pid_hab = payment.id
         db.commit()
+
+        # ── Re-evaluar habilidad DESPUÉS de confirmar la anulación (total o parcial) ──
+        # Transacción propia: un fallo aquí NUNCA afecta la anulación ya commiteada.
+        # ⚠️ ESPEJO: mismo bloque en caja.py::anular_cobro.
+        try:
+            if payment.colegiado_id:
+                from app.models import Colegiado
+                from app.services.evaluar_habilidad import sincronizar_condicion
+                _col_hab = db.query(Colegiado).filter(Colegiado.id == payment.colegiado_id).first()
+                if _col_hab is not None:
+                    sincronizar_condicion(db, _col_hab, {"id": payment.organization_id, "config": {}})
+                    db.commit()
+        except Exception as _e_hab:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            logger.warning(f"Re-evaluación de habilidad tras anular pago #{_pid_hab} falló: {_e_hab}")
+
         return {
             "success": True,
             "mensaje": f"{'Anulación parcial' if es_parcial else 'Cobro anulado'}. {deudas_revertidas} deuda(s) revertida(s).",
