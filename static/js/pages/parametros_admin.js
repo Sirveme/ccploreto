@@ -39,7 +39,7 @@
     (secs || []).forEach(function (s) {
       if (!s || !s.seccion) return;
       if (vistos[s.seccion]) return;                        // evita duplicados
-      if (s.seccion !== "fraccionamiento" && s.seccion !== "refinanciamiento") return;
+      if (s.seccion !== "fraccionamiento" && s.seccion !== "refinanciamiento" && s.seccion !== "conciliacion") return;
       vistos[s.seccion] = 1;
       var o = document.createElement("option");
       o.value = s.seccion; o.textContent = s.etiqueta || s.seccion;
@@ -73,6 +73,8 @@
     if (sheet) sheet.style.display = esCond ? "none" : "";
     if (nota) nota.style.display = esCond ? "none" : "";
     if (cond) cond.style.display = esCond ? "" : "none";
+    var notaSec = document.getElementById("pxNotaSeccion");
+    if (notaSec && esCond) notaSec.style.display = "none";  // se re-muestra al cargar Fracc
     document.getElementById("secEtiqueta").textContent = "";
     if (esCond) {
       if (window.pxCargarCondiciones) window.pxCargarCondiciones();   // recarga fresca
@@ -102,6 +104,11 @@
       })
       .then(function (d) {
         document.getElementById("secEtiqueta").textContent = d.etiqueta || "";
+        var nota = document.getElementById("pxNotaSeccion");
+        if (nota) {
+          if (d.nota) { nota.textContent = d.nota; nota.style.display = ""; }
+          else { nota.textContent = ""; nota.style.display = "none"; }
+        }
         renderTabla(d.parametros || []);
       })
       .catch(function (e) { toast("No se pudo cargar la sección (" + e + ")", false); });
@@ -125,7 +132,23 @@
   function filaEditable(p) {
     var id = "in_" + p.clave;
     var input;
-    if (p.tipo === "booleano") {
+    if (seccionActual === "conciliacion" && p.clave === "firmas_requeridas") {
+      // Selector único: 1, 2 o 3 firmas.
+      var actual = String(parseInt(p.valor, 10) || 2);
+      input = '<select class="px-in" id="' + id + '" data-orig="' + actual + '" onchange="pxOnChange(\'' + p.clave + '\')">' +
+        ["1", "2", "3"].map(function (n) {
+          return '<option value="' + n + '"' + (n === actual ? " selected" : "") + '>' + n + (n === "1" ? " firma" : " firmas") + '</option>';
+        }).join("") + '</select>';
+    } else if (seccionActual === "conciliacion" && p.clave === "roles_firmantes") {
+      // Roles firmantes: casillas (sote nunca firma dinero). El valor se guarda como texto "a,b,c".
+      var marcados = String(p.valor || "").split(",").map(function (x) { return x.trim(); });
+      input = '<input type="hidden" id="' + id + '" value="' + esc(p.valor) + '" data-orig="' + esc(p.valor) + '">' +
+        ["decano", "admin", "tesorero"].map(function (r) {
+          return '<label style="display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:13px;cursor:pointer">' +
+            '<input type="checkbox" class="px-rol" value="' + r + '"' + (marcados.indexOf(r) >= 0 ? " checked" : "") +
+            ' onchange="pxOnRoles()"> ' + r + '</label>';
+        }).join("");
+    } else if (p.tipo === "booleano") {
       input = '<select class="px-in" id="' + id + '" data-orig="' + (p.valor ? "true" : "false") + '"' +
         ' onchange="pxOnChange(\'' + p.clave + '\')">' +
         '<option value="true"' + (p.valor ? " selected" : "") + '>Sí</option>' +
@@ -162,6 +185,16 @@
     btn.disabled = !cambiado;
   };
 
+  // Roles firmantes (conciliación): las casillas alimentan el valor de texto "a,b,c".
+  window.pxOnRoles = function () {
+    var el = document.getElementById("in_roles_firmantes");
+    if (!el) return;
+    var sel = Array.prototype.filter.call(document.querySelectorAll(".px-rol"), function (c) { return c.checked; })
+      .map(function (c) { return c.value; });
+    el.value = sel.join(",");
+    window.pxOnChange("roles_firmantes");
+  };
+
   // ── Guardar → abrir modal motivo (con aviso perdida_automatica) ──
   window.pxGuardar = function (clave) {
     var tr = document.querySelector('tr[data-clave="' + clave + '"]');
@@ -169,9 +202,11 @@
     var etq = tr.getAttribute("data-etq");
     var el = document.getElementById("in_" + clave);
     var esBool = tipo === "booleano";
-    var valor = esBool ? (el.value === "true") : parseFloat(el.value);
+    var esTexto = tipo === "texto";
+    var valor = esBool ? (el.value === "true") : esTexto ? String(el.value).trim() : parseFloat(el.value);
 
-    if (!esBool && isNaN(valor)) { toast("Valor no numérico", false); return; }
+    if (esTexto && !valor) { toast("Marca al menos una opción", false); return; }
+    if (!esBool && !esTexto && isNaN(valor)) { toast("Valor no numérico", false); return; }
 
     pendiente = { seccion: seccionActual, clave: clave, valor: valor, etiqueta: etq, esBool: esBool };
 
