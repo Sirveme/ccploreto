@@ -62,13 +62,10 @@ async def decano_kpis(
 ):
     org_id = current_member.organization_id
 
-    r = db.execute(text("""
-        SELECT
-          COUNT(*) as total,
-          COUNT(*) FILTER (WHERE condicion IN ('habil','vitalicio')) as al_dia,
-          COUNT(*) FILTER (WHERE condicion NOT IN ('habil','vitalicio')) as inhabiles
-        FROM colegiados WHERE organization_id = :org
-    """), {"org": org_id}).fetchone()
+    # Mismo conteo que el Padrón del Centro de Reportes (una sola fuente).
+    from app.services.colegiados_padron_service import composicion_padron
+    comp = composicion_padron(db, org_id)
+    por = {b["key"]: b["n"] for b in comp["buckets"]}
 
     r2 = db.execute(text("""
         SELECT COALESCE(SUM(amount),0) as total_mes, COUNT(*) as pagos_mes
@@ -77,27 +74,29 @@ async def decano_kpis(
           AND created_at >= date_trunc('month', now())
     """), {"org": org_id}).fetchone()
 
-    r3 = db.execute(text("""
-        SELECT COALESCE(SUM(balance),0)
-        FROM debts
-        WHERE organization_id = :org AND status = 'pendiente'
-    """), {"org": org_id}).fetchone()
+    # Deuda pendiente = la deuda total única (la que usa la habilidad), sumada sobre
+    # el padrón. Antes filtraba status='pendiente', un valor que no existe: daba S/ 0.00.
+    from app.services.conciliacion_deuda_service import deuda_total_padron
+    deuda = deuda_total_padron(db, org_id)
 
     kpis = {
-        "total_colegiados": r[0],
-        "al_dia": r[1],
-        "inhabiles": r[2],
+        "total_colegiados": comp["total"],
+        "habiles": por.get("habil", 0),
+        "vitalicios": por.get("vitalicio", 0),
+        "inhabiles": por.get("inhabil", 0),
+        "otros": comp["total"] - por.get("habil", 0) - por.get("vitalicio", 0) - por.get("inhabil", 0),
         "recaudado_mes": float(r2[0]),
         "pagos_mes": r2[1],
-        "deuda_pendiente": float(r3[0]),
+        "deuda_pendiente": deuda["total"],
+        "deudores": deuda["colegiados_con_deuda"],
     }
 
     html = f"""
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-label">Total Colegiados</div>
-        <div class="kpi-value">{kpis['total_colegiados']}</div>
-        <div class="kpi-detail">{kpis['al_dia']} al día · {kpis['inhabiles']} inhábiles</div>
+        <div class="kpi-value">{kpis['total_colegiados']:,}</div>
+        <div class="kpi-detail">{kpis['habiles']:,} hábiles · {kpis['vitalicios']:,} vitalicios · {kpis['inhabiles']:,} inhábiles · {kpis['otros']:,} otros</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Recaudado Este Mes</div>
@@ -107,7 +106,7 @@ async def decano_kpis(
       <div class="kpi-card">
         <div class="kpi-label">Deuda Pendiente</div>
         <div class="kpi-value" style="font-size:24px;color:var(--dec-red);">S/ {kpis['deuda_pendiente']:,.2f}</div>
-        <div class="kpi-detail">saldo por cobrar</div>
+        <div class="kpi-detail">saldo por cobrar de {kpis['deudores']:,} colegiados</div>
       </div>
     </div>
     """

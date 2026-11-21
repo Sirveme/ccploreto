@@ -965,7 +965,8 @@ async def validar_pago_colegiado(
         respuesta = aprobar_pago(
             db=db,
             payment_id=pago.id,
-            aprobado_por="admin"
+            aprobado_por="admin",
+            aprobado_por_member_id=_m.id,
         )
         return respuesta
     

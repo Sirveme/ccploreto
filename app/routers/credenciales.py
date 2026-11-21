@@ -40,7 +40,11 @@ def _template_activo(db: Session, org_id):
 
 # Token CENTINELA del PDF de revisión: su QR resuelve a "Carné no encontrado" en
 # /verificar → el preview sin marca NO puede usarse como carné válido (anti-backdoor).
-PREVIEW_TOKEN = "PREVIEW-NO-EMITIDO"
+# NO es una credencial: es un marcador público y deliberadamente inválido. Se puede
+# cambiar con la variable de entorno CREDENCIAL_PREVIEW_TOKEN; si no está definida,
+# se usa el marcador de siempre (no hace falta configurarla).
+import os as _os
+PREVIEW_TOKEN = _os.getenv("CREDENCIAL_PREVIEW_TOKEN", "PREVIEW-NO-EMITIDO")
 
 # Host canónico del enlace compartido (igual que el QR: solo ccploreto.org.pe es
 # público/indexable). Evita que un host *.duilio.store se filtre en el link.

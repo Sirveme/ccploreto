@@ -140,7 +140,7 @@ async def listar_autorizaciones(
                 "id": p.id,
                 "tipo": "pago",
                 "monto": float(p.amount),
-                "justificacion": f"Pago por {p.payment_method or 'N/D'} — {p.description or 'Sin detalle'}",
+                "justificacion": f"Pago por {p.payment_method or 'N/D'} — {p.operation_code or 'Sin detalle'}",
                 "solicitante_nombre": col.apellidos_nombres if col else f"Colegiado #{p.colegiado_id}",
                 "fecha": p.created_at.astimezone(TZ_PERU).strftime("%d/%m %H:%M") if p.created_at else "—",
                 "requiere_doble_firma": float(p.amount) > _get_config(db).get("umbral_doble_firma", 1000),
@@ -174,13 +174,14 @@ async def resolver_autorizacion(
 
     if accion == "aprobar":
         from app.services.aprobar_pago import aprobar_pago
-        resultado = aprobar_pago(db, solicitud_id, aprobado_por="finanzas")
+        resultado = aprobar_pago(db, solicitud_id, aprobado_por="finanzas",
+                                 aprobado_por_member_id=_m.id)
         return resultado
     else:
         pago.status = "rejected"
         pago.rejection_reason = motivo
         pago.reviewed_at = datetime.now(timezone.utc)
-        pago.reviewed_by = "finanzas"
+        pago.reviewed_by = _m.id
         db.commit()
         return {"success": True, "mensaje": "Solicitud rechazada"}
 

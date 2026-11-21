@@ -907,6 +907,7 @@ async def registrar_cobro(
         pagar_cuota_fraccionamiento as _pagar_cuota_fx,
     )
     _pago_inicial_fracc = False
+    _hab_hasta_fracc = None
     for _dp in deudas_a_pagar:
         _d = _dp["deuda"]
         if getattr(_d, "debt_type", None) != "fraccionamiento" or not getattr(_d, "fraccionamiento_id", None):
@@ -928,12 +929,19 @@ async def registrar_cobro(
         _fr = db.query(Fraccionamiento).filter(Fraccionamiento.id == _d.fraccionamiento_id).first()
         if not _fr or _fr.estado != "activo":
             continue
-        _pagar_cuota_fx(
+        _res_fx = _pagar_cuota_fx(
             db=db, fraccionamiento_id=_d.fraccionamiento_id, numero_cuota=_ncuota,
             monto=_aplicar, metodo_pago=_pm,
             operador_nota=f"[CAJA #{payment.id}] sync cuota fracc (FIXFRACC)",
             payment_obj=payment,
         )
+        # Cuota MENSUAL: extiende la habilidad hasta el fin del mes de la cuota, igual
+        # que Secretaría (registrar-pago-cuota-fracc). Se queda con la fecha más lejana
+        # si se pagan varias cuotas en el mismo cobro.
+        if _ncuota != 0 and _res_fx.get("habilidad_hasta"):
+            _hh = date.fromisoformat(_res_fx["habilidad_hasta"])
+            if _hab_hasta_fracc is None or _hh > _hab_hasta_fracc:
+                _hab_hasta_fracc = _hh
         # enlace cuota -> deuda espejo (debt_id no mapeado en ORM -> SQL crudo)
         db.execute(text("UPDATE fraccionamiento_cuotas SET debt_id=:d WHERE id=:cid"),
                    {"d": _d.id, "cid": _cuota.id})
@@ -947,6 +955,17 @@ async def registrar_cobro(
         _fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
         colegiado.condicion = "habil"
         colegiado.habilidad_vence = _fin_mes
+        colegiado.fecha_actualizacion_condicion = ahora
+    # Cuota mensual pagada: hábil hasta el fin del mes de esa cuota (nunca acorta).
+    if _hab_hasta_fracc is not None and colegiado is not None and \
+       colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
+        _nueva = datetime.combine(_hab_hasta_fracc, datetime.min.time()).replace(tzinfo=PERU_TZ)
+        _actual = colegiado.habilidad_vence
+        if _actual is not None and getattr(_actual, "tzinfo", None) is None:
+            _actual = _actual.replace(tzinfo=PERU_TZ)
+        colegiado.condicion = "habil"
+        if _actual is None or _nueva > _actual:
+            colegiado.habilidad_vence = _nueva
         colegiado.fecha_actualizacion_condicion = ahora
     db.flush()
 
@@ -2689,6 +2708,13 @@ async def anular_cobro(
             )
             deudas_revertidas = len(deudas_restauradas_ids)
 
+            # Si el pago anulado cubría cuotas de un plan: la cuota, el saldo del plan
+            # y su deuda espejo vuelven atrás (misma transacción que la anulación).
+            # ⚠️ ESPEJO: mismo bloque en anulacion_service.ejecutar_anulacion.
+            from app.services.fraccionamiento_service import revertir_cuotas_por_pago
+            _cuotas_fx_revertidas = revertir_cuotas_por_pago(db, payment.id, etiqueta=f"anulación {comp_sn}")
+            deudas_revertidas += len(_cuotas_fx_revertidas)
+
             if mensajes_restauracion:
                 logger.info(
                     "Anulación pago=%s comp=%s: restauradas=%s, omitidas=%s",
@@ -2750,7 +2776,14 @@ async def anular_cobro(
                 from app.services.evaluar_habilidad import sincronizar_condicion
                 _col_hab = db.query(Colegiado).filter(Colegiado.id == payment.colegiado_id).first()
                 if _col_hab is not None:
-                    sincronizar_condicion(db, _col_hab, {"id": payment.organization_id, "config": {}})
+                    _org_hab = {"id": payment.organization_id, "config": {}}
+                    if locals().get("_cuotas_fx_revertidas"):
+                        # Cuota de plan anulada: inicial → se retira la habilidad;
+                        # otra cuota → vencimiento anterior + re-evaluación.
+                        from app.services.fraccionamiento_service import aplicar_habilidad_tras_reversion
+                        aplicar_habilidad_tras_reversion(db, _col_hab, _cuotas_fx_revertidas, _org_hab)
+                    else:
+                        sincronizar_condicion(db, _col_hab, _org_hab)
                     db.commit()
         except Exception as _e_hab:
             try:

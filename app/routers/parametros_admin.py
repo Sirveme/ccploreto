@@ -95,6 +95,14 @@ def guardar_parametro(
     if not seccion or not clave:
         raise HTTPException(400, "Faltan 'seccion' o 'clave'")
 
+    # Conciliación de deuda: firmas 1/2/3 y roles válidos (nunca sote), coherentes entre sí.
+    if seccion == "conciliacion":
+        from app.services.conciliacion_deuda_service import validar_parametro
+        try:
+            valor = validar_parametro(db, clave, valor, org_id=ORG_ID_LECTURA)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
     try:
         nuevo_id = PS.set_param(
             db, seccion, clave, valor,

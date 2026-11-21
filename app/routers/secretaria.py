@@ -1837,6 +1837,13 @@ async def revertir_pago(
             )
             deudas_revertidas.append(d.id)
 
+    # Si el pago cubría cuotas de un plan (p. ej. registradas por Secretaría, sin
+    # comprobante): la cuota, el saldo del plan y la deuda espejo vuelven atrás.
+    from app.services.fraccionamiento_service import (
+        revertir_cuotas_por_pago, aplicar_habilidad_tras_reversion,
+    )
+    cuotas_fx_revertidas = revertir_cuotas_por_pago(db, pago.id, etiqueta=f"reversión: {motivo}"[:120])
+
     pago.status = "reverted"
     pago.notes = (pago.notes or "") + (
         f" | REVERTIDO {ahora.strftime('%d/%m/%Y %H:%M')} por DNI:{operador_dni}: {motivo}"
@@ -1863,7 +1870,10 @@ async def revertir_pago(
     # Reevaluar condición del colegiado
     colegiado = db.query(Colegiado).filter(Colegiado.id == pago.colegiado_id).first()
     if colegiado:
-        sincronizar_condicion(db, colegiado, {})
+        if cuotas_fx_revertidas:
+            aplicar_habilidad_tras_reversion(db, colegiado, cuotas_fx_revertidas, {"id": pago.organization_id, "config": {}})
+        else:
+            sincronizar_condicion(db, colegiado, {})
         db.commit()
 
     return {
