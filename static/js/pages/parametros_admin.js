@@ -109,6 +109,11 @@
           if (d.nota) { nota.textContent = d.nota; nota.style.display = ""; }
           else { nota.textContent = ""; nota.style.display = "none"; }
         }
+        // Sección oculta (p. ej. Refinanciamiento): solo la nota, sin tabla ni pie.
+        var hoja = document.querySelector(".px-sheet"), pie = document.getElementById("pxNotaFijos");
+        if (hoja) hoja.style.display = d.oculta ? "none" : "";
+        if (pie) pie.style.display = d.oculta ? "none" : "";
+        if (d.oculta) { document.getElementById("tbodyParametros").innerHTML = ""; return; }
         renderTabla(d.parametros || []);
       })
       .catch(function (e) { toast("No se pudo cargar la sección (" + e + ")", false); });
