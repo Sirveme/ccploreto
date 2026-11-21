@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="es" class="dark">
 <head>
-    <title>{{ user.organization.name if user else 'LeAvisamos' }} - Gestión Inteligente</title>
+    {# Título de pestaña: el nombre del Colegio. Si la página no pasa `user`, se toma de
+       la organización del dominio (request.state.org); 'LeAvisamos' ya no aparece. #}
+    {% set _org_dom = request.state.org if (request is defined and request.state.org) else none %}
+    <title>{{ (user.organization.name if (user and user.organization) else (_org_dom.name if _org_dom else 'Colegio')) }} - Gestión</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
