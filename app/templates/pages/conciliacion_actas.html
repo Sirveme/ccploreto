@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Actas de conciliación</title>
+<style>
+  :root{
+    --bg:#0f1117; --bg-elevated:#181a20; --surface:#1e2028; --border:rgba(255,255,255,0.08);
+    --text:#e8e8ed; --text-sec:#8b8d97; --text-dim:#6b6d77; --accent:#6366f1;
+    --green:#34d399; --red:#ef4444; --amber:#f59e0b;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 20px;background:var(--bg-elevated);border-bottom:1px solid var(--border)}
+  header h1{margin:0;font-size:16px;font-weight:700;color:#c7d2fe}
+  header .sub{color:var(--text-sec);font-size:12px}
+  header a{margin-left:auto;color:var(--text-sec);text-decoration:none;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px}
+  header a:hover{color:var(--text);background:rgba(255,255,255,.05)}
+  main{max-width:980px;margin:0 auto;padding:18px 16px 60px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{background:var(--surface);color:var(--text-sec);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .tab[aria-selected="true"]{background:rgba(99,102,241,.18);color:#c7d2fe;border-color:rgba(99,102,241,.5)}
+  .regla{color:var(--text-sec);font-size:12.5px;margin-bottom:14px}
+  .acta{background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .acta-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .num{font-family:var(--mono);font-weight:700;color:#c7d2fe}
+  .quien{font-weight:600}
+  .mat{color:var(--text-sec);font-size:12px}
+  .chip{margin-left:auto;font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;text-transform:uppercase;letter-spacing:.03em}
+  .chip.pendiente{background:rgba(245,158,11,.14);color:#fcd34d}
+  .chip.ejecutada{background:rgba(52,211,153,.14);color:#6ee7b7}
+  .chip.rechazada{background:rgba(239,68,68,.14);color:#fca5a5}
+  .chip.desactualizada{background:rgba(148,163,184,.16);color:#cbd5e1}
+  .montos{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .dato{flex:1;min-width:140px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+  .dato small{display:block;color:var(--text-sec);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+  .dato b{font-size:15px;font-variant-numeric:tabular-nums}
+  .motivo{background:var(--surface);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:8px 12px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--text-sec);font-size:12.5px}
+  .tabla{overflow-x:auto;margin-top:8px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--text-sec);font-weight:600;font-size:10.5px;text-transform:uppercase;padding:6px 8px;background:var(--bg)}
+  td{padding:6px 8px;border-top:1px solid var(--border)}
+  .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .firmas{margin-top:12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+  .firma b{text-transform:capitalize}
+  .firma .si{color:var(--green)} .firma .no{color:#fca5a5}
+  .cierre{margin-top:10px;font-size:12.5px;color:#cbd5e1}
+  .acciones{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+  .acciones textarea{flex:1;min-width:220px;background:var(--bg);color:var(--text);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;resize:vertical}
+  button.b{border:0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  button.ok{background:#047857;color:#ecfdf5} button.no{background:transparent;color:#fca5a5;border:1px solid rgba(239,68,68,.5)}
+  button.b[disabled]{opacity:.5;cursor:not-allowed}
+  a.b.pdf{display:inline-block;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;text-decoration:none;
+          background:var(--surface);color:#c7d2fe;border:1px solid rgba(99,102,241,.45)}
+  a.b.pdf:hover{background:rgba(99,102,241,.18)}
+  .nota{font-size:12px;color:var(--text-dim);margin-top:6px}
+  .vacio{text-align:center;color:var(--text-sec);padding:50px 10px;border:1px dashed var(--border);border-radius:12px}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1e2028;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;display:none;max-width:92vw;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #toast.err{border-color:rgba(239,68,68,.6);color:#fca5a5} #toast.ok{border-color:rgba(52,211,153,.6);color:#6ee7b7}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Actas de conciliación de deuda</h1>
+  <span class="sub">Tu rol: <b>{{ rol }}</b></span>
+  <a href="/dashboard">← Inicio</a>
+</header>
+<main>
+  <div class="tabs" role="tablist" aria-label="Estado de las actas">
+    <button class="tab" role="tab" data-estado="pendiente" aria-selected="true">Pendientes de firma</button>
+    <button class="tab" role="tab" data-estado="ejecutada" aria-selected="false">Ejecutadas</button>
+    <button class="tab" role="tab" data-estado="rechazada" aria-selected="false">Rechazadas</button>
+    <button class="tab" role="tab" data-estado="desactualizada" aria-selected="false">Desactualizadas</button>
+  </div>
+  <div class="regla" id="regla"></div>
+  <div id="lista"><div class="vacio">Cargando…</div></div>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/static/js/pages/conciliacion_actas.js?v={{ asset_v('js/pages/conciliacion_actas.js') }}"></script>
+</body>
+</html>
