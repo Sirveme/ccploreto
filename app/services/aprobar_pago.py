@@ -248,8 +248,15 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
         # ── Cuota inicial (numero_cuota == 0) ─────────────────────────────────
         if numero_cuota == 0:
             fracc.cuota_inicial_pagada = True
+            # Fecha real de la cuota 1 del cronograma (el día de vencimiento es un parámetro);
+            # el cálculo con el 15 queda solo como respaldo.
+            _c1 = db.query(FraccionamientoCuota).filter(
+                FraccionamientoCuota.fraccionamiento_id == fracc_id,
+                FraccionamientoCuota.numero_cuota == 1,
+            ).first()
             fracc.proxima_cuota_fecha  = (
-                fracc.fecha_inicio.replace(day=15) + relativedelta(months=1)
+                _c1.fecha_vencimiento if _c1 and _c1.fecha_vencimiento
+                else fracc.fecha_inicio.replace(day=15) + relativedelta(months=1)
             )
             fracc.proxima_cuota_numero = 1
 
@@ -278,8 +285,13 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
             # Avanzar proxima_cuota
             fracc.proxima_cuota_numero = numero_cuota + 1
             if fracc.proxima_cuota_numero <= fracc.num_cuotas:
+                _sig = db.query(FraccionamientoCuota).filter(
+                    FraccionamientoCuota.fraccionamiento_id == fracc_id,
+                    FraccionamientoCuota.numero_cuota == fracc.proxima_cuota_numero,
+                ).first()
                 fracc.proxima_cuota_fecha = (
-                    (fracc.proxima_cuota_fecha + relativedelta(months=1))
+                    _sig.fecha_vencimiento if _sig and _sig.fecha_vencimiento
+                    else (fracc.proxima_cuota_fecha + relativedelta(months=1))
                     if fracc.proxima_cuota_fecha
                     else hoy.replace(day=15) + relativedelta(months=1)
                 )

@@ -47,6 +47,23 @@ MAX_CUOTAS = 12
 CUOTA_INICIAL_PCT = 0.20
 
 
+def dia_vencimiento_plan(db: Session, organization_id: int = 1) -> int:
+    """Día del mes en que vencen las cuotas de los planes NUEVOS (Parámetros →
+    Fraccionamiento → dia_vencimiento, 1 a 28). Fallback 15. Los planes existentes
+    conservan sus fechas. Nunca lanza."""
+    try:
+        v = parametros_service.get_param(db, "fraccionamiento", "dia_vencimiento",
+                                         org_id=organization_id, default=15)
+        return min(28, max(1, int(float(v if v is not None else 15))))
+    except Exception:
+        return 15
+
+
+def primer_vencimiento(hoy, dia: int):
+    """Primera cuota mensual: el `dia` del mes siguiente (antes: siempre el 15)."""
+    return (hoy.replace(day=1) + relativedelta(months=1)).replace(day=dia)
+
+
 def _resolver_parametros_fracc(db: Session, organization_id: int):
     """Resuelve los 4 parámetros de fraccionamiento desde parametros_sistema,
     con FALLBACK a las constantes del módulo si la tabla no responde una clave.
@@ -225,7 +242,7 @@ def crear_fraccionamiento(
 
     # ── Fechas ──
     hoy = dt_date.today()
-    primer_venc = hoy.replace(day=15) + relativedelta(months=1)
+    primer_venc = primer_vencimiento(hoy, dia_vencimiento_plan(db, colegiado.organization_id))   # día desde Parámetros
     ultima_venc = primer_venc + relativedelta(months=n_cuotas - 1)
 
     # ── Número de solicitud ──
