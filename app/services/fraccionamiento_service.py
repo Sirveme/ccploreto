@@ -184,7 +184,8 @@ def crear_fraccionamiento(
     # parámetro inicial_minima_bloquea). Los montos son siempre distintos (cada
     # colegiado paga lo que puede). Si el inicial está bajo el sugerido, se registra
     # igual y se deja CONSTANCIA (DebtAction 'nota'), nunca se rechaza.
-    minimo_inicial = round(total * cuota_inicial_pct, 2)   # sugerido (informativo)
+    from app.utils.cuotas_enteras import inicial_sugerida, repartir
+    minimo_inicial = inicial_sugerida(total, cuota_inicial_pct)   # sugerido (informativo), soles enteros
     advertencia_inicial = None
     if monto_cuota_inicial < minimo_inicial - 0.009:
         advertencia_inicial = (
@@ -200,7 +201,9 @@ def crear_fraccionamiento(
 
     # ── Calcular cuota mensual ──
     saldo = round(total - monto_cuota_inicial, 2)
-    monto_mensual_calc = round(saldo / n_cuotas, 2)
+    # Sin céntimos (tanda 8): n-1 cuotas en soles enteros hacia abajo; la última absorbe la diferencia.
+    montos_mensuales = repartir(saldo, n_cuotas)
+    monto_mensual_calc = montos_mensuales[0]
 
     # Si el cliente mandó un valor, debe ser consistente (tolerancia 1 sol)
     if monto_cuota_mensual is not None:
@@ -280,13 +283,13 @@ def crear_fraccionamiento(
         cuotas_objs.append(FraccionamientoCuota(
             fraccionamiento_id=fracc.id,
             numero_cuota=i,
-            monto=monto_mensual,
+            monto=montos_mensuales[i - 1],
             fecha_vencimiento=venc,
             habilidad_hasta=fin_mes,
         ))
         cronograma.append({
             "n_cuota": i,
-            "monto": float(monto_mensual),
+            "monto": float(montos_mensuales[i - 1]),
             "fecha_vencimiento": venc.isoformat(),
             "tipo": "mensual",
         })
@@ -526,8 +529,8 @@ def aplicar_habilidad_tras_reversion(db: Session, colegiado, revertidas: List[di
         vence = r.hh if r else None
         if vence is None and r and r.ini:
             vence = (r.ini.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-        colegiado.habilidad_vence = (datetime.combine(vence, datetime.min.time()).replace(tzinfo=timezone(timedelta(hours=-5)))
-                                     if vence else None)
+        from app.utils.habilidad_fecha import vence_hasta
+        colegiado.habilidad_vence = vence_hasta(vence) if vence else None   # fecha sin hora (00:00 UTC)
         origen = "reconstruido"
     colegiado.fecha_actualizacion_condicion = ahora
     db.flush()

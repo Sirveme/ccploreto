@@ -133,9 +133,8 @@ def emitir_certificado_automatico(
     
     if en_fraccionamiento and colegiado.habilidad_vence:
         # Si tiene habilidad temporal, la constancia vence cuando vence la habilidad
-        fecha_vigencia = colegiado.habilidad_vence.date() if hasattr(
-            colegiado.habilidad_vence, 'date'
-        ) else colegiado.habilidad_vence
+        from app.utils.habilidad_fecha import fecha_habilidad   # tanda 8: día correcto (no el siguiente)
+        fecha_vigencia = fecha_habilidad(colegiado.habilidad_vence)
     else:
         # Normal: 3 meses. Fraccionamiento sin habilidad_vence: 1 mes.
         fecha_vigencia = calcular_vigencia(fecha_pago, en_fraccionamiento)

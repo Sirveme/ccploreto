@@ -38,6 +38,19 @@ def _money(v):
     return f"S/ {float(v or 0):,.2f}"
 
 
+def _texto_cuotas(cuotas, fracc):
+    """Resumen de las cuotas mensuales REALES del cronograma: '7 × S/ 109.00 + última S/ 111.00'.
+    Planes antiguos (todas iguales) siguen mostrándose como 'N × monto'."""
+    mens = [float(c.monto or 0) for c in cuotas if c.numero_cuota and c.numero_cuota >= 1]
+    if not mens:
+        return f"{fracc.num_cuotas} × {_money(fracc.monto_cuota)}"
+    if len(mens) == 1 or all(abs(m - mens[0]) < 0.005 for m in mens):
+        return f"{len(mens)} × {_money(mens[0])}"
+    if all(abs(m - mens[0]) < 0.005 for m in mens[:-1]):
+        return f"{len(mens) - 1} × {_money(mens[0])} + última {_money(mens[-1])}"
+    return f"{len(mens)} cuotas (ver detalle)"
+
+
 def generar_cronograma_pdf(fracc, colegiado, cuotas: List) -> bytes:
     """
     Retorna bytes del PDF del cronograma del fraccionamiento.
@@ -130,8 +143,8 @@ def generar_cronograma_pdf(fracc, colegiado, cuotas: List) -> bytes:
         [
             Paragraph("<b>Saldo a fraccionar:</b>", estilo_label),
             Paragraph(_money(fracc.saldo_a_fraccionar), estilo_body),
-            Paragraph("<b>Cuotas x monto:</b>", estilo_label),
-            Paragraph(f"{fracc.num_cuotas} × {_money(fracc.monto_cuota)}", estilo_body),
+            Paragraph("<b>Cuotas mensuales:</b>", estilo_label),
+            Paragraph(_texto_cuotas(cuotas, fracc), estilo_body),
         ],
     ]
     tabla_datos = Table(
@@ -152,13 +165,21 @@ def generar_cronograma_pdf(fracc, colegiado, cuotas: List) -> bytes:
     story.append(Spacer(1, 10 * mm))
 
     # ── Tabla de cuotas ──
+    # Cabecera en BLANCO sobre el fondo oscuro (tanda 8). Los Paragraph no toman el
+    # TEXTCOLOR de la tabla: necesitan su propio estilo.
+    estilo_cab = ParagraphStyle(
+        "CabTabla",
+        parent=estilo_body,
+        textColor=white,
+        alignment=TA_CENTER,
+    )
     encabezado = [
-        Paragraph("<b>N°</b>", estilo_body),
-        Paragraph("<b>Tipo</b>", estilo_body),
-        Paragraph("<b>Monto</b>", estilo_body),
-        Paragraph("<b>Vencimiento</b>", estilo_body),
-        Paragraph("<b>Estado</b>", estilo_body),
-        Paragraph("<b>Habilidad hasta</b>", estilo_body),
+        Paragraph("<b>N°</b>", estilo_cab),
+        Paragraph("<b>Tipo</b>", estilo_cab),
+        Paragraph("<b>Monto</b>", estilo_cab),
+        Paragraph("<b>Vencimiento</b>", estilo_cab),
+        Paragraph("<b>Estado</b>", estilo_cab),
+        Paragraph("<b>Habilidad hasta</b>", estilo_cab),
     ]
     filas = [encabezado]
     hoy = dt_date.today()

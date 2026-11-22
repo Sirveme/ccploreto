@@ -108,7 +108,7 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin",
                 cambio_habilidad = True
                 habilidad_temporal = True
                 if colegiado.habilidad_vence:
-                    habilidad_vence = colegiado.habilidad_vence.strftime("%d/%m/%Y")
+                    habilidad_vence = __import__("app.utils.habilidad_fecha", fromlist=["fmt_habilidad"]).fmt_habilidad(colegiado.habilidad_vence)
         else:
             # Sin fraccionamiento: el motor oficial decide habil/inhabil por umbrales.
             org_id = getattr(pago, "organization_id", None) or getattr(colegiado, "organization_id", None)
@@ -128,7 +128,7 @@ def aprobar_pago(db: Session, payment_id: int, aprobado_por: str = "admin",
                 # Si el motor lo dejó inhabil/retirado, cambio_habilidad = False.
                 cambio_habilidad = (colegiado.condicion == "habil")
             if colegiado.condicion == "habil" and colegiado.habilidad_vence:
-                habilidad_vence = colegiado.habilidad_vence.strftime("%d/%m/%Y")
+                habilidad_vence = __import__("app.utils.habilidad_fecha", fromlist=["fmt_habilidad"]).fmt_habilidad(colegiado.habilidad_vence)
 
     # ── Flush antes de emitir certificado ────────────────────────────────────
     db.flush()

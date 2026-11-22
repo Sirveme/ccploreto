@@ -212,7 +212,8 @@ def validar_fraccionamiento(
             mensaje=f"La deuda (S/ {deuda}) es menor al mínimo fraccionable (S/ {monto_min})."
         )
 
-    inicial_minima = (deuda * pct_inicial).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    from app.utils.cuotas_enteras import inicial_sugerida, repartir
+    inicial_minima = Decimal(str(inicial_sugerida(deuda, pct_inicial)))   # soles enteros (tanda 8)
     if inicial < inicial_minima:
         return ResultadoFraccionamiento(
             valido=False,
@@ -226,7 +227,9 @@ def validar_fraccionamiento(
         )
 
     saldo = deuda - inicial
-    cuota_mensual = (saldo / n_cuotas).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    # Sin céntimos (tanda 8): n-1 cuotas enteras hacia abajo; la última absorbe la diferencia.
+    _montos = [Decimal(str(m)) for m in repartir(saldo, n_cuotas)]
+    cuota_mensual = _montos[0]
 
     if cuota_mensual < cuota_min:
         # Recalcular cuotas máximas posibles
@@ -262,12 +265,8 @@ def validar_fraccionamiento(
             # Febrero u otros meses cortos
             fecha = date(anio, mes, min(dia_venc, 28))
 
-        # Última cuota ajusta centavos
-        if i == n_cuotas - 1:
-            monto = saldo_restante
-        else:
-            monto = cuota_mensual
-            saldo_restante -= monto
+        # Montos enteros; la última absorbe la diferencia (mismo reparto que el plan real)
+        monto = _montos[i]
 
         cuotas.append(CuotaFraccionada(
             numero=i + 1,
@@ -302,18 +301,20 @@ def simular_fraccionamiento(deuda: Decimal, config: dict = None, db=None, org_id
     if deuda < monto_min:
         return {"disponible": False, "mensaje": f"Deuda menor a S/ {monto_min}"}
 
-    inicial_minima = (deuda * pct_inicial).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    from app.utils.cuotas_enteras import inicial_sugerida, repartir
+    inicial_minima = Decimal(str(inicial_sugerida(deuda, pct_inicial)))   # soles enteros (tanda 8)
     saldo = deuda - inicial_minima
 
-    # Calcular opciones
+    # Calcular opciones (sin céntimos: n-1 enteras hacia abajo, la última absorbe la diferencia)
     opciones = []
     for n in range(2, max_cuotas + 1):
-        cuota = (saldo / n).quantize(Decimal("0.01"), ROUND_HALF_UP)
-        if cuota >= cuota_min:
+        montos = repartir(saldo, n)
+        if Decimal(str(montos[0])) >= cuota_min:
             opciones.append({
                 "cuotas": n,
                 "cuota_inicial": float(inicial_minima),
-                "cuota_mensual": float(cuota),
+                "cuota_mensual": montos[0],
+                "cuota_ultima": montos[-1],
                 "total": float(deuda),
             })
 
@@ -628,7 +629,7 @@ def verificar_habilidades_vencidas(db, organization_id: int) -> dict:
         inhabilitados.append({
             "id": col.id,
             "nombre": col.apellidos_nombres,
-            "vencia": col.habilidad_vence.strftime("%d/%m/%Y"),
+            "vencia": __import__("app.utils.habilidad_fecha", fromlist=["fmt_habilidad"]).fmt_habilidad(col.habilidad_vence),
         })
         logger.info(f"Colegiado #{col.id} → INHÁBIL (fraccionamiento vencido)")
 

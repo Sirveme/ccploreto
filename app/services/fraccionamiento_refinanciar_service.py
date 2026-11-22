@@ -127,7 +127,10 @@ def _planificar_refinanciamiento(
 
     # Factibilidad de la cuota mensual (evita que crear_fraccionamiento aborte a mitad)
     saldo = round(total - monto_inicial, 2)
-    mensual = round(saldo / num_cuotas, 2)
+    # Sin céntimos (tanda 8): mismo reparto que crear_fraccionamiento.
+    from app.utils.cuotas_enteras import inicial_sugerida, repartir, texto_cuotas
+    montos = repartir(saldo, num_cuotas)
+    mensual = montos[0] if montos else 0.0
     if mensual < cuota_mensual_min:
         raise RefinanciarError(
             400,
@@ -136,7 +139,7 @@ def _planificar_refinanciamiento(
         )
 
     # Predicción de la regla 20%-no-bloquea (la ENFORCEA crear_fraccionamiento)
-    minimo_inicial = round(total * cuota_inicial_pct, 2)
+    minimo_inicial = inicial_sugerida(total, cuota_inicial_pct)
     inicial_bajo_min = monto_inicial < minimo_inicial - 0.009
     try:
         inicial_bloquea = bool(parametros_service.get_param(
@@ -157,6 +160,8 @@ def _planificar_refinanciamiento(
         "monto_inicial": round(float(monto_inicial), 2),
         "saldo_a_fraccionar": saldo,
         "monto_mensual": mensual,
+        "monto_ultima": montos[-1] if montos else 0.0,
+        "texto_cuotas": texto_cuotas(montos),
         "minimo_inicial_20": minimo_inicial,
         "inicial_bajo_min": inicial_bajo_min,
         "advertencia_20": inicial_bajo_min and not inicial_bloquea,
@@ -294,15 +299,16 @@ def _ejecutar_refinanciamiento(
     reevaluacion = None
     if reevaluar_habilidad and colegiado is not None:
         cond_previa = colegiado.condicion
-        fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        from app.utils.habilidad_fecha import fin_de_mes, vence_hasta
+        fin_mes = fin_de_mes(ahora)                       # día, en hora de Lima
         colegiado.condicion = "habil"
-        colegiado.habilidad_vence = fin_mes
+        colegiado.habilidad_vence = vence_hasta(fin_mes)  # fecha sin hora (00:00 UTC)
         colegiado.fecha_actualizacion_condicion = ahora
         reevaluacion = {
             "condicion_previa": cond_previa,
             "condicion_nueva": colegiado.condicion,
             "cambio": cond_previa != colegiado.condicion,
-            "habilidad_vence": fin_mes.date().isoformat(),
+            "habilidad_vence": fin_mes.isoformat(),
         }
 
     # 8. Flag + commit único.
