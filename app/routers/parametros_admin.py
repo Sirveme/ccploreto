@@ -73,7 +73,10 @@ def leer_seccion(
         # Se ocultan aquí para no mostrar valores editables-pero-ignorados por el lector.
         # inicial_minima_bloquea quedó OBSOLETO: la cuota inicial es de monto LIBRE
         # (el % es solo sugerencia, nunca bloquea). Se oculta para que no se toque por caso.
-        _ocultar = {"cuotas_impagas_perdida", "perdida_automatica", "inicial_minima_bloquea"}
+        _ocultar = {"cuotas_impagas_perdida", "perdida_automatica", "inicial_minima_bloquea",
+                    # Tanda 9: no hacen nada hoy (interés 0 sin uso; no se pide autorización a
+                    # Finanzas). Ocultos de la pantalla; sus filas siguen en la base.
+                    "interes_mensual_pct", "requiere_autorizacion"}
         detalle = [p for p in detalle if p.get("clave") not in _ocultar]
         nota = ("La cuota inicial es de MONTO LIBRE: el % de inicial es solo una SUGERENCIA "
                 "informativa y nunca bloquea (no hay que cambiar la tasa por caso). "

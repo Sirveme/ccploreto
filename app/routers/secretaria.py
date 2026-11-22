@@ -193,15 +193,14 @@ async def buscar_colegiado(
 
     colegiados = query.limit(20).all()
 
+    # Tanda 9: la deuda del buscador es LA misma que la ficha y la habilidad
+    # (deuda_total_colegiado). Antes sumaba el monto ORIGINAL de toda deuda pendiente,
+    # incluidas las absorbidas por un plan, y no contaba el saldo del plan.
+    from app.services.conciliacion_deuda_service import _detalle_deuda
     resultados = []
     for col in colegiados:
-        deudas_info = db.query(
-            func.count(Debt.id).label("cantidad"),
-            func.coalesce(func.sum(Debt.amount), 0).label("total"),
-        ).filter(
-            Debt.colegiado_id == col.id,
-            Debt.status.in_(["pending", "partial"]),
-        ).first()
+        _det = _detalle_deuda(db, col.id, col.organization_id or 1)
+        _n = len(_det["deuda_ids"]) + (1 if _det.get("plan_activo") else 0)
 
         resultados.append(BuscarColegiadoResponse(
             id=col.id,
@@ -212,8 +211,8 @@ async def buscar_colegiado(
             telefono=col.telefono,
             condicion=col.condicion,
             habilidad_vence=fmt_habilidad(col.habilidad_vence) if col.habilidad_vence else None,
-            total_deuda=float(deudas_info.total or 0),
-            deudas_pendientes=int(deudas_info.cantidad or 0),
+            total_deuda=float(_det["total"] or 0),
+            deudas_pendientes=_n,
         ))
 
     return resultados

@@ -370,7 +370,8 @@ async def crear_fraccionamiento(
 
     # ── 5. Fechas ─────────────────────────────────────────────────────────
     # Primera cuota mensual vence el 15 del mes siguiente
-    primer_venc = hoy.replace(day=15) + relativedelta(months=1)
+    from app.services.fraccionamiento_service import dia_vencimiento_plan, primer_vencimiento
+    primer_venc = primer_vencimiento(hoy, dia_vencimiento_plan(db, colegiado.organization_id))   # día desde Parámetros
     ultima_venc  = primer_venc + relativedelta(months=data.num_cuotas - 1)
 
     # ── 6. Crear Fraccionamiento ──────────────────────────────────────────
