@@ -1,5 +1,11 @@
 import json
 import os
+
+# Ambiente de prueba: con ENVIRONMENT=sandbox bloquea toda comunicación externa ANTES
+# de importar los routers. Fuera del sandbox no hace nada.
+from app.utils import sandbox as _sandbox
+_sandbox.activar_temprano()
+
 from fastapi import FastAPI, Request, Depends
 from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
@@ -326,6 +332,10 @@ app.include_router(secretaria_router)
 app.include_router(secretaria_page_router)
 app.include_router(pagos_externos_router)          # Módulo Pagos Externos (Fase 1)
 app.include_router(pagos_externos_page_router)     # Módulo Pagos Externos (página)
+# La marca de aportes a la Junta sigue a la condición (el import activa el oyente).
+# OJO: usar "from ... import" — un "import app.services..." pisaría la variable `app`.
+from app.services import aportes_marca_service as _aportes_marca  # noqa: F401,E402
+
 # Conciliación de deuda por acta con firmas (requiere sql/zClaude-conciliacion.sql)
 from app.routers.conciliacion_deuda import router as conciliacion_deuda_router, page_router as conciliacion_deuda_page_router
 app.include_router(conciliacion_deuda_router)
@@ -535,3 +545,7 @@ async def darwin(request: Request):
 if os.getenv("ENVIRONMENT", "development") != "production":
     from app.routers.dev_tools import router as dev_router
     app.include_router(dev_router)
+
+# Ambiente de prueba (debe ir AL FINAL: su middleware queda como el más externo).
+# Fuera de ENVIRONMENT=sandbox no hace nada.
+_sandbox.instalar(app)
