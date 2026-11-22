@@ -28,7 +28,7 @@ const $ = id => document.getElementById(id);
 
 
 /* ────────────────────────────────────────────────────────────
-   esCondonable(deu) — Acuerdo 007-2026
+   esCondonable(deu) — condonación de deudas hasta 2019
    Misma lógica que loadDeuda(). Función global para reusar
    en cualquier módulo sin duplicar.
 ──────────────────────────────────────────────────────────── */
@@ -137,7 +137,7 @@ const Portal = {
         const deudas   = d.deudas || [];
         const cuotasPend = parseInt(d.cuotas_pendientes || 0);
 
-        // ── Calcular condonable desde las deudas (Acuerdo 007-2026) ──
+        // ── Calcular condonable desde las deudas (condonación de deudas hasta 2019) ──
         // No depender de d.condonable que puede no venir del API
         let condona = 0;
         deudas.forEach(deu => {
@@ -163,8 +163,13 @@ const Portal = {
         // ── Deuda real = total - condonable ──
         const fraccio  = Math.max(0, total - condona);
 
-        // ── Cuota inicial mínima: ceil al 10 más cercano ──
-        const cuotaMin = fraccio >= 500
+        // ── Piso de fraccionamiento desde parametros_sistema (hoy 250); fallback 250 ──
+        // (250 = política vigente del backend; NO 500, que era el leftover pre-decisión zClaude-40)
+        const MONTO_MIN = await this._cargarFraccParams();
+        this._montoMinFracc = MONTO_MIN;   // compartido con _renderChips y Modales.fraccion
+
+        // ── Cuota inicial mínima: ceil al 10 más cercano (0.20 = fórmula congelada, INTACTA) ──
+        const cuotaMin = fraccio >= MONTO_MIN
         ? Math.max(100, Math.ceil((fraccio * 0.20) ) )
         : 0;
 
@@ -193,7 +198,7 @@ const Portal = {
         const pillsEl = $('panel-pills');
         if (pillsEl) {
         pillsEl.innerHTML = '';
-        if (fraccio >= 500)
+        if (fraccio >= MONTO_MIN)
             pillsEl.insertAdjacentHTML('beforeend',
             `<span class="deuda-pill pill-fraccion">
                 <span class="mi sm" style="color:var(--blue-soft)">calendar_month</span>
@@ -215,11 +220,25 @@ const Portal = {
         Modales.fraccion._setDeuda(fraccio, cuotaMin);
 
         const btnFracc = $('btn-fracc');
-        if (btnFracc) btnFracc.style.display = fraccio >= 500 ? 'flex' : 'none';
+        if (btnFracc) btnFracc.style.display = fraccio >= MONTO_MIN ? 'flex' : 'none';
 
     } catch(e) {
         console.error('[Portal.loadDeuda]', e);
     }
+  },
+
+  async _cargarFraccParams() {
+    // Piso de fraccionamiento (monto_minimo) desde parametros_sistema — fuente única.
+    // Se carga una vez y se cachea. FALLBACK = 250 (política vigente del backend),
+    // NO 500 (ese ≥500 era el leftover que estamos corrigiendo). El 0.20 no se toca.
+    if (this._fraccParams === undefined) {
+      try {
+        const r = await fetch('/api/admin/parametros/fraccionamiento?solo_valores=1', { credentials: 'same-origin' });
+        this._fraccParams = r.ok ? await r.json() : null;
+      } catch (e) { this._fraccParams = null; }
+    }
+    const v = this._fraccParams && this._fraccParams.monto_minimo;
+    return (v != null) ? Number(v) : 250;
   },
 
   _renderChips(total, cuotaMin, condona, fraccio) {
@@ -234,7 +253,7 @@ const Portal = {
         label: `Debo S/ ${fmtS(total)}`,
         q: '¿Cuánto debo en total y en qué conceptos?',
       });
-    if (fraccio >= 500)
+    if (fraccio >= (Portal._montoMinFracc || 250))
       chips.push({
         cls: 'chip-inicial', icon: 'calendar_month',
         label: `Inicial mín. S/ ${fmtS(cuotaMin)}`,
@@ -295,8 +314,8 @@ const Asistente = {
     if (deuda_total > 0) {
       txt += ` Tienes una deuda de <strong>S/ ${fmtS(deuda_total)}</strong>.`;
       if (deuda_condonable > 0)
-        txt += ` De eso, <strong>S/ ${fmtS(deuda_condonable)}</strong> se <strong>condona automáticamente</strong> al fraccionar (Acuerdo 007-2026).`;
-      if (deuda_fraccionable >= 500)
+        txt += ` De eso, <strong>S/ ${fmtS(deuda_condonable)}</strong> se <strong>condona automáticamente</strong> al fraccionar (condonación de deudas hasta 2019).`;
+      if (deuda_fraccionable >= (Portal._montoMinFracc || 250))
         txt += ` Tu deuda real a fraccionar es <strong>S/ ${fmtS(deuda_fraccionable)}</strong> con una cuota inicial desde <strong>S/ ${fmtS(cuota_inicial_min)}</strong>.`;
     }
     txt += '<br><br>Usa los accesos rápidos o escríbeme tu pregunta. ¿En qué te ayudo?';
@@ -657,9 +676,10 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
     },
 
     abrir() {
-      if (this.deuda < 500) {
+      const montoMin = (Portal._montoMinFracc || 250);
+      if (this.deuda < montoMin) {
         Asistente._addMsg(
-          'Tu deuda fraccionable es menor a S/ 500. El fraccionamiento aplica desde ese monto mínimo. ¿Quieres más información?',
+          `Tu deuda fraccionable es menor a S/ ${fmtS(montoMin)}. El fraccionamiento aplica desde ese monto mínimo. ¿Quieres más información?`,
           'bot'
         );
         return;
@@ -678,11 +698,11 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       body.innerHTML = `
         <div class="fraccio-condiciones">
           <div class="fraccio-cond-title">Condiciones del plan</div>
-          <div class="fraccio-cond-item"><span class="mi sm c-amber">info</span> Deuda mínima para fraccionar: S/ 500</div>
+          <div class="fraccio-cond-item"><span class="mi sm c-amber">info</span> Deuda mínima para fraccionar: S/ ${fmtS(Portal._montoMinFracc || 250)}</div>
           <div class="fraccio-cond-item"><span class="mi sm c-blue">percent</span> Cuota inicial mínima: 20% de la deuda a fraccionar</div>
           <div class="fraccio-cond-item"><span class="mi sm c-dim">payments</span> Cuota mensual mínima: S/ 100</div>
           <div class="fraccio-cond-item"><span class="mi sm c-dim">calendar_month</span> Máximo 12 cuotas mensuales</div>
-          ${condena > 0 ? `<div class="fraccio-cond-item"><span class="mi sm c-violet">auto_awesome</span> <strong style="color:var(--violet)">Condonable S/ ${fmt(condena)}</strong> — se elimina al activar (Acuerdo 007-2026)</div>` : ''}
+          ${condena > 0 ? `<div class="fraccio-cond-item"><span class="mi sm c-violet">auto_awesome</span> <strong style="color:var(--violet)">Condonable S/ ${fmt(condena)}</strong> — se elimina al activar (condonación de deudas hasta 2019)</div>` : ''}
           <div class="fraccio-cond-item"><span class="mi sm c-emerald">bolt</span> Habilidad temporal al pagar cada cuota puntualmente</div>
         </div>
 
@@ -716,10 +736,17 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       const btnSol = $('btn-solicitar-fraccion');
       if (btnSol) btnSol.style.display = 'none';
 
-      for (let n = 2; n <= 12; n++) {
-        // Cuota mensual redondeada al 10 superior
-        const cuotaMes = Math.ceil(restante / n );
-        if (cuotaMes < 100) break;
+      // Tanda 8: cuota mínima y máximo de cuotas desde Parámetros (fallback 100 / 12).
+      const _PF = (typeof Portal !== 'undefined' && Portal._fraccParams) || {};
+      const CUOTA_MIN  = (_PF.cuota_minima != null) ? Number(_PF.cuota_minima) : 100;
+      const MAX_CUOTAS = (_PF.max_cuotas   != null) ? Number(_PF.max_cuotas)   : 12;
+      for (let n = 2; n <= MAX_CUOTAS; n++) {
+        // Tanda 8 (decisión Duilio): sin céntimos — n-1 cuotas en soles enteros hacia abajo
+        // y la última absorbe la diferencia (mismo reparto que el servidor).
+        const _sal     = Math.round(restante * 100) / 100;
+        const cuotaMes = Math.floor(_sal / n + 1e-9);
+        const ultima   = Math.round((_sal - cuotaMes * (n - 1)) * 100) / 100;
+        if (cuotaMes < CUOTA_MIN) break;
         const div = document.createElement('div');
         div.className    = 'fraccio-option';
         div.dataset.n    = n;
@@ -727,7 +754,9 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
         div.innerHTML    = `
           <div>
             <div class="fraccio-n-cuotas">${n} cuotas mensuales</div>
-            <div class="fraccio-detalle">de S/ ${fmt(cuotaMes)} cada una</div>
+            <div class="fraccio-detalle">${ultima === cuotaMes
+              ? `de S/ ${fmt(cuotaMes)} cada una`
+              : `${n - 1} de S/ ${fmt(cuotaMes)} y la última de S/ ${fmt(ultima)}`}</div>
           </div>
           <div class="fraccio-monto-mes">S/ ${fmt(cuotaMes)}/mes</div>
         `;
@@ -1648,7 +1677,7 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
           avisoEl.innerHTML = `
             <span class="mi sm c-violet" style="flex-shrink:0">info</span>
             De tu selección, <strong style="color:var(--violet)">S/ ${Math.round(condonaEnSel)}</strong>
-            se condonan automáticamente si fraccionas (Acuerdo 007-2026).
+            se condonan automáticamente si fraccionas (condonación de deudas hasta 2019).
             <span class="pl-link-fracc"
                   onclick="Modales.pagoLinea.cerrar();Modales.fraccion.abrir()">
               Ver fraccionamiento
