@@ -31,6 +31,7 @@ from app.utils.templates import templates
 from app.services.evaluar_habilidad import sincronizar_condicion
 from app.services.facturacion import FacturacionService
 from app.utils.notas_pago import descripcion_legible, mapa_deudas_para_notas, conceptos_detalle
+from app.utils.habilidad_fecha import fecha_habilidad, fin_de_mes, fmt_habilidad, vence_hasta  # tanda 8
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ async def buscar_colegiado(
             email=col.email,
             telefono=col.telefono,
             condicion=col.condicion,
-            habilidad_vence=col.habilidad_vence.strftime("%d/%m/%Y") if col.habilidad_vence else None,
+            habilidad_vence=fmt_habilidad(col.habilidad_vence) if col.habilidad_vence else None,
             total_deuda=float(deudas_info.total or 0),
             deudas_pendientes=int(deudas_info.cantidad or 0),
         ))
@@ -258,7 +259,7 @@ async def obtener_deudas(
             "codigo_matricula": colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
             "condicion": colegiado.condicion,
-            "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+            "habilidad_vence": fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else None,
         },
         "deudas": resultado,
         "total_deuda": sum(d.saldo for d in resultado),
@@ -399,7 +400,7 @@ async def deudas_completas(
             "codigo_matricula": colegiado.codigo_matricula,
             "apellidos_nombres": colegiado.apellidos_nombres,
             "condicion": colegiado.condicion,
-            "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+            "habilidad_vence": fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else None,
         },
         "hasta_2025": hasta_2025,
         "anio_2026": anio_2026_lista,
@@ -612,7 +613,7 @@ async def registrar_pago(
 
         if multas_pendientes == 0:
             anio_dic = int(str(meses_dic[0].periodo)[:4])
-            nueva_vence = datetime(anio_dic + 1, 3, 31, tzinfo=PERU_TZ)
+            nueva_vence = vence_hasta(date(anio_dic + 1, 3, 31))   # fecha sin hora (00:00 UTC)
             colegiado.habilidad_vence = nueva_vence
             colegiado.condicion = "habil"
             colegiado.fecha_actualizacion_condicion = ahora
@@ -632,7 +633,7 @@ async def registrar_pago(
         colegiado.fecha_actualizacion_condicion = ahora
         if pago.forzar_condicion == "habil" and pago.habilidad_vence:
             try:
-                colegiado.habilidad_vence = datetime.strptime(pago.habilidad_vence, "%Y-%m-%d").replace(tzinfo=PERU_TZ)
+                colegiado.habilidad_vence = vence_hasta(datetime.strptime(pago.habilidad_vence, "%Y-%m-%d").date())
             except ValueError:
                 pass
         elif pago.forzar_condicion == "inhabil":
@@ -682,7 +683,7 @@ async def registrar_pago(
     )
 
     habilidad_vence_str = (
-        colegiado.habilidad_vence.strftime("%d/%m/%Y")
+        fmt_habilidad(colegiado.habilidad_vence)
         if colegiado.habilidad_vence
         else None
     )
@@ -753,14 +754,14 @@ async def actualizar_condicion(
     if datos.condicion == "habil":
         if datos.habilidad_vence:
             try:
-                colegiado.habilidad_vence = datetime.strptime(
+                colegiado.habilidad_vence = vence_hasta(datetime.strptime(
                     datos.habilidad_vence, "%Y-%m-%d"
-                ).replace(tzinfo=PERU_TZ)
+                ).date())
             except ValueError:
                 raise HTTPException(400, detail="Formato de fecha inválido (usar YYYY-MM-DD)")
         else:
             # 31 de diciembre del año en curso (antes: 2026 fijo).
-            colegiado.habilidad_vence = datetime(ahora.year, 12, 31, tzinfo=PERU_TZ)
+            colegiado.habilidad_vence = vence_hasta(date(ahora.year, 12, 31))
         colegiado.motivo_inhabilidad = None
     elif datos.condicion in ("fallecido", "vitalicio"):
         # Sin caducidad. No tocar deudas.
@@ -771,7 +772,7 @@ async def actualizar_condicion(
         colegiado.motivo_inhabilidad = datos.motivo
 
     # ── Auditoría ──
-    vence_str = colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else "—"
+    vence_str = fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else "—"
     nota_audit = (
         f"[SECRETARIA:{operador_dni}] Condición: {condicion_anterior}→{datos.condicion}"
         f" hasta {vence_str}."
@@ -806,7 +807,7 @@ async def actualizar_condicion(
     return {
         "ok": True,
         "condicion": colegiado.condicion,
-        "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+        "habilidad_vence": fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else None,
         "mensaje": f"Condición actualizada a {datos.condicion.upper()}"
                    + (f" hasta {vence_str}" if datos.condicion == "habil" else ""),
     }
@@ -1063,8 +1064,13 @@ async def listar_fraccionamientos_colegiado(
             "cuotas_pagadas": cuotas_pagadas,
             "cuotas_pendientes": cuotas_pendientes,
             "saldo_pendiente": float(p.saldo_pendiente or 0),
-            "proxima_cuota_numero": p.proxima_cuota_numero,
-            "proxima_cuota_fecha": p.proxima_cuota_fecha.isoformat() if p.proxima_cuota_fecha else None,
+            # Próxima = primera cuota IMPAGA del cronograma (tanda 8). La cabecera del plan
+            # (proxima_cuota_*) puede quedar desactualizada; solo se usa si no hay cronograma.
+            "proxima_cuota_numero": (proxima.numero_cuota if proxima is not None
+                                     else (None if cuotas else p.proxima_cuota_numero)),
+            "proxima_cuota_fecha": ((proxima.fecha_vencimiento.isoformat() if proxima.fecha_vencimiento else None)
+                                    if proxima is not None
+                                    else (None if cuotas else (p.proxima_cuota_fecha.isoformat() if p.proxima_cuota_fecha else None))),
             "base_legal_referencia": p.base_legal_referencia,
             "cuotas": cuotas_list,
         })
@@ -1205,18 +1211,18 @@ async def registrar_pago_cuota_fracc(
     nota_habilidad = None
     if info_cuota["es_inicial"]:
         # Hábil hasta fin del mes en curso
-        fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        fin_mes = fin_de_mes(ahora)                          # día, en hora de Lima
         colegiado.condicion = "habil"
-        colegiado.habilidad_vence = fin_mes
+        colegiado.habilidad_vence = vence_hasta(fin_mes)     # fecha sin hora (00:00 UTC)
         colegiado.fecha_actualizacion_condicion = ahora
         nota_habilidad = (
             f"Cuota inicial pagada — colegiado HÁBIL hasta "
             f"{fin_mes.strftime('%d/%m/%Y')}"
         )
     elif info_cuota["habilidad_hasta"]:
-        nueva = datetime.strptime(info_cuota["habilidad_hasta"], "%Y-%m-%d").replace(tzinfo=PERU_TZ)
+        nueva = datetime.strptime(info_cuota["habilidad_hasta"], "%Y-%m-%d").date()
         colegiado.condicion = "habil"
-        colegiado.habilidad_vence = nueva
+        colegiado.habilidad_vence = vence_hasta(nueva)
         colegiado.fecha_actualizacion_condicion = ahora
         nota_habilidad = (
             f"Cuota {datos.n_cuota} pagada — habilidad extendida hasta "
@@ -1234,7 +1240,7 @@ async def registrar_pago_cuota_fracc(
         "cuota": info_cuota,
         "plan_completado": info_cuota["completado"],
         "nueva_condicion": colegiado.condicion,
-        "habilidad_vence": colegiado.habilidad_vence.strftime("%d/%m/%Y") if colegiado.habilidad_vence else None,
+        "habilidad_vence": fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else None,
         "nota_habilidad": nota_habilidad,
     }
 
@@ -1312,13 +1318,23 @@ async def fraccionamientos_detalle(
         ORDER BY created_at DESC
     """), {"cid": colegiado_id}).fetchall()
 
+    # Tanda 8: el detalle de las diferencias solo lo ven admin y sote (en lenguaje claro);
+    # cajera y secretaria ven un aviso simple.
+    ve_detalle = (getattr(current_member, "role", "") or "") in ("admin", "sote")
+    AVISO_SIMPLE = "Este plan tiene diferencias en sus cifras; consulte con Administración."
+
     resultado = []
     for fr in fraccs:
+        # Deudas ORIGINALES que absorbió el plan. Se enlazan de dos formas: los planes
+        # nuevos ponen fraccionamiento_id (y gestión 'fraccionada'); algunos antiguos usan
+        # fraccionamiento_id_origen. Las cuotas espejo (debt_type='fraccionamiento') NO son
+        # originales. (Antes se sumaban originales + espejos como "cuotas": doble conteo.)
         originales = db.execute(text("""
             SELECT id, periodo, debt_type, concept, amount, balance,
                    status, estado_gestion
             FROM debts
             WHERE fraccionamiento_id_origen = :fid
+               OR (fraccionamiento_id = :fid AND debt_type <> 'fraccionamiento')
             ORDER BY periodo NULLS LAST, id
         """), {"fid": fr.id}).fetchall()
 
@@ -1326,36 +1342,39 @@ async def fraccionamientos_detalle(
             SELECT id, periodo, concept, amount, balance, status,
                    estado_gestion, notes
             FROM debts
-            WHERE fraccionamiento_id = :fid
+            WHERE fraccionamiento_id = :fid AND debt_type = 'fraccionamiento'
             ORDER BY id
         """), {"fid": fr.id}).fetchall()
 
         suma_originales = sum(float(o.amount or 0) for o in originales)
+        suma_originales_saldo = sum(float(o.balance or 0) for o in originales)
         suma_cuotas = sum(float(c.amount or 0) for c in cuotas)
         header_total = float(fr.deuda_total_original or 0)
 
         inconsistencias = []
         if header_total > 0 and abs(suma_cuotas - header_total) > 0.01 and cuotas:
             inconsistencias.append(
-                f"Header dice S/{header_total:.2f} pero cuotas suman "
-                f"S/{suma_cuotas:.2f}"
+                f"El total del plan (S/ {header_total:,.2f}) no coincide con la suma "
+                f"de sus cuotas (S/ {suma_cuotas:,.2f})."
             )
-        if header_total > 0 and originales and abs(
-            suma_originales - header_total
-        ) > 0.01:
+        if header_total > 0 and originales and abs(suma_originales - header_total) > 0.01 \
+                and abs(suma_originales_saldo - header_total) > 0.01:
             inconsistencias.append(
-                f"Deudas originales vinculadas suman "
-                f"S/{suma_originales:.2f}, no S/{header_total:.2f}"
+                f"Las deudas que absorbió el plan suman S/ {suma_originales:,.2f}, "
+                f"pero el plan es por S/ {header_total:,.2f}."
             )
         if (fr.num_cuotas or 0) == 0 and cuotas:
             inconsistencias.append(
-                f"Header dice num_cuotas=0 pero existen {len(cuotas)} cuotas"
+                f"El plan figura sin cuotas mensuales, pero tiene {len(cuotas)} cuotas registradas."
             )
         if not originales:
             inconsistencias.append(
-                "No hay deudas originales vinculadas (revisar backfill o "
-                "vinculación manual)"
+                "El plan no tiene enlazadas las deudas que reemplazó (plan migrado o "
+                "cargado a mano): no se puede comprobar de qué deudas proviene."
             )
+        hay_diferencias = bool(inconsistencias)
+        if not ve_detalle:
+            inconsistencias = []
 
         resultado.append({
             "id": fr.id,
@@ -1420,6 +1439,8 @@ async def fraccionamientos_detalle(
                 ), 2),
             },
             "inconsistencias": inconsistencias,
+            "hay_diferencias": hay_diferencias,
+            "aviso": AVISO_SIMPLE if hay_diferencias else None,
         })
 
     return {

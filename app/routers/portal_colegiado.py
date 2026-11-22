@@ -125,7 +125,8 @@ async def mi_perfil(
         "foto_url": col.foto_url,
         "organizacion": org.name if org else "Colegio Profesional",
         "tiene_fraccionamiento": bool(col.tiene_fraccionamiento),
-        "habilidad_vence": col.habilidad_vence.isoformat() if col.habilidad_vence else None,
+        "habilidad_vence": (lambda f: f.isoformat() if f else None)(
+            __import__("app.utils.habilidad_fecha", fromlist=["fecha_habilidad"]).fecha_habilidad(col.habilidad_vence)),
         "telefono_colegio": getattr(org, 'phone', None),
     }
 
@@ -319,7 +320,8 @@ async def crear_fraccionamiento(
     if total < deuda_min:
         raise HTTPException(400, f"La deuda total (S/ {total:.2f}) es menor al mínimo de S/ {deuda_min:.0f}")
 
-    minimo_inicial = round(total * cuota_inicial_pct, 2)
+    from app.utils.cuotas_enteras import inicial_sugerida, repartir
+    minimo_inicial = inicial_sugerida(total, cuota_inicial_pct)   # soles enteros (tanda 8)
     if data.cuota_inicial < minimo_inicial:
         raise HTTPException(
             400,
@@ -330,7 +332,9 @@ async def crear_fraccionamiento(
         raise HTTPException(400, "La cuota inicial no puede cubrir la deuda completa; usa pago directo")
 
     saldo = round(total - data.cuota_inicial, 2)
-    monto_cuota = round(saldo / data.num_cuotas, 2)
+    # Sin céntimos (tanda 8): n-1 cuotas enteras hacia abajo; la última absorbe la diferencia.
+    montos_mensuales = repartir(saldo, data.num_cuotas)
+    monto_cuota = montos_mensuales[0]
 
     if monto_cuota < cuota_min:
         raise HTTPException(
@@ -415,7 +419,7 @@ async def crear_fraccionamiento(
         cuotas.append(FraccionamientoCuota(
             fraccionamiento_id = fracc.id,
             numero_cuota       = i,
-            monto              = monto_cuota,
+            monto              = montos_mensuales[i - 1],
             fecha_vencimiento  = venc,
             habilidad_hasta    = fin_mes,
         ))

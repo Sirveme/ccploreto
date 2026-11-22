@@ -63,7 +63,8 @@ def _build_system_prompt(col, deuda_info: dict) -> str:
 
     deuda_real  = max(deuda_total - condona, 0)
     min_inicial = math.ceil(deuda_real * 0.20)
-    califica_fracc = deuda_real >= 500
+    monto_min, cuota_min, max_cuotas = _params_fracc()
+    califica_fracc = deuda_real >= monto_min
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
 Atiendes al colegiado {col.apellidos_nombres.split()[0] if col else 'estimado'}.
@@ -74,19 +75,19 @@ DATOS ACTUALES DEL COLEGIADO:
 - Deuda total: S/ {deuda_total:.2f}
 - Cuotas ordinarias vencidas: {cuotas_pend}
 - Otras deudas (multas, extraordinarias, eventos): S/ {deuda_otras:.2f}
-- Monto condonable (Acuerdo 007-2026): S/ {condona:.2f}
+- Monto condonable (condonación de deudas hasta 2019): S/ {condona:.2f}
 - Deuda real a fraccionar (sin condonables): S/ {deuda_real:.2f}
 - Cuota inicial mínima (20% de deuda real): S/ {min_inicial:.2f}
-- Cuota mensual mínima: S/ 100.00
+- Cuota mensual mínima: S/ {_soles(cuota_min)}
 - Fraccionamiento activo: {'Sí' if tiene_fracc else 'No'}
-- Califica para fraccionar: {'Sí' if califica_fracc else 'No (deuda real menor a S/ 500)'}
-- Máximo cuotas mensuales: 12
+- Califica para fraccionar: {'Sí' if califica_fracc else 'No (deuda real menor a S/ ' + _soles(monto_min) + ')'}
+- Máximo cuotas mensuales: {max_cuotas}
 
 REGLAS QUE DEBES CONOCER:
 - Para ser HÁBIL: cero multas impagas, cero cuotas extraordinarias impagas, menos de 3 cuotas ordinarias vencidas.
-- Fraccionamiento requiere: deuda real mínima S/ 500, cuota inicial al menos 20%, cuotas desde S/ 100/mes.
+- Fraccionamiento requiere: deuda real mínima S/ {_soles(monto_min)}, cuota inicial al menos 20%, cuotas desde S/ {_soles(cuota_min)}/mes (en soles enteros; la última cuota ajusta la diferencia).
 - Al pagar la cuota inicial del fraccionamiento → queda HÁBIL de inmediato ese mismo día.
-- Acuerdo 007-2026: las multas por inasistencia a asambleas y las cuotas ordinarias del año 2019 hacia atrás se condonan automáticamente al activar un fraccionamiento. Las multas por elecciones NUNCA se condonan.
+- Condonación de deudas hasta 2019: las multas por inasistencia a asambleas y las cuotas ordinarias del año 2019 hacia atrás se condonan automáticamente al activar un fraccionamiento. Las multas por elecciones NUNCA se condonan.
 - Pagos en línea: tarjeta Visa o Mastercard vía OpenPay (activación inmediata). Yape/Plin/transferencia: se reporta manualmente y se valida en hasta 24 horas.
 - Constancia de Habilidad: cuesta S/ 10, se emite en PDF al instante tras pago en línea.
 
@@ -94,7 +95,7 @@ INSTRUCCIONES DE RESPUESTA:
 - Máximo 2 oraciones, en español peruano simple y directo.
 - Da siempre el monto exacto cuando pregunten por deuda o cuotas.
 - Si preguntan cómo reactivarse, menciona el fraccionamiento y la cuota inicial mínima.
-- Si preguntan qué se condona, menciona el Acuerdo 007-2026 brevemente.
+- Si preguntan qué se condona, menciona brevemente la condonación de deudas hasta 2019 (no cites número de acuerdo).
 - Nunca inventes datos que no estén arriba. Si no sabes algo, di: consulta en ventanilla o llama al 979 169 813.
 - Tono: amigable, breve, como un colega contador que ayuda."""
 
@@ -145,6 +146,30 @@ async def asistente_texto(
     return JSONResponse({"respuesta": texto})
 
 
+def _params_fracc():
+    """Tanda 8: mínimo para fraccionar, cuota mínima y máximo de cuotas desde Parámetros
+    (fallback 250 / 100 / 12 si no se pueden leer)."""
+    monto_min, cuota_min, max_cuotas = 250.0, 100.0, 12
+    try:
+        from app.database import SessionLocal
+        from app.services import parametros_service as PS
+        db = SessionLocal()
+        try:
+            monto_min = float(PS.get_param(db, "fraccionamiento", "monto_minimo", default=monto_min) or monto_min)
+            cuota_min = float(PS.get_param(db, "fraccionamiento", "cuota_minima", default=cuota_min) or cuota_min)
+            max_cuotas = int(PS.get_param(db, "fraccionamiento", "max_cuotas", default=max_cuotas) or max_cuotas)
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return monto_min, cuota_min, max_cuotas
+
+
+def _soles(x):
+    x = float(x)
+    return ("{:,.0f}" if x == int(x) else "{:,.2f}").format(x)
+
+
 def _build_system_prompt_from_ctx(ctx: dict) -> str:
     """Construye system prompt desde el contexto JSON de la página — siempre correcto."""
     nombre      = ctx.get("nombre", "estimado colegiado")
@@ -155,7 +180,7 @@ def _build_system_prompt_from_ctx(ctx: dict) -> str:
     deuda_otras = float(ctx.get("deuda_otras", 0))
     tiene_fracc = bool(ctx.get("tiene_fracc",  False))
     condicion   = ctx.get("condicion", "inhabil").upper()
-    califica    = deuda_real >= 500
+    califica    = deuda_real >= _params_fracc()[0]   # mínimo desde Parámetros (antes 500 fijo)
 
     # Usar cuota_inicial_min de la página si viene — garantiza consistencia
     # La página usa ceil al 10, el backend usa ceil al 1
@@ -197,12 +222,19 @@ def _system_prompt_base( nombre, condicion, deuda_total, cuotas_pend,
     deuda_otras, condonable, deuda_real,
     min_inicial, tiene_fracc, califica) -> str:
     saldo_tras_inicial = math.ceil(deuda_real - min_inicial)
-    
+    _monto_min, cuota_min, max_cuotas = _params_fracc()
+
+    # Tanda 8: mismo reparto que el sistema — n-1 cuotas en soles enteros hacia abajo,
+    # la última absorbe la diferencia.
+    from app.utils.cuotas_enteras import repartir
     planes_lineas = []
-    for n in range(2, 13):
-        cuota_m = math.ceil(saldo_tras_inicial / n)   # ceil, NO round
-        if cuota_m >= 100:
-            planes_lineas.append(f"  {n} meses → S/ {cuota_m}/mes")
+    for n in range(2, max_cuotas + 1):
+        montos = repartir(saldo_tras_inicial, n)
+        if montos[0] >= cuota_min:
+            if montos[-1] == montos[0]:
+                planes_lineas.append(f"  {n} meses → S/ {_soles(montos[0])}/mes")
+            else:
+                planes_lineas.append(f"  {n} meses → {n - 1} de S/ {_soles(montos[0])} y la última de S/ {_soles(montos[-1])}")
     planes_txt = "\n".join(planes_lineas) or "  No hay planes disponibles"
 
     return f"""Eres el asistente virtual del Colegio de Contadores Públicos de Loreto (CCPL).
@@ -213,12 +245,12 @@ DATOS EXACTOS DEL COLEGIADO (NO usar otros montos):
 - Deuda total registrada: S/ {round(deuda_total)}
 - Cuotas ordinarias vencidas: {cuotas_pend}
 - Otras deudas (multas, eventos, extraordinarias): S/ {round(deuda_otras)}
-- Monto CONDONABLE (Acuerdo 007-2026): S/ {round(condonable)}
+- Monto CONDONABLE (condonación de deudas hasta 2019): S/ {round(condonable)}
 - Deuda real a fraccionar (sin condonables): S/ {round(deuda_real)}
 - Cuota inicial mínima (20% de deuda real): S/ {min_inicial}
 - Saldo a fraccionar tras inicial (80%): S/ {saldo_tras_inicial}
-- Cuota mensual mínima permitida: S/ 100
-- Máximo cuotas mensuales: 12
+- Cuota mensual mínima permitida: S/ {_soles(cuota_min)}
+- Máximo cuotas mensuales: {max_cuotas}
 - Fraccionamiento activo: {'Sí' if tiene_fracc else 'No'}
 - Califica para fraccionar: {'Sí' if califica else 'No'}
 
@@ -228,7 +260,7 @@ Saldo a distribuir en cuotas: S/ {saldo_tras_inicial}
 {planes_txt}
 
 REGLA DE CÁLCULO (solo referencia):
-cuota_mensual = S/ {saldo_tras_inicial} ÷ número_de_meses  (redondeado al sol más cercano)
+cuota_mensual = S/ {saldo_tras_inicial} ÷ número_de_meses, en soles enteros hacia abajo; la última cuota lleva la diferencia
 NUNCA sumes la cuota inicial a la mensualidad — son pagos SEPARADOS.
 NUNCA uses la deuda total S/ {round(deuda_total)} para calcular cuotas mensuales.
 
@@ -236,14 +268,14 @@ BASE LEGAL:
 - Inhabilidad por deuda: Artículo 18 literal g del Estatuto CCPL 2018
 - Retiro automático: Artículo 114 del Reglamento 2019 (24 meses impagos)
 - Fraccionamiento: Artículo 7 del Reglamento 2019, autorizado por Consejo Directivo
-- Condonación: Acuerdo 007-2026 del Consejo Directivo CCPL
+- Condonación: condonación de deudas hasta 2019, aprobada por el Consejo Directivo CCPL (no cites número de acuerdo)
 - Multas por inasistencia a elecciones: Artículo 19 del Estatuto, nunca condonables
 - Cuota ordinaria vigente: S/ 250 anuales
 
 REGLAS DE HABILITACIÓN:
 - HÁBIL requiere: sin multas impagas, sin extraordinarias impagas, menos de 3 cuotas ordinarias vencidas.
 - Al pagar cuota inicial del fraccionamiento → HÁBIL ese mismo día.
-- Acuerdo 007-2026: multas de asamblea y cuotas ordinarias del año 2019 hacia atrás se condonan al fraccionar.
+- Condonación de deudas hasta 2019: multas de asamblea y cuotas ordinarias del año 2019 hacia atrás se condonan al fraccionar.
 - Multas por inasistencia a ELECCIONES: nunca se condonan.
 - Constancia de Habilidad: S/ 10, PDF inmediato tras pago en línea.
 - Pagos: tarjeta vía OpenPay (activación inmediata). Yape, Plin o transferencia (hasta 24 horas).

@@ -52,6 +52,7 @@ from app.utils.fraccionamiento_clasif import clasificar_deuda_para_fraccionamien
 from sqlalchemy.exc import IntegrityError
 from pydantic import field_validator, EmailStr, model_validator
 from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
+from app.utils.habilidad_fecha import fecha_habilidad, fin_de_mes, vence_hasta  # tanda 8: hábil hasta = fecha sin hora
 import re as _re_z78
 from datetime import date as _date_z78
 
@@ -952,20 +953,17 @@ async def registrar_cobro(
     # mismo criterio que refinanciar_core). Solo al pagar la cuota 0.
     if _pago_inicial_fracc and colegiado is not None and \
        colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
-        _fin_mes = (ahora.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        _fin_mes = fin_de_mes(ahora)                       # día, en hora de Lima
         colegiado.condicion = "habil"
-        colegiado.habilidad_vence = _fin_mes
+        colegiado.habilidad_vence = vence_hasta(_fin_mes)  # fecha sin hora (00:00 UTC)
         colegiado.fecha_actualizacion_condicion = ahora
     # Cuota mensual pagada: hábil hasta el fin del mes de esa cuota (nunca acorta).
     if _hab_hasta_fracc is not None and colegiado is not None and \
        colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
-        _nueva = datetime.combine(_hab_hasta_fracc, datetime.min.time()).replace(tzinfo=PERU_TZ)
-        _actual = colegiado.habilidad_vence
-        if _actual is not None and getattr(_actual, "tzinfo", None) is None:
-            _actual = _actual.replace(tzinfo=PERU_TZ)
+        _actual = fecha_habilidad(colegiado.habilidad_vence)
         colegiado.condicion = "habil"
-        if _actual is None or _nueva > _actual:
-            colegiado.habilidad_vence = _nueva
+        if _actual is None or _hab_hasta_fracc > _actual:
+            colegiado.habilidad_vence = vence_hasta(_hab_hasta_fracc)
         colegiado.fecha_actualizacion_condicion = ahora
     db.flush()
 
@@ -1066,7 +1064,7 @@ async def registrar_cobro(
             ).count()
             if multas_pend == 0:
                 anio_dic = int(str(deudas_dic[0]["deuda"].periodo)[:4])
-                colegiado.habilidad_vence = datetime(anio_dic + 1, 3, 31, tzinfo=PERU_TZ)
+                colegiado.habilidad_vence = vence_hasta(date(anio_dic + 1, 3, 31))
                 colegiado.condicion = "habil"
                 colegiado.fecha_actualizacion_condicion = ahora
 
@@ -1390,7 +1388,7 @@ async def preview_cobro(
             col_obs = db.query(Colegiado).filter(Colegiado.id == cobro.colegiado_id).first()
             fv_obs = getattr(col_obs, "habilidad_vence", None) if col_obs else None
             if fv_obs:
-                fv_obs_d = fv_obs.date() if hasattr(fv_obs, "date") else fv_obs
+                fv_obs_d = fecha_habilidad(fv_obs)
                 if fv_obs_d >= _d_now.today():
                     fv_obs_str = fv_obs_d.strftime("%d/%m/%Y")
                     if incluye_const_hab_prev:

@@ -665,6 +665,9 @@ async def openpay_webhook(
             UPDATE colegiados SET condicion = 'habil'
             WHERE id = :cid AND condicion = 'inhabil'
         """), {"cid": payment.colegiado_id})
+        # SQL directo: la marca de aportes a la Junta no se entera sola (aditivo, nunca lanza).
+        from app.services.aportes_marca_service import sincronizar_marca_aportes
+        sincronizar_marca_aportes(db, [payment.colegiado_id])
         logger.info(f"Colegiado {payment.colegiado_id} → HÁBIL tras pago OpenPay")
 
     """
@@ -1143,6 +1146,9 @@ async def consultar_openpay_directo(
                             UPDATE colegiados SET condicion = 'habil'
                             WHERE id = :cid AND condicion = 'inhabil'
                         """), {"cid": payment.colegiado_id})
+                        # SQL directo: sincronizar la marca de aportes (aditivo, nunca lanza).
+                        from app.services.aportes_marca_service import sincronizar_marca_aportes
+                        sincronizar_marca_aportes(db, [payment.colegiado_id])
                         db.commit()
                         logger.info(f"[ConsultaOpenPay] Colegiado {payment.colegiado_id} → HÁBIL")
             except Exception as e:
