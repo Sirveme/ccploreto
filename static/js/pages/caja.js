@@ -2944,7 +2944,7 @@ function _calcSim(total) {
     const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
-        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, _diaVencFracc());
         cuotas.push({ num: i, fecha: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: _rep.montos[i - 1] });
     }
 
@@ -3002,7 +3002,7 @@ function _imprimirPlanFracc(total) {
 
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
-        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, _diaVencFracc());
         cuotas.push({ num: i, mes: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: _soles(_rep.montos[i - 1]).replace('S/ ', '') });
     }
 
@@ -3030,7 +3030,7 @@ function _imprimirPlanFracc(total) {
     <table>
         <tr><th>#</th><th>Vencimiento</th><th>Monto</th></tr>
         <tr><td><strong>0</strong></td><td><strong>Inicial — hoy</strong></td><td><strong>S/ ${ini.toFixed(2)}</strong></td></tr>
-        ${cuotas.map(c=>`<tr><td>${c.num}</td><td>${c.mes} (día 15)</td><td>S/ ${c.monto}</td></tr>`).join('')}
+        ${cuotas.map(c=>`<tr><td>${c.num}</td><td>${c.mes} (día ${_diaVencFracc()})</td><td>S/ ${c.monto}</td></tr>`).join('')}
         <tr style="background:#f8fafc"><td colspan="2" class="total">TOTAL</td><td class="total">S/ ${total.toFixed(2)}</td></tr>
     </table>
     <div style="margin-top:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px;font-size:12px">
@@ -3408,7 +3408,7 @@ function _agregarFraccAlCarrito() {
     const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
-        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, _diaVencFracc());
         cuotas.push(`${meses[d.getMonth()]} ${d.getFullYear()}: ${_soles(_rep.montos[i - 1])}`);
     }
 
@@ -3817,6 +3817,8 @@ function _repartoEntero(saldo, n) {
     const montos = Array.from({ length: n }, (_, i) => (i === n - 1 ? ultima : regular));
     return { regular, ultima, montos };
 }
+/* Tanda 9 — día de vencimiento de las cuotas desde Parámetros (planes nuevos; fallback 15). */
+function _diaVencFracc() { const d = Number((_fraccParams || {}).dia_vencimiento); return (d >= 1 && d <= 28) ? d : 15; }
 function _soles(x) { const v = _fNum(x); return 'S/ ' + (Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2)); }
 function _txtCuotas(r) {
     const n = r.montos.length;
