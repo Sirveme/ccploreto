@@ -2281,9 +2281,10 @@ function calcSitFracc(total) {
     _ensureFraccParams();
     const _P = _fraccParams || {};
     const CUOTA_MIN = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
-    const minIni = total * 0.20;   // SUGERENCIA (zona congelada — NO tocar)
+    const minIni = Math.ceil(total * 0.20);   // SUGERENCIA (fórmula congelada: ceil del 20%)
     const saldo = total - ini;
-    const cuota = saldo / n;
+    const _rep = _repartoEntero(saldo, n);
+    const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
         res.innerHTML = `<span style="color:#f59e0b">⚠ Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</span>`;
         return;
@@ -2301,7 +2302,8 @@ function calcSitFracc(total) {
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">x${n} cuotas</div>
-                    <div style="font-size:14px;font-weight:800;color:#818cf8">S/ ${cuota.toFixed(2)}</div>
+                    <div style="font-size:14px;font-weight:800;color:#818cf8">${_soles(cuota)}</div>
+                    ${_rep.ultima !== _rep.regular ? `<div style="font-size:10px;color:#94a3b8">última ${_soles(_rep.ultima)}</div>` : ''}
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">Total</div>
@@ -2777,7 +2779,11 @@ function _renderFraccDetalle(data, wrapSel = '#fracc-detalle-wrap') {
         const [a, m, d] = iso.split('-');
         return `${d}/${m}/${a}`;
     };
-    const proxima = p.proxima_cuota_fecha ? fmtFecha(p.proxima_cuota_fecha) : '—';
+    // Tanda 8: la próxima es la primera cuota IMPAGA (la cabecera puede estar desactualizada).
+    const _sig = cs.find(c => !c.pagada);
+    const proxima = _sig
+        ? `${Number(_sig.numero) === 0 ? 'Inicial' : 'N° ' + _sig.numero} — ${fmtFecha(_sig.fecha_vencimiento)}`
+        : (cs.length ? '—' : (p.proxima_cuota_fecha ? fmtFecha(p.proxima_cuota_fecha) : '—'));
     const cuotasPagadas = cs.filter(c => c.pagada).length;
 
     const filas = cs.map(c => {
@@ -2919,9 +2925,10 @@ function _calcSim(total) {
     _ensureFraccParams();
     const _P = _fraccParams || {};
     const CUOTA_MIN = (_P.cuota_minima != null) ? Number(_P.cuota_minima) : 100;
-    const minIni = total * 0.20;   // SUGERENCIA (zona congelada — NO tocar)
+    const minIni = Math.ceil(total * 0.20);   // SUGERENCIA (fórmula congelada: ceil del 20%)
     const saldo = total - ini;
-    const cuota = saldo / n;
+    const _rep = _repartoEntero(saldo, n);
+    const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
         res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
             ⚠ Cuota mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</div>`;
@@ -2938,7 +2945,7 @@ function _calcSim(total) {
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
         const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
-        cuotas.push({ num: i, fecha: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: cuota });
+        cuotas.push({ num: i, fecha: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: _rep.montos[i - 1] });
     }
 
     res.innerHTML = _warnIni + `
@@ -2951,7 +2958,8 @@ function _calcSim(total) {
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">x${n} cuotas de</div>
-                    <div style="font-size:18px;font-weight:800;color:#818cf8">S/ ${cuota.toFixed(2)}</div>
+                    <div style="font-size:18px;font-weight:800;color:#818cf8">${_soles(cuota)}</div>
+                    ${_rep.ultima !== _rep.regular ? `<div style="font-size:10px;color:#94a3b8">última ${_soles(_rep.ultima)}</div>` : ''}
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">Total</div>
@@ -2972,7 +2980,7 @@ function _calcSim(total) {
                         </span>
                         <span style="color:#94a3b8">${c.fecha}</span>
                     </div>
-                    <span style="font-weight:700;color:#e2e8f0">S/ ${c.monto.toFixed(2)}</span>
+                    <span style="font-weight:700;color:#e2e8f0">${_soles(c.monto)}</span>
                 </div>`).join('')}
             </div>
             <div style="padding:10px 14px;background:rgba(74,222,128,.06);
@@ -2984,18 +2992,18 @@ function _calcSim(total) {
 
 /* ── IMPRIMIR / COMPARTIR PLAN ────────────────────────────────────── */
 function _imprimirPlanFracc(total) {
-    const ini = parseFloat(document.getElementById('msim-ini')?.value || total*0.2);
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || Math.ceil(total*0.2));
     const n   = parseInt(document.getElementById('msim-n')?.value || 3);
     if (!_modalSit) return;
     const col = _modalSit.colegiado;
-    const cuota = (total - ini) / n;
+    const _rep = _repartoEntero(total - ini, n);
     const hoy = new Date();
     const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
         const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
-        cuotas.push({ num: i, mes: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: cuota.toFixed(2) });
+        cuotas.push({ num: i, mes: `${meses[d.getMonth()]} ${d.getFullYear()}`, monto: _soles(_rep.montos[i - 1]).replace('S/ ', '') });
     }
 
     const w = window.open('', '_blank', 'width=600,height=700');
@@ -3038,14 +3046,14 @@ function _imprimirPlanFracc(total) {
 }
 
 function _compartirPlanFracc(total) {
-    const ini = parseFloat(document.getElementById('msim-ini')?.value || total*0.2);
+    const ini = parseFloat(document.getElementById('msim-ini')?.value || Math.ceil(total*0.2));
     const n   = parseInt(document.getElementById('msim-n')?.value || 3);
-    const cuota = ((total - ini) / n).toFixed(2);
+    const _rep = _repartoEntero(total - ini, n);
     const col = _modalSit?.colegiado;
     const texto = `📋 *Propuesta de Fraccionamiento CCPL*\n\n` +
         `Colegiado: ${col?.nombre}\nDeuda total: S/ ${total.toFixed(2)}\n\n` +
         `✅ Cuota inicial: S/ ${ini.toFixed(2)}\n` +
-        `📅 ${n} cuotas mensuales de S/ ${cuota}\n\n` +
+        `📅 ${_txtCuotas(_rep)}\n\n` +
         `Al pagar la inicial recuperas tu habilidad de inmediato.\n` +
         `Mayor info: CCPL Oficina Principal.`;
     if (navigator.share) {
@@ -3383,13 +3391,14 @@ function _agregarFraccAlCarrito() {
     const col = _modalSit.colegiado;
 
     // Inicial de monto LIBRE (decisión Duilio): el 20% es SOLO SUGERENCIA, NUNCA bloquea.
-    if (ini < total * 0.20) {
-        toast(`Inicial bajo el sugerido (20% = S/ ${(total * 0.20).toFixed(2)}) — se registra igual`, 'warn');
+    if (ini < Math.ceil(total * 0.20)) {
+        toast(`Inicial bajo el sugerido (20% = ${_soles(Math.ceil(total * 0.20))}) — se registra igual`, 'warn');
     }
 
     _ensureFraccParams();
     const CUOTA_MIN = ((_fraccParams || {}).cuota_minima != null) ? Number(_fraccParams.cuota_minima) : 100;
-    const cuota = (total - ini) / n;
+    const _rep = _repartoEntero(total - ini, n);
+    const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
         toast(`Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas`, 'err'); return;
     }
@@ -3400,7 +3409,7 @@ function _agregarFraccAlCarrito() {
     const cuotas = [];
     for (let i = 1; i <= n; i++) {
         const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 15);
-        cuotas.push(`${meses[d.getMonth()]} ${d.getFullYear()}: S/ ${cuota.toFixed(2)}`);
+        cuotas.push(`${meses[d.getMonth()]} ${d.getFullYear()}: ${_soles(_rep.montos[i - 1])}`);
     }
 
     // Añadir al carrito como un ítem especial de fraccionamiento
@@ -3413,7 +3422,7 @@ function _agregarFraccAlCarrito() {
     carrito.push({
         tipo: 'fraccionamiento',
         concepto_id: null,
-        descripcion: `Fraccionamiento — Cuota Inicial (${n} cuotas de S/ ${cuota.toFixed(2)})`,
+        descripcion: `Fraccionamiento — Cuota Inicial (${_txtCuotas(_rep)})`,
         monto: ini,
         _fracc_meta: {
             colegiado_id: col.id,
@@ -3426,7 +3435,7 @@ function _agregarFraccAlCarrito() {
     });
 
     renderCarrito();
-    toast(`Cuota inicial S/ ${ini.toFixed(2)} agregada · ${n} cuotas de S/ ${cuota.toFixed(2)}`, 'ok');
+    toast(`Cuota inicial S/ ${ini.toFixed(2)} agregada · ${_txtCuotas(_rep)}`, 'ok');
     cerrarModalInhabil();
 
     // Mostrar resumen del plan en el carrito
@@ -3796,6 +3805,26 @@ window._tabModal = function(tab) {
 
 function _fNum(v) { return (Math.round((+v || 0) * 100) / 100); }
 
+/* Tanda 8 — planes NUEVOS sin céntimos (mismo cálculo que app/utils/cuotas_enteras.py):
+   n-1 cuotas en soles enteros redondeando hacia abajo; la última absorbe la diferencia.
+   S/ 874 en 8 → 7 de S/ 109 y la última de S/ 111. La inicial sugerida = ceil(deuda × 0.20). */
+function _repartoEntero(saldo, n) {
+    n = parseInt(n, 10) || 0;
+    if (n <= 0) return { regular: 0, ultima: 0, montos: [] };
+    const sal = _fNum(saldo);
+    const regular = Math.floor(sal / n + 1e-9);
+    const ultima = _fNum(sal - regular * (n - 1));
+    const montos = Array.from({ length: n }, (_, i) => (i === n - 1 ? ultima : regular));
+    return { regular, ultima, montos };
+}
+function _soles(x) { const v = _fNum(x); return 'S/ ' + (Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2)); }
+function _txtCuotas(r) {
+    const n = r.montos.length;
+    if (!n) return '';
+    if (n === 1 || r.ultima === r.regular) return `${n} cuota${n > 1 ? 's' : ''} de ${_soles(r.regular)}`;
+    return `${n - 1} cuota${n > 2 ? 's' : ''} de ${_soles(r.regular)} y la última de ${_soles(r.ultima)}`;
+}
+
 function _renderFraccSelector(deudas) {
     const wrap = document.getElementById('frac-selector-wrap');
     if (!wrap) return;
@@ -3994,12 +4023,12 @@ function _recalcFraccSel() {
     const MAX_CUOTAS = (_P.max_cuotas   != null) ? Number(_P.max_cuotas)   : 12;
     // Inicial de monto LIBRE (decisión Duilio): el 20% es SOLO SUGERENCIA, NUNCA bloquea.
 
-    const minimo = Math.ceil(seleccionado * 0.20 * 100) / 100;
+    const minimo = Math.ceil(seleccionado * 0.20);   // inicial sugerida en soles enteros (tanda 8)
     const inpIni = document.getElementById('frac-inicial-actual');
     let inicial = parseFloat(inpIni.value) || 0;
 
     if (inpIni.dataset.touched !== 'true') {
-        inpIni.value = seleccionado > 0 ? minimo.toFixed(2) : '';
+        inpIni.value = seleccionado > 0 ? String(minimo) : '';
         inicial = minimo;
     }
 
@@ -4009,7 +4038,7 @@ function _recalcFraccSel() {
     const msg = document.getElementById('frac-mensaje');
 
     document.getElementById('frac-total-seleccionado').textContent = `S/ ${seleccionado.toFixed(2)}`;
-    document.getElementById('frac-inicial-minimo').textContent     = `S/ ${minimo.toFixed(2)}`;
+    document.getElementById('frac-inicial-minimo').textContent     = _soles(minimo);
     document.getElementById('frac-saldo-fraccionar').textContent   = `S/ ${saldo.toFixed(2)}`;
 
     msg.textContent = ''; msg.style.color = '#94a3b8';
@@ -4020,16 +4049,17 @@ function _recalcFraccSel() {
     if (seleccionado < MONTO_MIN)        return setErr(`Deuda mínima para fraccionar: S/ ${MONTO_MIN.toFixed(2)} (actual: S/ ${seleccionado.toFixed(2)}).`);
     let _warn20 = '';
     if (inicial + 0.009 < minimo) {
-        _warn20 = `⚠ Inicial bajo el sugerido (20% = S/ ${minimo.toFixed(2)}) — se registra igual. `;
+        _warn20 = `⚠ Inicial bajo el sugerido (20% = ${_soles(minimo)}) — se registra igual. `;
     }
     if (inicial >= seleccionado)         return setWarn('El inicial cubre el total. Cobra directamente en lugar de fraccionar.');
     if (numCuotas < 2 || numCuotas > MAX_CUOTAS) return setErr(`El número de cuotas debe estar entre 2 y ${MAX_CUOTAS}.`);
 
-    const mensual = _fNum(saldo / numCuotas);
-    if (mensual < CUOTA_MIN) return setErr(`Cuota mensual S/ ${mensual.toFixed(2)} < S/ ${CUOTA_MIN.toFixed(2)}. Reduce el N° de cuotas o aumenta el inicial.`);
+    const _rep = _repartoEntero(saldo, numCuotas);
+    const mensual = _rep.regular;
+    if (mensual < CUOTA_MIN) return setErr(`Cuota mensual ${_soles(mensual)} < S/ ${CUOTA_MIN.toFixed(2)}. Reduce el N° de cuotas o aumenta el inicial.`);
 
     btn.disabled = false;
-    msg.textContent = _warn20 + `Cuota mensual estimada: S/ ${mensual.toFixed(2)}`;
+    msg.textContent = _warn20 + `Cuotas: ${_txtCuotas(_rep)}`;
     msg.style.color = _warn20 ? '#f9c64a' : '#4ade80';
 }
 
@@ -4307,7 +4337,8 @@ async function _fraccionarSeleccionado() {
     let total = 0; checks.forEach(c => { total += parseFloat(c.dataset.balance || 0); });
     total = _fNum(total);
     const saldo   = _fNum(total - inicial);
-    const mensual = _fNum(saldo / numCuotas);
+    const _rep    = _repartoEntero(saldo, numCuotas);
+    const mensual = _rep.regular;   // el servidor arma el mismo reparto
     const col = _modalSit.colegiado;
 
     const msgConfirm =
@@ -4315,7 +4346,7 @@ async function _fraccionarSeleccionado() {
         `• Conceptos: ${debt_ids.length}\n` +
         `• Total: S/ ${total.toFixed(2)}\n` +
         `• Inicial: S/ ${inicial.toFixed(2)}\n` +
-        `• ${numCuotas} cuotas de ~S/ ${mensual.toFixed(2)}\n\n` +
+        `• ${_txtCuotas(_rep)}\n\n` +
         `¿Confirmar?`;
 
     cajaModal.confirmar(msgConfirm, 'Crear plan', async (ok) => {

@@ -153,6 +153,10 @@
             '<input type="checkbox" class="px-rol" value="' + r + '"' + (marcados.indexOf(r) >= 0 ? " checked" : "") +
             ' onchange="pxOnRoles()"> ' + r + '</label>';
         }).join("");
+    } else if (p.tipo === "texto") {
+      // Parámetros de texto (p. ej. el sustento de la condonación).
+      input = '<input class="px-in" style="width:320px;max-width:100%" id="' + id + '" type="text" maxlength="100" value="' + esc(p.valor) +
+        '" data-orig="' + esc(p.valor) + '" oninput="pxOnChange(\'' + p.clave + '\')">';
     } else if (p.tipo === "booleano") {
       input = '<select class="px-in" id="' + id + '" data-orig="' + (p.valor ? "true" : "false") + '"' +
         ' onchange="pxOnChange(\'' + p.clave + '\')">' +
@@ -210,7 +214,7 @@
     var esTexto = tipo === "texto";
     var valor = esBool ? (el.value === "true") : esTexto ? String(el.value).trim() : parseFloat(el.value);
 
-    if (esTexto && !valor) { toast("Marca al menos una opción", false); return; }
+    if (esTexto && !valor) { toast(clave === "roles_firmantes" ? "Marca al menos una opción" : "El texto no puede quedar vacío", false); return; }
     if (!esBool && !esTexto && isNaN(valor)) { toast("Valor no numérico", false); return; }
 
     pendiente = { seccion: seccionActual, clave: clave, valor: valor, etiqueta: etq, esBool: esBool };
