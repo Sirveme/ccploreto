@@ -2286,7 +2286,7 @@ function calcSitFracc(total) {
     const _rep = _repartoEntero(saldo, n);
     const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
-        res.innerHTML = `<span style="color:#f59e0b">⚠ Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</span>`;
+        res.innerHTML = `<span style="color:#f87171">⚠ ${_txtAvisoCuotaMin(saldo, CUOTA_MIN, _maxCuotasParam())}</span>`;
         return;
     }
     // Inicial de monto LIBRE: si está bajo el sugerido, advertencia suave pero el plan SE MUESTRA igual.
@@ -2301,15 +2301,15 @@ function calcSitFracc(total) {
                     <div style="font-size:14px;font-weight:800;color:#818cf8">S/ ${ini.toFixed(2)}</div>
                 </div>
                 <div>
-                    <div style="font-size:10px;color:#64748b">x${n} cuotas</div>
-                    <div style="font-size:14px;font-weight:800;color:#818cf8">${_soles(cuota)}</div>
-                    ${_rep.ultima !== _rep.regular ? `<div style="font-size:10px;color:#94a3b8">última ${_soles(_rep.ultima)}</div>` : ''}
+                    <div style="font-size:10px;color:#64748b">Cuotas</div>
+                    <div style="font-size:14px;font-weight:800;color:#818cf8">${n}</div>
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">Total</div>
                     <div style="font-size:14px;font-weight:800;color:#e2e8f0">S/ ${total.toFixed(2)}</div>
                 </div>
             </div>
+            ${_bloquePlanTxt(ini, _rep)}
             <div style="margin-top:8px;font-size:11px;color:#4ade80;text-align:center">
                 ✓ Al pagar la inicial → hábil inmediatamente
             </div>
@@ -2930,8 +2930,8 @@ function _calcSim(total) {
     const _rep = _repartoEntero(saldo, n);
     const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
-        res.innerHTML = `<div style="color:#f59e0b;font-size:12px;text-align:center;padding:8px">
-            ⚠ Cuota mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas</div>`;
+        res.innerHTML = `<div style="color:#f87171;font-size:12px;text-align:center;padding:8px">
+            ⚠ ${_txtAvisoCuotaMin(saldo, CUOTA_MIN, _maxCuotasParam())}</div>`;
         return;
     }
     // Inicial de monto LIBRE: advertencia suave, el plan SE MUESTRA igual.
@@ -2957,15 +2957,15 @@ function _calcSim(total) {
                     <div style="font-size:18px;font-weight:800;color:#818cf8">S/ ${ini.toFixed(2)}</div>
                 </div>
                 <div>
-                    <div style="font-size:10px;color:#64748b">x${n} cuotas de</div>
-                    <div style="font-size:18px;font-weight:800;color:#818cf8">${_soles(cuota)}</div>
-                    ${_rep.ultima !== _rep.regular ? `<div style="font-size:10px;color:#94a3b8">última ${_soles(_rep.ultima)}</div>` : ''}
+                    <div style="font-size:10px;color:#64748b">Cuotas</div>
+                    <div style="font-size:18px;font-weight:800;color:#818cf8">${n}</div>
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b">Total</div>
                     <div style="font-size:18px;font-weight:800;color:#e2e8f0">S/ ${total.toFixed(2)}</div>
                 </div>
             </div>
+            <div style="padding:8px 14px 0">${_bloquePlanTxt(ini, _rep)}</div>
             <div style="padding:12px 14px">
                 <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:8px">Cronograma de cuotas</div>
@@ -3025,6 +3025,8 @@ function _imprimirPlanFracc(total) {
         <strong>${col.nombre}</strong><br>
         Matrícula: ${col.matricula}<br>
         Deuda total: <strong>S/ ${total.toFixed(2)}</strong><br>
+        Plan: <strong>${_txtCuotas(_rep)}</strong><br>
+        ${_txtCuadre(ini, _rep)}<br>
         Fecha: ${hoy.toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}
     </div>
     <table>
@@ -3053,7 +3055,8 @@ function _compartirPlanFracc(total) {
     const texto = `📋 *Propuesta de Fraccionamiento CCPL*\n\n` +
         `Colegiado: ${col?.nombre}\nDeuda total: S/ ${total.toFixed(2)}\n\n` +
         `✅ Cuota inicial: S/ ${ini.toFixed(2)}\n` +
-        `📅 ${_txtCuotas(_rep)}\n\n` +
+        `📅 ${_txtCuotas(_rep)}\n` +
+        `${_txtCuadre(ini, _rep)}\n\n` +
         `Al pagar la inicial recuperas tu habilidad de inmediato.\n` +
         `Mayor info: CCPL Oficina Principal.`;
     if (navigator.share) {
@@ -3400,7 +3403,7 @@ function _agregarFraccAlCarrito() {
     const _rep = _repartoEntero(total - ini, n);
     const cuota = _rep.regular;
     if (cuota < CUOTA_MIN) {
-        toast(`Cuota mensual mínima S/ ${CUOTA_MIN.toFixed(2)} — reduce el número de cuotas`, 'err'); return;
+        toast(_txtAvisoCuotaMin(total - ini, CUOTA_MIN, _maxCuotasParam()), 'err'); return;
     }
 
     // Calcular fechas de vencimiento
@@ -3826,6 +3829,30 @@ function _txtCuotas(r) {
     if (n === 1 || r.ultima === r.regular) return `${n} cuota${n > 1 ? 's' : ''} de ${_soles(r.regular)}`;
     return `${n - 1} cuota${n > 2 ? 's' : ''} de ${_soles(r.regular)} y la última de ${_soles(r.ultima)}`;
 }
+/* Tanda 12 — línea de cuadre: "Inicial S/ 52 + cuotas S/ 208 = Total S/ 260". */
+function _txtCuadre(inicial, r) {
+    const c = _fNum(r.montos.reduce((a, b) => a + b, 0));
+    const ini = _fNum(inicial);
+    return `Inicial ${_soles(ini)} + cuotas ${_soles(c)} = Total ${_soles(_fNum(ini + c))}`;
+}
+/* Tanda 12 — aviso de cuota mínima en términos simples (evalúa la cuota REGULAR, la más baja). */
+function _maxCuotasPorMinimo(saldo, cuotaMin, maxCuotas) {
+    const m = Math.ceil(+cuotaMin || 0);
+    if (m <= 0) return maxCuotas;
+    return Math.min(maxCuotas, Math.floor(_fNum(saldo) / m + 1e-9));
+}
+function _txtAvisoCuotaMin(saldo, cuotaMin, maxCuotas) {
+    const k = _maxCuotasPorMinimo(saldo, cuotaMin, maxCuotas);
+    return k >= 2
+        ? `Con la cuota mínima de ${_soles(cuotaMin)}, esta deuda admite hasta ${k} cuotas.`
+        : `Con la cuota mínima de ${_soles(cuotaMin)}, esta deuda no alcanza para 2 cuotas: baje la inicial o elija más deuda.`;
+}
+function _maxCuotasParam() { const v = Number((_fraccParams || {}).max_cuotas); return v > 0 ? v : 12; }
+/* Bloque de plan para los simuladores: texto de cuotas + cuadre. */
+function _bloquePlanTxt(inicial, r) {
+    return `<div style="margin-top:8px;font-size:12px;font-weight:700;color:#e2e8f0;text-align:center">${_txtCuotas(r)}</div>
+            <div style="font-size:11px;color:#94a3b8;text-align:center">${_txtCuadre(inicial, r)}</div>`;
+}
 
 function _renderFraccSelector(deudas) {
     const wrap = document.getElementById('frac-selector-wrap');
@@ -4058,10 +4085,11 @@ function _recalcFraccSel() {
 
     const _rep = _repartoEntero(saldo, numCuotas);
     const mensual = _rep.regular;
-    if (mensual < CUOTA_MIN) return setErr(`Cuota mensual ${_soles(mensual)} < S/ ${CUOTA_MIN.toFixed(2)}. Reduce el N° de cuotas o aumenta el inicial.`);
+    if (mensual < CUOTA_MIN) return setErr(_txtAvisoCuotaMin(saldo, CUOTA_MIN, MAX_CUOTAS) + ` Con ${numCuotas} cuotas, cada una sería de ${_soles(mensual)}.`);
 
     btn.disabled = false;
-    msg.textContent = _warn20 + `Cuotas: ${_txtCuotas(_rep)}`;
+    msg.style.whiteSpace = 'pre-line';
+    msg.textContent = _warn20 + `${_txtCuotas(_rep)}\n${_txtCuadre(inicial, _rep)}`;
     msg.style.color = _warn20 ? '#f9c64a' : '#4ade80';
 }
 
