@@ -740,6 +740,19 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
       const _PF = (typeof Portal !== 'undefined' && Portal._fraccParams) || {};
       const CUOTA_MIN  = (_PF.cuota_minima != null) ? Number(_PF.cuota_minima) : 100;
       const MAX_CUOTAS = (_PF.max_cuotas   != null) ? Number(_PF.max_cuotas)   : 12;
+      // Tanda 12: aviso de cuota mínima en términos simples (evalúa la cuota regular, la más baja).
+      // Soles enteros sin decimales; con céntimos, dos decimales.
+      const _se = v => { const r = Math.round((+v || 0) * 100) / 100; return Number.isInteger(r) ? r.toLocaleString('es-PE') : fmt(r); };
+      const _sMin = _se(CUOTA_MIN);
+      const _mEnt = Math.ceil(CUOTA_MIN);
+      const _kMax = _mEnt > 0 ? Math.min(MAX_CUOTAS, Math.floor((Math.round(restante * 100) / 100) / _mEnt + 1e-9)) : MAX_CUOTAS;
+      const _avisoMin = document.createElement('div');
+      _avisoMin.className = 'fraccio-input-hint';
+      _avisoMin.style.margin = '0 0 8px';
+      _avisoMin.textContent = _kMax >= 2
+        ? `Con la cuota mínima de S/ ${_sMin}, esta deuda admite hasta ${_kMax} cuotas.`
+        : `Con la cuota mínima de S/ ${_sMin}, esta deuda no alcanza para 2 cuotas.`;
+      optEl.appendChild(_avisoMin);
       for (let n = 2; n <= MAX_CUOTAS; n++) {
         // Tanda 8 (decisión Duilio): sin céntimos — n-1 cuotas en soles enteros hacia abajo
         // y la última absorbe la diferencia (mismo reparto que el servidor).
@@ -755,8 +768,9 @@ const Modales = window.Modales = Object.assign(window.Modales || {}, {
           <div>
             <div class="fraccio-n-cuotas">${n} cuotas mensuales</div>
             <div class="fraccio-detalle">${ultima === cuotaMes
-              ? `de S/ ${fmt(cuotaMes)} cada una`
-              : `${n - 1} de S/ ${fmt(cuotaMes)} y la última de S/ ${fmt(ultima)}`}</div>
+              ? `${n} cuotas de S/ ${_se(cuotaMes)}`
+              : `${n - 1} cuota${n > 2 ? 's' : ''} de S/ ${_se(cuotaMes)} y la última de S/ ${_se(ultima)}`}</div>
+            <div class="fraccio-detalle" style="opacity:.8">Inicial S/ ${_se(inicial)} + cuotas S/ ${_se(_sal)} = Total S/ ${_se(Math.round((inicial + _sal) * 100) / 100)}</div>
           </div>
           <div class="fraccio-monto-mes">S/ ${fmt(cuotaMes)}/mes</div>
         `;
