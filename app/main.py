@@ -298,6 +298,10 @@ app.include_router(
 
 # ASISTENCIA A ASAMBLEA (mesa + lista pública + proyección)
 app.include_router(asamblea.router)
+# Asistencia y multas por inasistencia (tanda 10): completa el módulo de Asambleas.
+from app.routers.asamblea_multas import router as asamblea_multas_router, page_router as asamblea_multas_page_router  # noqa: E402
+app.include_router(asamblea_multas_router)
+app.include_router(asamblea_multas_page_router)
 
 # ════════════════════════════════════════════════════════════════
 # PIEZA J — Blindaje de rutas para el rol junta_jdccpp.
