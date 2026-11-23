@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Asistencia y multas · Asambleas</title>
+<style>
+  :root{ --bg:#0b1220; --card:#111a2b; --card2:#0f1826; --bd:#22304a; --txt:#e2e8f0;
+         --dim:#94a3b8; --gold:#d4af37; --green:#22c55e; --blue:#3b82f6; --red:#ef4444; --amber:#f59e0b; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:16px; }
+  .wrap{ max-width:980px; margin:0 auto; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  h1{ font-size:19px; font-weight:800; } h1 small{ display:block; font-size:13px; color:var(--dim); font-weight:500; }
+  h2{ font-size:15px; font-weight:800; margin-bottom:10px; }
+  .card{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:14px; margin-bottom:14px; }
+  select, input[type=text], textarea{ background:var(--card2); border:1px solid var(--bd); color:var(--txt); border-radius:8px; padding:9px 10px; font-size:14px; width:100%; }
+  textarea{ min-height:64px; resize:vertical; }
+  .fila{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .fila > *{ flex:1 1 auto; }
+  .btn{ background:transparent; border:1px solid var(--bd); color:var(--txt); border-radius:8px; padding:8px 13px;
+        font-size:13px; font-weight:700; cursor:pointer; flex:0 0 auto; }
+  .btn.prim{ background:var(--green); color:#08240f; border:none; }
+  .btn.danger{ background:var(--red); color:#fff; border:none; }
+  .btn.gold{ background:var(--gold); color:#1a1a1a; border:none; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .dim{ color:var(--dim); font-size:12.5px; line-height:1.5; }
+  .pill{ display:inline-block; padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:800; }
+  .pill.ab{ background:rgba(34,197,94,.15); color:#86efac; } .pill.ce{ background:rgba(148,163,184,.18); color:#cbd5e1; }
+  .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:10px 0; }
+  .kpi{ background:var(--card2); border:1px solid var(--bd); border-radius:10px; padding:10px; }
+  .kpi .n{ font-size:22px; font-weight:800; } .kpi .l{ font-size:11.5px; color:var(--dim); }
+  .adv{ background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.4); color:#fde68a; border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13.5px; font-weight:600; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.4px; padding:6px 8px; border-bottom:1px solid var(--bd); }
+  td{ padding:6px 8px; border-bottom:1px solid var(--card2); }
+  .scroll{ max-height:340px; overflow:auto; border:1px solid var(--card2); border-radius:8px; }
+  .tag-rojo{ color:#fca5a5; font-weight:700; }
+  #toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%); padding:11px 16px; border-radius:10px; font-weight:700;
+          font-size:14px; display:none; z-index:50; max-width:90vw; }
+  #toast.ok{ background:#14532d; color:#dcfce7; } #toast.err{ background:#7f1d1d; color:#fee2e2; }
+  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:40; padding:16px; }
+  .modal{ background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:18px; width:100%; max-width:520px; }
+  .modal h3{ font-size:16px; margin-bottom:8px; } .modal p{ font-size:13.5px; margin-bottom:10px; line-height:1.5; }
+  .oculto{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Asistencia y multas por inasistencia<small>Asambleas · la multa se genera solo con vista previa y confirmación</small></h1>
+    <a class="btn" href="/asamblea/mesa">Mesa de asistencia</a>
+  </header>
+
+  <div class="card">
+    <div class="fila">
+      <select id="selAsamblea" onchange="cargar()"></select>
+      <span id="estadoPill"></span>
+      {% if puede_cerrar %}<button class="btn" id="btnCerrar" onclick="abrirCerrar()">Cerrar asamblea</button>{% endif %}
+    </div>
+    <p class="dim" style="margin-top:8px">Mientras la asamblea esté abierta la asistencia se puede corregir. Al cerrarla, la asistencia queda fija y recién se pueden generar las multas.</p>
+  </div>
+
+  <!-- ASISTENCIA -->
+  <div class="card">
+    <h2>Asistencia <span class="dim" id="totAsist"></span></h2>
+    <div class="fila" id="zonaMarcar">
+      <input type="text" id="q" placeholder="Buscar por DNI, matrícula o nombre" oninput="clearTimeout(window._t);window._t=setTimeout(buscar,300)">
+    </div>
+    <div id="resBuscar" style="margin-top:8px"></div>
+    {% if puede_corregir %}
+    <div class="fila" style="margin-top:12px" id="zonaImportar">
+      <input type="file" id="archivo" accept=".xlsx" style="flex:1 1 220px">
+      <button class="btn" onclick="importar(false)">Revisar archivo</button>
+      <button class="btn prim" id="btnImportar" onclick="importar(true)" disabled>Cargar asistentes</button>
+    </div>
+    <p class="dim" style="margin-top:6px">Excel (.xlsx): una fila por asistente con su matrícula (10-1234) o su DNI en cualquier columna.</p>
+    <div id="resImportar" class="dim" style="margin-top:6px"></div>
+    {% endif %}
+    <div class="scroll" style="margin-top:10px"><table><thead><tr><th>Matrícula</th><th>Colegiado</th><th>Condición</th><th>Hora</th><th></th></tr></thead>
+      <tbody id="tbAsist"></tbody></table></div>
+  </div>
+
+  {% if puede_multar %}
+  <!-- MULTAS -->
+  <div class="card">
+    <h2>Multas por inasistencia</h2>
+    <div id="zonaLote"></div>
+    <button class="btn gold" onclick="vistaPrevia()">Ver vista previa</button>
+    <div id="vp" style="margin-top:10px"></div>
+  </div>
+  {% endif %}
+</div>
+
+<div id="toast"></div>
+
+<!-- Modal genérico (sin alert/confirm nativos) -->
+<div class="modal-bg" id="modal"><div class="modal">
+  <h3 id="mTitulo"></h3><p id="mTexto"></p>
+  <div id="mMotivo" class="oculto"><textarea id="mMotivoTxt" placeholder="Motivo (obligatorio, mínimo 10 caracteres)"></textarea></div>
+  <div id="mPalabra" class="oculto" style="margin-top:8px"><input type="text" id="mPalabraTxt" placeholder=""></div>
+  <div class="fila" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn danger" id="mOk">Confirmar</button>
+  </div>
+</div></div>
+
+<script>
+const API = '/api/asamblea-multas';
+let ASAM = null, VP = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const soles = n => 'S/ ' + Number(n || 0).toLocaleString('es-PE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+function toast(msg, ok = true) { const t = $('toast'); t.textContent = msg; t.className = ok ? 'ok' : 'err'; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 4500); }
+async function api(url, opt = {}) {
+  const r = await fetch(url, Object.assign({credentials: 'same-origin'}, opt));
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(d.detail || ('Error ' + r.status));
+  return d;
+}
+function modal({titulo, texto, motivo = false, palabra = null, boton = 'Confirmar', onOk}) {
+  $('mTitulo').textContent = titulo; $('mTexto').innerHTML = texto;
+  $('mMotivo').classList.toggle('oculto', !motivo); $('mMotivoTxt').value = '';
+  $('mPalabra').classList.toggle('oculto', !palabra); $('mPalabraTxt').value = ''; $('mPalabraTxt').placeholder = palabra ? ('Escriba ' + palabra + ' para confirmar') : '';
+  $('mOk').textContent = boton;
+  $('mOk').onclick = async () => {
+    const m = $('mMotivoTxt').value.trim(), p = $('mPalabraTxt').value.trim().toUpperCase();
+    if (motivo && m.length < 10) return toast('El motivo es obligatorio (mínimo 10 caracteres).', false);
+    if (palabra && p !== palabra) return toast('Escriba ' + palabra + ' para confirmar.', false);
+    $('mOk').disabled = true;
+    try { await onOk(m, p); cerrarModal(); } catch (e) { toast(e.message, false); } finally { $('mOk').disabled = false; }
+  };
+  $('modal').style.display = 'flex';
+}
+function cerrarModal() { $('modal').style.display = 'none'; }
+
+async function iniciar() {
+  try {
+    const d = await api(API + '/asambleas');
+    $('selAsamblea').innerHTML = d.asambleas.map(a => `<option value="${a.id}">${esc(a.fecha.split('-').reverse().join('/'))} — ${esc(a.titulo)} (${esc(a.estado)})</option>`).join('')
+      || '<option value="">No hay asambleas registradas</option>';
+    if (d.asambleas.length) cargar();
+  } catch (e) { toast(e.message, false); }
+}
+
+async function cargar() {
+  const id = $('selAsamblea').value; if (!id) return;
+  VP = null; if ($('vp')) $('vp').innerHTML = '';
+  try {
+    const d = await api(`${API}/${id}/asistencia`);
+    ASAM = d.asamblea;
+    const ab = ASAM.estado === 'abierta';
+    $('estadoPill').innerHTML = `<span class="pill ${ab ? 'ab' : 'ce'}">${ab ? 'ABIERTA: asistencia editable' : 'CERRADA: asistencia fija'}</span>`;
+    if ($('btnCerrar')) $('btnCerrar').disabled = !ab;
+    $('zonaMarcar').classList.toggle('oculto', !ab);
+    if ($('zonaImportar')) $('zonaImportar').classList.toggle('oculto', !ab);
+    $('totAsist').textContent = `(${d.asistentes.length} asistentes)`;
+    $('tbAsist').innerHTML = d.asistentes.map(x => `<tr><td>${esc(x.matricula)}</td><td>${esc(x.nombre)}</td><td>${esc(x.condicion)}</td><td>${esc(x.hora || '')}</td>
+      <td>${ab && {{ 'true' if puede_corregir else 'false' }} ? `<button class="btn" onclick="marcar(${x.id}, false)">Quitar</button>` : ''}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="dim">Sin asistencia cargada.</td></tr>';
+    pintarLote(d.lote);
+  } catch (e) { toast(e.message, false); }
+}
+
+async function buscar() {
+  const q = $('q').value.trim(); if (q.length < 2 || !ASAM) { $('resBuscar').innerHTML = ''; return; }
+  try {
+    const d = await api(`${API}/${ASAM.id}/buscar?q=${encodeURIComponent(q)}`);
+    $('resBuscar').innerHTML = d.resultados.map(c => `<div class="fila" style="padding:6px 0;border-bottom:1px solid var(--card2)">
+      <span>${esc(c.matricula)} · ${esc(c.nombre)} <span class="dim">(${esc(c.condicion)})</span></span>
+      ${c.presente ? '<span class="pill ab">presente</span>' : `<button class="btn prim" onclick="marcar(${c.id}, true)">Marcar asistente</button>`}</div>`).join('')
+      || '<span class="dim">Sin resultados.</span>';
+  } catch (e) { toast(e.message, false); }
+}
+
+async function marcar(colegiadoId, presente) {
+  try {
+    const d = await api(`${API}/${ASAM.id}/asistencia`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({colegiado_id: colegiadoId, presente})});
+    toast(presente ? 'Asistente marcado' : 'Asistente quitado'); await cargar(); if ($('q').value) buscar();
+  } catch (e) { toast(e.message, false); }
+}
+
+async function importar(aplicar) {
+  const f = $('archivo').files[0]; if (!f) return toast('Elija un archivo .xlsx', false);
+  const fd = new FormData(); fd.append('archivo', f); fd.append('aplicar', aplicar ? 'true' : 'false');
+  try {
+    const d = await api(`${API}/${ASAM.id}/asistencia/importar`, {method: 'POST', body: fd});
+    $('resImportar').innerHTML = `Filas leídas: ${d.filas_leidas} · encontrados: ${d.encontrados} · ya estaban: ${d.ya_estaban} · <b>nuevos: ${d.nuevos}</b>`
+      + (d.no_encontrados.length ? `<br>No encontrados (${d.no_encontrados.length}): ${d.no_encontrados.slice(0, 20).map(esc).join(' · ')}` : '')
+      + (d.aplicado ? '<br><b>Asistencia cargada.</b>' : '<br>Revise y presione «Cargar asistentes».');
+    $('btnImportar').disabled = d.aplicado || !d.nuevos;
+    if (d.aplicado) { toast(`${d.nuevos} asistentes cargados`); cargar(); }
+  } catch (e) { toast(e.message, false); }
+}
+
+function abrirCerrar() {
+  modal({titulo: 'Cerrar la asamblea', texto: 'Al cerrar, la asistencia queda <b>fija</b> y ya no se puede corregir. Recién entonces se pueden generar las multas.',
+    palabra: 'CERRAR', boton: 'Cerrar asamblea',
+    onOk: async () => { await api(`/asamblea/${ASAM.id}/cerrar`, {method: 'POST'}); toast('Asamblea cerrada'); await iniciar(); }});
+}
+
+async function vistaPrevia() {
+  if (!ASAM) return;
+  try {
+    VP = await api(`${API}/${ASAM.id}/vista-previa`);
+    const v = VP;
+    $('vp').innerHTML = `
+      ${v.advertencias.map(a => `<div class="adv">⚠ ${esc(a)}</div>`).join('')}
+      <div class="kpis">
+        <div class="kpi"><div class="n">${v.multas}</div><div class="l">multas a generar</div></div>
+        <div class="kpi"><div class="n">${soles(v.monto_total)}</div><div class="l">monto total (${esc(v.concepto.codigo)} ${soles(v.concepto.monto)} c/u)</div></div>
+        <div class="kpi"><div class="n tag-rojo">${v.cambiarian_a_inhabil}</div><div class="l">pasarían de hábil a inhábil</div></div>
+        <div class="kpi"><div class="n">${v.asistentes} / ${v.obligados}</div><div class="l">asistentes / obligados</div></div>
+      </div>
+      <p class="dim">No reciben multa: ${v.condiciones_exentas.map(esc).join(', ')} (preset activo) ni quien aún no estaba colegiado en la fecha.
+        Regla de habilidad del preset: ${v.umbral_multas_preset} multa(s) impaga(s) inhabilita; con plan activo no cambia.</p>
+      <div class="scroll"><table><thead><tr><th>Matrícula</th><th>Colegiado</th><th>Condición hoy</th><th>Efecto</th></tr></thead><tbody>
+        ${v.colegiados.map(c => `<tr><td>${esc(c.matricula)}</td><td>${esc(c.nombre)}</td><td>${esc(c.condicion)}</td>
+          <td>${c.pasaria_a_inhabil ? '<span class="tag-rojo">pasa a inhábil</span>' : (c.plan_activo ? '<span class="dim">plan activo: no cambia</span>' : '')}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="fila" style="margin-top:10px"><button class="btn danger" ${v.puede_generar ? '' : 'disabled'} onclick="confirmarGenerar()">Generar ${v.multas} multas</button></div>`;
+  } catch (e) { toast(e.message, false); }
+}
+
+function confirmarGenerar() {
+  const v = VP;
+  modal({titulo: 'Generar multas', texto: `Se generarán <b>${v.multas}</b> multas por <b>${soles(v.monto_total)}</b> en un solo lote. <b>${v.cambiarian_a_inhabil}</b> colegiados pasarían de hábil a inhábil.`,
+    palabra: 'GENERAR', boton: 'Generar',
+    onOk: async () => {
+      const r = await api(`${API}/${ASAM.id}/generar`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: v.token, confirmacion: 'GENERAR'})});
+      toast(`Lote ${r.lote}: ${r.multas} multas, ${r.cambiaron_de_condicion} cambiaron de condición`); $('vp').innerHTML = ''; cargar();
+    }});
+}
+
+async function pintarLote(l) {
+  if (!$('zonaLote')) return;
+  if (!l) { $('zonaLote').innerHTML = '<p class="dim" style="margin-bottom:10px">Esta asamblea no tiene multas generadas.</p>'; return; }
+  let filas = '';
+  try {
+    const d = await api(`${API}/${ASAM.id}/multas`);
+    filas = d.multas.map(m => `<tr><td>${esc(m.matricula)}</td><td>${esc(m.nombre)}</td><td>${soles(m.monto)}</td><td>${esc(m.estado)}</td>
+      <td>${m.estado === 'pending' ? `<button class="btn" onclick="justificar(${m.colegiado_id}, '${esc(m.matricula)}')">Justificar</button>` : ''}</td></tr>`).join('');
+  } catch (e) {}
+  $('zonaLote').innerHTML = `<div class="kpis">
+      <div class="kpi"><div class="n">${l.multas}</div><div class="l">multas en el lote</div></div>
+      <div class="kpi"><div class="n">${soles(l.monto)}</div><div class="l">monto</div></div>
+      <div class="kpi"><div class="n">${l.con_pago}</div><div class="l">con pagos</div></div>
+      <div class="kpi"><div class="n">${l.justificadas}</div><div class="l">justificadas</div></div></div>
+    <p class="dim">Lote ${esc(l.lote)}</p>
+    <div class="fila" style="margin:8px 0"><button class="btn danger" ${l.se_puede_deshacer ? '' : 'disabled'} onclick="deshacer()">Deshacer el lote completo</button>
+      ${l.se_puede_deshacer ? '' : '<span class="dim">No se puede deshacer: hay multas con pagos.</span>'}</div>
+    <div class="scroll"><table><thead><tr><th>Matrícula</th><th>Colegiado</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>${filas}</tbody></table></div><br>`;
+}
+
+function justificar(colegiadoId, mat) {
+  modal({titulo: 'Justificar inasistencia', texto: `Se anula la multa de ${esc(mat)} y se re-evalúa su habilidad.`, motivo: true, boton: 'Justificar',
+    onOk: async (motivo) => {
+      const r = await api(`${API}/${ASAM.id}/justificar`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({colegiado_id: colegiadoId, motivo})});
+      toast('Multa justificada' + (r.cambios.length ? ` · condición: ${r.cambios[0].despues}` : '')); cargar();
+    }});
+}
+
+function deshacer() {
+  modal({titulo: 'Deshacer el lote', texto: 'Se anulan <b>todas</b> las multas del lote y se re-evalúa la habilidad de los afectados.', motivo: true, palabra: 'DESHACER', boton: 'Deshacer',
+    onOk: async (motivo) => {
+      const r = await api(`${API}/${ASAM.id}/deshacer`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({motivo, confirmacion: 'DESHACER'})});
+      toast(`${r.anuladas} multas anuladas · ${r.cambios.length} cambiaron de condición`); cargar();
+    }});
+}
+iniciar();
+</script>
+</body>
+</html>
