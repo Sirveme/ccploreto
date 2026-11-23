@@ -1490,6 +1490,28 @@ async def marcar_fracc_perdido(
         raise HTTPException(e.status_code, e.detail)
 
 
+@router.get("/fraccionamientos/{fracc_id}/perdida-preview")
+async def perdida_preview(
+    fracc_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Tanda 12 — vista previa de la pérdida (solo lectura): ya pagado, cuotas impagas que se
+    cierran, deudas originales que se cierran, la deuda única que nace y la condición después."""
+    from app.services import parametros_service as _PS
+    try:
+        _perdida_on = bool(_PS.get_param(db, "fraccionamiento", "perdida_habilitada", default=False))
+    except Exception:
+        _perdida_on = False
+    if not _perdida_on:
+        raise HTTPException(409, "La pérdida de fraccionamiento está deshabilitada por decisión del Colegio.")
+    from app.services.fraccionamiento_perdida_service import previsualizar_perdida, FraccPerdidoError
+    try:
+        return previsualizar_perdida(db, fracc_id)
+    except FraccPerdidoError as e:
+        raise HTTPException(e.status_code, e.detail)
+
+
 # ============================================================
 # REFINANCIAMIENTO (reusa refinanciar_core; alcance = fracc SANOS)
 # ============================================================
@@ -1545,6 +1567,27 @@ async def refinanciar_preview(
         for d in _adicionales_exigibles(db, old.colegiado_id)
     ]
 
+    # Tanda 12: al abrir, sin escribir nada, se ve el total a refinanciar y su detalle
+    # (cuotas impagas del plan) y el plan nuevo con valores sugeridos.
+    from app.utils.cuotas_enteras import inicial_sugerida as _ini_sug
+    from app.services.fraccionamiento_service import _resolver_parametros_fracc
+    _dmin, _cmin, _cmax, _pct = _resolver_parametros_fracc(db, old.organization_id)
+    _hoy = datetime.now(PERU_TZ).date()
+    impagas = [{"numero": c.numero_cuota, "vence": c.fecha_vencimiento.isoformat() if c.fecha_vencimiento else None,
+                "monto": float(c.monto or 0), "vencida": bool(c.fecha_vencimiento and c.fecha_vencimiento < _hoy)}
+               for c in db.query(FraccionamientoCuota).filter(FraccionamientoCuota.fraccionamiento_id == fracc_id,
+                                                              FraccionamientoCuota.pagada.isnot(True))
+                                                      .order_by(FraccionamientoCuota.numero_cuota).all()]
+    _saldo = round(float(old.saldo_pendiente or 0), 2)
+    ini_sugerida = _ini_sug(_saldo, _pct)
+    cuotas_sugeridas = 2
+    for n in range(min(12, int(_cmax)), 1, -1):          # el mayor N (≤ 12) cuya cuota alcanza el mínimo
+        if (_saldo - ini_sugerida) / n >= _cmin:
+            cuotas_sugeridas = n
+            break
+    if inicial is None and cuotas is None:
+        inicial, cuotas = ini_sugerida, cuotas_sugeridas
+
     plan, plan_error = None, None
     if inicial is not None and cuotas is not None:
         ids = [int(x) for x in adicionales.split(",") if x.strip().lstrip("-").isdigit()]
@@ -1559,6 +1602,10 @@ async def refinanciar_preview(
         "estado": old.estado,
         "sano": _es_sano(old),
         "old_saldo": round(float(old.saldo_pendiente or 0), 2),
+        "cuotas_impagas": impagas,
+        "cuotas_vencidas": sum(1 for x in impagas if x["vencida"]),
+        "inicial_sugerida": ini_sugerida,
+        "cuotas_sugeridas": cuotas_sugeridas,
         "adicionales_disponibles": disponibles,
         "plan": plan,
         "plan_error": plan_error,

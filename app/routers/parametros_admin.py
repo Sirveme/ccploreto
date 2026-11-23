@@ -76,7 +76,9 @@ def leer_seccion(
         _ocultar = {"cuotas_impagas_perdida", "perdida_automatica", "inicial_minima_bloquea",
                     # Tanda 9: no hacen nada hoy (interés 0 sin uso; no se pide autorización a
                     # Finanzas). Ocultos de la pantalla; sus filas siguen en la base.
-                    "interes_mensual_pct", "requiere_autorizacion"}
+                    "interes_mensual_pct", "requiere_autorizacion",
+                    # Tanda 10: ningún código los lee. Ocultos; sus filas siguen en la base.
+                    "documentar_acuerdo", "habilidad_temporal"}
         detalle = [p for p in detalle if p.get("clave") not in _ocultar]
         nota = ("La cuota inicial es de MONTO LIBRE: el % de inicial es solo una SUGERENCIA "
                 "informativa y nunca bloquea (no hay que cambiar la tasa por caso). "

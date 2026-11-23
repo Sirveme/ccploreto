@@ -18,11 +18,8 @@ from app.routers.dashboard import get_current_member
 from app.routers.ws import manager 
 
 load_dotenv(override=True)
-#print ("🔑 Cargando OPENAI_API_KEY..."+ os.getenv("OPENAI_API_KEY"))
-
-api_key = os.getenv("OPENAI_API_KEY")
-
-#print ("🔑 Cargando clave API en finance.py..."+ api_key)
+# Tanda 12: la clave de OpenAI NUNCA se imprime y el cliente se crea solo al usarlo (app/utils/ia.py).
+from app.utils.ia import cliente_openai, MENSAJE_NO_DISPONIBLE
 
 router = APIRouter(tags=["finance"])
 # --- ADMIN: GENERAR CUOTAS MASIVAS ---
@@ -365,20 +362,11 @@ async def analyze_voucher(
     contents = await voucher.read()
     base64_image = base64.b64encode(contents).decode('utf-8')
 
-    # USAR LA CLAVE DIRECTA
-    #print("🔑 Cargando clave API..."+ os.getenv("OPENAI_API_KEY"))
-    
-    print("🔑 Clave API cargada." + api_key)
-
-     # Validación de seguridad
-    if not api_key:
-        print("❌ Error: No se encontró OPENAI_API_KEY")
-        return {"status": "error", "msg": "Error de configuración (Falta API Key)"}
-
-    client = OpenAI(api_key=api_key)
-    
-    # 2. Preparar Cliente OpenAI
-    #client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    # 2. Cliente OpenAI (sin clave → mensaje claro, sin error 500 ni llamada a OpenAI)
+    client = cliente_openai()
+    if client is None:
+        print("⚠️ Lectura de voucher con IA no disponible (sin OPENAI_API_KEY)")
+        return {"status": "error", "msg": MENSAJE_NO_DISPONIBLE, "disponible": False}
     
     # 3. Prompt para Visión
     prompt = """
@@ -417,8 +405,6 @@ async def analyze_voucher(
         content = response.choices[0].message.content.replace("```json", "").replace("```", "")
         data = json.loads(content)
 
-        #print("🔑 Cargando clave API xxxx..."+ os.getenv("OPENAI_API_KEY"))
-        #print("🔑 Clave API cargada.xxxxx" + api_key)
 
         return {"status": "ok", "data": data}
 

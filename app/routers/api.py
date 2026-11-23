@@ -19,7 +19,13 @@ from app.routers.ws import manager # Para avisar al websocket
 
 load_dotenv(override=True)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Tanda 12: el cliente de OpenAI ya NO se crea al importar (sin OPENAI_API_KEY la app no arrancaba).
+# Cada endpoint lo pide al usarlo con app.utils.ia.cliente_openai().
+from app.utils.ia import cliente_openai, MENSAJE_NO_DISPONIBLE
+
+
+class _IANoDisponible(Exception):
+    """Sin clave de OpenAI configurada."""
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -155,8 +161,10 @@ async def process_voice_command(
     audit_status = "ERROR"
 
     try:
-        # Llamada a OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Llamada a OpenAI (cliente creado al usarlo; sin clave → mensaje claro, sin llamar a nadie)
+        client = cliente_openai()
+        if client is None:
+            raise _IANoDisponible()
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -191,6 +199,9 @@ async def process_voice_command(
             final_action = ui_config
             audit_status = "SUCCESS"
 
+    except _IANoDisponible:
+        final_action = {"type": "speak", "message": MENSAJE_NO_DISPONIBLE}
+        audit_status = "IA_NO_DISPONIBLE"
     except Exception as e:
         print(f"❌ Error Brain: {e}")
         final_action = {"type": "speak", "message": "Error de conexión cerebral."}
@@ -295,8 +306,10 @@ async def get_security_briefing(
 
     # 4. Consultar a OpenAI
     try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        
+        client = cliente_openai()
+        if client is None:   # sin clave: el resumen manual de abajo (mismo que ante cualquier error)
+            raise _IANoDisponible()
+
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[

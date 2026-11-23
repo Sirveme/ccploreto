@@ -569,3 +569,47 @@ async def reporte_colegiados_pdf(
     fname = f"padron_colegiados_{etq}.pdf"
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{fname}"'})
+
+
+# ══════════════════════════════════════════════════════════
+# DOMINIO FRACCIONAMIENTOS (tanda 12) — 100 % LECTURA.
+# Fraccionables hoy · planes perdidos · candidatos a refinanciar · atrasados por días.
+# Guard = el del techo (mismo que Colegiados).
+# ══════════════════════════════════════════════════════════
+@router.get("/fraccionamientos")
+async def reporte_fraccionamientos(
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from app.services.reporte_fraccionamientos_service import generar as _gen_fr
+    return _gen_fr(db, member.organization_id)
+
+
+@router.get("/fraccionamientos.xlsx")
+async def reporte_fraccionamientos_xlsx(
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from fastapi.responses import Response
+    from app.services.reporte_fraccionamientos_service import generar_excel as _xl_fr
+    return Response(content=_xl_fr(db, member.organization_id),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="fraccionamientos.xlsx"'})
+
+
+@router.get("/fraccionamientos.pdf")
+async def reporte_fraccionamientos_pdf(
+    member: _Member_vr = Depends(_gcm_vr),
+    db: Session = Depends(get_db),
+):
+    if member.role not in _ROLES_COLEGIADOS:
+        raise HTTPException(403, "Acceso restringido a administración/secretaría/directivos")
+    from fastapi.responses import Response
+    from app.services.reporte_fraccionamientos_service import generar_pdf as _pdf_fr
+    uname = getattr(getattr(member, "user", None), "name", None) or "-"
+    return Response(content=_pdf_fr(db, member.organization_id, usuario=uname), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="fraccionamientos.pdf"'})

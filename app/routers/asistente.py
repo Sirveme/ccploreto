@@ -111,6 +111,11 @@ async def asistente_texto(
     import json, logging
     logger = logging.getLogger(__name__)
 
+    # Tanda 12: sin clave de OpenAI, mensaje claro (no se llama a OpenAI con una clave vacía o falsa).
+    from app.utils.ia import ia_disponible, MENSAJE_NO_DISPONIBLE
+    if not ia_disponible():
+        return JSONResponse({"respuesta": MENSAJE_NO_DISPONIBLE, "disponible": False})
+
     # ── Usar contexto de la página si viene ──────────────────────────
     if ctx:
         try:
@@ -336,8 +341,10 @@ async def asistente_audio(
     import json, logging
     logger = logging.getLogger(__name__)
 
-    if not OPENAI_API_KEY:
-        return JSONResponse({"error": "Whisper no configurado"}, status_code=503)
+    from app.utils.ia import ia_disponible, MENSAJE_VOZ_NO_DISPONIBLE
+    if not ia_disponible():   # tanda 12: mensaje claro (el portal muestra 'respuesta')
+        return JSONResponse({"error": MENSAJE_VOZ_NO_DISPONIBLE, "respuesta": MENSAJE_VOZ_NO_DISPONIBLE,
+                             "disponible": False}, status_code=503)
 
     # 1. Transcribir con Whisper
     audio_bytes = await audio.read()
