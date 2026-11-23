@@ -231,6 +231,18 @@ def evaluar_habilidad(
     if tiene_dercol_pendiente:
         motivos.append("Derecho de colegiatura pendiente (saldo > 0)")
 
+    # Regla PÉRDIDA (tanda 12 — parche mínimo autorizado por Duilio el 22-nov-2026):
+    # la deuda única que nace al declarar perdido un plan ("Saldo por pérdida de
+    # fraccionamiento FRACC-…", debt_type 'saldo_perdida_fraccionamiento') con saldo > 0
+    # → INHÁBIL. Lee los dos formatos (como DER-COL) para que valga por cualquier vía.
+    tiene_saldo_perdida = any(
+        float((o.get("balance") if o.get("balance") is not None else o.get("saldo", 0)) or 0) > 0
+        and (o.get("categoria") == "saldo_perdida_fraccionamiento" or o.get("tipo") == "saldo_perdida_fraccionamiento")
+        for o in _items_dercol
+    )
+    if tiene_saldo_perdida:
+        motivos.append("Saldo por pérdida de fraccionamiento impago")
+
     # Regla 3: fraccionamiento con cuotas atrasadas
     if tiene_fracc and fracc_atrasadas >= umbral_fracc_atr:
         motivos.append(

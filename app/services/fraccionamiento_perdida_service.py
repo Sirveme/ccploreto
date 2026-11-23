@@ -176,6 +176,98 @@ def detectar_candidatos_perdida(
     }
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# PÉRDIDA — UNA SOLA DEUDA (tanda 12, decisión de Duilio)
+#   · las deudas originales y las cuotas impagas del plan se CIERRAN (gestión
+#     'reemplazada', saldo 0, con nota): no queda ninguna cuota por exigir;
+#   · nace UNA deuda "Saldo por pérdida de fraccionamiento FRACC-AAAA-NNNN" por lo que
+#     quedaba por pagar (debt_type 'saldo_perdida_fraccionamiento');
+#   · lo ya pagado NO se toca (cuotas pagadas y sus pagos quedan como están);
+#   · el colegiado pierde la habilidad (el motor del paquete del 2-dic trata esa deuda
+#     como inhabilitante; además se deja inhábil explícitamente).
+# ════════════════════════════════════════════════════════════════════════════
+TIPO_DEUDA_PERDIDA = "saldo_perdida_fraccionamiento"
+
+
+def _datos_perdida(db: Session, fracc_id: int, bloquear: bool = False):
+    lock = " FOR UPDATE" if bloquear else ""
+    fr = db.execute(text("""
+        SELECT f.id, f.numero_solicitud, f.colegiado_id, f.organization_id, f.estado, f.deuda_total_original,
+               f.saldo_pendiente, c.codigo_matricula mat, c.apellidos_nombres nombre, c.condicion, c.member_id
+        FROM fraccionamientos f JOIN colegiados c ON c.id = f.colegiado_id
+        WHERE f.id = :fid""" + (" FOR UPDATE OF f" if bloquear else "")), {"fid": fracc_id}).fetchone()
+    if not fr:
+        raise FraccPerdidoError(404, "Fraccionamiento no encontrado")
+    originales = db.execute(text("""
+        SELECT id, concept, periodo, amount, balance, status, estado_gestion
+        FROM debts
+        WHERE (fraccionamiento_id_origen = :fid)
+           OR (fraccionamiento_id = :fid AND coalesce(debt_type, '') <> 'fraccionamiento' AND estado_gestion = 'fraccionada')
+        ORDER BY periodo NULLS LAST, id""" + lock), {"fid": fracc_id}).fetchall()
+    cuotas = db.execute(text("""
+        SELECT q.id, q.numero_cuota, q.monto, q.fecha_vencimiento, coalesce(q.pagada, FALSE) pagada, q.debt_id,
+               d.balance d_balance, d.status d_status
+        FROM fraccionamiento_cuotas q LEFT JOIN debts d ON d.id = q.debt_id
+        WHERE q.fraccionamiento_id = :fid ORDER BY q.numero_cuota"""), {"fid": fracc_id}).fetchall()
+    hoy = _hoy_peru()
+    pagado, impagas = 0.0, []
+    for q in cuotas:
+        if q.pagada:
+            pagado += float(q.monto or 0)
+            continue
+        if q.debt_id is not None and q.d_status in ("pending", "partial"):
+            pend = float(q.d_balance or 0)
+            pagado += float(q.monto or 0) - pend          # abono parcial ya hecho
+        elif q.debt_id is not None:
+            pend = 0.0                                     # espejo ya cerrado/pagado
+        else:
+            pend = float(q.monto or 0)                     # plan antiguo sin espejo
+        impagas.append({"cuota_id": q.id, "numero": q.numero_cuota, "vence": q.fecha_vencimiento,
+                        "pendiente": round(pend, 2), "vencida": bool(q.fecha_vencimiento and q.fecha_vencimiento < hoy),
+                        "debt_id": q.debt_id})
+    saldo = round(sum(x["pendiente"] for x in impagas), 2)
+    return fr, originales, impagas, round(pagado, 2), saldo
+
+
+def _validar(fr, originales, saldo):
+    if fr.estado == "perdido":
+        raise FraccPerdidoError(409, "Este fraccionamiento ya está marcado como perdido")
+    if fr.estado != "activo":
+        raise FraccPerdidoError(409, f"Este fraccionamiento está {fr.estado}; solo se puede declarar pérdida de un plan activo")
+    if not originales:
+        raise FraccPerdidoError(409,
+            "Este fraccionamiento no tiene sus deudas originales enlazadas (plan del lote migrado). "
+            "No se puede declarar la pérdida sin antes conciliar la deuda del colegiado.")
+    if saldo <= 0.005:
+        raise FraccPerdidoError(409, "Este plan no tiene saldo por pagar: no hay pérdida que declarar.")
+
+
+def previsualizar_perdida(db: Session, fracc_id: int) -> dict:
+    """Solo lectura: qué pasaría al declarar la pérdida. Mismo cálculo que el core."""
+    fr, originales, impagas, pagado, saldo = _datos_perdida(db, fracc_id)
+    adv, puede = [], True
+    try:
+        _validar(fr, originales, saldo)
+    except FraccPerdidoError as e:
+        adv.append(e.detail)
+        puede = False
+    if abs(float(fr.saldo_pendiente or 0) - saldo) > 0.01:
+        adv.append("El saldo del plan (S/ %.2f) no coincide con sus cuotas impagas (S/ %.2f): la deuda nueva se crea por las cuotas impagas."
+                   % (float(fr.saldo_pendiente or 0), saldo))
+    return {
+        "fracc_id": fr.id, "numero_solicitud": fr.numero_solicitud,
+        "colegiado": {"id": fr.colegiado_id, "matricula": fr.mat, "nombre": fr.nombre, "condicion": fr.condicion},
+        "total_plan": round(float(fr.deuda_total_original or 0), 2),
+        "ya_pagado": pagado,
+        "cuotas_impagas": [{**x, "vence": x["vence"].isoformat() if x["vence"] else None} for x in impagas],
+        "cuotas_vencidas": sum(1 for x in impagas if x["vencida"]),
+        "originales": {"cantidad": len(originales), "monto": round(sum(float(o.amount or 0) for o in originales), 2)},
+        "deuda_nueva": {"concepto": "Saldo por pérdida de fraccionamiento %s" % fr.numero_solicitud, "monto": saldo},
+        "condicion_despues": "inhabil",
+        "puede_declarar": puede, "advertencias": adv,
+    }
+
+
 def marcar_fracc_perdido_core(
     db: Session,
     fracc_id: int,
@@ -183,250 +275,78 @@ def marcar_fracc_perdido_core(
     user_id,
     reevaluar_habilidad: bool = True,
 ) -> dict:
-    """Marca un fraccionamiento como perdido. Comportamiento idéntico al endpoint
-    original en los pasos 1-6. Hace commit al final (como antes). Devuelve el
-    mismo dict de resultado + 'reevaluacion_habilidad'.
-
-    reevaluar_habilidad (default True): paso (B) — tras perder, RE-EVALÚA la
-    condición vía el MOTOR (sincronizar_condicion). A diferencia del contexto de
-    PAGO, aquí SÍ puede inhabilitar (perder el fracc retira el "escudo" de
-    habilidad): por eso se llama al motor SIN el guard "solo rehabilitar" de
-    caja.py/aprobar_pago.py. Gateado para poder desactivarlo desde el endpoint
-    manual durante la transición sin revertir el refactor. NO se inventa writer
-    nuevo de condición.
-
-    Lanza FraccPerdidoError(404/409) en los mismos casos que el endpoint.
-    """
-    fr = db.execute(text("""
-        SELECT id, colegiado_id, estado, deuda_total_original
-        FROM fraccionamientos
-        WHERE id = :fid
-        FOR UPDATE
-    """), {"fid": fracc_id}).fetchone()
-
-    if not fr:
-        raise FraccPerdidoError(404, "Fraccionamiento no encontrado")
-
-    if fr.estado == "perdido":
-        raise FraccPerdidoError(409, "Este fraccionamiento ya está marcado como perdido")
-
-    if fr.estado == "cancelado":
-        raise FraccPerdidoError(
-            409,
-            "Este fraccionamiento está cancelado, no se puede marcar como perdido"
-        )
-
-    # Solo se pierde un plan ACTIVO (un plan completado o refinanciado ya cerró su ciclo).
-    if fr.estado != "activo":
-        raise FraccPerdidoError(409, f"Este fraccionamiento está {fr.estado}; solo se puede declarar pérdida de un plan activo")
-
-    # ── ENLACE DE LAS DEUDAS (corrección del defecto) ──────────────────────────
-    # Hay dos generaciones de planes:
-    #   · flujo ACTUAL (crear_fraccionamiento): las deudas ORIGINALES quedan con
-    #     fraccionamiento_id = plan y gestión 'fraccionada'; las deudas ESPEJO de
-    #     cada cuota también llevan fraccionamiento_id = plan, con debt_type
-    #     'fraccionamiento'.
-    #   · flujo ANTIGUO: las originales llevaban fraccionamiento_id_origen = plan.
-    # Antes solo se miraba fraccionamiento_id_origen: en un plan actual no encontraba
-    # originales (no restauraba nada) y además trataba TODAS las deudas con
-    # fraccionamiento_id como cuotas y las anulaba: la deuda desaparecía.
-    originales = db.execute(text("""
-        SELECT id, amount, balance, status, estado_gestion, periodo,
-               (fraccionamiento_id_origen = :fid) AS enlace_antiguo
-        FROM debts
-        WHERE (fraccionamiento_id_origen = :fid)
-           OR (fraccionamiento_id = :fid AND coalesce(debt_type, '') <> 'fraccionamiento'
-               AND estado_gestion = 'fraccionada')
-        ORDER BY periodo NULLS LAST, id
-        FOR UPDATE
-    """), {"fid": fracc_id}).fetchall()
-
-    cuotas = db.execute(text("""
-        SELECT id, amount, balance, status
-        FROM debts
-        WHERE fraccionamiento_id = :fid AND debt_type = 'fraccionamiento'
-        ORDER BY id
-        FOR UPDATE
-    """), {"fid": fracc_id}).fetchall()
-
-    if not originales:
-        # Plan sin deudas originales enlazadas (lote migrado): no hay qué restaurar.
-        # Declarar la pérdida borraría el saldo del plan sin devolver la deuda.
-        raise FraccPerdidoError(
-            409,
-            "Este fraccionamiento no tiene sus deudas originales enlazadas (plan del lote migrado). "
-            "No se puede declarar la pérdida sin antes conciliar la deuda del colegiado."
-        )
-
-    # Lo pagado al plan = cuotas marcadas pagadas (incluida la inicial) + abonos
-    # parciales a deudas espejo de cuotas aún impagas. La tabla de cuotas es la fuente:
-    # en planes antiguos las cuotas no tienen deuda espejo.
-    pagado_cuotas = db.execute(text("""
-        SELECT coalesce(sum(monto), 0) FROM fraccionamiento_cuotas
-        WHERE fraccionamiento_id = :fid AND pagada = TRUE
-    """), {"fid": fracc_id}).scalar() or 0
-    abonos_parciales = db.execute(text("""
-        SELECT coalesce(sum(d.amount - d.balance), 0)
-        FROM fraccionamiento_cuotas c JOIN debts d ON d.id = c.debt_id
-        WHERE c.fraccionamiento_id = :fid AND NOT coalesce(c.pagada, FALSE)
-          AND d.status = 'partial' AND d.balance < d.amount
-    """), {"fid": fracc_id}).scalar() or 0
-    pagos_a_cuotas = round(float(pagado_cuotas) + float(abonos_parciales), 2)
-
+    """Declara la pérdida (una sola deuda). Atómico: hace commit al final o nada."""
+    fr, originales, impagas, pagado, saldo = _datos_perdida(db, fracc_id, bloquear=True)
+    _validar(fr, originales, saldo)
     ahora = datetime.now(PERU_TZ)
-    nota_restaurar = (
-        f"[FRACC-PERDIDO:user{user_id}] "
-        f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
-        f"restauración por marcar perdido fracc {fracc_id}. "
-        f"Motivo: {motivo[:100]}"
-    )
-
-    # 1) Restaurar las originales: vuelven a ser deuda exigible ('vigente').
-    #    · enlace antiguo: saldo completo (comportamiento histórico);
-    #    · flujo actual: CONSERVAN su saldo (fraccionar no lo tocó; si una estaba
-    #      a medio pagar antes del plan, sigue a medio pagar).
-    #    El enlace pasa a fraccionamiento_id_origen (queda la huella de qué plan fue).
-    originales_restauradas = []
-    saldos = {}
-    for o in originales:
-        if o.enlace_antiguo:
-            saldo_o = float(o.amount or 0)
-        else:
-            saldo_o = float(o.balance if o.balance is not None else (o.amount or 0))
-        saldos[o.id] = round(saldo_o, 2)
-        db.execute(text("""
-            UPDATE debts
-            SET balance = :saldo,
-                status = CASE WHEN :saldo <= 0.005 THEN 'paid'
-                              WHEN :saldo < amount - 0.005 THEN 'partial' ELSE 'pending' END,
-                estado_gestion = 'vigente',
-                fraccionamiento_id_origen = :fid,
-                fraccionamiento_id = NULL,
-                updated_at = NOW(),
-                notes = COALESCE(notes,'') || E'\n' || :nota
-            WHERE id = :did
-        """), {"did": o.id, "saldo": saldos[o.id], "fid": fracc_id, "nota": nota_restaurar})
-        originales_restauradas.append(o.id)
-
-    # 2) Reimputar lo pagado al plan, de la deuda más antigua a la más nueva.
-    aplicaciones_pago = []
-    saldo = pagos_a_cuotas
-    for o in originales:
-        if saldo <= 0.005:
-            break
-        disponible = saldos[o.id]
-        if disponible <= 0.005:
-            continue
-        a_aplicar = round(min(saldo, disponible), 2)
-        nuevo_balance = round(disponible - a_aplicar, 2)
-        nuevo_status = "paid" if nuevo_balance <= 0.01 else "partial"
-        nota_pago = (
-            f"[FRACC-PERDIDO-PAGO:user{user_id}] "
-            f"{ahora.strftime('%d/%m/%Y %H:%M')} — "
-            f"aplicado S/{a_aplicar:.2f} de pagos previos al "
-            f"fracc {fracc_id}"
-        )
-        db.execute(text("""
-            UPDATE debts
-            SET balance = :nb,
-                status = :ns,
-                updated_at = NOW(),
-                notes = COALESCE(notes,'') || E'\n' || :nota
-            WHERE id = :did
-        """), {"nb": max(nuevo_balance, 0), "ns": nuevo_status, "did": o.id, "nota": nota_pago})
-        aplicaciones_pago.append({
-            "debt_id": o.id,
-            "aplicado": a_aplicar,
-            "balance_final": max(nuevo_balance, 0),
-            "status_final": nuevo_status,
-        })
-        saldo = round(saldo - a_aplicar, 2)
-    sobrante = round(max(saldo, 0), 2)   # pagó más de lo que debía en las originales (raro): queda informado
-
-    # 3) Anular SOLO las deudas espejo de las cuotas (no las originales).
-    cuotas_canceladas = []
-    for c in cuotas:
-        db.execute(text("""
-            UPDATE debts
-            SET balance = 0,
-                status = 'cancelled',
-                estado_gestion = 'anulada',
-                updated_at = NOW(),
-                notes = COALESCE(notes,'') ||
-                        E'\n[FRACC-PERDIDO-CUOTA] cuota anulada por '
-                        'pérdida del fracc'
-            WHERE id = :did
-        """), {"did": c.id})
-        cuotas_canceladas.append(c.id)
-
-    db.execute(text("""
-        UPDATE fraccionamientos
-        SET estado = 'perdido',
-            saldo_pendiente = 0,
-            fecha_perdida = NOW(),
-            motivo_perdida = :motivo,
-            updated_at = NOW()
-        WHERE id = :fid
-    """), {"motivo": motivo, "fid": fracc_id})
-
-    # (b) el fracc dejó de estar activo → sincronizar el flag (apaga si no queda
-    # otro fracc activo del mismo colegiado). Idempotente.
-    _col_fp = db.execute(text(
-        "SELECT colegiado_id FROM fraccionamientos WHERE id = :fid"
-    ), {"fid": fracc_id}).fetchone()
-    if _col_fp:
+    sello = "[FRACC-PERDIDO %s user%s %s]" % (fr.numero_solicitud, user_id, ahora.strftime("%d/%m/%Y %H:%M"))
+    concepto = "Saldo por pérdida de fraccionamiento %s" % fr.numero_solicitud
+    salto = chr(10)
+    try:
+        # 1) Cerrar las deudas originales (quedan como historial, enlazadas al plan).
+        for o in originales:
+            db.execute(text("""
+                UPDATE debts SET balance = 0, status = 'cancelled', estado_gestion = 'reemplazada',
+                       fraccionamiento_id_origen = :fid, fraccionamiento_id = NULL, updated_at = NOW(),
+                       notes = COALESCE(notes,'') || :nota
+                WHERE id = :did AND status IN ('pending','partial')"""), {"did": o.id, "fid": fracc_id,
+                                     "nota": salto + "%s Cerrada: reemplazada por «%s»." % (sello, concepto)})
+        # 2) Cerrar las cuotas impagas (sus deudas espejo). Las pagadas no se tocan.
+        cerradas = []
+        for x in impagas:
+            if x["debt_id"]:
+                db.execute(text("""
+                    UPDATE debts SET balance = 0, status = 'cancelled', estado_gestion = 'reemplazada', updated_at = NOW(),
+                           notes = COALESCE(notes,'') || :nota
+                    WHERE id = :did AND debt_type = 'fraccionamiento' AND status IN ('pending','partial')"""),
+                           {"did": x["debt_id"], "nota": salto + "%s Cuota cerrada por pérdida del plan." % sello})
+            cerradas.append(x["numero"])
+        # 3) Una sola deuda por lo que quedaba por pagar.
+        nueva_id = db.execute(text("""
+            INSERT INTO debts (organization_id, colegiado_id, member_id, concept, periodo, period_label, debt_type,
+                               amount, balance, status, estado_gestion, fecha_generacion, due_date, origen,
+                               fraccionamiento_id_origen, created_by, created_at, notes)
+            VALUES (:o, :c, :m, :con, :per, :etq, :tipo, :s, :s, 'pending', 'vigente', :hoy, :ahora,
+                    'perdida_fraccionamiento', :fid, :u, NOW(), :nota)
+            RETURNING id"""), {"o": fr.organization_id, "c": fr.colegiado_id, "m": fr.member_id, "con": concepto, "etq": ("Pérdida %s" % fr.numero_solicitud)[:50],
+                               "per": ahora.strftime("%Y-%m"), "tipo": TIPO_DEUDA_PERDIDA, "s": saldo, "hoy": ahora.date(),
+                               "ahora": ahora, "fid": fracc_id, "u": user_id,
+                               "nota": "%s Motivo: %s. Ya pagado al plan: S/ %.2f." % (sello, motivo[:200], pagado)}).scalar()
+        db.execute(text("""INSERT INTO debt_actions (organization_id, debt_id, fraccionamiento_id, tipo, descripcion, monto_afectado,
+                             balance_anterior, balance_nuevo, estado_gestion_nuevo, created_by, created_at)
+                           VALUES (:o, :d, :f, 'perdida_fraccionamiento', :ds, :s, 0, :s, 'vigente', :u, NOW())"""),
+                   {"o": fr.organization_id, "d": nueva_id, "f": fracc_id, "s": saldo, "u": user_id,
+                    "ds": ("Pérdida de %s: se cierran %d deudas originales y %d cuotas impagas; nace esta deuda por S/ %.2f. "
+                           "Motivo: %s" % (fr.numero_solicitud, len(originales), len(cerradas), saldo, motivo))[:500]})
+        # 4) El plan queda perdido, sin saldo propio (lo debe la deuda nueva).
+        db.execute(text("""UPDATE fraccionamientos SET estado = 'perdido', saldo_pendiente = 0, fecha_perdida = NOW(),
+                             motivo_perdida = :motivo, updated_at = NOW() WHERE id = :fid"""), {"motivo": motivo, "fid": fracc_id})
         from app.services.politicas_financieras import refrescar_flag_fraccionamiento
-        refrescar_flag_fraccionamiento(db, _col_fp.colegiado_id)
-
-    # ── (B) RE-EVALUAR HABILIDAD tras la pérdida (decisión B) ──────────────
-    # Perder un fracc re-evalúa la condición y, a diferencia del contexto de
-    # PAGO, AQUÍ SÍ puede inhabilitar. Se llama al MOTOR (no se inventa writer)
-    # y SIN el guard "solo rehabilitar" de caja.py/aprobar_pago.py.
-    # 🔗 unificar-writers: preservar esta asimetría (pago=guarded, pérdida=unguarded).
-    # refrescar_flag_fraccionamiento ya dejó tiene_fraccionamiento=False en la
-    # sesión → el motor lo lee como tiene_fracc=False y evalúa sobre la deuda
-    # restaurada. sincronizar_condicion NO commitea; lo cubre el db.commit() de abajo.
-    reevaluacion_habilidad = None
-    if reevaluar_habilidad and _col_fp:
-        from app.models import Colegiado, Organization
-        from app.services.evaluar_habilidad import sincronizar_condicion
-        colegiado = db.query(Colegiado).filter(
-            Colegiado.id == _col_fp.colegiado_id
-        ).first()
-        if colegiado is not None:
-            _org = db.query(Organization).filter(
-                Organization.id == colegiado.organization_id
-            ).first()
-            org_dict = {"id": _org.id, "config": {}} if _org else {}
-            _cond_previa = colegiado.condicion
-            cambio_cond = sincronizar_condicion(db, colegiado, org_dict)
-            reevaluacion_habilidad = {
-                "condicion_previa": _cond_previa,
-                "condicion_nueva": colegiado.condicion,
-                "cambio": bool(cambio_cond),
-                "motivo": getattr(colegiado, "motivo_inhabilidad", None),
-            }
-
-    db.commit()
-
-    logger.info(
-        "Fracc %s marcado como PERDIDO por user=%s: "
-        "originales_restauradas=%s, cuotas_canceladas=%s, "
-        "pagos_aplicados=%s",
-        fracc_id,
-        user_id,
-        originales_restauradas,
-        cuotas_canceladas,
-        len(aplicaciones_pago),
-    )
-
-    return {
-        "ok": True,
-        "fracc_id": fracc_id,
-        "originales_restauradas": originales_restauradas,
-        "cuotas_canceladas": cuotas_canceladas,
-        "aplicaciones_pago": aplicaciones_pago,
-        "pagos_a_cuotas_total": round(pagos_a_cuotas, 2),
-        "pago_sobrante_sin_imputar": sobrante,
-        "reevaluacion_habilidad": reevaluacion_habilidad,
-    }
+        db.flush()
+        refrescar_flag_fraccionamiento(db, fr.colegiado_id)
+        # 5) Habilidad: el motor (paquete 2-dic) trata la deuda nueva como inhabilitante.
+        reevaluacion = None
+        if reevaluar_habilidad:
+            from app.models import Colegiado
+            from app.services.evaluar_habilidad import sincronizar_condicion
+            col = db.query(Colegiado).filter(Colegiado.id == fr.colegiado_id).first()
+            if col is not None and col.condicion not in ("vitalicio", "fallecido", "retirado"):
+                previa = col.condicion
+                sincronizar_condicion(db, col, {"id": fr.organization_id, "config": {}})
+                if col.condicion != "inhabil":
+                    # Motor sin la regla de pérdida (versión anterior al paquete): se deja inhábil explícitamente.
+                    col.condicion = "inhabil"
+                    col.motivo_inhabilidad = "Saldo por pérdida de fraccionamiento impago"
+                    col.fecha_actualizacion_condicion = ahora
+                reevaluacion = {"condicion_previa": previa, "condicion_nueva": col.condicion,
+                                "cambio": previa != col.condicion, "motivo": col.motivo_inhabilidad}
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    logger.info("Fracc %s PERDIDO por user=%s: %d originales y %d cuotas cerradas; deuda %s por S/ %.2f",
+                fracc_id, user_id, len(originales), len(cerradas), nueva_id, saldo)
+    return {"ok": True, "fracc_id": fracc_id, "numero_solicitud": fr.numero_solicitud,
+            "originales_cerradas": [o.id for o in originales], "cuotas_cerradas": cerradas,
+            "deuda_perdida_id": nueva_id, "monto_deuda_perdida": saldo, "ya_pagado": pagado,
+            "reevaluacion_habilidad": reevaluacion}

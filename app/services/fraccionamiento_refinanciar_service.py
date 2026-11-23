@@ -132,10 +132,16 @@ def _planificar_refinanciamiento(
     montos = repartir(saldo, num_cuotas)
     mensual = montos[0] if montos else 0.0
     if mensual < cuota_mensual_min:
+        # Tanda 12: aviso en términos simples, evaluando la cuota REGULAR (la más baja).
+        import math as _m
+        _min_ent = _m.ceil(float(cuota_mensual_min))
+        _k = int(_m.floor(round(saldo / _min_ent, 6))) if _min_ent > 0 else num_cuotas
+        _smin = texto_cuotas([float(cuota_mensual_min)]).split("de ", 1)[1]
         raise RefinanciarError(
             400,
-            f"La cuota mensual resultante (S/ {mensual:.2f}) es menor al mínimo "
-            f"S/ {cuota_mensual_min:.2f}. Reduce cuotas o sube el inicial."
+            (f"Con la cuota mínima de {_smin}, esta deuda admite hasta {_k} cuotas." if _k >= 2 else
+             f"Con la cuota mínima de {_smin}, esta deuda no alcanza para 2 cuotas: baja la inicial.")
+            + f" Con {num_cuotas} cuotas, cada una sería de S/ {mensual:,.0f}."
         )
 
     # Predicción de la regla 20%-no-bloquea (la ENFORCEA crear_fraccionamiento)
@@ -162,6 +168,11 @@ def _planificar_refinanciamiento(
         "monto_mensual": mensual,
         "monto_ultima": montos[-1] if montos else 0.0,
         "texto_cuotas": texto_cuotas(montos),
+        # Tanda 12: línea de cuadre "Inicial S/ 52 + cuotas S/ 208 = Total S/ 260".
+        "texto_cuadre": "Inicial %s + cuotas %s = Total %s" % (
+            texto_cuotas([round(float(monto_inicial), 2)]).split("de ", 1)[1],
+            texto_cuotas([round(sum(montos), 2)]).split("de ", 1)[1],
+            texto_cuotas([round(float(monto_inicial) + sum(montos), 2)]).split("de ", 1)[1]),
         "minimo_inicial_20": minimo_inicial,
         "inicial_bajo_min": inicial_bajo_min,
         "advertencia_20": inicial_bajo_min and not inicial_bloquea,

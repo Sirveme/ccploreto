@@ -508,6 +508,56 @@ def revertir_cuotas_por_pago(db: Session, payment_id: int, etiqueta: str = "") -
     return revertidas
 
 
+def anular_plan_por_nc_inicial(db: Session, fraccionamiento_id: int, etiqueta: str = "") -> dict:
+    """Tanda 12 (decisión de Duilio): una NC sobre el pago de la CUOTA INICIAL anula el plan.
+      - las deudas ORIGINALES vuelven a exigibles con su saldo (gestión 'vigente'; el enlace
+        queda en fraccionamiento_id_origen como historial);
+      - las cuotas del plan (deudas espejo) impagas se cancelan;
+      - si alguna cuota mensual seguía pagada, ese dinero se aplica a las originales
+        (de la más antigua a la más nueva) para no cobrarlo dos veces;
+      - el plan queda 'anulado' sin saldo y se apaga la marca de plan.
+    NO re-evalúa la habilidad (lo hace aplicar_habilidad_tras_reversion) y NO hace commit."""
+    from sqlalchemy import text as _text
+    f = db.execute(_text("SELECT id, colegiado_id, estado, numero_solicitud FROM fraccionamientos WHERE id = :f FOR UPDATE"),
+                   {"f": fraccionamiento_id}).fetchone()
+    if not f or f.estado not in ("activo", "completado"):
+        return {"anulado": False}
+    sello = "[PLAN-ANULADO-NC %s] %s" % (f.numero_solicitud, etiqueta)
+    originales = db.execute(_text("""
+        SELECT id, amount, balance FROM debts
+        WHERE (fraccionamiento_id = :f AND coalesce(debt_type,'') <> 'fraccionamiento')
+           OR (fraccionamiento_id_origen = :f AND estado_gestion = 'fraccionada')
+        ORDER BY periodo NULLS LAST, id FOR UPDATE"""), {"f": fraccionamiento_id}).fetchall()
+    pagado_mensual = float(db.execute(_text("""SELECT coalesce(sum(monto),0) FROM fraccionamiento_cuotas
+        WHERE fraccionamiento_id = :f AND numero_cuota >= 1 AND pagada = TRUE"""), {"f": fraccionamiento_id}).scalar() or 0)
+    resto = round(pagado_mensual, 2)
+    for o in originales:
+        saldo = float(o.balance if o.balance is not None else (o.amount or 0))
+        aplicar = round(min(resto, saldo), 2) if resto > 0.005 else 0.0
+        nuevo = round(saldo - aplicar, 2)
+        resto = round(resto - aplicar, 2)
+        db.execute(_text("""
+            UPDATE debts SET balance = :b, estado_gestion = 'vigente',
+                   status = CASE WHEN :b <= 0.005 THEN 'paid' WHEN :b < amount - 0.005 THEN 'partial' ELSE 'pending' END,
+                   fraccionamiento_id_origen = :f, fraccionamiento_id = NULL, updated_at = NOW(),
+                   notes = coalesce(notes || :nl, '') || :n
+            WHERE id = :d"""), {"b": max(nuevo, 0), "f": fraccionamiento_id, "d": o.id, "nl": chr(10),
+                                "n": sello + (" Aplicado S/ %.2f de cuotas mensuales pagadas." % aplicar if aplicar else " Vuelve a exigible.")})
+    cuotas = db.execute(_text("""UPDATE debts SET status = 'cancelled', balance = 0, estado_gestion = 'anulada', updated_at = NOW(),
+                                    notes = coalesce(notes || :nl, '') || :n
+                                 WHERE fraccionamiento_id = :f AND debt_type = 'fraccionamiento' AND status IN ('pending','partial')"""),
+                        {"f": fraccionamiento_id, "nl": chr(10), "n": sello}).rowcount
+    db.execute(_text("""UPDATE fraccionamientos SET estado = 'anulado', saldo_pendiente = 0, updated_at = NOW(),
+                          motivo_perdida = :m WHERE id = :f"""),
+               {"f": fraccionamiento_id, "m": ("Anulado: NC sobre la cuota inicial. %s" % etiqueta)[:250]})
+    db.flush()
+    from app.services.politicas_financieras import refrescar_flag_fraccionamiento
+    refrescar_flag_fraccionamiento(db, f.colegiado_id)
+    db.flush()
+    return {"anulado": True, "originales_restauradas": len(originales), "cuotas_canceladas": cuotas,
+            "aplicado_de_mensuales": round(pagado_mensual - max(resto, 0), 2), "sobrante": round(max(resto, 0), 2)}
+
+
 def aplicar_habilidad_tras_reversion(db: Session, colegiado, revertidas: List[dict], org: dict) -> str:
     """Habilidad después de revertir cuotas de un plan. NO hace commit.
 
@@ -522,12 +572,23 @@ def aplicar_habilidad_tras_reversion(db: Session, colegiado, revertidas: List[di
         return "condición %s: no se toca" % colegiado.condicion
     ahora = datetime.now(timezone(timedelta(hours=-5)))
     if any(r["numero_cuota"] == 0 for r in revertidas):
-        colegiado.condicion = "inhabil"
+        # Tanda 12: NC sobre la INICIAL → el plan queda ANULADO y la habilidad se re-evalúa
+        # con el motor sobre las deudas originales, de nuevo exigibles.
+        ini = next(r for r in revertidas if r["numero_cuota"] == 0)
+        res = anular_plan_por_nc_inicial(db, ini["fraccionamiento_id"], "NC sobre la cuota inicial")
         colegiado.habilidad_vence = None
-        colegiado.motivo_inhabilidad = "Anulación del pago de la cuota inicial del fraccionamiento"
         colegiado.fecha_actualizacion_condicion = ahora
         db.flush()
-        return "inicial anulada: habilidad retirada"
+        from app.services.evaluar_habilidad import sincronizar_condicion
+        sincronizar_condicion(db, colegiado, org or {})
+        if colegiado.condicion == "habil" and colegiado.habilidad_vence is None:
+            # Sin motivos de inhabilidad tras anular el plan: hábil hasta fin de año (criterio del motor).
+            from datetime import date as _d
+            from app.utils.habilidad_fecha import vence_hasta
+            colegiado.habilidad_vence = vence_hasta(_d(ahora.year, 12, 31))
+        db.flush()
+        return "inicial anulada: plan anulado (%s originales vuelven a exigibles, %s cuotas canceladas); condición %s" % (
+            res.get("originales_restauradas"), res.get("cuotas_canceladas"), colegiado.condicion)
 
     primera = min(revertidas, key=lambda r: r["numero_cuota"])
     if primera["previa"]["hay"]:
