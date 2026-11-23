@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraccionamientos · CCPL</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#172033; --border:#334155;
+    --ink:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
+    --accent:#2dd4bf; --ok:#4ade80; --warn:#f9c64a; --bad:#f87171; --cyan:#38bdf8;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg);width:100%}
+  body{margin:0;width:100%;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{width:100%;max-width:1280px;margin:0 auto;padding:18px}
+  h1{font-size:19px;margin:0 0 2px} .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+  .seclabel{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+  .comp{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .cchip{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;transition:border-color .15s,transform .15s}
+  .cchip:hover{transform:translateY(-2px)}
+  .cchip .l{font-size:11.5px;color:var(--muted)}
+  .cchip .v{font-size:22px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+  .cchip .m{font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .cchip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .tramos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tr{border:1px solid var(--border);background:var(--panel2);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer}
+  .tr.on{border-color:var(--accent);color:#ccfbf1}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .dl-group{margin-left:auto;display:flex;gap:6px}
+  .dl{border:1px solid var(--border);background:var(--panel2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+  .dl-xls{border-color:rgba(74,222,128,.45);color:#bbf7d0} .dl-pdf{border-color:rgba(248,113,113,.45);color:#fecaca}
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  table{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--border)}
+  .tblwrap table{min-width:720px}
+  th,td{text-align:left;padding:7px 10px;border:1px solid var(--border);white-space:nowrap}
+  th{background:#1e3a5f;color:#fff;font-weight:700;font-size:11.5px}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:nth-child(even) td{background:rgba(255,255,255,.035)}
+  .muted{color:var(--muted)} .nota{font-size:11.5px;color:var(--muted);margin-top:8px}
+  @media(max-width:640px){.dl-group{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fraccionamientos</h1>
+  <div class="sub">Colegio de Contadores Públicos de Loreto · 100% lectura · <span id="gen"></span></div>
+
+  <div class="card">
+    <div class="bar">
+      <div class="seclabel" style="margin:0">Consultas</div>
+      <div class="dl-group">
+        <a class="dl dl-xls" href="/api/reportes/fraccionamientos.xlsx">⬇ Descargar Excel</a>
+        <a class="dl dl-pdf" href="/api/reportes/fraccionamientos.pdf" target="_blank" rel="noopener">⬇ Descargar PDF</a>
+      </div>
+    </div>
+    <div class="comp" id="comp" style="margin-top:12px"></div>
+    <div class="tramos" id="tramos" style="display:none"></div>
+    <div class="nota" id="notaMin"></div>
+  </div>
+
+  <div id="estado" class="muted" style="padding:4px 2px">Cargando…</div>
+  <div class="card" id="salida" style="display:none">
+    <div class="seclabel" id="titulo"></div>
+    <div class="tblwrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  </div>
+</div>
+<script>
+const SECC = {
+  fraccionables: {t:'Deudas fraccionables hoy', cols:[['Matrícula','matricula'],['Apellidos y nombres','nombre'],['Condición','condicion'],['Deudas','deudas',1],['Deuda total (S/)','deuda',2]]},
+  perdidos: {t:'Planes perdidos', cols:[['Plan','plan'],['Fecha de pérdida','fecha_perdida'],['Matrícula','matricula'],['Apellidos y nombres','nombre'],['Total del plan (S/)','total_plan',2],['Deuda por pérdida (S/)','deuda_perdida',2],['Saldo por cobrar (S/)','saldo_por_cobrar',2]]},
+  refinanciar: {t:'Candidatos a refinanciar (planes activos con atraso)', cols:[['Plan','plan'],['Matrícula','matricula'],['Apellidos y nombres','nombre'],['Cuotas vencidas','cuotas_vencidas',1],['Monto vencido (S/)','monto_vencido',2],['Días de atraso','dias_atraso',1],['Saldo del plan (S/)','saldo_plan',2]]},
+  atrasados: {t:'Planes atrasados por días de atraso', cols:[['Plan','plan'],['Matrícula','matricula'],['Apellidos y nombres','nombre'],['Días de atraso','dias_atraso',1],['Cuotas vencidas','cuotas_vencidas',1],['Monto vencido (S/)','monto_vencido',2],['Saldo del plan (S/)','saldo_plan',2]]},
+};
+let D = null, SEC = 'fraccionables', TRAMO = null;
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const S = n => 'S/ ' + Number(n || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function chips(){
+  const r = D.resumen;
+  const c = [['fraccionables','Deudas fraccionables hoy', r.fraccionables.colegiados + ' colegiados', S(r.fraccionables.deuda)],
+             ['perdidos','Planes perdidos', r.perdidos.planes, S(r.perdidos.saldo_por_cobrar) + ' por cobrar'],
+             ['refinanciar','Candidatos a refinanciar', r.refinanciar.planes, S(r.refinanciar.saldo)],
+             ['atrasados','Planes atrasados', r.atrasados.planes, S(r.atrasados.saldo)]];
+  document.getElementById('comp').innerHTML = c.map(([k,l,v,m]) =>
+    `<div class="cchip ${k===SEC?'on':''}" onclick="ver('${k}')"><div class="l">${l}</div><div class="v">${esc(v)}</div><div class="m">${esc(m)}</div></div>`).join('');
+  const tr = document.getElementById('tramos');
+  tr.style.display = SEC === 'atrasados' ? 'flex' : 'none';
+  tr.innerHTML = `<span class="tr ${TRAMO===null?'on':''}" onclick="tramo(null)">Todos</span>` +
+    r.atrasados.tramos.map(t => `<span class="tr ${TRAMO===t.tramo?'on':''}" onclick="tramo('${t.tramo}')">${esc(t.etiqueta)} · ${t.planes} · ${S(t.saldo)}</span>`).join('');
+}
+function tabla(){
+  const s = SECC[SEC];
+  let xs = D[SEC];
+  if (SEC === 'atrasados' && TRAMO) xs = xs.filter(x => x.tramo === TRAMO);
+  document.getElementById('titulo').textContent = s.t + ' · ' + xs.length;
+  document.getElementById('thead').innerHTML = '<tr>' + s.cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+  document.getElementById('tbody').innerHTML = xs.length ? xs.map(x => '<tr>' + s.cols.map(c =>
+      c[2] === 2 ? `<td class="n">${Number(x[c[1]] || 0).toFixed(2)}</td>` : c[2] === 1 ? `<td class="n">${esc(x[c[1]])}</td>` : `<td>${esc(x[c[1]])}</td>`).join('') + '</tr>').join('')
+    : `<tr><td colspan="${s.cols.length}" class="muted">Sin registros.</td></tr>`;
+  document.getElementById('salida').style.display = 'block';
+}
+function ver(k){ SEC = k; TRAMO = null; chips(); tabla(); }
+function tramo(t){ TRAMO = t; chips(); tabla(); }
+(async function(){
+  try {
+    const r = await fetch('/api/reportes/fraccionamientos', {credentials:'same-origin'});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { document.getElementById('estado').textContent = (d && d.detail) || 'No se pudo cargar.'; return; }
+    D = d;
+    document.getElementById('gen').textContent = 'generado ' + d.generado;
+    document.getElementById('notaMin').innerHTML = 'Fraccionable = sin plan activo y deuda total ≥ <b>' + S(d.monto_minimo) +
+      '</b> (mínimo de Parámetros). Atraso = días desde la cuota impaga más antigua. Candidato a refinanciar = plan activo escalonado con atraso.';
+    document.getElementById('estado').textContent = '';
+    chips(); tabla();
+  } catch (e) { document.getElementById('estado').textContent = 'Error de conexión.'; }
+})();
+</script>
+</body>
+</html>
