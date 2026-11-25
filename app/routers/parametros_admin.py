@@ -58,7 +58,18 @@ def leer_seccion(
     """Parámetros vigentes de una sección. Reutilizable por el panel y por el front."""
     if solo_valores:
         # {clave: valor} — mismo shape que consumiría un lector JS.
-        return PS.get_seccion(db, seccion, org_id=ORG_ID_LECTURA)
+        vals = PS.get_seccion(db, seccion, org_id=ORG_ID_LECTURA)
+        if seccion == "fraccionamiento" and isinstance(vals, dict):
+            # Tanda 13 (aditivo): umbral de pérdida desde el preset de Condiciones (fuente única),
+            # para que las pantallas armen la línea «N cuotas impagas consecutivas: pérdida del plan»
+            # junto con perdida_habilitada (si la pérdida está apagada, no se muestra).
+            try:
+                from app.services.condiciones_service import get_condiciones
+                vals = dict(vals)
+                vals["perdida_cuotas_consecutivas"] = int(get_condiciones(db, ORG_ID_LECTURA)["perdida_fracc_consecutivas"])
+            except Exception:
+                pass
+        return vals
 
     secs = {s["seccion"]: s for s in PS.get_secciones(db, solo_activas=False)}
     etiqueta = secs.get(seccion, {}).get("etiqueta", seccion)

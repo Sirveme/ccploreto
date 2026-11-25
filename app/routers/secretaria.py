@@ -363,7 +363,14 @@ async def deudas_completas(
 
         periodo = str(d.periodo or "")
         m = _RX_YYYY_MM.match(periodo)
-        if m and m.group(1) == "2026":
+        # Tanda 13: solo las cuotas ORDINARIAS ocupan una fila de mes. Otras deudas con periodo AAAA-MM
+        # (p. ej. «Saldo por pérdida de fraccionamiento FRACC-…», que nace con el mes de la pérdida) iban
+        # a la fila de ese mes y TAPABAN la cuota ordinaria; ahora van a «Otros 2026» con su nombre completo.
+        # Las cuotas espejo de los planes (debt_type 'fraccionamiento') NO van a la ficha de deudas: tapaban
+        # la cuota ordinaria del mes; se ven en la pestaña «Fraccionamientos» (decisión de Duilio, tanda 13).
+        if (d.debt_type or "") == "fraccionamiento":
+            continue
+        if m and m.group(1) == "2026" and (d.debt_type or "cuota_ordinaria") == "cuota_ordinaria":
             anio_2026[periodo] = item
             continue
 
@@ -404,6 +411,9 @@ async def deudas_completas(
         "hasta_2025": hasta_2025,
         "anio_2026": anio_2026_lista,
         "extras_2026": extras_2026,
+        # Tanda 13: con plan activo, la ficha avisa arriba de la grilla (sus cuotas están en «Fraccionamientos»).
+        "tiene_plan_activo": db.query(Fraccionamiento.id).filter(
+            Fraccionamiento.colegiado_id == colegiado.id, Fraccionamiento.estado == "activo").first() is not None,
     }
 
 
@@ -987,7 +997,8 @@ async def fraccionamientos_por_revisar(
     # ejecutar=False SIEMPRE aquí: la vista nunca dispara pérdidas.
     # solo_sanos=True: filtra por distinct_venc>1 → deja fuera el batch sin conciliar,
     # solo muestra candidatos reales entre los fraccionamientos operables.
-    return detectar_candidatos_perdida(db, org_id, ejecutar=False, solo_sanos=True)
+    # Tanda 13: el lote migrado se lista aparte («requiere conciliación», sin botón de pérdida).
+    return detectar_candidatos_perdida(db, org_id, ejecutar=False, solo_sanos=True, incluir_lote=True)
 
 
 @router.get("/fraccionamientos/{colegiado_id}")
@@ -1156,6 +1167,9 @@ async def registrar_pago_cuota_fracc(
     ).first()
     if not fracc:
         raise HTTPException(404, "Fraccionamiento no encontrado")
+    # Tanda 13: las cuotas de un plan que ya no está vigente (anulado, perdido, refinanciado…) no se cobran.
+    if (fracc.estado or "") != "activo":
+        raise HTTPException(409, f"Este plan está {fracc.estado}: sus cuotas ya no se cobran.")
 
     colegiado = db.query(Colegiado).filter(
         Colegiado.id == fracc.colegiado_id
@@ -1332,8 +1346,11 @@ async def fraccionamientos_detalle(
             SELECT id, periodo, debt_type, concept, amount, balance,
                    status, estado_gestion
             FROM debts
-            WHERE fraccionamiento_id_origen = :fid
-               OR (fraccionamiento_id = :fid AND debt_type <> 'fraccionamiento')
+            WHERE (fraccionamiento_id_origen = :fid
+               OR (fraccionamiento_id = :fid AND debt_type <> 'fraccionamiento'))
+              -- Tanda 13: la deuda «Saldo por pérdida» también apunta al plan, pero NO la absorbió
+              -- (nació de él): antes se sumaba y el aviso decía 1.998 en un plan de 1.124.
+              AND coalesce(debt_type, '') <> 'saldo_perdida_fraccionamiento'
             ORDER BY periodo NULLS LAST, id
         """), {"fid": fr.id}).fetchall()
 

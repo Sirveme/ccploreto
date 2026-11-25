@@ -732,6 +732,12 @@ async def registrar_cobro(
             ).first()
             if not deuda:
                 raise HTTPException(400, detail=f"Deuda {item.deuda_id} no encontrada o ya pagada")
+            # Tanda 13 (autorizado por Duilio — protección del dinero): un cobro solo puede imputar
+            # deudas del colegiado al que se emite la boleta. Antes se aceptaba la deuda de otro.
+            if deuda.colegiado_id != cobro.colegiado_id:
+                raise HTTPException(400, detail=(
+                    f"La deuda {item.deuda_id} no pertenece al colegiado de este cobro. "
+                    "Vuelve a buscar al colegiado y arma el cobro de nuevo."))
 
             # Para status='pending' la deuda no tiene pagos aplicados → saldo = amount.
             if deuda.status == "pending":
@@ -2469,6 +2475,21 @@ def _descripcion_legible(notes, debts_por_id=None):
     return _dl(notes, debts_por_id)
 
 
+def _pagos_con_anulacion_pendiente(db: Session, payment_ids) -> set:
+    """Tanda 13 (aditivo, solo lectura): ids de pago con una solicitud de anulación PENDIENTE.
+    La pantalla muestra «Anulación solicitada» y deshabilita «Anular» mientras siga pendiente;
+    si el Administrador la rechaza, deja de estar pendiente y el botón vuelve a habilitarse."""
+    ids = [int(x) for x in payment_ids if x]
+    if not ids:
+        return set()
+    try:
+        from app.models import SolicitudAnulacion
+        return {r[0] for r in db.query(SolicitudAnulacion.payment_id).filter(
+            SolicitudAnulacion.payment_id.in_(ids), SolicitudAnulacion.estado == "pendiente").all()}
+    except Exception:
+        return set()
+
+
 @router.get("/historial-cobros")
 async def historial_cobros(
     fecha: str,
@@ -2500,6 +2521,7 @@ async def historial_cobros(
 
     from app.utils.notas_pago import descripcion_legible as _desc_legible, mapa_deudas_para_notas as _mapa_notas
     _mapa = _mapa_notas(db, [p.notes for p in cobros])
+    _pend_anul = _pagos_con_anulacion_pendiente(db, [p.id for p in cobros])   # tanda 13
 
     operaciones = []
     for p in cobros:
@@ -2525,6 +2547,7 @@ async def historial_cobros(
             "reviewed_at": hora_peru.isoformat() if hora_peru else None,
             "numero_comprobante": numero_comprobante,
             "status": p.status,
+            "anulacion_pendiente": p.id in _pend_anul,   # tanda 13 (aditivo)
         })
 
     return {"operaciones": operaciones}
@@ -2957,6 +2980,8 @@ async def listar_comps(
         Comprobante.created_at.desc()
     ).offset((page - 1) * limit).limit(limit).all()
 
+    _pend_anul = _pagos_con_anulacion_pendiente(db, [c.payment_id for c in comprobantes])   # tanda 13
+
     def _serialize(c):
         estado_label, estado_color = get_estado_display(c)
         return {
@@ -2977,6 +3002,7 @@ async def listar_comps(
             "comprobante_ref_id": c.comprobante_ref_id,
             "observaciones": c.observaciones,
             "sunat_response_description": c.sunat_response_description or "",
+            "anulacion_pendiente": bool(c.payment_id) and c.payment_id in _pend_anul,   # tanda 13 (aditivo)
         }
 
     return {
