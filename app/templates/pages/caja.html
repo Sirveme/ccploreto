@@ -974,6 +974,7 @@
 <!-- Scripts -->
 <!-- Flag de permiso NC (la JS estática no renderiza Jinja; se inyecta aquí). -->
 <script>window.CAJA_PUEDE_NC = {{ 'true' if puede_emitir_nc else 'false' }};</script>
+{% include "partials/condiciones_fracc.html" %}
 <script src="/static/js/pages/caja.js?v={{ asset_v('js/pages/caja.js') }}"></script>
 <script src="/static/js/pages/caja_correccion.js?v={{ asset_v('js/pages/caja_correccion.js') }}"></script>
 <!-- zClaude-95: módulo Bingazo. Expone window.BingazoPanel.
