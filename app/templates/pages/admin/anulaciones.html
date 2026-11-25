@@ -39,7 +39,7 @@
 
   <!-- Solicitudes pendientes -->
   <div class="sect">
-    <h2><i class="ph ph-hourglass-medium"></i> Solicitudes pendientes ({{ pendientes|length }})</h2>
+    <h2><i class="ph ph-hourglass-medium"></i> Solicitudes pendientes (<span id="cnt-pend">{{ pendientes|length }}</span>)</h2>
     {% if pendientes %}
       {% for p in pendientes %}
       <div class="card" id="sol-{{ p.id }}">
@@ -63,9 +63,8 @@
         </div>
       </div>
       {% endfor %}
-    {% else %}
-      <div class="empty">Sin solicitudes pendientes.</div>
     {% endif %}
+    <div class="empty" id="sin-pend" {% if pendientes %}style="display:none"{% endif %}>Sin solicitudes pendientes.</div>
   </div>
 
   <!-- Historial de NC -->
@@ -97,7 +96,7 @@
           <td>{{ h.motivo }}{% if h.solicitante %}<br><span style="color:#64748b;font-size:11px;">por {{ h.solicitante }}</span>{% endif %}</td>
           <td class="num">S/ {{ '%.2f'|format(h.total) }}</td>
           <td>{{ h.status }}</td>
-          <td>{{ h.fecha.strftime('%d/%m/%Y') if h.fecha else '—' }}</td>
+          <td>{{ h.fecha.strftime('%d/%m/%Y %H:%M') if h.fecha else '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -128,7 +127,12 @@ async function resolver(id, accion, btn) {
     if (d.success) {
       if (window.Toast) Toast.show(accion === 'aprobar' ? ('NC emitida ' + (d.nota_credito || '')) : 'Solicitud rechazada', 'success');
       const card = document.getElementById('sol-' + id); if (card) card.remove();
-      setTimeout(() => location.reload(), 700);
+      // Tanda 13: el contador de pendientes baja en el acto (no depende de la recarga).
+      const cnt = document.getElementById('cnt-pend');
+      const quedan = document.querySelectorAll('[id^="sol-"]').length;
+      if (cnt) cnt.textContent = String(quedan);
+      const vacio = document.getElementById('sin-pend'); if (vacio && quedan === 0) vacio.style.display = '';
+      setTimeout(() => location.reload(), 700);   // trae el historial de NC al día (la más reciente primero)
     } else {
       if (window.Toast) Toast.show(d.detail || 'No se pudo procesar', 'error');
       btn.disabled = false; btn.textContent = accion === 'aprobar' ? 'Aprobar y emitir NC' : 'Rechazar';
