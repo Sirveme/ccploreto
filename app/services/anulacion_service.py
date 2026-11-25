@@ -263,7 +263,7 @@ def listar_historial_nc(db: Session, org_id: int, *, fecha_desde=None, fecha_has
         LEFT JOIN colegiados c ON c.id = p.colegiado_id
         LEFT JOIN solicitud_anulacion sa ON sa.nc_comprobante_id = nc.id
         WHERE {w}
-        ORDER BY nc.created_at DESC
+        ORDER BY nc.created_at DESC NULLS LAST, nc.id DESC   -- tanda 13: la más reciente primero, siempre
         LIMIT :lim
     """), params).fetchall()
     _tn = {"01": "Factura", "03": "Boleta"}

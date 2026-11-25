@@ -59,6 +59,7 @@ def detectar_candidatos_perdida(
     ejecutar: bool = False,
     user_id=None,
     solo_sanos: bool = True,
+    incluir_lote: bool = False,
 ) -> dict:
     """Detecta (read-only por defecto) los fraccionamientos ACTIVOS que cumplen la
     condición de PÉRDIDA: >= `cuotas_impagas_perdida` cuotas CONSECUTIVAS vencidas
@@ -112,9 +113,12 @@ def detectar_candidatos_perdida(
             c.fecha_vencimiento for c in f.cuotas if c.fecha_vencimiento is not None
         })
         es_sano = distinct_venc > 1
-        if solo_sanos and not es_sano:
+        if solo_sanos and not es_sano and not incluir_lote:
             continue          # deja fuera el batch sin conciliar
-        total_operables += 1
+        # Tanda 13: con incluir_lote, el lote migrado se lista APARTE («requiere conciliación», sin pérdida)
+        # y NO cuenta como operable.
+        if es_sano or not solo_sanos:
+            total_operables += 1
         consecutivas = _contar_consecutivas_vencidas(f.cuotas, hoy)
         if consecutivas < umbral:
             continue
@@ -123,6 +127,9 @@ def detectar_candidatos_perdida(
         # (batch mal formado). La vista lo separa de los candidatos reales y le oculta
         # el botón de pérdida (requiere conciliación antes de decidir). Solo lectura.
         cuota_inicial_pagada = bool(f.cuota_inicial_pagada)
+        # Tanda 13: si el colegiado tiene OTRO plan activo (p. ej. uno del lote migrado por la misma deuda),
+        # no es operable: requiere conciliación.
+        otro_activo = any(g.colegiado_id == f.colegiado_id and g.id != f.id for g in fraccs)
         candidatos.append({
             "distinct_venc":        distinct_venc,
             "fraccionamiento_id":   f.id,
@@ -140,14 +147,19 @@ def detectar_candidatos_perdida(
             "saldo_pendiente":      float(f.saldo_pendiente or 0),
             "cuota_inicial_pagada": cuota_inicial_pagada,
             "contaminado":          not cuota_inicial_pagada,
+            "lote_migrado":         not es_sano,
+            "otro_plan_activo":     otro_activo,
+            # Operable = se puede decidir la pérdida: cronograma real, cuota inicial pagada y plan único.
+            "operable":             es_sano and cuota_inicial_pagada and not otro_activo,
         })
 
-    candidatos.sort(key=lambda c: (-c["consecutivas_impagas"], -c["saldo_pendiente"]))
+    # Tanda 13: primero los operables; después los que requieren conciliación.
+    candidatos.sort(key=lambda c: (0 if c["operable"] else 1, -c["consecutivas_impagas"], -c["saldo_pendiente"]))
 
     # ── rama AUTOMÁTICA (apagada por el parámetro; hoy nunca entra) ──
     ejecutados = []
     if ejecutar and auto:
-        for c in candidatos:
+        for c in [x for x in candidatos if x["operable"]]:   # tanda 13: nunca el lote ni los no operables
             try:
                 res = marcar_fracc_perdido_core(
                     db, c["fraccionamiento_id"],
@@ -159,7 +171,8 @@ def detectar_candidatos_perdida(
             except FraccPerdidoError as e:
                 ejecutados.append({"fraccionamiento_id": c["fraccionamiento_id"], "error": e.detail})
 
-    total_contaminados = sum(1 for c in candidatos if c["contaminado"])
+    total_contaminados = sum(1 for c in candidatos if c["contaminado"] and not c["lote_migrado"])
+    total_lote = sum(1 for c in candidatos if c["lote_migrado"])
     return {
         "modo":               "AUTOMATICO" if auto else "MANUAL",
         "perdida_automatica": auto,
@@ -169,8 +182,9 @@ def detectar_candidatos_perdida(
         "total_activos":      len(fraccs),
         "total_operables":    total_operables,   # sanos evaluados (si solo_sanos)
         "total_candidatos":   len(candidatos),
-        "total_reales":       len(candidatos) - total_contaminados,   # cuota inicial pagada
-        "total_contaminados": total_contaminados,                     # cuota inicial impaga
+        "total_reales":       sum(1 for c in candidatos if c["operable"]),   # operables: se puede decidir
+        "total_contaminados": total_contaminados,                     # cuota inicial impaga (cronograma real)
+        "total_lote":         total_lote,                             # lote migrado (requiere conciliación)
         "candidatos":         candidatos,
         "ejecutados":         ejecutados,
     }
@@ -193,7 +207,9 @@ def _datos_perdida(db: Session, fracc_id: int, bloquear: bool = False):
     lock = " FOR UPDATE" if bloquear else ""
     fr = db.execute(text("""
         SELECT f.id, f.numero_solicitud, f.colegiado_id, f.organization_id, f.estado, f.deuda_total_original,
-               f.saldo_pendiente, c.codigo_matricula mat, c.apellidos_nombres nombre, c.condicion, c.member_id
+               f.saldo_pendiente, c.codigo_matricula mat, c.apellidos_nombres nombre, c.condicion, c.member_id,
+               (SELECT count(DISTINCT q.fecha_vencimiento) FROM fraccionamiento_cuotas q
+                 WHERE q.fraccionamiento_id = f.id AND q.fecha_vencimiento IS NOT NULL) distinct_venc
         FROM fraccionamientos f JOIN colegiados c ON c.id = f.colegiado_id
         WHERE f.id = :fid""" + (" FOR UPDATE OF f" if bloquear else "")), {"fid": fracc_id}).fetchone()
     if not fr:
@@ -240,6 +256,9 @@ def _validar(fr, originales, saldo):
             "No se puede declarar la pérdida sin antes conciliar la deuda del colegiado.")
     if saldo <= 0.005:
         raise FraccPerdidoError(409, "Este plan no tiene saldo por pagar: no hay pérdida que declarar.")
+    if getattr(fr, "distinct_venc", 2) is not None and getattr(fr, "distinct_venc", 2) <= 1:
+        raise FraccPerdidoError(409, "Este plan es del lote migrado (todas sus cuotas con un mismo vencimiento): "
+                                     "requiere conciliación antes de decidir su pérdida.")
 
 
 def previsualizar_perdida(db: Session, fracc_id: int) -> dict:
@@ -301,6 +320,14 @@ def marcar_fracc_perdido_core(
                     WHERE id = :did AND debt_type = 'fraccionamiento' AND status IN ('pending','partial')"""),
                            {"did": x["debt_id"], "nota": salto + "%s Cuota cerrada por pérdida del plan." % sello})
             cerradas.append(x["numero"])
+        # 2b) Tanda 13: planes antiguos tienen las cuotas SIN enlace a su deuda espejo (debt_id vacío);
+        #     sus espejos se ubican por el plan. Sin esto quedaban pendientes y Caja los seguía
+        #     ofreciendo junto a la deuda nueva (doble cobro). Las pagadas no se tocan.
+        db.execute(text("""
+            UPDATE debts SET balance = 0, status = 'cancelled', estado_gestion = 'reemplazada', updated_at = NOW(),
+                   notes = COALESCE(notes,'') || :nota
+            WHERE fraccionamiento_id = :fid AND debt_type = 'fraccionamiento' AND status IN ('pending','partial')"""),
+                   {"fid": fracc_id, "nota": salto + "%s Cuota cerrada por pérdida del plan." % sello})
         # 3) Una sola deuda por lo que quedaba por pagar.
         nueva_id = db.execute(text("""
             INSERT INTO debts (organization_id, colegiado_id, member_id, concept, periodo, period_label, debt_type,

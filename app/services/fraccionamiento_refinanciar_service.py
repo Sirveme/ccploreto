@@ -87,6 +87,16 @@ def _planificar_refinanciamiento(
     colegiado = old.colegiado
     if colegiado is None:
         raise RefinanciarError(404, "Colegiado del fraccionamiento no encontrado")
+    # Tanda 13: si el colegiado tiene OTRO plan activo (p. ej. uno del lote migrado por la misma deuda),
+    # refinanciar este dejaría vivo el duplicado → requiere conciliación primero.
+    otro = db.query(Fraccionamiento.id).filter(
+        Fraccionamiento.colegiado_id == old.colegiado_id,
+        Fraccionamiento.estado == "activo",
+        Fraccionamiento.id != old.id,
+    ).first()
+    if otro is not None:
+        raise RefinanciarError(409, "El colegiado tiene otro plan activo (puede ser la misma deuda dos veces): "
+                                    "requiere conciliación antes de refinanciar.")
 
     deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct = \
         _resolver_parametros_fracc(db, old.organization_id)
@@ -273,54 +283,13 @@ def _ejecutar_refinanciamiento(
         WHERE id = :fid
     """), {"fid": old.id})
 
-    # 6. Registrar el PAGO INICIAL externo (patrón Zamora) sobre la cuota 0 del nuevo.
-    pago = Payment(
-        organization_id=old.organization_id,
-        colegiado_id=old.colegiado_id,
-        amount=plan["monto_inicial"],
-        currency="PEN",
-        payment_method=metodo_pago_inicial,
-        operation_code=operacion_inicial,
-        status="approved",
-        notes=f"[REFINANCIAMIENTO] cuota inicial del plan {nuevo.numero_solicitud} "
-              f"(refinancia {old.numero_solicitud})",
-    )
-    db.add(pago)
-    db.flush()
-    pago_res = pagar_cuota_fraccionamiento(
-        db=db,
-        fraccionamiento_id=nuevo.id,
-        numero_cuota=0,
-        monto=plan["monto_inicial"],
-        metodo_pago=metodo_pago_inicial,
-        operador_nota=f"[REFINANCIAMIENTO] inicial externa user{user_id}",
-        payment_obj=pago,
-    )
-
-    # 7. HABILIDAD por CONCESIÓN del inicial (igual que el flujo real de pago-cuota,
-    #    secretaria.py:1139-1148). NO se usa sincronizar_condicion: con fracc activo su
-    #    guard NO rehabilita (evaluar_habilidad.py:310), dejaría al colegiado INHÁBIL.
-    #    Refinanciar → HÁBIL (coherente con Fraccionar→Hábil). Validado en el caso
-    #    manual de Fiorella.
-    #    🔗 unificar-writers: el motor NO sabe "habilitar por concesión"; por eso cada
-    #    flujo positivo (pago, refinanciamiento) trae su propio writer de concesión.
-    #    Cuando se unifiquen los writers, esta lógica de "concesión habilita" debe vivir
-    #    en UN solo lugar. Asimetría a preservar: refinanciar/pago HABILITAN por concesión;
-    #    pérdida INHABILITA por re-evaluación del motor.
+    # 6-7. Tanda 13 (decisión de Duilio): la inicial ya NO se registra aquí como pago "sin comprobante".
+    #      Igual que «Crear fraccionamiento» en Caja: el plan nuevo nace con la INICIAL PENDIENTE (su cuota 0
+    #      queda como deuda) y se cobra en Caja con boleta. Al cobrarla, Caja marca la cuota y concede la
+    #      habilidad (mismo circuito que un plan nuevo). La condición actual del colegiado no se toca aquí.
+    pago_res = None
     reevaluacion = None
-    if reevaluar_habilidad and colegiado is not None:
-        cond_previa = colegiado.condicion
-        from app.utils.habilidad_fecha import fin_de_mes, vence_hasta
-        fin_mes = fin_de_mes(ahora)                       # día, en hora de Lima
-        colegiado.condicion = "habil"
-        colegiado.habilidad_vence = vence_hasta(fin_mes)  # fecha sin hora (00:00 UTC)
-        colegiado.fecha_actualizacion_condicion = ahora
-        reevaluacion = {
-            "condicion_previa": cond_previa,
-            "condicion_nueva": colegiado.condicion,
-            "cambio": cond_previa != colegiado.condicion,
-            "habilidad_vence": fin_mes.isoformat(),
-        }
+    cuota_inicial_debt_id = getattr(resultado, "cuota_inicial_debt_id", None)
 
     # 8. Flag + commit único.
     refrescar_flag_fraccionamiento(db, old.colegiado_id)
@@ -343,6 +312,10 @@ def _ejecutar_refinanciamiento(
         "advertencia_inicial": resultado.advertencia_inicial,
         "pago_inicial": pago_res,
         "reevaluacion_habilidad": reevaluacion,
+        # Tanda 13: la inicial queda PENDIENTE y se cobra en Caja con boleta.
+        "inicial_pendiente": True,
+        "cuota_inicial_debt_id": cuota_inicial_debt_id,
+        "monto_inicial": plan["monto_inicial"],
     }
 
 

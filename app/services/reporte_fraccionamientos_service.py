@@ -6,7 +6,9 @@ Secciones:
   1. fraccionables  — colegiados SIN plan activo cuya deuda única (la misma de la ficha y la
                       habilidad) alcanza el mínimo para fraccionar de Parámetros.
   2. perdidos       — planes perdidos a la fecha, con su deuda de saldo por pérdida.
-  3. refinanciar    — candidatos a refinanciar: planes activos SANOS (escalonados) con atraso.
+  3. refinanciar    — candidatos a refinanciar: planes activos SANOS (escalonados) con atraso, y que sean
+                      el ÚNICO plan activo del colegiado (tanda 13: si convive con un plan del lote migrado,
+                      es la misma deuda dos veces → requiere conciliación, no refinanciar).
   4. atrasados      — planes activos con atraso, por días desde la cuota impaga más antigua:
                       1–30, 31–60, 61–90 y más de 90.
 """
@@ -83,6 +85,7 @@ def _activos_con_atraso(db: Session, org: int = 1):
     rows = db.execute(text("""
         SELECT f.id, f.numero_solicitud, f.saldo_pendiente, c.codigo_matricula mat, c.apellidos_nombres nombre, c.condicion,
                (SELECT count(DISTINCT q.fecha_vencimiento) FROM fraccionamiento_cuotas q WHERE q.fraccionamiento_id = f.id) > 1 AS escalonado,
+               (SELECT count(*) FROM fraccionamientos g WHERE g.colegiado_id = f.colegiado_id AND g.estado = 'activo' AND g.id <> f.id) AS otros_activos,
                (SELECT min(q.fecha_vencimiento) FROM fraccionamiento_cuotas q WHERE q.fraccionamiento_id = f.id
                        AND NOT coalesce(q.pagada,false) AND q.fecha_vencimiento < :hoy) mas_antigua,
                (SELECT count(*) FROM fraccionamiento_cuotas q WHERE q.fraccionamiento_id = f.id
@@ -99,7 +102,8 @@ def _activos_con_atraso(db: Session, org: int = 1):
         tramo = next(k for k, a, b in TRAMOS if a <= dias <= b)
         out.append({"plan": r.numero_solicitud, "matricula": r.mat, "nombre": r.nombre, "condicion": r.condicion,
                     "saldo_plan": float(r.saldo_pendiente or 0), "cuotas_vencidas": int(r.vencidas), "monto_vencido": float(r.monto_vencido or 0),
-                    "dias_atraso": dias, "tramo": tramo, "escalonado": bool(r.escalonado)})
+                    "dias_atraso": dias, "tramo": tramo, "escalonado": bool(r.escalonado),
+                    "otro_plan_activo": int(r.otros_activos or 0) > 0})
     out.sort(key=lambda x: -x["dias_atraso"])
     return out
 
@@ -108,7 +112,7 @@ def generar(db: Session, org: int = 1) -> dict:
     fr, minimo = fraccionables(db, org)
     pe = perdidos(db, org)
     at = _activos_con_atraso(db, org)
-    re_ = [x for x in at if x["escalonado"]]
+    re_ = [x for x in at if x["escalonado"] and not x["otro_plan_activo"]]   # tanda 13
     tramos = []
     for k, _, _ in TRAMOS:
         xs = [x for x in at if x["tramo"] == k]
@@ -146,7 +150,8 @@ COLUMNAS = {
 def _filas_seccion(d, sec):
     xs = d[sec]
     if sec == "atrasados":
-        xs = [dict(x, tramo_txt=ETIQUETA_TRAMO[x["tramo"]], tipo_txt="escalonado" if x["escalonado"] else "lote migrado") for x in xs]
+        xs = [dict(x, tramo_txt=ETIQUETA_TRAMO[x["tramo"]], tipo_txt=("lote migrado" if not x["escalonado"] else
+                                                 ("escalonado · otro plan activo" if x["otro_plan_activo"] else "escalonado"))) for x in xs]
     return xs
 
 
