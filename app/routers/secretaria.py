@@ -1251,6 +1251,11 @@ async def registrar_pago_cuota_fracc(
         )
     elif info_cuota["habilidad_hasta"]:
         nueva = datetime.strptime(info_cuota["habilidad_hasta"], "%Y-%m-%d").date()
+        # Tanda 16: una cuota adelantada no da habilidad más allá de lo que cubre el plan,
+        # y la fecha nunca se acorta si ya era mayor por otro motivo (app/utils/habilidad_plan.py).
+        from app.utils.habilidad_plan import limitar as _limitar_hab_plan, no_acortar as _no_acortar
+        nueva = _no_acortar(colegiado.habilidad_vence,
+                            _limitar_hab_plan(db, datos.fraccionamiento_id, nueva, ahora.date()))
         colegiado.condicion = "habil"
         colegiado.habilidad_vence = vence_hasta(nueva)
         colegiado.fecha_actualizacion_condicion = ahora

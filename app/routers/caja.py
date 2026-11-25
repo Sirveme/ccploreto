@@ -309,16 +309,14 @@ async def buscar_colegiado(
 
     colegiados = query.limit(20).all()
 
+    # Tanda 15: la deuda del buscador y de la cabecera es LA misma que la de Secretaría, la ficha
+    # y el motor de habilidad (deuda_total_colegiado). Antes sumaba el monto ORIGINAL de toda deuda
+    # pendiente, incluidas las marcadas como condonadas que conservaban saldo.
+    from app.services.conciliacion_deuda_service import _detalle_deuda
     resultados = []
     for col in colegiados:
-        deudas_info = db.query(
-            func.count(Debt.id).label("cantidad"),
-            func.coalesce(func.sum(Debt.amount), 0).label("total"),
-        ).filter(
-            Debt.colegiado_id == col.id,
-            Debt.status.in_(["pending", "partial"]),
-            excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
-        ).first()
+        _det = _detalle_deuda(db, col.id, col.organization_id or 1)
+        _n = len(_det["deuda_ids"]) + (1 if _det.get("plan_activo") else 0)
 
         resultados.append(BuscarColegiadoResponse(
             id=col.id,
@@ -333,8 +331,8 @@ async def buscar_colegiado(
             es_transeunte=bool(getattr(col, 'es_transeunte', False)),
             fecha_fin_transeunte=(col.fecha_fin_transeunte.isoformat()
                                   if getattr(col, 'fecha_fin_transeunte', None) else None),
-            total_deuda=float(deudas_info.total or 0),
-            deudas_pendientes=int(deudas_info.cantidad or 0),
+            total_deuda=float(_det["total"] or 0),
+            deudas_pendientes=_n,
         ))
 
     return resultados
@@ -915,6 +913,7 @@ async def registrar_cobro(
     )
     _pago_inicial_fracc = False
     _hab_hasta_fracc = None
+    _fracc_hab_id = None
     for _dp in deudas_a_pagar:
         _d = _dp["deuda"]
         if getattr(_d, "debt_type", None) != "fraccionamiento" or not getattr(_d, "fraccionamiento_id", None):
@@ -949,6 +948,7 @@ async def registrar_cobro(
             _hh = date.fromisoformat(_res_fx["habilidad_hasta"])
             if _hab_hasta_fracc is None or _hh > _hab_hasta_fracc:
                 _hab_hasta_fracc = _hh
+                _fracc_hab_id = _d.fraccionamiento_id   # tanda 16: plan de la cuota más lejana
         # enlace cuota -> deuda espejo (debt_id no mapeado en ORM -> SQL crudo)
         db.execute(text("UPDATE fraccionamiento_cuotas SET debt_id=:d WHERE id=:cid"),
                    {"d": _d.id, "cid": _cuota.id})
@@ -964,6 +964,11 @@ async def registrar_cobro(
         colegiado.habilidad_vence = vence_hasta(_fin_mes)  # fecha sin hora (00:00 UTC)
         colegiado.fecha_actualizacion_condicion = ahora
     # Cuota mensual pagada: hábil hasta el fin del mes de esa cuota (nunca acorta).
+    # Tanda 16: si el cobro adelanta cuotas o completa el plan, no pasa del fin del último
+    # periodo que cubren las deudas del plan (ni de la cuota del mes): app/utils/habilidad_plan.py
+    if _hab_hasta_fracc is not None and _fracc_hab_id:
+        from app.utils.habilidad_plan import limitar as _limitar_hab_plan
+        _hab_hasta_fracc = _limitar_hab_plan(db, _fracc_hab_id, _hab_hasta_fracc, ahora.date())   # ahora = hora de Lima
     if _hab_hasta_fracc is not None and colegiado is not None and \
        colegiado.condicion not in ("vitalicio", "fallecido", "retirado"):
         _actual = fecha_habilidad(colegiado.habilidad_vence)
