@@ -364,7 +364,10 @@ FRANJA_HTML = (
     '.caja-layout,.sec-layout,body>.app{height:calc(100vh - 26px)!important;height:calc(100dvh - 26px)!important}'
     '@media print{#sbx-franja{position:static}}</style>'
     '<div id="sbx-franja" role="status" aria-live="polite">' + TEXTO_FRANJA + '</div>'
+    # Tanda 13: marca para las pantallas (Caja): los comprobantes se rotulan «SIMULADO — SIN VALOR TRIBUTARIO».
+    '<script>window.CCPL_SANDBOX=true;</script>'
 )
+ROTULO_COMPROBANTE = "SIMULADO — SIN VALOR TRIBUTARIO"
 
 ROBOTS_TXT = "User-agent: *\nDisallow: /\n"
 _ABIERTAS = (RUTA_INGRESO, "/static/", "/favicon.ico", "/robots.txt", "/auth/logout", "/manifest.json")
@@ -441,7 +444,7 @@ def instalar(app):
         fid = "SBX-%d-%d" % (int(time.time()), n)
         comp = {"id": fid, "numero": numero, "serie": serie, "estado": "aceptado",
                 "numero_formato": "%s-%08d" % (serie, int(numero)), "codigo_sunat": "0",
-                "mensaje_sunat": "Aceptado (SIMULADO en ambiente de prueba, no enviado a SUNAT)",
+                "mensaje_sunat": ROTULO_COMPROBANTE + " (ambiente de prueba, no enviado a SUNAT)",
                 "hash_cpe": "SIMULADO"}
         _emitidos[fid] = comp
         return {"exito": True, "comprobante": comp, "archivos": {"pdf_url": None, "xml_url": None, "cdr_url": None}}
@@ -463,11 +466,27 @@ def instalar(app):
         from reportlab.pdfgen import canvas
         buf = io.BytesIO()
         cv = canvas.Canvas(buf, pagesize=A5)
-        cv.setFont("Helvetica-Bold", 14)
-        cv.drawString(40, 520, "AMBIENTE DE PRUEBA")
+        comp = _emitidos.get(fid) or {}
+        cv.setFont("Helvetica-Bold", 16)
+        cv.setFillColorRGB(0.6, 0.1, 0.1)
+        cv.drawString(40, 530, ROTULO_COMPROBANTE)
+        cv.setFillColorRGB(0, 0, 0)
+        cv.setFont("Helvetica-Bold", 12)
+        cv.drawString(40, 506, "AMBIENTE DE PRUEBA")
         cv.setFont("Helvetica", 11)
-        cv.drawString(40, 498, "Comprobante SIMULADO: no es válido ni fue enviado a SUNAT.")
-        cv.drawString(40, 480, "Referencia: %s" % fid[:40])
+        cv.drawString(40, 486, "Comprobante simulado: no es válido ni fue enviado a SUNAT.")
+        if comp.get("numero_formato"):
+            cv.drawString(40, 468, "Número: %s" % comp["numero_formato"])
+        cv.drawString(40, 450, "Referencia: %s" % fid[:40])
+        # Marca de agua diagonal
+        cv.saveState()
+        cv.setFont("Helvetica-Bold", 34)
+        cv.setFillColorRGB(0.85, 0.85, 0.85)
+        cv.translate(210, 260)
+        cv.rotate(35)
+        cv.drawCentredString(0, 0, "SIMULADO")
+        cv.drawCentredString(0, -40, "SIN VALOR TRIBUTARIO")
+        cv.restoreState()
         cv.showPage()
         cv.save()
         return Response(buf.getvalue(), media_type="application/pdf")
