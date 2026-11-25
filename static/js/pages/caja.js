@@ -184,9 +184,14 @@ function fmtMetodo(m) {
 /**
  * Badge de estado para comprobantes
  */
+/* Tanda 13 — en el ambiente de prueba (marca que inyecta app/utils/sandbox.py) los comprobantes
+   son simulados: nunca se rotulan «ACEPTADO SUNAT». En producción la marca no existe. */
+function _esSandbox() { return window.CCPL_SANDBOX === true; }
+const ROTULO_SIMULADO = 'SIMULADO — SIN VALOR TRIBUTARIO';
+
 function statusBadge(s) {
     const map = {
-        accepted: ['ACEPTADO SUNAT', 'st-ok'],
+        accepted: [_esSandbox() ? ROTULO_SIMULADO : 'ACEPTADO SUNAT', _esSandbox() ? 'st-warn' : 'st-ok'],
         pending:  ['EN COLA',        'st-warn'],
         encolado: ['EN COLA',        'st-warn'],
         rejected: ['RECHAZADO',      'st-err'],
@@ -333,24 +338,58 @@ function mostrarApertura() {
     }, 300);
 }
 
+/* Tanda 12 — el aviso (toast) queda DETRÁS de la ventana de apertura (capa 5000 opaca vs 3000):
+   el rechazo del servidor se muestra dentro de la ventana, debajo del botón. */
+function _aperturaMsg(texto) {
+    const ov = document.getElementById('aperturaOverlay');
+    let el = document.getElementById('aperturaMsg');
+    if (!el && ov) {
+        el = document.createElement('div');
+        el.id = 'aperturaMsg';
+        el.setAttribute('role', 'alert');
+        el.style.cssText = 'margin-top:12px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.4;' +
+            'background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45);color:#fecaca;text-align:left;display:none';
+        const btn = ov.querySelector('.btn-abrir');
+        (btn ? btn.parentNode : (ov.querySelector('.apertura-box') || ov)).appendChild(el);
+    }
+    if (!el) return;
+    el.textContent = texto || '';
+    el.style.display = texto ? 'block' : 'none';
+}
+function _textoDetalle(d, porDefecto) {
+    const det = d && d.detail;
+    if (typeof det === 'string') return det;
+    if (det && typeof det === 'object' && !Array.isArray(det)) return det.error || det.mensaje || det.msg || porDefecto;
+    if (Array.isArray(det) && det.length) return det.map(x => (x && x.msg) || String(x)).join(' · ');
+    return (d && (d.mensaje || d.error)) || porDefecto;
+}
+
 async function ejecutarApertura() {
     const m = parseFloat(document.getElementById('aperturaMontoInput').value) || 0;
     const c = parseInt(document.getElementById('aperturaCentro').value) || 1;
+    const btn = document.querySelector('#aperturaOverlay .btn-abrir');
+    const txtBtn = btn ? btn.textContent : '';
+    _aperturaMsg('');
+    if (btn) { btn.disabled = true; btn.textContent = 'Abriendo…'; }
     try {
         const r = await fetch(`${API}/abrir-caja`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ monto_apertura: m, centro_costo_id: c })
         });
-        const d = await r.json();
-        if (d.success) {
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.success) {
             document.getElementById('aperturaOverlay').classList.remove('active');
             toast(d.mensaje, 'ok');
             verificarSesion();
         } else {
-            toast(d.detail?.error || d.detail || 'Error', 'err');
+            _aperturaMsg(_textoDetalle(d, 'No se pudo abrir la caja (error ' + r.status + ').'));
         }
-    } catch (e) { toast('Error', 'err'); }
+    } catch (e) {
+        _aperturaMsg('No se pudo conectar con el servidor. Revisa la conexión e intenta de nuevo.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = txtBtn || 'Abrir Caja'; }
+    }
 }
 
 function abrirCajaUI() {
@@ -556,10 +595,27 @@ function selColById(id) {
     if (col) selCol(col);
 }
 
-function selCol(col) {
-    colActual = col;
-    document.getElementById('searchResults').classList.remove('active');
-    document.getElementById('searchInput').value = '';
+/* Tanda 13 — la cabecera del colegiado se actualiza sola tras un cobro o al crear un plan:
+   vuelve a pedir sus datos (misma búsqueda que la pantalla) y repinta condición y deuda,
+   sin reabrir el modal ni cambiar de pestaña. */
+async function refrescarCabeceraCol() {
+    if (!colActual) return;
+    const id = colActual.id;
+    const q = (colActual.dni && String(colActual.dni).length >= 7) ? String(colActual.dni) : (colActual.codigo_matricula || '');
+    if (!q) return;
+    try {
+        const r = await fetch(`${API}/buscar-colegiado?q=${encodeURIComponent(q)}`);
+        if (!r.ok) return;
+        const arr = await r.json();
+        const nuevo = (arr || []).find(x => x.id === id);
+        if (nuevo && colActual && colActual.id === id) {
+            colActual = nuevo;
+            _pintarCabeceraCol(nuevo);
+        }
+    } catch (e) { /* silencioso: la cabecera queda como estaba */ }
+}
+
+function _pintarCabeceraCol(col) {
     document.getElementById('colCard').classList.add('active');
     document.getElementById('colAvatar').textContent = col.apellidos_nombres.split(' ').slice(0, 2).map(n => n[0]).join('');
     document.getElementById('colName').textContent = col.apellidos_nombres;
@@ -595,6 +651,24 @@ function selCol(col) {
     } else if (bTrans) {
         bTrans.remove();
     }
+}
+
+function selCol(col) {
+    // Tanda 13: al cambiar de colegiado, el carrito NO conserva deudas del anterior (se cobrarían a otro).
+    if (colActual && colActual.id !== col.id) {
+        const antes = carrito.length;
+        carrito = carrito.filter(i => i.tipo !== 'deuda');
+        if (carrito.length !== antes) {
+            renderCarrito();
+            toast('Se quitaron del carrito las deudas del colegiado anterior', 'warn');
+        }
+        deudasDisp = [];
+        try { _deudaSel.clear(); } catch (e) {}
+    }
+    colActual = col;
+    document.getElementById('searchResults').classList.remove('active');
+    document.getElementById('searchInput').value = '';
+    _pintarCabeceraCol(col);
     cargarDeudas(col.id);
     cambiarTab('deudas');
 
@@ -636,6 +710,7 @@ async function cargarDeudas(id) {
     try {
         const r = await fetch(`${API}/deudas/${id}`);
         const d = await r.json();
+        if (!colActual || colActual.id !== id) return;   // tanda 13: respuesta de otro colegiado
         deudasDisp = d.deudas || [];
         avisosExt = {};
         renderDeudas();
@@ -650,7 +725,7 @@ let avisosExt = {};
 function cargarAvisosExternos(id) {
     fetch(`/caja/avisos-externos/${id}`)
         .then(r => r.ok ? r.json() : {})
-        .then(a => { avisosExt = a || {}; renderDeudas(); })
+        .then(a => { if (!colActual || colActual.id !== id) return; avisosExt = a || {}; renderDeudas(); })
         .catch(() => { /* silencioso: el cobro no depende del aviso */ });
 }
 function avisoExtHtml(id) {
@@ -1360,7 +1435,7 @@ async function ejecutarCobro() {
 
             if (d.comprobante_numero) {
                 lastCompNumero = d.comprobante_numero;
-                compNum.textContent = '📄 ' + d.comprobante_numero;
+                compNum.textContent = '📄 ' + d.comprobante_numero + (_esSandbox() ? ' · ' + ROTULO_SIMULADO : '');
                 compEl.classList.add('active');
                 if (d.comprobante_pdf && lastPaymentId) {
                     const proxyUrl = `${API}/comprobante/${lastPaymentId}/pdf`;
@@ -1386,7 +1461,7 @@ async function ejecutarCobro() {
             document.getElementById('successBg').classList.add('active');
             carrito = []; renderCarrito();
             mixtoReset();  // pago mixto: recién ahora (cobro nuevo), NO al confirmar
-            if (colActual) cargarDeudas(colActual.id);
+            if (colActual) { cargarDeudas(colActual.id); refrescarCabeceraCol(); }   // tanda 13: cabecera al día
             cargarResumen();
 
             // Limpiar campos
@@ -1683,9 +1758,12 @@ function renderHistorial(data) {
                 ${compCorto ? `<span class="hi-comp">${compCorto}</span>` : ''}
                 <span class="hi-met">${met}</span>
                 ${esAnulado ? '<span class="hi-badge-anul">anulado</span>' : ''}
+                ${!esAnulado && o.anulacion_pendiente ? '<span class="hi-badge-anul" style="background:rgba(249,198,74,.15);color:#f9c64a" title="Pendiente de decisión del Administrador">Anulación solicitada</span>' : ''}
                 <span class="hi-actions">
                     ${compNum && !esAnulado ? `<button class="hi-btn-pdf" onclick="verComprobante(${o.id})" title="Ver PDF">📄</button>` : ''}
-                    ${!esAnulado ? `<button class="hi-btn-anul" onclick="mostrarAnular(${o.id},'${descLimpia.replace(/'/g, "\\'")}',${monto})">✕</button>` : ''}
+                    ${!esAnulado ? (o.anulacion_pendiente
+                        ? `<button class="hi-btn-anul" disabled style="opacity:.45;cursor:not-allowed" title="Hay una solicitud de anulación pendiente">✕</button>`
+                        : `<button class="hi-btn-anul" onclick="mostrarAnular(${o.id},'${descLimpia.replace(/'/g, "\\'")}',${monto})">✕</button>`) : ''}
                 </span>
             </div>
         </div>`;
@@ -1772,7 +1850,12 @@ async function solicitarAnulacion() {
             })
         });
         const d = await r.json().catch(() => ({}));
-        if (d.success) { cerrarModalAnular(); toast(d.mensaje || 'Solicitud enviada al Administrador', 'ok'); if (typeof cargarHistorial === 'function') cargarHistorial(); }
+        if (d.success) {
+            cerrarModalAnular(); toast(d.mensaje || 'Solicitud enviada al Administrador', 'ok');
+            if (typeof cargarHistorial === 'function') cargarHistorial();
+            // Tanda 13: la lista de comprobantes muestra «Anulación solicitada» y deshabilita «Anular».
+            if (typeof buscarComprobantes === 'function' && document.getElementById('compLista')) buscarComprobantes(compPageActual || 1);
+        }
         else { toast(d.detail || 'No se pudo enviar la solicitud', 'err'); }
     } catch (e) { toast('Error de red', 'err'); }
 }
@@ -1906,7 +1989,10 @@ function renderComprobantes(data) {
                 <span class="co-actions">
                     ${c.pdf_url ? `<button class="co-btn-pdf" onclick="window.open('/api/caja/comprobantes/${c.id}/pdf','_blank')" title="Ver PDF">📄 PDF</button>` : ''}
                     ${btnReenviar}
-                    ${c.status === 'accepted' && !esNC ? `<button class="co-btn-anul" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${numCorto}',${c.total})">Anular</button>` : ''}
+                    ${c.status === 'accepted' && !esNC ? (c.anulacion_pendiente
+                        ? `<span class="st-badge st-warn" title="Pendiente de decisión del Administrador">Anulación solicitada</span>
+                           <button class="co-btn-anul" disabled style="opacity:.45;cursor:not-allowed" title="Hay una solicitud de anulación pendiente">Anular</button>`
+                        : `<button class="co-btn-anul" onclick="mostrarAnular(${c.payment_id},'${(c.cliente_nombre || '').replace(/'/g, "\\'")} - ${numCorto}',${c.total})">Anular</button>`) : ''}
                 </span>
             </div>
         </div>`;
@@ -2371,7 +2457,9 @@ async function abrirModalInhabil(col) {
     try {
         const r = await fetch(`/api/finanzas/situacion/${col.id}`);
         if (!r.ok) throw new Error(r.status);
-        _modalSit = await r.json();
+        const _sit = await r.json();
+        if (!colActual || colActual.id !== col.id) return;   // tanda 13: llegó tarde (ya es otro colegiado)
+        _modalSit = _sit;
         document.getElementById('modal-inhabil-inner').innerHTML = _renderModal(_modalSit);
         _initSimulador(_modalSit.total);
         _startNotifAnim();
@@ -2640,11 +2728,13 @@ function _renderModal(data) {
                     ['📌',`Cuota mensual mínima: S/ ${CUOTA_MIN_D.toFixed(2)}`],
                     ['📌',`Máximo ${MAX_CUOTAS_D} cuotas mensuales`],
                     ['⭐','Al pagar la inicial: habilidad inmediata'],
-                    ['⚠️','2 cuotas impagas consecutivas: pérdida del plan'],
                 ].map(([ico,txt])=>`
                     <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11px;color:#94a3b8">
                         <span>${ico}</span><span>${txt}</span>
                     </div>`).join('')}
+                <!-- Tanda 13: la línea de pérdida sale del preset de Condiciones y del parámetro de pérdida;
+                     con la pérdida apagada no se muestra. Se rellena también cuando llegan los parámetros. -->
+                <div id="cond-linea-perdida">${_htmlLineaPerdida()}</div>
             </div>
         </div>
 
@@ -3848,6 +3938,21 @@ function _txtAvisoCuotaMin(saldo, cuotaMin, maxCuotas) {
         : `Con la cuota mínima de ${_soles(cuotaMin)}, esta deuda no alcanza para 2 cuotas: baje la inicial o elija más deuda.`;
 }
 function _maxCuotasParam() { const v = Number((_fraccParams || {}).max_cuotas); return v > 0 ? v : 12; }
+/* Tanda 13 — línea de pérdida de las «Condiciones del plan»: solo si la pérdida está encendida
+   (parámetro perdida_habilitada) y con el número de cuotas del preset de Condiciones. */
+function _lineaPerdidaPlan() {
+    const P = _fraccParams || {};
+    if (P.perdida_habilitada !== true) return '';
+    const n = parseInt(P.perdida_cuotas_consecutivas, 10);
+    if (!(n > 0)) return '';
+    return `${n} cuota${n > 1 ? 's' : ''} impaga${n > 1 ? 's' : ''} consecutiva${n > 1 ? 's' : ''}: pérdida del plan`;
+}
+function _htmlLineaPerdida() {
+    const t = _lineaPerdidaPlan();
+    return t ? `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11px;color:#94a3b8">
+                    <span>⚠️</span><span>${t}</span></div>` : '';
+}
+function _pintarLineaPerdida() { const el = document.getElementById('cond-linea-perdida'); if (el) el.innerHTML = _htmlLineaPerdida(); }
 /* Bloque de plan para los simuladores: texto de cuotas + cuadre. */
 function _bloquePlanTxt(inicial, r) {
     return `<div style="margin-top:8px;font-size:12px;font-weight:700;color:#e2e8f0;text-align:center">${_txtCuotas(r)}</div>
@@ -3872,7 +3977,9 @@ function _renderFraccSelector(deudas) {
     }
 
     const fila = (d) => {
-        const checked  = d.preseleccionada ? 'checked' : '';
+        // Tanda 13: arrancan TODAS marcadas (también las cuotas posteriores del año), para que el total
+        // coincida con el del simulador. La cajera desmarca las que no quiera (las obligatorias no).
+        const checked  = 'checked';
         const disabled = d.bloqueada      ? 'disabled' : '';
         const badgeOblig = d.bloqueada
             ? '<span style="background:#1e3a5f;color:#8ab4f8;padding:1px 6px;border-radius:4px;font-size:9px;margin-left:6px;font-weight:700;letter-spacing:.3px">OBLIGATORIA</span>'
@@ -3905,8 +4012,8 @@ function _renderFraccSelector(deudas) {
         <details class="frac-cuotas-futuras"
             style="margin:10px 0;padding:0;border:1px dashed rgba(255,255,255,.12);border-radius:8px;background:rgba(0,0,0,.15)">
             <summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;list-style:none">
-                ▶ Mostrar cuotas posteriores del año
-                (<span>${futuras.length}</span>)
+                ▶ Cuotas posteriores del año
+                (<span>${futuras.length}</span>, incluidas en el total · se pueden desmarcar)
             </summary>
             <div style="border-top:1px solid rgba(255,255,255,.06)">
                 ${futuras.map(fila).join('')}
@@ -4000,6 +4107,7 @@ function _ensureFraccParams() {
         .finally(() => {
             _fraccParamsLoading = false;
             try { _recalcFraccSel(); } catch (e) {}   // re-render con los valores ya cargados
+            try { _pintarLineaPerdida(); } catch (e) {}   // tanda 13: línea de pérdida de las condiciones
             // Re-render de los simuladores con los parámetros ya cargados (selects + cálculo).
             try { _refreshFraccNumSelects(); } catch (e) {}
             try { const a = document.getElementById('sit-fracc-n'); if (a) a.dispatchEvent(new Event('change')); } catch (e) {}
@@ -4436,6 +4544,7 @@ async function _fraccionarSeleccionado() {
             }
             toast(`✓ ${data.mensaje || 'Plan creado'}.${msgExtra}`, 'ok');
             cerrarModalInhabil();
+            refrescarCabeceraCol();   // tanda 13: condición y deuda al día sin volver a buscarlo
         } catch (e) {
             console.error('[zClaude-77] error:', e);
             toast('Error de conexión al crear el plan', 'err');
