@@ -1,0 +1,6 @@
+{#- Tanda 14 — Componente «Condiciones vigentes» del fraccionamiento.
+    Incluir una vez por página:  {% include "partials/condiciones_fracc.html" %}
+    Luego, en JS:  CondicionesFracc.pintar('contenedor')  /  CondicionesFracc.pintarMinimo('contenedor', deuda)
+    Para el portal del colegiado (más adelante): antes de pintar, CondicionesFracc.config({url: '<ruta del portal>'})
+    con un endpoint del portal que devuelva condiciones_fracc_service.condiciones_vigentes(). -#}
+<script src="/static/js/components/condiciones_fracc.js?v={{ asset_v('js/components/condiciones_fracc.js') }}"></script>
