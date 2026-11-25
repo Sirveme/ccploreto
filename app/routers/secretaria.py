@@ -32,6 +32,7 @@ from app.services.evaluar_habilidad import sincronizar_condicion
 from app.services.facturacion import FacturacionService
 from app.utils.notas_pago import descripcion_legible, mapa_deudas_para_notas, conceptos_detalle
 from app.utils.habilidad_fecha import fecha_habilidad, fin_de_mes, fmt_habilidad, vence_hasta  # tanda 8
+from app.utils.sesion_api import exigir_roles  # tanda 14: pérdida solo admin/sote
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,11 @@ def a_lima(dt, fmt: str = "%d/%m/%Y %H:%M"):
 
 
 ROLES_SECRETARIA = ("secretaria", "cajero", "tesorero", "admin", "sote")
+# Tanda 14: declarar la pérdida de un fraccionamiento solo lo hace el Administrador (y Soporte).
+# Refinanciar sigue con ROLES_SECRETARIA (incluye cajero).
+ROLES_PERDIDA = ("admin", "sote")
+MSG_SOLO_ADMIN_PERDIDA = ("Declarar la pérdida de un fraccionamiento lo hace solo el Administrador. "
+                          "Si el caso lo amerita, avísele para que lo revise.")
 
 # ============================================================
 # ROUTER API
@@ -973,6 +979,17 @@ class RegistrarPagoCuotaFraccRequest(BaseModel):
     nota: Optional[str] = None
 
 
+@router.get("/fraccionamiento/condiciones-vigentes")
+async def condiciones_vigentes_fracc(
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Tanda 14 — bloque «Condiciones vigentes» (Caja, Secretaría, Refinanciar). Solo lectura.
+    Valores desde _resolver_parametros_fracc + dia_vencimiento_plan (nada fijo)."""
+    from app.services.condiciones_fracc_service import condiciones_vigentes
+    return condiciones_vigentes(db, current_member.organization_id or 1)
+
+
 @router.get("/fraccionamientos/por-revisar")
 async def fraccionamientos_por_revisar(
     request: Request,
@@ -1470,7 +1487,7 @@ async def marcar_fracc_perdido(
     fracc_id: int,
     payload: MarcarPerdidoSchema,
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(exigir_roles(*ROLES_PERDIDA, mensaje=MSG_SOLO_ADMIN_PERDIDA)),
 ):
     """
     Marca un fraccionamiento como perdido:
@@ -1511,7 +1528,7 @@ async def marcar_fracc_perdido(
 async def perdida_preview(
     fracc_id: int,
     db: Session = Depends(get_db),
-    current_member: Member = Depends(require_secretaria),
+    current_member: Member = Depends(exigir_roles(*ROLES_PERDIDA, mensaje=MSG_SOLO_ADMIN_PERDIDA)),
 ):
     """Tanda 12 — vista previa de la pérdida (solo lectura): ya pagado, cuotas impagas que se
     cierran, deudas originales que se cierran, la deuda única que nace y la condición después."""
