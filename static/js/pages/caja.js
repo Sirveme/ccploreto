@@ -2288,7 +2288,8 @@ function renderSituacion(data) {
             </div>
             <div id="sit-fracc-result" style="font-size:11px;color:#94a3b8;text-align:center"></div>
         </div>` : (plan_activo ? `
-        <div id="sit-fracc-detalle" style="margin-top:14px"></div>` : '');
+        <div id="sit-fracc-detalle" style="margin-top:14px"></div>` : (total > 0 ? `
+        <div id="sit-fracc-min"></div>` : ''));   // tanda 14: en vez de ocultar el simulador sin aviso
 
     // Botón constancia
     const constanciaBtn = `
@@ -2346,6 +2347,8 @@ function renderSituacion(data) {
 
     // Calcular resultado inicial del simulador
     if (califica_fraccionamiento) calcSitFracc(total);
+    else if (!plan_activo && total > 0 && typeof CondicionesFracc !== 'undefined')
+        CondicionesFracc.pintarMinimo('sit-fracc-min', total);   // tanda 14
 
     // Cargar detalle del plan de fraccionamiento (si hay uno activo)
     if (plan_activo && data.colegiado?.id) {
@@ -2461,6 +2464,8 @@ async function abrirModalInhabil(col) {
         if (!colActual || colActual.id !== col.id) return;   // tanda 13: llegó tarde (ya es otro colegiado)
         _modalSit = _sit;
         document.getElementById('modal-inhabil-inner').innerHTML = _renderModal(_modalSit);
+        if (typeof CondicionesFracc !== 'undefined' && !_modalSit.califica_fraccionamiento && !_modalSit.plan_activo)
+            CondicionesFracc.pintarMinimo('msim-min-linea', _modalSit.total);   // tanda 14
         _initSimulador(_modalSit.total);
         _startNotifAnim();
     } catch(e) {
@@ -2707,10 +2712,9 @@ function _renderModal(data) {
                     </button>
                 </div>
             </div>` : `
-            <div style="text-align:center;padding:30px;color:#64748b">
-                <div style="font-size:32px;margin-bottom:8px">⚠️</div>
-                <div style="font-size:13px">Deuda mínima para fraccionar: S/ ${MONTO_MIN_D.toFixed(2)}</div>
-                <div style="font-size:12px;margin-top:4px">Deuda actual: S/ ${total.toFixed(2)}</div>
+            <!-- Tanda 14: línea sencilla del componente; el texto de abajo es el respaldo si no carga. -->
+            <div id="msim-min-linea">
+                <div class="cf-min">Fraccionamiento disponible desde S/ ${MONTO_MIN_D.toFixed(2)}; deuda actual S/ ${total.toFixed(2)}.</div>
             </div>`}
             </div>
 
@@ -4023,9 +4027,11 @@ function _renderFraccSelector(deudas) {
     wrap.innerHTML = `
         <div style="background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.18);
                     border-radius:12px;padding:14px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <span style="font-size:13px;font-weight:800;color:#a78bfa">📋 Crear fraccionamiento</span>
             </div>
+            <!-- Tanda 14: condiciones vigentes (desde Parámetros, vía servidor) -->
+            <div id="frac-condiciones"></div>
             <div style="font-size:10px;color:#64748b;margin-bottom:10px">
                 Selecciona los conceptos a incluir. Las cuotas
                 <strong style="color:#8ab4f8">OBLIGATORIAS</strong> no se pueden desmarcar.
@@ -4089,6 +4095,7 @@ function _renderFraccSelector(deudas) {
         _recalcFraccSel();
     });
     document.getElementById('frac-num-cuotas').addEventListener('input', _recalcFraccSel);
+    if (typeof CondicionesFracc !== 'undefined') CondicionesFracc.pintar('frac-condiciones');   // tanda 14
 
     _recalcFraccSel();
 }
@@ -4183,7 +4190,10 @@ function _recalcFraccSel() {
     const setWarn = (txt) => { msg.textContent = txt; msg.style.color = '#f9c64a'; btn.disabled = true; };
 
     if (seleccionado <= 0)               return setWarn('Selecciona al menos un concepto.');
-    if (seleccionado < MONTO_MIN)        return setErr(`Deuda mínima para fraccionar: S/ ${MONTO_MIN.toFixed(2)} (actual: S/ ${seleccionado.toFixed(2)}).`);
+    if (seleccionado < MONTO_MIN) {       // tanda 14: misma línea sencilla que «Condiciones vigentes»
+        const _sol = (typeof CondicionesFracc !== 'undefined' && CondicionesFracc.soles) || (v => 'S/ ' + Number(v).toFixed(2));
+        return setErr(`Fraccionamiento disponible desde ${_sol(MONTO_MIN)}; deuda seleccionada ${_sol(seleccionado)}.`);
+    }
     let _warn20 = '';
     if (inicial + 0.009 < minimo) {
         _warn20 = `⚠ Inicial bajo el sugerido (20% = ${_soles(minimo)}) — se registra igual. `;
