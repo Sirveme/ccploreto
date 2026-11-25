@@ -276,6 +276,12 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
                 venc            = cuota.fecha_vencimiento if cuota else hoy
                 nueva_habilidad = (venc.replace(day=1) + relativedelta(months=1)) - timedelta(days=1)
 
+            # Tanda 16: una cuota adelantada no da habilidad más allá de lo que cubre el plan,
+            # y la fecha nunca se acorta si ya era mayor por otro motivo (app/utils/habilidad_plan.py).
+            from app.utils.habilidad_plan import limitar as _limitar_hab_plan, no_acortar as _no_acortar, PERU_TZ as _TZ
+            from datetime import datetime as _dtm
+            nueva_habilidad = _no_acortar(colegiado.habilidad_vence if colegiado else None,
+                                          _limitar_hab_plan(db, fracc_id, nueva_habilidad, _dtm.now(_TZ).date()))
             _set_habil(colegiado, nueva_habilidad)
             logger.info(
                 f"Colegiado {fracc.colegiado_id} → HÁBIL hasta {nueva_habilidad} "
@@ -299,6 +305,7 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
                 fracc.proxima_cuota_fecha = None   # sin más cuotas pendientes
 
         # ── ¿Plan completado? ─────────────────────────────────────────────────
+        db.flush()   # tanda 17: la sesión no tiene autoflush; sin esto el conteo no ve la cuota recién pagada
         cuotas_mensuales_pagadas = db.query(FraccionamientoCuota).filter(
             FraccionamientoCuota.fraccionamiento_id == fracc_id,
             FraccionamientoCuota.numero_cuota       >= 1,
@@ -319,7 +326,13 @@ def _procesar_fraccionamiento(db: Session, pago, colegiado, payment_id: int) -> 
             )
 
             # Habilidad permanente: hasta 31 Dic del año en curso como mínimo
-            _set_habil(colegiado, dt_date(hoy.year, 12, 31), permanente=True)
+            # Tanda 16: al completar el plan, no pasa del fin del último periodo que cubre su deuda
+            # (ni de la cuota del mes); nunca acorta una fecha mayor por otro motivo.
+            from app.utils.habilidad_plan import limitar as _limitar_hab_plan, no_acortar as _no_acortar, PERU_TZ as _TZ
+            from datetime import datetime as _dtm
+            _fin = _no_acortar(colegiado.habilidad_vence if colegiado else None,
+                               _limitar_hab_plan(db, fracc_id, dt_date(hoy.year, 12, 31), _dtm.now(_TZ).date()))
+            _set_habil(colegiado, _fin, permanente=True)
             # (b) recalcular el flag desde el estado real (correcto si el colegiado
             # aún tuviera OTRO fracc activo; _set_habil por sí solo lo apagaría).
             from app.services.politicas_financieras import refrescar_flag_fraccionamiento

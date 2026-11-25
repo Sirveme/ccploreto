@@ -36,6 +36,26 @@ def _hoy_peru():
     return datetime.now(PERU_TZ).date()
 
 
+# Tanda 15-17: textos de los mensajes en lenguaje simple (no cambian la lógica).
+_ESTADO_TXT = {"activo": "vigente", "completado": "terminado", "perdido": "declarado perdido",
+               "refinanciado": "ya refinanciado", "anulado": "anulado", "cancelado": "cancelado",
+               "condonada": "condonada", "fraccionada": "dentro de un plan", "compensada": "reemplazada",
+               "anulada": "anulada", "exonerada": "exonerada", "justificada": "justificada"}
+
+
+def _sol(v) -> str:
+    """S/ 250 · S/ 250.50 (sin decimales cuando el monto es entero)."""
+    v = round(float(v or 0), 2)
+    return "S/ {:,.0f}".format(v) if abs(v - round(v)) < 0.005 else "S/ {:,.2f}".format(v)
+
+
+def _concepto(d) -> str:
+    """Nombre de una deuda para un mensaje: concepto y periodo."""
+    c = (getattr(d, "concept", None) or "Deuda").strip()
+    p = (getattr(d, "period_label", None) or getattr(d, "periodo", None) or "").strip()
+    return ("%s %s" % (c, p)).strip() if p and p not in c else c
+
+
 class RefinanciarError(Exception):
     """Error de dominio del refinanciamiento. status_code/detail para que el
     endpoint lo mapee a HTTPException sin acoplar el core a FastAPI."""
@@ -71,22 +91,20 @@ def _planificar_refinanciamiento(
 
     old = db.query(Fraccionamiento).filter(Fraccionamiento.id == fracc_viejo_id).first()
     if not old:
-        raise RefinanciarError(404, "Fraccionamiento a refinanciar no encontrado")
+        raise RefinanciarError(404, "No se encontró el plan que quiere refinanciar.")
     if old.estado != "activo":
-        raise RefinanciarError(409, f"El fraccionamiento está '{old.estado}', no es refinanciable")
+        raise RefinanciarError(409, f"Este plan está {_ESTADO_TXT.get(old.estado, old.estado)}: solo se puede refinanciar un plan vigente.")
 
     # GATE de alcance: solo SANOS. Batch (dv<=1) → conciliación previa.
     if not _es_sano(old):
         raise RefinanciarError(
             409,
-            f"El fraccionamiento #{old.numero_solicitud} no es sano (cronograma no "
-            f"escalonado; probablemente del batch de migración). REQUIERE CONCILIACIÓN "
-            f"PREVIA de su saldo antes de refinanciar."
+            f"El plan {old.numero_solicitud} necesita conciliar su deuda antes de refinanciar."
         )
 
     colegiado = old.colegiado
     if colegiado is None:
-        raise RefinanciarError(404, "Colegiado del fraccionamiento no encontrado")
+        raise RefinanciarError(404, "No se encontró al colegiado de este plan.")
     # Tanda 13: si el colegiado tiene OTRO plan activo (p. ej. uno del lote migrado por la misma deuda),
     # refinanciar este dejaría vivo el duplicado → requiere conciliación primero.
     otro = db.query(Fraccionamiento.id).filter(
@@ -95,14 +113,14 @@ def _planificar_refinanciamiento(
         Fraccionamiento.id != old.id,
     ).first()
     if otro is not None:
-        raise RefinanciarError(409, "El colegiado tiene otro plan activo (puede ser la misma deuda dos veces): "
-                                    "requiere conciliación antes de refinanciar.")
+        raise RefinanciarError(409, "El colegiado tiene otro plan vigente; puede ser la misma deuda dos veces. "
+                                    "Hay que conciliar su deuda antes de refinanciar.")
 
     deuda_min, cuota_mensual_min, max_cuotas, cuota_inicial_pct = \
         _resolver_parametros_fracc(db, old.organization_id)
 
     if not (2 <= num_cuotas <= max_cuotas):
-        raise RefinanciarError(400, f"El número de cuotas debe estar entre 2 y {max_cuotas}")
+        raise RefinanciarError(400, f"Elija entre 2 y {max_cuotas} cuotas.")
 
     # ── Consolidación (anti-doble-conteo) ──
     old_saldo = round(float(old.saldo_pendiente or 0), 2)
@@ -117,23 +135,23 @@ def _planificar_refinanciamiento(
         encontradas = {d.id for d in adicionales}
         faltantes = set(ids) - encontradas
         if faltantes:
-            raise RefinanciarError(400, f"Deudas adicionales no válidas: {sorted(faltantes)}")
+            raise RefinanciarError(400, "Alguna de las deudas elegidas ya no está disponible. Cierre y vuelva a abrir Refinanciar.")
         for d in adicionales:
             # guard anti-doble-conteo: no puede estar ya en un fracc ni resuelta
             if d.fraccionamiento_id is not None:
-                raise RefinanciarError(400, f"Deuda {d.id} ya está en un fraccionamiento")
+                raise RefinanciarError(400, f"«{_concepto(d)}» ya está dentro de un plan: no se puede sumar.")
             if d.estado_gestion not in ("vigente", "en_cobranza"):
-                raise RefinanciarError(400, f"Deuda {d.id} no está vigente ({d.estado_gestion})")
+                raise RefinanciarError(400, f"«{_concepto(d)}» ya no se cobra (está {_ESTADO_TXT.get(d.estado_gestion, d.estado_gestion)}): no se puede sumar.")
             if float(d.balance or 0) <= 0:
-                raise RefinanciarError(400, f"Deuda {d.id} sin saldo")
+                raise RefinanciarError(400, f"«{_concepto(d)}» ya está pagada: no se puede sumar.")
 
     total_adicionales = round(sum(float(d.balance or 0) for d in adicionales), 2)
     total = round(old_saldo + total_adicionales, 2)  # ← saldo viejo UNA vez
 
     if total < deuda_min:
-        raise RefinanciarError(400, f"El consolidado (S/ {total:.2f}) es menor al mínimo S/ {deuda_min:.2f}")
+        raise RefinanciarError(400, f"El total ({_sol(total)}) no llega al mínimo para fraccionar ({_sol(deuda_min)}).")
     if monto_inicial >= total:
-        raise RefinanciarError(400, "La cuota inicial no puede cubrir toda la deuda; usa pago directo")
+        raise RefinanciarError(400, "La cuota inicial cubre toda la deuda: en ese caso no hace falta un plan, cóbrela directamente en Caja.")
 
     # Factibilidad de la cuota mensual (evita que crear_fraccionamiento aborte a mitad)
     saldo = round(total - monto_inicial, 2)
@@ -150,7 +168,7 @@ def _planificar_refinanciamiento(
         raise RefinanciarError(
             400,
             (f"Con la cuota mínima de {_smin}, esta deuda admite hasta {_k} cuotas." if _k >= 2 else
-             f"Con la cuota mínima de {_smin}, esta deuda no alcanza para 2 cuotas: baja la inicial.")
+             f"Con la cuota mínima de {_smin}, esta deuda no alcanza para 2 cuotas: baje la inicial.")
             + f" Con {num_cuotas} cuotas, cada una sería de S/ {mensual:,.0f}."
         )
 
@@ -219,7 +237,7 @@ def _ejecutar_refinanciamiento(
         FROM fraccionamientos WHERE id = :fid FOR UPDATE
     """), {"fid": plan["fracc_viejo_id"]}).fetchone()
     if not old or old.estado != "activo":
-        raise RefinanciarError(409, "El fraccionamiento cambió de estado; reintenta")
+        raise RefinanciarError(409, "El plan cambió mientras lo revisaba. Cierre y vuelva a abrir Refinanciar.")
 
     colegiado = db.query(Colegiado).filter(Colegiado.id == plan["colegiado_id"]).first()
 
