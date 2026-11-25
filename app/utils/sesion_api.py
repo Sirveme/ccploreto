@@ -32,10 +32,11 @@ def sesion_api(request: Request, db: Session = Depends(get_db)) -> Member:
     return member
 
 
-def exigir_roles(*roles: str):
-    """Dependencia: sesión válida (401) y rol dentro de `roles` (403)."""
+def exigir_roles(*roles: str, mensaje: str = None):
+    """Dependencia: sesión válida (401) y rol dentro de `roles` (403).
+    `mensaje` (opcional, tanda 14): texto del 403 para quien no tiene el rol."""
     def _dep(member: Member = Depends(sesion_api)) -> Member:
         if member.role not in roles:
-            raise HTTPException(status_code=403, detail="Tu rol no puede realizar esta operación")
+            raise HTTPException(status_code=403, detail=mensaje or "Tu rol no puede realizar esta operación")
         return member
     return _dep
