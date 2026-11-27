@@ -14,6 +14,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from app.utils.deuda_fracc_filtro import sql_excluir_originales_fraccionadas as _sql_sin_fraccionadas
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -274,6 +275,7 @@ async def preview_activacion(
             "FROM colegiados c JOIN debts d ON d.colegiado_id=c.id "
             "WHERE c.organization_id=:o AND lower(c.condicion)='vitalicio' "
             "AND d.status IN ('pending','partial') AND d.balance>0 "
+            "AND " + _sql_sin_fraccionadas("d") + " "   # tanda 19: originales 'fraccionada' no suman
             "GROUP BY c.id, c.codigo_matricula, c.apellidos_nombres ORDER BY deuda DESC"
         ), {"o": ORG_CCPL}).fetchall()
         a_revisar = [{"matricula": r.codigo_matricula, "nombre": r.apellidos_nombres,

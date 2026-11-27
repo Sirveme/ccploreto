@@ -247,9 +247,11 @@ async def get_my_summary(
     db: Session = Depends(get_db), 
     member: Member = Depends(get_current_member)
 ):
+    from app.utils.deuda_fracc_filtro import excluir_originales_fraccionadas
     total_debt = db.query(func.sum(Debt.balance)).filter(
         Debt.member_id == member.id,
-        Debt.status == "pending"
+        Debt.status == "pending",
+        excluir_originales_fraccionadas(),       # tanda 19: originales 'fraccionada' no suman (cuotas del plan sí)
     ).scalar() or 0.0
 
     status_color = "blue"

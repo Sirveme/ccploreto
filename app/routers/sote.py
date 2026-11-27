@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, cast, Date
+from app.utils.deuda_fracc_filtro import sql_excluir_originales_fraccionadas as _sql_sin_fraccionadas
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
@@ -144,7 +145,7 @@ async def sote_stats(
         SELECT COUNT(*) as total,
                COUNT(*) FILTER (WHERE status = 'pendiente') as pendientes,
                COALESCE(SUM(balance) FILTER (WHERE status = 'pendiente'), 0) as monto_pendiente
-        FROM debts WHERE organization_id = :org
+        FROM debts d WHERE organization_id = :org AND """ + _sql_sin_fraccionadas("d") + """
     """), {"org": org_id}).fetchone()
     stats["deudas"] = {"total": r3[0], "pendientes": r3[1], "monto_pendiente": float(r3[2])}
 

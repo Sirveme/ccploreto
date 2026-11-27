@@ -18,7 +18,7 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models import Payment, Colegiado, Organization, Comprobante, SesionCaja, Member
 from app.models_debt_management import Debt
-from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo
+from app.utils.deuda_fracc_filtro import excluir_absorbidas_por_fracc_activo, excluir_originales_fraccionadas
 
 from fastapi.templating import Jinja2Templates
 from app.utils.templates import templates
@@ -212,6 +212,7 @@ async def simular_fraccion(
         Debt.colegiado_id == colegiado_id,
         Debt.status.in_(["pending", "partial"]),
         excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
+        excluir_originales_fraccionadas(),       # tanda 19: originales 'fraccionada' no suman (cuotas del plan sí)
     ).scalar()
 
     config = _get_config(db)
@@ -250,6 +251,7 @@ async def crear_fraccionamiento(
         Debt.colegiado_id == data.colegiado_id,
         Debt.status.in_(["pending", "partial"]),
         excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc (base de simulación/validación)
+        excluir_originales_fraccionadas(),       # tanda 19: igual que la absorción de abajo
     ).scalar()
 
     solicitud = SolicitudFraccionamiento(
@@ -275,6 +277,7 @@ async def crear_fraccionamiento(
         Debt.colegiado_id == data.colegiado_id,
         Debt.status.in_(["pending", "partial"]),
         excluir_absorbidas_por_fracc_activo(),   # GUARD DURO: no reabsorber deudas ya absorbidas por otro fracc activo
+        excluir_originales_fraccionadas(),       # tanda 19: ni originales ya 'fraccionada' (mismo filtro que el total)
     ).all()
 
     for d in deudas_originales:
@@ -420,6 +423,7 @@ async def generar_reporte(
             Colegiado.organization_id == org,
             Debt.status.in_(["pending", "partial"]),
             excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
+            excluir_originales_fraccionadas(),       # tanda 19: originales 'fraccionada' no suman (cuotas del plan sí)
         ).group_by(
             Colegiado.id, Colegiado.apellidos_nombres, Colegiado.condicion,
         ).order_by(func.sum(Debt.balance).desc()).limit(100).all()
@@ -519,6 +523,7 @@ async def situacion_colegiado_caja(
             Debt.status.in_(["pending", "partial"]),
             Debt.estado_gestion.in_(["vigente", "en_cobranza", "fraccionada"]),
             excluir_absorbidas_por_fracc_activo(),   # fix doble conteo fracc
+            excluir_originales_fraccionadas(),       # tanda 19: originales 'fraccionada' no suman (cuotas del plan sí)
         )
         .order_by(Debt.periodo.asc())
         .all()

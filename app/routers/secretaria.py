@@ -977,6 +977,10 @@ class RegistrarPagoCuotaFraccRequest(BaseModel):
     metodo_pago: str = "yape"
     nro_operacion: Optional[str] = None
     nota: Optional[str] = None
+    # Tanda 19 (opcionales; sin ellos el pago se registra como antes, sin comprobante):
+    tipo_comprobante: Optional[str] = None     # '03' boleta | '01' factura
+    ruc: Optional[str] = None                  # obligatorio para factura (11 dígitos)
+    razon_social: Optional[str] = None         # obligatorio para factura
 
 
 @router.get("/fraccionamiento/condiciones-vigentes")
@@ -1046,6 +1050,14 @@ async def listar_fraccionamientos_colegiado(
         )
         cuotas_list = []
         hoy = date.today()
+        # Tanda 19 (opción A): id de la deuda espejo de cada cuota (debt_type='fraccionamiento', notes «num:N»),
+        # para abrir el cobro normal de Caja con esa cuota cargada. Solo lectura.
+        _espejo = {}
+        for _d in db.query(Debt.id, Debt.notes, Debt.status).filter(
+                Debt.fraccionamiento_id == p.id, Debt.debt_type == "fraccionamiento").all():
+            _m = _re.search(r"num:(\d+)", _d.notes or "")
+            if _m and _d.status in ("pending", "partial"):
+                _espejo[int(_m.group(1))] = _d.id
         for c in cuotas:
             vencida = (
                 (not c.pagada)
@@ -1058,6 +1070,7 @@ async def listar_fraccionamientos_colegiado(
             )
             cuotas_list.append({
                 "id": c.id,
+                "deuda_id": _espejo.get(c.numero_cuota),     # tanda 19: cobro en Caja
                 "n_cuota": c.numero_cuota,
                 "es_inicial": c.numero_cuota == 0,
                 "monto": float(c.monto or 0),
@@ -1175,9 +1188,34 @@ async def registrar_pago_cuota_fracc(
     db: Session = Depends(get_db),
     current_member: Member = Depends(require_secretaria),
 ):
-    """Registra el pago de una cuota puntual del fraccionamiento."""
+    """Registra el pago de una cuota puntual del fraccionamiento.
+    Tanda 19: si llega `tipo_comprobante`, emite Boleta/Factura después de guardar el pago. Real o SIMULADO
+    según app/utils/modo_comprobante.py (default seguro: simula). Si el comprobante falla, el pago queda."""
     if datos.monto <= 0:
         raise HTTPException(400, "El monto debe ser mayor a 0")
+    # Tanda 19: validar el comprobante ANTES de crear el pago (un dato mal escrito no deja un pago a medias).
+    import re
+    tipo_cp =(datos.tipo_comprobante or "").strip() or None
+    # Tanda 19 (opción A): en PRODUCCIÓN este endpoint NO emite comprobante, como antes de la tanda 19 — el cobro
+    # con Boleta/Factura se hace en Caja (/caja?…&deuda=…). Se ignora tipo_comprobante/RUC/razón social.
+    import os as _os_t19
+    if _os_t19.getenv("ENVIRONMENT", "").strip().lower() == "production":
+        tipo_cp = None
+    ruc_cp = re.sub(r"\D", "", datos.ruc or "")
+    razon_cp = (datos.razon_social or "").strip()
+    if tipo_cp not in (None, "03", "01"):
+        raise HTTPException(400, "Tipo de comprobante no válido: use Boleta o Factura.")
+    if tipo_cp == "01":
+        if len(ruc_cp) != 11 or ruc_cp[:2] not in ("10", "15", "17", "20"):
+            raise HTTPException(400, "Para factura, escriba un RUC de 11 dígitos (empieza con 10 o 20).")
+        if len(razon_cp) < 3:
+            raise HTTPException(400, "Para factura, escriba la razón social.")
+    # Tanda 19c: en PRODUCCIÓN sin MODO_DEMO (o ambigua) no se simula ni se emite: se rechaza sin crear nada.
+    if tipo_cp:
+        from app.utils.modo_comprobante import modo_comprobante as _modo_cp
+        _m_cp = _modo_cp()
+        if _m_cp.get("bloqueado"):
+            raise HTTPException(503, _m_cp["motivo"])
 
     fracc = db.query(Fraccionamiento).filter(
         Fraccionamiento.id == datos.fraccionamiento_id
@@ -1268,6 +1306,12 @@ async def registrar_pago_cuota_fracc(
     db.refresh(colegiado)
     db.refresh(fracc)
 
+    # ── Tanda 19: comprobante (después de guardar el pago; si falla, el pago queda registrado) ──
+    comprobante = None
+    if tipo_cp:
+        comprobante = await _comprobante_cuota_fracc(db, org, payment, colegiado, fracc, info_cuota,
+                                                     tipo_cp, ruc_cp, razon_cp)
+
     return {
         "ok": True,
         "mensaje": f"Cuota #{datos.n_cuota} registrada (S/ {datos.monto:.2f})",
@@ -1277,7 +1321,101 @@ async def registrar_pago_cuota_fracc(
         "nueva_condicion": colegiado.condicion,
         "habilidad_vence": fmt_habilidad(colegiado.habilidad_vence) if colegiado.habilidad_vence else None,
         "nota_habilidad": nota_habilidad,
+        "comprobante": comprobante,
+        "colegiado": {"matricula": colegiado.codigo_matricula, "nombre": colegiado.apellidos_nombres,
+                      "telefono": colegiado.telefono, "email": colegiado.email},
+        "monto": round(float(datos.monto), 2),
     }
+
+
+async def _comprobante_cuota_fracc(db, org, payment, colegiado, fracc, info_cuota, tipo, ruc, razon):
+    """Tanda 19: Boleta/Factura del pago de una cuota de plan. Real (FacturacionService → Facturalo, misma
+    serie que el flujo de Secretaría/Caja Oficina: sede '1') o SIMULADA (DEMO-000001, tabla propia, cero llamadas
+    a Facturalo/SUNAT), según modo_comprobante() — único lugar donde se decide."""
+    from app.utils.modo_comprobante import modo_comprobante
+    from app.services.comprobante_simulado import emitir_simulado
+    modo = modo_comprobante()
+    cuota_txt = "Cuota inicial" if info_cuota.get("es_inicial") else f"Cuota N° {info_cuota.get('numero_cuota') or ''}".strip()
+    descripcion = f"{cuota_txt} — plan de fraccionamiento {fracc.numero_solicitud or fracc.id}"
+    from app.utils.modo_comprobante import ROTULO_DEMO
+    out = {"solicitado": True, "tipo": tipo, "emitido": False, "simulado": not modo["real"], "modo": modo["motivo"],
+           "rotulo": None if modo["real"] else ROTULO_DEMO,
+           "numero": None, "comprobante_id": None, "pdf": None, "pdf_publico": None, "mensaje": None}
+    if modo.get("bloqueado"):        # tanda 19c: nunca simular en producción mal configurada
+        out.update(simulado=False, rotulo=None, mensaje=modo["motivo"])
+        return out
+    try:
+        if modo["real"]:
+            service = FacturacionService(db, org.id)
+            if not service.esta_configurado():
+                out["mensaje"] = "Facturación no configurada: el pago quedó registrado sin comprobante."
+                return out
+            forzar = ({"tipo_doc": "6", "num_doc": ruc, "nombre": razon, "direccion": None, "email": None}
+                      if tipo == "01" else None)
+            res = await service.emitir_comprobante_por_pago(payment_id=payment.id, tipo=tipo, forzar_datos_cliente=forzar,
+                                                            sede_id="1", forma_pago="contado")
+        else:
+            cliente = ({"tipo_doc": "6", "num_doc": ruc, "nombre": razon} if tipo == "01"
+                       else {"tipo_doc": "1", "num_doc": colegiado.dni, "nombre": colegiado.apellidos_nombres})
+            res = emitir_simulado(db, payment, tipo, cliente, descripcion)
+        out["emitido"] = bool(res.get("success"))
+        out["numero"] = res.get("numero_formato")
+        out["comprobante_id"] = res.get("comprobante_id")
+        out["pdf_publico"] = res.get("pdf_url")
+        if out["comprobante_id"] and out["emitido"]:
+            out["pdf"] = (f"/api/secretaria/comprobante/{out['comprobante_id']}/pdf" if modo["real"]
+                          else f"/api/secretaria/comprobante-demo/{out['comprobante_id']}/pdf")
+        if not out["emitido"]:
+            out["mensaje"] = "El pago quedó registrado, pero el comprobante no se emitió: %s" % (res.get("error") or "error desconocido")
+    except Exception as e:
+        logger.error(f"Comprobante de cuota de plan (pago {payment.id}): {e}", exc_info=True)
+        out["mensaje"] = "El pago quedó registrado, pero el comprobante no se emitió (error interno)."
+    return out
+
+
+@router.get("/comprobante/modo")
+async def modo_comprobante_secretaria(current_member: Member = Depends(require_secretaria)):
+    """Tanda 19: ¿los comprobantes de cuotas de plan se emiten de verdad o se simulan? (para la pantalla)."""
+    from app.utils.modo_comprobante import modo_comprobante, PREFIJO_DEMO, ROTULO_DEMO
+    m = modo_comprobante()
+    bloq = bool(m.get("bloqueado"))
+    return {"real": m["real"], "bloqueado": bloq, "motivo": m["motivo"],
+            "numeracion": None if (m["real"] or bloq) else PREFIJO_DEMO + "-000001",
+            "rotulo": None if (m["real"] or bloq) else ROTULO_DEMO}
+
+
+@router.get("/comprobante/{comprobante_id}/pdf")
+async def pdf_comprobante_secretaria(
+    comprobante_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Tanda 19: PDF de un comprobante REAL → el PDF de Facturalo. (Los simulados van por /comprobante-demo/.)"""
+    from fastapi.responses import RedirectResponse
+    from app.models import Comprobante
+    comp = db.query(Comprobante).filter(Comprobante.id == comprobante_id).first()
+    if not comp:
+        raise HTTPException(404, "Comprobante no encontrado")
+    if comp.pdf_url:
+        return RedirectResponse(comp.pdf_url, status_code=302)
+    raise HTTPException(404, "El comprobante no tiene PDF disponible")
+
+
+@router.get("/comprobante-demo/{comprobante_id}/pdf")
+async def pdf_comprobante_demo(
+    comprobante_id: int,
+    db: Session = Depends(get_db),
+    current_member: Member = Depends(require_secretaria),
+):
+    """Tanda 19: PDF de un comprobante SIMULADO (tabla comprobantes_simulados), con «DEMOSTRACIÓN — SIN VALOR TRIBUTARIO»."""
+    from fastapi.responses import Response
+    from app.services.comprobante_simulado import obtener, pdf_simulado
+    comp = obtener(db, comprobante_id)
+    if not comp:
+        raise HTTPException(404, "Comprobante simulado no encontrado")
+    org = db.query(Organization).filter(Organization.id == comp.organization_id).first()
+    return Response(pdf_simulado(comp, org.name if org else ""), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="%s.pdf"' % comp.numero_formato})
 
 
 @router.get("/fraccionamiento/{fraccionamiento_id}/cronograma-pdf")
@@ -1915,6 +2053,8 @@ async def listar_pagos_colegiado(
             }
 
     mapa_deudas = mapa_deudas_para_notas(db, [p.notes for p in pagos])
+    from app.services.comprobante_simulado import por_pagos as _demo_por_pagos
+    demo_por_pago = _demo_por_pagos(db, pagos_ids)   # tanda 19: comprobantes simulados, tabla propia
 
     # Fecha de pago (payments.paid_at, no mapeada en el ORM): la que escribió quien
     # registró. La lista sigue ORDENADA y fechada por registro (created_at).
@@ -1939,6 +2079,7 @@ async def listar_pagos_colegiado(
                 "concepto_legible": descripcion_legible(p.notes, mapa_deudas),
                 "conceptos_detalle": conceptos_detalle(p.notes, mapa_deudas),
                 "comprobante": comps_por_pago.get(p.id),
+                "comprobante_demo": demo_por_pago.get(p.id),   # tanda 19: simulado (DEMOSTRACIÓN), aparte del real
                 "tiene_comprobante": p.id in comps_por_pago,
             }
             for p in pagos
