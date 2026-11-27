@@ -19,6 +19,17 @@ def _fr_comprobante(comprobante) -> dict:
     return comp if isinstance(comp, dict) else {}
 
 
+ROTULO_SIMULADO = "SIMULADO — SIN VALOR TRIBUTARIO"
+
+
+def es_simulado(comprobante) -> bool:
+    """True si lo emitió el Facturalo SIMULADO (app/utils/sandbox.py): hash «SIMULADO» o id «SBX-…»."""
+    comp = _fr_comprobante(comprobante)
+    return (str(getattr(comprobante, "sunat_hash", "") or "").upper() == "SIMULADO"
+            or str(getattr(comprobante, "facturalo_id", "") or "").startswith("SBX-")
+            or str(comp.get("hash_cpe") or "").upper() == "SIMULADO")
+
+
 def get_numero_display(comprobante) -> str:
     """Número formateado a mostrar: prioriza `numero_formato` de facturalo_response."""
     comp = _fr_comprobante(comprobante)
@@ -42,6 +53,10 @@ def get_estado_display(comprobante) -> Tuple[str, str]:
       - PENDIENTE       / gris
     """
     comp = _fr_comprobante(comprobante)
+    # Tanda 19: comprobante del SIMULADOR (sandbox, demo, local): nunca «ACEPTADO SUNAT». Se reconoce por su propia
+    # marca (hash «SIMULADO» o id «SBX-…» que pone el simulador). En producción no existe ninguno (0 de 3 240).
+    if es_simulado(comprobante):
+        return (ROTULO_SIMULADO, "naranja")
     codigo_sunat = comp.get("codigo_sunat")
     if codigo_sunat is not None:
         codigo_sunat = str(codigo_sunat)
