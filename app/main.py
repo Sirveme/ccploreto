@@ -5,6 +5,10 @@ import os
 # de importar los routers. Fuera del sandbox no hace nada.
 from app.utils import sandbox as _sandbox
 _sandbox.activar_temprano()
+# Tanda 20: candado de Facturalo. Fuera de ENVIRONMENT=production redirige al simulador cualquier llamada
+# al Facturalo real. En producción no hace nada.
+from app.utils import candado_facturalo as _candado
+_candado.activar_temprano()
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.concurrency import asynccontextmanager
@@ -553,3 +557,4 @@ if os.getenv("ENVIRONMENT", "development") != "production":
 # Ambiente de prueba (debe ir AL FINAL: su middleware queda como el más externo).
 # Fuera de ENVIRONMENT=sandbox no hace nada.
 _sandbox.instalar(app)
+_candado.instalar(app)   # tanda 20: simulador en local; en producción no hace nada
