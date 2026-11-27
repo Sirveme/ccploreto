@@ -187,9 +187,18 @@ function fmtMetodo(m) {
 /* Tanda 13 — en el ambiente de prueba (marca que inyecta app/utils/sandbox.py) los comprobantes
    son simulados: nunca se rotulan «ACEPTADO SUNAT». En producción la marca no existe. */
 function _esSandbox() { return window.CCPL_SANDBOX === true; }
+// Tanda 19: nombre de la institución desde la configuración (caja.html → window.CCPL_INST). En producción:
+// nombre «Colegio de Contadores Públicos de Loreto», corto «CCPL», región «Loreto» — lo mismo que antes estaba fijo.
+function _inst() { const i = window.CCPL_INST || {}; return { nombre: i.nombre || '', corto: i.nombre_corto || i.nombre || '', region: i.region || '' }; }
+function _escInst(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const ROTULO_SIMULADO = 'SIMULADO — SIN VALOR TRIBUTARIO';
 
-function statusBadge(s) {
+// Tanda 19: si el servidor rotula el comprobante como SIMULADO (lo emitió el simulador: sandbox, demo o local),
+// se muestra así aunque la página no tenga la marca de sandbox. En producción ese rótulo no existe.
+function _esRotuloSimulado(etiqueta) { return String(etiqueta || '').toUpperCase().startsWith('SIMULADO'); }
+
+function statusBadge(s, etiqueta) {
+    if (s === 'accepted' && _esRotuloSimulado(etiqueta)) return `<span class="st-badge st-warn">${ROTULO_SIMULADO}</span>`;
     const map = {
         accepted: [_esSandbox() ? ROTULO_SIMULADO : 'ACEPTADO SUNAT', _esSandbox() ? 'st-warn' : 'st-ok'],
         pending:  ['EN COLA',        'st-warn'],
@@ -251,6 +260,9 @@ function iniciarApp() {
     // Precarga desde query string (cross-link desde /secretaria)
     const _qs = new URLSearchParams(window.location.search);
     const _pre = _qs.get('dni') || _qs.get('matricula');
+    // Tanda 19 (opción A): «Pagar esta cuota» desde /secretaria llega con &deuda=<id>: se carga esa cuota.
+    const _deu = parseInt(_qs.get('deuda') || '', 10);
+    _deudaPrecargada = (_pre && _deu > 0) ? _deu : null;
     if (_pre) {
         _precargarColegiado(_pre);
     }
@@ -706,6 +718,8 @@ function limpiarCol() {
 /* ══════════════════════════════════════════════════
    DEUDAS
    ══════════════════════════════════════════════════ */
+let _deudaPrecargada = null;   // tanda 19: cuota pedida desde /secretaria (una sola vez)
+
 async function cargarDeudas(id) {
     try {
         const r = await fetch(`${API}/deudas/${id}`);
@@ -714,6 +728,15 @@ async function cargarDeudas(id) {
         deudasDisp = d.deudas || [];
         avisosExt = {};
         renderDeudas();
+        if (_deudaPrecargada) {
+            const pedida = _deudaPrecargada;
+            _deudaPrecargada = null;
+            if (deudasDisp.some(x => x.id === pedida)) {
+                if (!carrito.some(x => x.tipo === 'deuda' && x.deuda_id === pedida)) togDeuda(pedida);
+            } else {
+                toast('Esa cuota ya no figura como pendiente', 'err');
+            }
+        }
     } catch (e) { toast('Error', 'err'); }
     // Fase 3: aviso de pago externo. Va APARTE del cobro: si falla, el cobro sigue.
     cargarAvisosExternos(id);
@@ -1515,6 +1538,11 @@ function startPdfPolling(paymentId) {
             const r = await fetch(`${API}/comprobante/${paymentId}`);
             if (r.ok) {
                 const d = await r.json();
+                // Tanda 19: rótulo SIMULADO también fuera del sandbox (p. ej. local con el simulador).
+                const _cn = document.getElementById('successCompNum');
+                if (_cn && _esRotuloSimulado(d.estado_label) && !_cn.textContent.includes(ROTULO_SIMULADO)) {
+                    _cn.textContent += ' · ' + ROTULO_SIMULADO;
+                }
                 if (d.pdf_url) {
                     lastCompPdfUrl = d.pdf_url;
                     document.getElementById('successCompPdf').href = d.pdf_url;
@@ -1543,7 +1571,7 @@ function stopPdfPolling() {
 async function compartirComprobante() {
     const numero = lastCompNumero || 'Comprobante';
     const pdfUrl = lastCompPdfUrl;
-    const texto = `${numero} — CCPL\nTotal: ${document.getElementById('successAmt').textContent}\n${pdfUrl || ''}`;
+    const texto = `${numero} — ${_inst().corto}\nTotal: ${document.getElementById('successAmt').textContent}\n${pdfUrl || ''}`;
     if (navigator.share && pdfUrl) {
         try { await navigator.share({ title: numero, text: texto, url: pdfUrl }); return; }
         catch (e) { /* usuario canceló */ }
@@ -1982,7 +2010,7 @@ function renderComprobantes(data) {
             </div>
             <div class="co-row2">
                 <span class="co-cliente">${c.cliente_nombre || 'Sin cliente'}${c.cliente_doc ? ` · ${c.cliente_doc}` : ''}</span>
-                ${statusBadge(c.status)} ${msgSunat}
+                ${statusBadge(c.status, c.estado_label)} ${msgSunat}
             </div>
             <div class="co-row3">
                 <span class="co-fecha">${fechaCorta}</span>
@@ -2770,7 +2798,7 @@ function _renderModal(data) {
                     ${[
                         ['⚠️','Vencimiento mañana','Declaración tributaria de "Panadería Camilo" vence el 20/02'],
                         ['🎓','GRATIS para ti','Conferencia 3h: Reforma Tributaria 2026 — hoy 6pm'],
-                        ['💼','Convocatoria abierta','Contadores para proyecto minero en Loreto — toda edad'],
+                        ['💼','Convocatoria abierta',`Contadores para proyecto minero${_inst().region ? ' en ' + _inst().region : ''} — toda edad`],
                         ['✅','Tu constancia está lista','Constancia de Habilidad disponible. Toca para descargar PDF.'],
                         ['🚨','Aviso laboral URGENTE','Estudio contable requiere tributarista — incorporación inmediata'],
                     ].map((n,i)=>`
@@ -3133,7 +3161,7 @@ function _imprimirPlanFracc(total) {
         ✅ Al pagar la cuota inicial, el colegiado recupera su condición de <strong>HÁBIL</strong> de forma inmediata.
     </div>
     <div class="footer">
-        Colegio de Contadores Públicos de Loreto · Propuesta sujeta a aprobación del Consejo Directivo<br>
+        ${_escInst(_inst().nombre)} · Propuesta sujeta a aprobación del Consejo Directivo<br>
         Máx. 12 cuotas · Cuota mínima S/ 100 · Vigencia del plan: 30 días
     </div>
     <br><button onclick="window.print()" style="padding:10px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ Imprimir</button>
@@ -3146,15 +3174,15 @@ function _compartirPlanFracc(total) {
     const n   = parseInt(document.getElementById('msim-n')?.value || 3);
     const _rep = _repartoEntero(total - ini, n);
     const col = _modalSit?.colegiado;
-    const texto = `📋 *Propuesta de Fraccionamiento CCPL*\n\n` +
+    const texto = `📋 *Propuesta de Fraccionamiento ${_inst().corto}*\n\n` +
         `Colegiado: ${col?.nombre}\nDeuda total: S/ ${total.toFixed(2)}\n\n` +
         `✅ Cuota inicial: S/ ${ini.toFixed(2)}\n` +
         `📅 ${_txtCuotas(_rep)}\n` +
         `${_txtCuadre(ini, _rep)}\n\n` +
         `Al pagar la inicial recuperas tu habilidad de inmediato.\n` +
-        `Mayor info: CCPL Oficina Principal.`;
+        `Mayor info: ${_inst().corto} Oficina Principal.`;
     if (navigator.share) {
-        navigator.share({ title: 'Plan de Fraccionamiento CCPL', text: texto });
+        navigator.share({ title: `Plan de Fraccionamiento ${_inst().corto}`, text: texto });
     } else {
         navigator.clipboard.writeText(texto);
         toast('Plan copiado al portapapeles — pega en WhatsApp', 'ok');
