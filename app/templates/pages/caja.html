@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+{% set inst = institucion(request) %}<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Caja - CCPL</title>
+    <title>Caja - {{ inst.nombre_corto }}</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/pages/caja.css?v={{ asset_v('css/pages/caja.css') }}">
 </head>
@@ -13,7 +13,7 @@
 <div class="geo-block active" id="geoBlock">
     <div class="geo-icon">📍</div>
     <div class="geo-title" id="geoTitle">Verificando ubicación...</div>
-    <div class="geo-desc" id="geoDesc">El sistema de caja solo funciona desde las instalaciones del CCPL.</div>
+    <div class="geo-desc" id="geoDesc">El sistema de caja solo funciona desde las instalaciones del {{ inst.nombre_corto }}.</div>
     <div class="geo-coords" id="geoCoords" style="display:none;"></div>
     <button class="geo-retry" id="geoRetry" style="display:none;" onclick="verificarGeo()">🔄 Reintentar</button>
 </div>
@@ -42,7 +42,7 @@
     <!-- ═══ HEADER ═══ -->
     <header class="caja-header">
         <div class="header-left">
-            <span class="header-logo">CCPL</span>
+            <span class="header-logo">{{ inst.nombre_corto }}</span>
             <span class="header-title" id="headerTitle">Caja</span>
         </div>
         <div class="header-right">
@@ -975,6 +975,7 @@
 <!-- Flag de permiso NC (la JS estática no renderiza Jinja; se inyecta aquí). -->
 <script>window.CAJA_PUEDE_NC = {{ 'true' if puede_emitir_nc else 'false' }};</script>
 {% include "partials/condiciones_fracc.html" %}
+<script>window.CCPL_INST = {{ inst|tojson }};</script>
 <script src="/static/js/pages/caja.js?v={{ asset_v('js/pages/caja.js') }}"></script>
 <script src="/static/js/pages/caja_correccion.js?v={{ asset_v('js/pages/caja_correccion.js') }}"></script>
 <!-- zClaude-95: módulo Bingazo. Expone window.BingazoPanel.
